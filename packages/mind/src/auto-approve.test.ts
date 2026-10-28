@@ -1,5 +1,6 @@
 /** autoApprove entry matching: bare names approve every call, `tool:glob` approves matching sub-actions. */
 import { describe, expect, it } from "vite-plus/test";
+import { destructiveOf } from "./jev-gate.ts";
 import {
   actionTextsOf,
   globToRegExp,
@@ -167,10 +168,9 @@ describe("matchAutoApprove", () => {
     );
     // The git-alias escape hatch never pattern-matches at all (shell guard).
     expect(kindOf(["bash:git *"], "bash", { script: "git -c alias.p='!x' p" })).toBe("none");
-    // The widened rm anchor sees a `!`-prefixed head too.
-    expect(destructiveReadOf(["bash:rm *"], "bash", { script: "!rm -rf ~" })).toMatch(
-      /rm deletes files/,
-    );
+    // The widened rm anchor sees a `!`-prefixed head too (Jev-gate level,
+    // where the destructive read still runs on a carded call).
+    expect(destructiveOf("bash", { script: "!rm -rf ~" })).toMatch(/rm deletes files/);
     expect(destructiveReadOf(["artifact_delete:a"], "artifact_delete", { id: "a" })).toMatch(
       /deletes or overwrites/,
     );
