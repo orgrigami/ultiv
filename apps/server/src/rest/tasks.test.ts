@@ -48,7 +48,7 @@ describe("GET /api/tasks carries waiting approvals", () => {
     const { args, body } = fakeArgs({
       tasks: {
         list: () => Effect.succeed([runningTask("t1")]),
-        steps: async () => [{ at: 1, text: "stepping" }],
+        steps: async () => ["stepping"],
       },
       converse: {
         conversationIdOf: () => Effect.succeed("42"),
@@ -70,7 +70,7 @@ describe("GET /api/tasks carries waiting approvals", () => {
       input: { command: "ls" },
       reason: "joe asked",
     });
-    expect(rows[0]?.lastStep).toEqual({ at: 1, text: "stepping" });
+    expect(rows[0]?.lastStep).toBe("stepping");
   });
 
   it("a running task with nothing parked carries no waitingApproval; settled rows are untouched", async () => {
@@ -128,5 +128,23 @@ describe("GET /api/tasks carries waiting approvals", () => {
     const rows = body() as Array<{ id: string }>;
     // The foreign owner's task — inputs and all — never leaves the server.
     expect(rows.map((row) => row.id)).toEqual(["t-mine", "t-agent"]);
+  });
+
+  it("named owners do not see each other either — the header is not a boundary", async () => {
+    const { args, body } = fakeArgs(
+      {
+        tasks: {
+          list: () =>
+            Effect.succeed([runningTask("t-harry", "harry"), runningTask("t-agent", "agent")]),
+          steps: async () => [],
+        },
+        converse: { conversationIdOf: () => Effect.succeed("42") },
+        approvals: { pendingFor: () => [] },
+      },
+      "eve",
+    );
+    await taskRoutes(args, () => "");
+    const rows = body() as Array<{ id: string }>;
+    expect(rows.map((row) => row.id)).toEqual(["t-agent"]);
   });
 });

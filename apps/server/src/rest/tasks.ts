@@ -18,13 +18,15 @@ function liveOf(view: unknown): LiveState | undefined {
 }
 
 /**
- * Which tasks a principal may see and manage: its own rows, rows the agent
- * spawned unscoped, everything for a named (non-guest) principal — the same
- * rule the DELETE branch has always applied. Task rows now carry waiting
- * approval INPUTS, so reads are scoped exactly like writes.
+ * Which tasks a principal may see and manage: its own rows and rows the
+ * agent spawned unscoped — nothing else. Owner identity rides the
+ * client-supplied `x-ultiv-user` header, so "some other named principal"
+ * is not a boundary, and task rows carry waiting approval INPUTS: reads
+ * are scoped exactly like writes, and a foreign task 404s without
+ * disclosing that it exists.
  */
 const maySee = (owner: string, task: { owner: string }): boolean =>
-  task.owner === owner || task.owner === "agent" || owner !== "guest";
+  task.owner === owner || task.owner === "agent";
 
 export async function taskRoutes(
   args: RouteArgs,
@@ -153,11 +155,11 @@ export async function taskRoutes(
     return true;
   }
   // Stop one running task (the pill's Stop): the row stays, marked cancelled,
-  // and the bot is told once.
+  // and the bot is told once. Foreign tasks 404 — same rule as every read.
   const cancel = path.match(/^\/api\/tasks\/([^/]+)\/cancel$/);
   if (cancel !== null && method === "POST") {
     const task = await Effect.runPromise(mind.tasks.get(cancel[1] ?? ""));
-    if (task === undefined) {
+    if (task === undefined || !maySee(args.owner, task)) {
       json(404, { error: "unknown task" });
       return true;
     }
@@ -173,13 +175,8 @@ export async function taskRoutes(
   if (path.startsWith("/api/tasks/") && method === "DELETE") {
     const id = segment("/api/tasks/");
     const task = await Effect.runPromise(mind.tasks.get(id));
-    if (task === undefined) {
+    if (task === undefined || !maySee(args.owner, task)) {
       json(404, { error: "unknown task" });
-      return true;
-    }
-    const mayManage = task.owner === args.owner || task.owner === "agent" || args.owner !== "guest";
-    if (!mayManage) {
-      json(403, { error: "not your task" });
       return true;
     }
     json(200, { ok: true, ...(await Effect.runPromise(mind.tasks.remove(id))) });
