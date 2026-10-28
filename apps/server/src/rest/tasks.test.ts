@@ -9,14 +9,17 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { taskRoutes } from "./tasks.ts";
 import type { RouteArgs } from "./types.ts";
 
-const fakeArgs = (mind: Record<string, unknown>): { args: RouteArgs; body: () => unknown } => {
+const fakeArgs = (
+  mind: Record<string, unknown>,
+  owner = "owner",
+): { args: RouteArgs; body: () => unknown } => {
   let captured: unknown;
   const args = {
     mind,
     req: {} as IncomingMessage,
     res: {} as ServerResponse,
     url: new URL("http://x/api/tasks"),
-    owner: "owner",
+    owner,
     path: "/api/tasks",
     json: (_status: number, body: unknown) => {
       captured = body;
@@ -27,10 +30,10 @@ const fakeArgs = (mind: Record<string, unknown>): { args: RouteArgs; body: () =>
   return { args, body: () => captured };
 };
 
-const runningTask = (id: string) => ({
+const runningTask = (id: string, owner = "owner") => ({
   id,
   sessionId: "s1",
-  owner: "owner",
+  owner,
   conversationId: "conv-1",
   prompt: "do things",
   status: "running",
@@ -90,5 +93,40 @@ describe("GET /api/tasks carries waiting approvals", () => {
     expect(rows[0]?.taskConversationId).toBeNull();
     expect(rows[0]?.waitingApproval).toBeUndefined();
     expect(rows[1]?.taskConversationId).toBeUndefined(); // settled rows pass through
+  });
+
+  it("rows carry waiting approval INPUTS, so a guest sees only its own and agent rows", async () => {
+    const { args, body } = fakeArgs(
+      {
+        tasks: {
+          list: () =>
+            Effect.succeed([
+              runningTask("t-mine", "guest"),
+              runningTask("t-foreign", "someone-else"),
+              runningTask("t-agent", "agent"),
+            ]),
+          steps: async () => [],
+        },
+        converse: { conversationIdOf: () => Effect.succeed("42") },
+        approvals: {
+          pendingFor: (conversationId: string) =>
+            conversationId === "42"
+              ? [
+                  {
+                    callId: "c1",
+                    name: "http_request",
+                    input: { url: "https://x/?token=zzz" },
+                    reason: null,
+                  },
+                ]
+              : [],
+        },
+      },
+      "guest",
+    );
+    await taskRoutes(args, () => "");
+    const rows = body() as Array<{ id: string }>;
+    // The foreign owner's task — inputs and all — never leaves the server.
+    expect(rows.map((row) => row.id)).toEqual(["t-mine", "t-agent"]);
   });
 });

@@ -8,7 +8,6 @@ import {
 } from "@ultiv/mind";
 import { projectTranscript } from "@ultiv/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { WaitingApproval } from "@ultiv/contracts";
 import { Effect } from "effect";
 import { queryOr, type RouteArgs } from "./types.ts";
 import { activitySteps, type ActivityStep } from "./task-steps.ts";
@@ -18,6 +17,15 @@ function liveOf(view: unknown): LiveState | undefined {
   return docs?.["pi.live"] as LiveState | undefined;
 }
 
+/**
+ * Which tasks a principal may see and manage: its own rows, rows the agent
+ * spawned unscoped, everything for a named (non-guest) principal — the same
+ * rule the DELETE branch has always applied. Task rows now carry waiting
+ * approval INPUTS, so reads are scoped exactly like writes.
+ */
+const maySee = (owner: string, task: { owner: string }): boolean =>
+  task.owner === owner || task.owner === "agent" || owner !== "guest";
+
 export async function taskRoutes(
   args: RouteArgs,
   segment: (after: string) => string,
@@ -25,10 +33,14 @@ export async function taskRoutes(
   const { req, mind, path, json } = args;
   const method = req.method ?? "GET";
   if (path === "/api/tasks" && method === "GET") {
-    const list = await Effect.runPromise(mind.tasks.list());
+    const list = (await Effect.runPromise(mind.tasks.list())).filter((task) =>
+      maySee(args.owner, task),
+    );
     // Running tasks carry their latest step for the task pill (a few at most)
     // and any approval waiting on the task conversation, so the chat that
     // spawned the task can surface the card without opening the task sheet.
+    // A task turn parks at most one gate (a gated tool awaits before the turn
+    // proceeds), so the first pending entry is the one.
     const withSteps = await Promise.all(
       list.map(async (task) => {
         if (task.status !== "running") return task;
@@ -48,7 +60,7 @@ export async function taskRoutes(
                 waitingApproval: {
                   callId: waiting.callId,
                   name: waiting.name,
-                  input: waiting.input as WaitingApproval["input"],
+                  input: waiting.input,
                   reason: waiting.reason ?? null,
                 },
               }),
@@ -103,7 +115,8 @@ export async function taskRoutes(
   if (activity !== null && method === "GET") {
     const id = activity[1] ?? "";
     const task = await Effect.runPromise(mind.tasks.get(id));
-    if (task === undefined) {
+    // 404, not 403: existence of a foreign task is not disclosed either.
+    if (task === undefined || !maySee(args.owner, task)) {
       json(404, { error: "unknown task" });
       return true;
     }
@@ -153,7 +166,7 @@ export async function taskRoutes(
   }
   if (path.startsWith("/api/tasks/") && method === "GET") {
     const task = await Effect.runPromise(mind.tasks.get(segment("/api/tasks/")));
-    if (task === undefined) json(404, { error: "unknown task" });
+    if (task === undefined || !maySee(args.owner, task)) json(404, { error: "unknown task" });
     else json(200, task);
     return true;
   }

@@ -115,13 +115,13 @@ export type {
 } from "./memory.ts";
 export { RoomInfoSchema, RoomListSchema } from "./rooms.ts";
 export type { RoomInfo, RoomList } from "./rooms.ts";
-export { TaskInfoSchema, TaskListSchema, TaskStatusSchema } from "./tasks.ts";
+export { TaskInfoSchema, TaskListSchema, TaskRowSchema, TaskStatusSchema } from "./tasks.ts";
 export type {
   TaskInfo,
   TaskList,
+  TaskRow,
   TaskStatus,
   TaskUpdate,
-  TaskRow,
   WaitingApproval,
 } from "./tasks.ts";
 export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";

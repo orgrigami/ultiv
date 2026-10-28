@@ -43,12 +43,26 @@ export const TaskInfoSchema = Type.Object({
 
 export type TaskInfo = Static<typeof TaskInfoSchema>;
 
+/** The projections GET /api/tasks adds to a stored task row (never stored on the doc). */
+export const TaskRowSchema = Type.Object({
+  ...TaskInfoSchema.properties,
+  taskConversationId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  waitingApproval: Type.Optional(
+    Type.Object({
+      callId: Type.String(),
+      name: Type.String(),
+      input: Type.Unknown(),
+      reason: Type.Union([Type.String(), Type.Null()]),
+    }),
+  ),
+});
+
 /**
  * One row of GET /api/tasks: the stored task plus response-only projections.
- * `waitingApproval` stays OUT of the stored schema — its input is arbitrary
- * JSON (`unknown` is not JsonValue, which would fail the tasks doc's
- * JsonObject constraint), so the row type carries it with a JSON-safe input,
- * cast at the creation boundary (the REST list route).
+ * `waitingApproval` stays OUT of the stored schema — the tasks doc's
+ * JsonObject constraint is JSON-strict and tool inputs are arbitrary — so
+ * the row type carries it and the client treats the input as opaque
+ * (`unknown`), exactly like the activity route.
  */
 export type TaskRow = TaskInfo & {
   /** The task's own conversation id (the decide target for its approval). */
@@ -60,12 +74,10 @@ export type TaskRow = TaskInfo & {
 export type WaitingApproval = {
   callId: string;
   name: string;
-  input: JsonValue;
+  input: unknown;
   reason: string | null;
 };
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-export const TaskListSchema = Type.Array(TaskInfoSchema);
+export const TaskListSchema = Type.Array(TaskRowSchema);
 
 export type TaskList = Static<typeof TaskListSchema>;

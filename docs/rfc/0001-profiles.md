@@ -76,7 +76,7 @@ data migration beyond the stamps.
   toolAllowlist: string[] | null;     // null = all installed tools
   policies: {
     canInitiate: string[];            // sibling ids this entity may message autonomously
-    autoApprove: string[];            // gated tool names pre-approved
+    autoApprove: string[];            // bare tool names ("bash") or tool:glob sub-action rules ("bash:git *")
     approvalTimeout: "deny" | "escalate";
     dailyTurnBudget: number | null;   // model turns/day across the profile
   };

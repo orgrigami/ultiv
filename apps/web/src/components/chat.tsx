@@ -63,7 +63,11 @@ export function Chat({
   ): Promise<void> => {
     const conversationId = task.taskConversationId;
     const callId = task.waitingApproval?.callId;
-    if (conversationId === undefined || conversationId === null || callId === undefined) return;
+    if (conversationId === undefined || conversationId === null || callId === undefined) {
+      // The poll refreshed the row away mid-click: say so instead of dying
+      // silently — the next poll removes the card either way.
+      throw new Error("That approval is no longer waiting — the task moved on.");
+    }
     // A failure throws into the card, which keeps it visible for a retry.
     await api.approvalDecide(conversationId, callId, approved, always, takeover);
     await chatTasks.refresh();

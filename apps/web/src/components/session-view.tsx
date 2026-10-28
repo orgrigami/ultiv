@@ -179,6 +179,8 @@ export function SessionView({
     busy,
     pending,
     queued,
+    // A task card popping into the thread re-pins the transcript too.
+    taskApprovals.length,
   ]);
 
   const control = (action: () => Promise<void>): void => {
