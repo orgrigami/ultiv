@@ -43,10 +43,18 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       .pendingFor(conversationId ?? "")
       .find((request) => request.callId === callId);
     // "Always allow" from the inbox saves the same per-profile rule the chat
-    // card does; a failed save must not swallow the decision.
+    // card does; a failed save must not swallow the decision. An empty
+    // result means the call stays gated by its pattern — noted in the audit
+    // record so the skipped save is not invisible.
+    let stored: string[] | null = null;
     if (approved && body.always === true && waiting !== undefined && scope.profileId !== null) {
       try {
-        await mind.profiles.allowTool(args.owner, scope.profileId, waiting.name, waiting.input);
+        stored = await mind.profiles.allowTool(
+          args.owner,
+          scope.profileId,
+          waiting.name,
+          waiting.input,
+        );
       } catch (cause) {
         console.warn("always-allow rule save failed:", cause);
       }
@@ -60,6 +68,12 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
         : undefined,
     );
+    const notes = [
+      !approved && body.takeover === true ? "taken over by the owner" : null,
+      stored !== null && stored.length === 0
+        ? "always-allow skipped: the call stays gated by its pattern"
+        : null,
+    ].filter((note) => note !== null);
     mind.audit.record({
       at: Date.now(),
       kind: "approval",
@@ -69,7 +83,7 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       name: waiting?.name ?? null,
       durationMs: null,
       ok: approved,
-      error: !approved && body.takeover === true ? "taken over by the owner" : null,
+      error: notes.length === 0 ? null : notes.join("; "),
     });
     json(200, { ok: true });
     return true;

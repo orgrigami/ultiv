@@ -75,12 +75,15 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
     const waiting = mind.approvals.pendingFor(id).find((r) => r.callId === callId);
     // "Always allow" saves the tool on the profile's autoApprove list;
     // the broker's hook reads policies live, so the next call skips the
-    // gate. A failed rule save must not swallow the decision itself.
+    // gate. A failed rule save must not swallow the decision itself, and
+    // an EMPTY result (the call stays gated by its pattern) is noted in
+    // the audit record so the skipped save is not invisible.
+    let stored: string[] | null = null;
     if (approved && always === true && waiting !== undefined) {
       const profile = mind.profiles.profileOf(id);
       if (profile !== undefined) {
         try {
-          await mind.profiles.allowTool(owner, profile.id, waiting.name, waiting.input);
+          stored = await mind.profiles.allowTool(owner, profile.id, waiting.name, waiting.input);
         } catch (error) {
           console.warn("always-allow rule save failed:", error);
         }
@@ -97,6 +100,12 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
         : undefined,
     );
+    const notes = [
+      takenOver ? "taken over by the owner" : null,
+      stored !== null && stored.length === 0
+        ? "always-allow skipped: the call stays gated by its pattern"
+        : null,
+    ].filter((note) => note !== null);
     mind.audit.record({
       at: Date.now(),
       kind: "approval",
@@ -106,7 +115,7 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       name: waiting?.name ?? null,
       durationMs: null,
       ok: approved,
-      error: takenOver ? "taken over by the owner" : null,
+      error: notes.length === 0 ? null : notes.join("; "),
     });
     safeChange(cells.pending, ctx, () => mind.approvals.pendingFor(id)[0] ?? null);
     return { ok: true };

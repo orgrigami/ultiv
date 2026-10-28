@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { NotFound } from "@ultiv/core";
 import type { ProfileInfo } from "@ultiv/contracts";
-import { actionTextsOf, globEscape, matchAutoApprove } from "../auto-approve.ts";
+import { actionTextsOf, globEscape, mayAutoApprove } from "../auto-approve.ts";
 import {
   SettingsDoc,
   commitProfiles,
@@ -101,7 +101,7 @@ export const lifecycleOps = (
           if (profile === undefined) throw new NotFound({ what: `profile ${id}` });
           return profile;
         }),
-    allowTool: async (owner, profileId, tool, input) => {
+    allowTool: async (owner, profileId, tool, input): Promise<string[]> => {
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
@@ -111,28 +111,27 @@ export const lifecycleOps = (
       // text(s) as narrow pattern(s). But a refused call is refused for a
       // reason — a saved exact-text entry goes through the same gates on the
       // next identical call and would be a dead rule — so every candidate is
-      // verified to actually approve before it is stored; if none does, the
-      // call stays gated and nothing is written (the card already went out).
+      // verified with the gate's own predicate before it is stored; if none
+      // verifies, nothing is written and [] tells the caller the call stays
+      // gated (the card already went out).
       const hasPattern = current.policies.autoApprove.some((e) => e.startsWith(`${tool}:`));
       let entries: string[];
       if (!hasPattern) {
         entries = [tool];
       } else {
+        const request = { callId: "always", name: tool, input };
         entries = [
           ...new Set(
             actionTextsOf(input)
               .map(({ text }) => `${tool}:${globEscape(text)}`)
-              .filter((entry) => {
-                const verdict = matchAutoApprove([entry], { callId: "always", name: tool, input });
-                return verdict.kind === "pattern" && verdict.destructive === undefined;
-              }),
+              .filter((entry) => mayAutoApprove([entry], request)),
           ),
         ];
         if (entries.length === 0) {
           console.warn(
             `always-allow on ${tool}: the call stays gated by its pattern, no rule saved`,
           );
-          return;
+          return [];
         }
       }
       await run(
@@ -150,6 +149,7 @@ export const lifecycleOps = (
           ),
         ),
       );
+      return entries;
     },
     remove: async (owner, id) => {
       const rows = await run(readSessions(converse));

@@ -1,6 +1,7 @@
 /** Task routes: spawn/status/list/remove/activity over the mind's tasks faculty. */
 import type { LiveState } from "@earendil-works/pi-durable";
 import {
+  AGENT_OWNER,
   MAX_RUNNING_TASKS,
   runningCapMessage,
   taskConversationKey,
@@ -18,17 +19,21 @@ function liveOf(view: unknown): LiveState | undefined {
 }
 
 /**
- * Which tasks a principal may see and manage: its own rows, agent-spawned
- * rows whose BOT is its own (the row's `bot.owner` is the principal the
- * spawn bound), and nothing else. Owner identity rides the client-supplied
- * `x-ultiv-user` header, so "some other named principal" is not a boundary;
- * agent rows without a bot binding stay hidden (fail safe), and any foreign
- * task 404s without disclosing that it exists.
+ * Which tasks a principal may see and manage: its own rows (never the
+ * `agent` sentinel — a principal cannot BE the agent, and the identity seam
+ * refuses the label anyway), agent-spawned rows whose BOT is its own (the
+ * row's `bot.owner` is the principal the spawn bound), and nothing else.
+ * Owner identity rides the client-supplied `x-ultiv-user` header, so "some
+ * other named principal" is not a boundary; agent rows without a bot
+ * binding stay hidden (fail safe), and any foreign task 404s without
+ * disclosing that it exists.
  */
 const maySee = (
   owner: string,
   task: { owner: string; bot?: { owner: string; profileId: string } },
-): boolean => task.owner === owner || (task.owner === "agent" && task.bot?.owner === owner);
+): boolean =>
+  owner !== AGENT_OWNER &&
+  (task.owner === owner || (task.owner === AGENT_OWNER && task.bot?.owner === owner));
 
 export async function taskRoutes(
   args: RouteArgs,

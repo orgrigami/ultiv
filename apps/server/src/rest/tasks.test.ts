@@ -155,4 +155,26 @@ describe("GET /api/tasks carries waiting approvals", () => {
     const rows = body() as Array<{ id: string }>;
     expect(rows.map((row) => row.id)).toEqual(["t-agent-eve"]);
   });
+
+  it("no principal may NAME itself the agent sentinel — it sees no rows at all", async () => {
+    const { args, body } = fakeArgs(
+      {
+        tasks: {
+          list: () =>
+            Effect.succeed([
+              runningTask("t-agent-mine", "agent", { owner: "agent", profileId: "p1" }),
+              runningTask("t-plain", "agent"),
+              runningTask("t-harry", "harry"),
+            ]),
+          steps: async () => [],
+        },
+        converse: { conversationIdOf: () => Effect.succeed("42") },
+        approvals: { pendingFor: () => [] },
+      },
+      "agent",
+    );
+    await taskRoutes(args, () => "");
+    const rows = body() as Array<{ id: string }>;
+    expect(rows).toEqual([]);
+  });
 });

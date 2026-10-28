@@ -6,22 +6,36 @@
  * owner-partitioned HERE, in one file, so a real authenticator later only
  * replaces `principalFromHeaders` and the WebSocket callback.
  */
+import { AGENT_OWNER } from "@ultiv/mind";
+
 export type Principal = { kind: "guest" } | { kind: "user"; id: string } | { kind: "server" };
 
 export const USER_HEADER = "x-ultiv-user";
 
-/** The registry label a principal's data lives under. */
+/**
+ * The registry label a principal's data lives under.
+ */
 export const ownerOf = (principal: Principal): string =>
   principal.kind === "user" ? principal.id : "guest";
 
 /** The durable conversation key for an app session id, scoped to its owner. */
 export const sessionKey = (owner: string, id: string): string => `${owner}:${id}`;
 
+/**
+ * Owner labels the seam never hands out: `agent` is the sentinel bot-spawned
+ * task rows are filed under (see @ultiv/mind's AGENT_OWNER), so a caller
+ * NAMING itself that would pass every "own rows" check on those rows —
+ * including the pending approval inputs task rows carry. A principal that
+ * claims a reserved label resolves to guest.
+ */
+const RESERVED_OWNERS: readonly string[] = [AGENT_OWNER];
+
+const principalFor = (id: string): Principal =>
+  id === "" || RESERVED_OWNERS.includes(id) ? { kind: "guest" } : { kind: "user", id };
+
 /** Resolve a principal from header-style access; empty/missing means guest. */
-export const principalFromHeaders = (get: (name: string) => string | undefined): Principal => {
-  const id = (get(USER_HEADER) ?? "").trim();
-  return id === "" ? { kind: "guest" } : { kind: "user", id };
-};
+export const principalFromHeaders = (get: (name: string) => string | undefined): Principal =>
+  principalFor((get(USER_HEADER) ?? "").trim());
 
 /** The principal of an incoming HTTP request (REST and WebSocket upgrades alike). */
 export const principalFromRequest = (request: { readonly headers: unknown }): Principal => {
@@ -30,6 +44,5 @@ export const principalFromRequest = (request: { readonly headers: unknown }): Pr
     typeof (headers as { get?: unknown }).get === "function"
       ? (headers as { get: (name: string) => unknown }).get(USER_HEADER)
       : (headers as Record<string, unknown>)[USER_HEADER];
-  const id = typeof raw === "string" ? raw.trim() : "";
-  return id === "" ? { kind: "guest" } : { kind: "user", id };
+  return principalFor(typeof raw === "string" ? raw.trim() : "");
 };

@@ -36,9 +36,6 @@ export const isApprovalFloor = (name: string): boolean =>
 /** Tools Jev never decides (on top of the floors). YOLO is unaffected. */
 export const JEV_NEVER_DECIDES: readonly string[] = ["bash_host"];
 
-/** Tools that never match a `tool:pattern` autoApprove entry (bare entries stay the owner's grant). */
-export const NEVER_PATTERN_MATCHED: readonly string[] = ["bash_host"];
-
 /** True when Jev may answer this gate at all. */
 export const jevMayDecide = (name: string): boolean =>
   !isApprovalFloor(name) && !JEV_NEVER_DECIDES.includes(name);

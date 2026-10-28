@@ -38,8 +38,8 @@ const SpawnParams = Type.Object({
 
 const StatusParams = Type.Object({ id: Type.String({ description: "The task id." }) });
 
-/** Agent-spawned tasks are filed under their own owner label. */
-const AGENT_OWNER = "agent";
+/** Agent-spawned tasks are filed under their own owner label. Reserved: a principal may not NAME itself this. */
+export const AGENT_OWNER = "agent";
 
 const REFUSE_NESTED =
   "refused: you are already running AS a background task — tasks cannot spawn sub-tasks (it " +

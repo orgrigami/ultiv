@@ -139,6 +139,22 @@ export type AutoApproveMatch =
    */
   | { readonly kind: "pattern"; readonly destructive: string | undefined };
 
+/** Tools that never match a `tool:pattern` autoApprove entry (bare entries stay the owner's grant). */
+export const NEVER_PATTERN_MATCHED: readonly string[] = ["bash_host"];
+
+/**
+ * The one predicate for "would the autoApprove list approve this call" —
+ * the broker hook answers gates with it, and rule saves (allowTool)
+ * verify candidates with it, so a stored entry is exactly one the gate
+ * would accept. Floors and yolo live above this in the hook.
+ */
+export const mayAutoApprove = (entries: readonly string[], request: ApprovalRequest): boolean => {
+  const match = matchAutoApprove(entries, request);
+  if (match.kind === "pattern")
+    return match.destructive === undefined && !NEVER_PATTERN_MATCHED.includes(request.name);
+  return match.kind === "bare";
+};
+
 /**
  * True when the whole call may be pattern-matched at all: NO candidate text
  * carries a chaining/substitution operator — a benign first field must not
