@@ -36,6 +36,9 @@ export const isApprovalFloor = (name: string): boolean =>
 /** Tools Jev never decides (on top of the floors). YOLO is unaffected. */
 export const JEV_NEVER_DECIDES: readonly string[] = ["bash_host"];
 
+/** Tools that never match a `tool:pattern` autoApprove entry (bare entries stay the owner's grant). */
+export const NEVER_PATTERN_MATCHED: readonly string[] = ["bash_host"];
+
 /** True when Jev may answer this gate at all. */
 export const jevMayDecide = (name: string): boolean =>
   !isApprovalFloor(name) && !JEV_NEVER_DECIDES.includes(name);
@@ -114,7 +117,7 @@ const DESTRUCTIVE_TOOL =
   /(^|_)(delete|remove|rm|purge|drop|truncate|wipe|reset|kill|forget|overwrite|clear|destroy|erase|revoke)(_|$)/i;
 /** Command text that is destructive or irreversible. */
 export const DESTRUCTIVE_PATTERNS: readonly (readonly [RegExp, string])[] = [
-  [/(^|[\s;&|(])rm\s/i, "rm deletes files"],
+  [/(^|[^\w])rm\s/i, "rm deletes files"],
   [/\bgit\s+reset\s+--hard\b/i, "git reset --hard"],
   [/\bgit\s+push\b[^\n]*(--force\b|--force-with-lease\b|\s-f\b)/i, "git push --force"],
   [/\bgit\s+clean\s+-[a-z]*f/i, "git clean -f"],

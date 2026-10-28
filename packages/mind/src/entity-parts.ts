@@ -9,7 +9,7 @@ import type { ScopeHolder } from "@ultiv/ext";
 import type { TranscriptEntry } from "@ultiv/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
 import { matchAutoApprove } from "./auto-approve.ts";
-import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
+import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator, NEVER_PATTERN_MATCHED } from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
 import type { actService } from "./act/act.ts";
 import { codemodeExtension } from "./act/codemode.ts";
@@ -220,7 +220,7 @@ export const wirePolicies = (
         match.kind === "bare" ||
         (match.kind === "pattern" &&
           match.destructive === undefined &&
-          request.name !== "bash_host")
+          !NEVER_PATTERN_MATCHED.includes(request.name))
       );
     },
     // 'jev': floors and bash_host always reach the owner; see jev-gate.ts.
