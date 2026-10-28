@@ -24,6 +24,7 @@ const call = (name: string, input: unknown = {}, callId = `c-${name}`): Approval
 /** The real approvals broker wired through wirePolicies with fakes around it. */
 const rig = (opts: {
   mode: ProfileApprovalMode;
+  autoApprove?: string[];
   probability?: number;
   complexity?: number;
   hang?: boolean;
@@ -40,7 +41,7 @@ const rig = (opts: {
     id: "p1",
     name: "Nova",
     description: "test bot",
-    policies: { approvalMode: opts.mode, autoApprove: [] as string[] },
+    policies: { approvalMode: opts.mode, autoApprove: opts.autoApprove ?? ([] as string[]) },
   };
   const decide = {
     available: true,
@@ -113,6 +114,42 @@ describe("jev gate: floors and bash_host", () => {
     expect(await low.outcome(call("send_note", { text: "hi" }))).toBe(false);
     expect(low.audit[0]?.ok).toBe(false);
     expect(low.approvals.noteFor("conv", "c-send_note")).toMatch(/Jev/);
+  });
+});
+
+describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
+  it("a bare name approves every call of the tool, whatever Jev would say", async () => {
+    const r = rig({ mode: "jev", autoApprove: ["bash"], probability: 0.01 });
+    expect(await r.outcome(call("bash", { command: "ls -la" }))).toBe(true);
+    expect(r.asked).toEqual([]);
+  });
+
+  it("a tool:glob entry approves only the matching sub-action", async () => {
+    const r = rig({ mode: "jev", autoApprove: ["bash:git *"], probability: 0.01 });
+    expect(await r.outcome(call("bash", { command: "git status" }))).toBe(true);
+    expect(await r.outcome(call("bash", { command: "git push --force" }))).toBe(true);
+    // Non-matching calls fall through to Jev, which denies at 0.01:
+    expect(await r.outcome(call("bash", { command: "rm -rf /tmp/x" }))).toBe(false);
+    expect(await r.outcome(call("bash", { command: "npm test" }))).toBe(false);
+    expect(r.asked.length).toBe(2); // only the non-matching calls reached Jev
+  });
+
+  it("floors outrank the list, bare or patterned", async () => {
+    const r = rig({
+      mode: "manual",
+      autoApprove: ["secret_request", "secret_request:*", FIRST_USE_APPROVAL],
+    });
+    for (const name of ["secret_request", FIRST_USE_APPROVAL]) {
+      expect(await r.outcome(call(name, { command: "anything" }))).toBe("card");
+    }
+    expect(r.asked).toEqual([]);
+    expect(r.audit).toEqual([]); // auto-approved, not escalated — nothing here was
+  });
+
+  it("yolo still waves everything past the floors, list untouched", async () => {
+    const r = rig({ mode: "yolo", autoApprove: [], probability: 0.01 });
+    expect(await r.outcome(call("anything", { command: "whatever" }))).toBe(true);
+    expect(r.asked).toEqual([]);
   });
 });
 

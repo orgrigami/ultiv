@@ -8,6 +8,7 @@ import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durab
 import type { ScopeHolder } from "@ultiv/ext";
 import type { TranscriptEntry } from "@ultiv/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
+import { autoApproves } from "./auto-approve.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
 import type { actService } from "./act/act.ts";
@@ -204,14 +205,15 @@ export const wirePolicies = (
   // escalation). The hard floors stand whatever the mode says.
   approvals.setHooks({
     // A credential's first use on a host, and a connector's first use, are
-    // always asked, whatever the list says.
+    // always asked, whatever the list says. Entries are tool names or
+    // `tool:glob` sub-action patterns (see auto-approve.ts).
     autoApprove: (conversationId, request) => {
-      const mode = profiles.profileOf(conversationId)?.policies.approvalMode;
+      const profile = profiles.profileOf(conversationId);
+      const mode = profile?.policies.approvalMode;
       return (
         !isApprovalFloor(request.name) &&
-        // 'yolo' waves everything past the floors through.
         (mode === "yolo" ||
-          profiles.profileOf(conversationId)?.policies.autoApprove.includes(request.name) === true)
+          (profile !== undefined && autoApproves(profile.policies.autoApprove, request)))
       );
     },
     // 'jev': floors and bash_host always reach the owner; see jev-gate.ts.
