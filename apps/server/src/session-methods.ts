@@ -80,7 +80,7 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       const profile = mind.profiles.profileOf(id);
       if (profile !== undefined) {
         try {
-          await mind.profiles.allowTool(owner, profile.id, waiting.name);
+          await mind.profiles.allowTool(owner, profile.id, waiting.name, waiting.input);
         } catch (error) {
           console.warn("always-allow rule save failed:", error);
         }

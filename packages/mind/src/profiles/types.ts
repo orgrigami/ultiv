@@ -17,7 +17,12 @@ export interface ProfilesService {
   ) => Promise<ProfileInfo>;
   readonly setArchived: (owner: string, id: string, archived: boolean) => Promise<ProfileInfo>;
   /** Save a tool on the profile's autoApprove list — the "always allow" rule. */
-  readonly allowTool: (owner: string, profileId: string, tool: string) => Promise<void>;
+  readonly allowTool: (
+    owner: string,
+    profileId: string,
+    tool: string,
+    input?: unknown,
+  ) => Promise<void>;
   /** Remove the profile row and its session rows; returns them for the cascade. */
   readonly remove: (owner: string, id: string) => Promise<SessionInfo[]>;
   /** Bot Mode: the profile's persistent main chat (created lazily, rotated on reset). */

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { NotFound } from "@ultiv/core";
 import type { ProfileInfo } from "@ultiv/contracts";
+import { actionTextsOf, globEscape } from "../auto-approve.ts";
 import {
   SettingsDoc,
   commitProfiles,
@@ -100,10 +101,18 @@ export const lifecycleOps = (
           if (profile === undefined) throw new NotFound({ what: `profile ${id}` });
           return profile;
         }),
-    allowTool: async (owner, profileId, tool) => {
+    allowTool: async (owner, profileId, tool, input?) => {
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
+      // "Always allow" on a card that a tool:pattern entry just refused must
+      // not silently widen the profile to the whole tool: when the list
+      // already holds patterns for this tool, save THIS call's exact action
+      // text as one more narrow pattern instead of the bare name.
+      const hasPattern = current.policies.autoApprove.some((e) => e.startsWith(`${tool}:`));
+      const entry = hasPattern
+        ? `${tool}:${globEscape(actionTextsOf(input)[0]?.text ?? "")}`
+        : tool;
       await run(
         commitProfiles(converse, (all) =>
           all.map((row) =>
@@ -112,7 +121,7 @@ export const lifecycleOps = (
                   ...row,
                   policies: {
                     ...row.policies,
-                    autoApprove: [...new Set([...row.policies.autoApprove, tool])],
+                    autoApprove: [...new Set([...row.policies.autoApprove, entry])],
                   },
                 }
               : row,

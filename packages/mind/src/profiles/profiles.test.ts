@@ -189,4 +189,26 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     expect(await profiles.list("someone-else")).toEqual([]);
     await handle.close();
   });
+
+  it("allowTool never widens a patterned autoApprove list to the whole tool", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { profiles } = handle.mind;
+    const profile = await profiles.create("harry", {
+      name: "P",
+      onboard: false,
+      policies: { ...defaultPolicies(), autoApprove: ["bash:git *"] },
+    });
+    // A card that the pattern just refused: always-allow saves THIS call's
+    // exact action text as one more pattern, not the bare tool.
+    await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" });
+    const narrow = await profiles.get("harry", profile.id);
+    expect(narrow?.policies.autoApprove).toContain("bash:git push --force");
+    expect(narrow?.policies.autoApprove).not.toContain("bash");
+    // A profile with no pattern for the tool keeps today's bare-name grant.
+    const plain = await profiles.create("harry", { name: "Plain", onboard: false });
+    await profiles.allowTool("harry", plain.id, "bash", { script: "ls" });
+    const wide = await profiles.get("harry", plain.id);
+    expect(wide?.policies.autoApprove).toContain("bash");
+    await handle.close();
+  });
 });

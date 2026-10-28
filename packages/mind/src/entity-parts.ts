@@ -9,7 +9,12 @@ import type { ScopeHolder } from "@ultiv/ext";
 import type { TranscriptEntry } from "@ultiv/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
 import { matchAutoApprove } from "./auto-approve.ts";
-import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator, NEVER_PATTERN_MATCHED } from "./jev-gate.ts";
+import {
+  CONTEXT_ENTRIES,
+  isApprovalFloor,
+  makeAdjudicator,
+  NEVER_PATTERN_MATCHED,
+} from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
 import type { actService } from "./act/act.ts";
 import { codemodeExtension } from "./act/codemode.ts";

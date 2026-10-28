@@ -46,7 +46,7 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
     // card does; a failed save must not swallow the decision.
     if (approved && body.always === true && waiting !== undefined && scope.profileId !== null) {
       try {
-        await mind.profiles.allowTool(args.owner, scope.profileId, waiting.name);
+        await mind.profiles.allowTool(args.owner, scope.profileId, waiting.name, waiting.input);
       } catch (cause) {
         console.warn("always-allow rule save failed:", cause);
       }

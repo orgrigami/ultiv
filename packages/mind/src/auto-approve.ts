@@ -99,17 +99,25 @@ export const actionTextsOf = (input: unknown): ActionText[] => {
   return texts;
 };
 
-/** Glob → RegExp: `*`/`?` stay inside one command's text, everything else literal; anchored. */
+/** Glob → RegExp: `*`/`?` stay inside one command's text, everything else literal; anchored. `\*`/`\?` are literals. */
 export const globToRegExp = (glob: string): RegExp => {
-  const source = [...glob]
-    .map((ch) => {
-      if (ch === "*") return RUN_OF_CHARS;
-      if (ch === "?") return ONE_CHAR;
-      return ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    })
-    .join("");
-  return new RegExp(`^${source}$`);
+  const source: string[] = [];
+  const literal = (ch: string): string => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const chars = [...glob];
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i] ?? "";
+    if (ch === "*") source.push(RUN_OF_CHARS);
+    else if (ch === "?") source.push(ONE_CHAR);
+    else if (ch === "\\" && i + 1 < chars.length) {
+      i += 1;
+      source.push(literal(chars[i] ?? ""));
+    } else source.push(literal(ch));
+  }
+  return new RegExp(`^${source.join("")}$`);
 };
+
+/** Escape a literal action text into a glob that matches exactly it. */
+export const globEscape = (text: string): string => text.replace(/[*?\\]/g, "\\$&");
 
 /** Split an entry into its tool and optional pattern ("bash" → bash; "bash:git *" → bash + "git *"). */
 export const parseAutoApproveEntry = (entry: string): { tool: string; pattern?: string } => {
