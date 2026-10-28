@@ -8,6 +8,7 @@ import {
 } from "@ultiv/mind";
 import { projectTranscript } from "@ultiv/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import type { WaitingApproval } from "@ultiv/contracts";
 import { Effect } from "effect";
 import { queryOr, type RouteArgs } from "./types.ts";
 import { activitySteps, type ActivityStep } from "./task-steps.ts";
@@ -25,12 +26,33 @@ export async function taskRoutes(
   const method = req.method ?? "GET";
   if (path === "/api/tasks" && method === "GET") {
     const list = await Effect.runPromise(mind.tasks.list());
-    // Running tasks carry their latest step for the task pill (a few at most).
+    // Running tasks carry their latest step for the task pill (a few at most)
+    // and any approval waiting on the task conversation, so the chat that
+    // spawned the task can surface the card without opening the task sheet.
     const withSteps = await Promise.all(
       list.map(async (task) => {
         if (task.status !== "running") return task;
         const [last] = (await mind.tasks.steps(task.id, 1).catch(() => [])).slice(-1);
-        return last === undefined ? task : { ...task, lastStep: last };
+        const conversationId =
+          (await Effect.runPromise(mind.converse.conversationIdOf(taskConversationKey(task.id)))) ??
+          null;
+        const waiting =
+          conversationId === null ? undefined : mind.approvals.pendingFor(conversationId)[0];
+        return {
+          ...task,
+          ...(last === undefined ? {} : { lastStep: last }),
+          taskConversationId: conversationId,
+          ...(waiting === undefined
+            ? {}
+            : {
+                waitingApproval: {
+                  callId: waiting.callId,
+                  name: waiting.name,
+                  input: waiting.input as WaitingApproval["input"],
+                  reason: waiting.reason ?? null,
+                },
+              }),
+        };
       }),
     );
     json(200, withSteps);

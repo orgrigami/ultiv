@@ -116,7 +116,14 @@ export type {
 export { RoomInfoSchema, RoomListSchema } from "./rooms.ts";
 export type { RoomInfo, RoomList } from "./rooms.ts";
 export { TaskInfoSchema, TaskListSchema, TaskStatusSchema } from "./tasks.ts";
-export type { TaskInfo, TaskList, TaskStatus, TaskUpdate } from "./tasks.ts";
+export type {
+  TaskInfo,
+  TaskList,
+  TaskStatus,
+  TaskUpdate,
+  TaskRow,
+  WaitingApproval,
+} from "./tasks.ts";
 export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";
 export type { ArtifactInfo, ArtifactList } from "./artifacts.ts";
 export { WebhookInfoSchema, WebhookListSchema, WebhookRejectSchema } from "./webhooks.ts";

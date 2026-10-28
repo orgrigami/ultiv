@@ -5,20 +5,20 @@
  * other chats never leak in.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskRow } from "@ultiv/contracts";
 import { api } from "@/lib/api";
 import { pollFailed, pollRecovered } from "@/lib/notify";
 
 const POLL_MS = 3_000;
 
 export interface ChatTasks {
-  readonly tasks: readonly TaskInfo[];
-  readonly running: readonly TaskInfo[];
+  readonly tasks: readonly TaskRow[];
+  readonly running: readonly TaskRow[];
   readonly refresh: () => Promise<void>;
 }
 
 export function useTasks(conversationId: string | null): ChatTasks {
-  const [tasks, setTasks] = useState<TaskInfo[]>([]);
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
 
   const refresh = useCallback(async () => {
     if (conversationId === null) return;

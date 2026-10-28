@@ -16,6 +16,7 @@ import type {
   SensorInfo,
   SessionInfo,
   TaskInfo,
+  TaskRow,
   VaultItemInfo,
   WebhookInfo,
 } from "@ultiv/contracts";
@@ -357,7 +358,7 @@ export const api = {
       ...(profileId !== undefined ? { profileId } : {}),
     }),
   remove: (id: string): Promise<boolean> => drop(`/api/sessions/${encodeURIComponent(id)}`),
-  tasks: (): Promise<TaskInfo[]> => getJson<TaskInfo[]>("/api/tasks"),
+  tasks: (): Promise<TaskRow[]> => getJson<TaskRow[]>("/api/tasks"),
   taskActivity: (id: string): Promise<TaskActivity> =>
     getJson<TaskActivity>(`/api/tasks/${encodeURIComponent(id)}/activity`),
   approvalDecide: (

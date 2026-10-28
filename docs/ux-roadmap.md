@@ -43,6 +43,14 @@ and Meta's Muse against our web app. Effort: S small, M medium, L large.
   `GET /api/tasks/:id/activity`), the result/error when settled, files made
   (artifacts by conversation), and any approval waiting on the task with
   Approve/Deny inline. Polls at 2.5 s while open.
+- **9b — Task approvals pop into the spawning thread** (S): DONE — a gate
+  waiting on a background task renders as an approval card in the chat that
+  spawned it (labelled `Bot · task "…" wants to …`), next to the chat's own
+  card; no more digging through the task sheet. `GET /api/tasks` rows carry
+  `taskConversationId` + `waitingApproval` for running tasks; decide routes
+  REST to the task's own conversation (`api.approvalDecide`), always/takeover
+  included, and the tasks poll (3 s) refreshes the card away. The activity
+  dialog keeps the full tri-state for when the card has already scrolled up.
 - **Pattern 3 leftover — inbox `always`**: DONE — `POST /api/approvals/:conv/:call`
   takes `always` and saves the same rule via the new shared
   `mind.profiles.allowTool(owner, profileId, tool)` (the chord session's

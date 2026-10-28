@@ -6,6 +6,7 @@ import type {
   ProfileApprovalMode,
   QueuedInput,
   TaskInfo,
+  TaskRow,
   ThinkingLevel,
   TranscriptEntry,
   UsageSummary,
@@ -86,6 +87,22 @@ function JumpToLatest({ bottom, onJump }: { bottom: string; onJump: () => void }
   );
 }
 
+/** A task's waiting gate, popped into the thread that spawned the task. */
+export interface TaskApproval {
+  task: TaskRow;
+  callId: string;
+  name: string;
+  input: unknown;
+  reason: string | null;
+}
+
+/** The card's who-line: the task is asking, not the bot itself. */
+const taskWho = (botName: string | undefined, task: TaskRow): string => {
+  const who = botName !== undefined && botName !== "" ? botName : "Your bot";
+  const label = (task.title ?? task.prompt).slice(0, 40);
+  return `${who} · task "${label}"`;
+};
+
 const floatingError =
   "bg-background/70 text-destructive w-fit rounded-lg px-3 py-1.5 text-sm backdrop-blur-md";
 
@@ -111,6 +128,8 @@ export function SessionView({
   onInterrupt,
   tasks,
   taskInfo = [],
+  taskApprovals = [],
+  onTaskDecide,
   jevNotices,
 }: {
   bot?: ChatBot | undefined;
@@ -139,6 +158,15 @@ export function SessionView({
   tasks?: React.ReactNode;
   /** This chat's task rows, for the task cards in the transcript. */
   taskInfo?: readonly TaskInfo[];
+  /** Gates waiting on this chat's tasks, shown as cards in the thread. */
+  taskApprovals?: readonly TaskApproval[];
+  /** Decides a task's waiting gate (routes REST to the task's own conversation). */
+  onTaskDecide?: (
+    task: TaskRow,
+    approved: boolean,
+    always?: boolean,
+    takeover?: boolean,
+  ) => Promise<void>;
   /** Jev's gate decisions by tool call id, shown under the calls. */
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
 }) {
@@ -201,6 +229,21 @@ export function SessionView({
             ) : (
               busy && <StatusRow bot={bot} transcript={transcript} pending={pending} />
             )}
+            {/* A task's gate pops into the thread that spawned it, labelled as the task. */}
+            {taskApprovals.map(({ task, callId, name, input, reason }) => (
+              <li key={`${task.id}:${callId}`}>
+                <ApprovalCard
+                  name={name}
+                  input={input}
+                  reason={reason}
+                  who={taskWho(bot?.name, task)}
+                  callId={callId}
+                  onDecide={async (approved, always, takeover) => {
+                    await onTaskDecide?.(task, approved, always, takeover);
+                  }}
+                />
+              </li>
+            ))}
             {/* Sent while busy: pending bubbles, in order, until the turn picks them up. */}
             {onWithdraw !== undefined && (
               <QueuedChips

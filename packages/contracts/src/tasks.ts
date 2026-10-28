@@ -43,6 +43,29 @@ export const TaskInfoSchema = Type.Object({
 
 export type TaskInfo = Static<typeof TaskInfoSchema>;
 
+/**
+ * One row of GET /api/tasks: the stored task plus response-only projections.
+ * `waitingApproval` stays OUT of the stored schema — its input is arbitrary
+ * JSON (`unknown` is not JsonValue, which would fail the tasks doc's
+ * JsonObject constraint), so the row type carries it with a JSON-safe input,
+ * cast at the creation boundary (the REST list route).
+ */
+export type TaskRow = TaskInfo & {
+  /** The task's own conversation id (the decide target for its approval). */
+  taskConversationId?: string | null;
+  waitingApproval?: WaitingApproval;
+};
+
+/** One gate waiting on a task's own conversation (list responses only). */
+export type WaitingApproval = {
+  callId: string;
+  name: string;
+  input: JsonValue;
+  reason: string | null;
+};
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 export const TaskListSchema = Type.Array(TaskInfoSchema);
 
 export type TaskList = Static<typeof TaskListSchema>;

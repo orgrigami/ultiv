@@ -13,7 +13,8 @@ import { useSession } from "@/lib/use-session";
 import { useTasks } from "@/lib/use-tasks";
 import { useJevNotices } from "@/lib/use-jev-notices";
 import { useState } from "react";
-import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileApprovalMode, ProfileInfo, TaskRow } from "@ultiv/contracts";
+import type { TaskApproval } from "@/components/session-view";
 
 /** The chat's bot carries the policies the header popover switches. */
 type ChatBotWithPolicies = ChatBot & { policies?: ProfileInfo["policies"] };
@@ -46,11 +47,34 @@ export function Chat({
     await api.updateProfile(bot.id, { policies: { approvalMode: mode } });
     await refreshAll();
   };
+  // A task's waiting gate popped into this thread: decide routes REST to the
+  // task's own conversation, then the tasks poll refreshes the card away.
+  const taskApprovals: TaskApproval[] = chatTasks.tasks.flatMap((task) => {
+    const waiting = task.waitingApproval;
+    const conversationId = task.taskConversationId;
+    if (waiting === undefined || conversationId === null || conversationId === undefined) return [];
+    return [{ task, ...waiting }];
+  });
+  const taskDecide = async (
+    task: TaskRow,
+    approved: boolean,
+    always?: boolean,
+    takeover?: boolean,
+  ): Promise<void> => {
+    const conversationId = task.taskConversationId;
+    const callId = task.waitingApproval?.callId;
+    if (conversationId === undefined || conversationId === null || callId === undefined) return;
+    // A failure throws into the card, which keeps it visible for a retry.
+    await api.approvalDecide(conversationId, callId, approved, always, takeover);
+    await chatTasks.refresh();
+  };
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SessionView
         tasks={<TasksPill chatTasks={chatTasks} />}
         taskInfo={chatTasks.tasks}
+        taskApprovals={taskApprovals}
+        onTaskDecide={taskDecide}
         jevNotices={jevNotices}
         bot={bot}
         onBack={onBack}
