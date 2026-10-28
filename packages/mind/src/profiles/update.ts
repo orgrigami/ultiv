@@ -5,11 +5,18 @@
  */
 import { InvalidInput } from "@ultiv/core";
 import type { ProfileApprovalMode, ProfileCreate, ProfileInfo } from "@ultiv/contracts";
+import { validAutoApproveEntry } from "../auto-approve.ts";
 import { KENARI_MODELS } from "../providers/kenari.ts";
 import { validTimezone } from "./docs.ts";
 
 /** Field limits, shared with create. */
-export const PROFILE_LIMITS = { name: 80, description: 500, persona: 8_000 } as const;
+export const PROFILE_LIMITS = {
+  name: 80,
+  description: 500,
+  persona: 8_000,
+  autoApproveEntries: 32,
+  autoApproveEntryChars: 200,
+} as const;
 
 const APPROVAL_MODES: readonly ProfileApprovalMode[] = ["manual", "jev", "yolo"];
 
@@ -28,6 +35,27 @@ export const validatePatch = (patch: Partial<ProfileCreate>): void => {
   const mode = patch.policies?.approvalMode;
   if (mode !== undefined && !APPROVAL_MODES.includes(mode)) {
     throw new InvalidInput({ reason: `unknown approval mode: ${String(mode)}` });
+  }
+  // autoApprove entries compile into RegExp on every gated call (the hook is
+  // synchronous), so the stored list is bounded and each entry is shape- and
+  // wildcard-checked: a pathological glob must not stall the gate.
+  const autoApprove = patch.policies?.autoApprove;
+  if (autoApprove !== undefined) {
+    if (autoApprove.length > PROFILE_LIMITS.autoApproveEntries) {
+      throw new InvalidInput({
+        reason: `too many autoApprove entries: ${autoApprove.length} (max ${PROFILE_LIMITS.autoApproveEntries})`,
+      });
+    }
+    for (const entry of autoApprove) {
+      if (entry.length > PROFILE_LIMITS.autoApproveEntryChars) {
+        throw new InvalidInput({
+          reason: `autoApprove entry too long: ${entry.length} chars (max ${PROFILE_LIMITS.autoApproveEntryChars})`,
+        });
+      }
+      if (!validAutoApproveEntry(entry)) {
+        throw new InvalidInput({ reason: `invalid autoApprove entry: ${JSON.stringify(entry)}` });
+      }
+    }
   }
 };
 

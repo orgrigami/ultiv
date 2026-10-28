@@ -201,14 +201,44 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     // A destructive call the pattern refused: the exact-text rule would go
     // through the same refusal on the next identical call — a dead rule —
     // so nothing is saved and the call stays gated.
-    await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" });
-    const after = await profiles.get("harry", profile.id);
-    expect(after?.policies.autoApprove).toEqual(["bash:git *"]);
+    expect(await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" })).toEqual(
+      [],
+    );
+    expect((await profiles.get("harry", profile.id))?.policies.autoApprove).toEqual([
+      "bash:git *",
+    ]);
     // A benign call outside the pattern's glob: the exact text verifies, so
     // one narrow pattern is added — the whole tool is never granted.
-    await profiles.allowTool("harry", profile.id, "bash", { script: "npm install" });
-    const narrow = await profiles.get("harry", profile.id);
-    expect(narrow?.policies.autoApprove).toEqual(["bash:git *", "bash:npm install"]);
+    expect(await profiles.allowTool("harry", profile.id, "bash", { script: "npm install" })).toEqual(
+      ["bash:npm install"],
+    );
+    expect((await profiles.get("harry", profile.id))?.policies.autoApprove).toEqual([
+      "bash:git *",
+      "bash:npm install",
+    ]);
+    // A MULTI-FIELD call stores nothing at all: per-field rules would let
+    // the weakest field ("http_request:POST") approve any POST to any host.
+    const http = await profiles.create("harry", {
+      name: "H",
+      onboard: false,
+      policies: { ...defaultPolicies(), autoApprove: ["http_request:api.example.com"] },
+    });
+    expect(
+      await profiles.allowTool("harry", http.id, "http_request", {
+        method: "POST",
+        url: "https://api.example.com/ok",
+        host: "api.example.com",
+        credential: "GH",
+      }),
+    ).toEqual([]);
+    expect((await profiles.get("harry", http.id))?.policies.autoApprove).toEqual([
+      "http_request:api.example.com",
+    ]);
+    // The privileged host shell is never granted from a card, bare or not.
+    expect(await profiles.allowTool("harry", http.id, "bash_host", { script: "ls" })).toEqual([]);
+    expect((await profiles.get("harry", http.id))?.policies.autoApprove).not.toContain(
+      "bash_host",
+    );
     // A profile with no pattern for the tool keeps today's bare-name grant.
     const plain = await profiles.create("harry", { name: "Plain", onboard: false });
     await profiles.allowTool("harry", plain.id, "bash", { script: "ls" });

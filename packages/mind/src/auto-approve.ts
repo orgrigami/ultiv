@@ -32,7 +32,13 @@
  * first-use credential/connector or `secret_request` call through.
  */
 import type { ApprovalRequest } from "./approvals.ts";
-import { CHAIN_OPS, SUBSHELL_OR_HEREDOC, SUBSTITUTION, destructiveOf } from "./jev-gate.ts";
+import {
+  CHAIN_OPS,
+  JEV_NEVER_DECIDES,
+  SUBSHELL_OR_HEREDOC,
+  SUBSTITUTION,
+  destructiveOf,
+} from "./jev-gate.ts";
 
 /** Input fields that hold a command or script (same heuristic as jev-gate). */
 const COMMAND_FIELDS = /^(command|cmd|script|code|shell|sql|query)$/i;
@@ -53,14 +59,34 @@ const UNSAFE_TEXT = new RegExp(
 );
 
 /**
- * Shell escape hatches on a SHELL text: git aliases (`git -c alias.x='!cmd'
- * runs arbitrary commands under a `git *` pattern`), git's exec/upload-pack
- * hooks, and a `!` head at a position that starts a command (`!rm`, `-c x=!y`
- * — after whitespace, start, `=`, `:` or a quote), which would otherwise
- * hide a destructive command from the destructive regexes. Mid-word `!`
- * (`git commit -m "fix typo!"`) is fine.
+ * Shell escape hatches, checked call-wide on every SHELL text:
+ * - git's config-from-env flag (`--config-env=alias.p=EVIL` sets an alias
+ *   whose value never appears in the text) and the sibling `-c`;
+ * - a `git config …alias.*` write — the stored alias runs on a LATER plain
+ *   call any `git *` pattern approves, a two-call escape single-call guards
+ *   cannot see;
+ * - git's exec/upload-pack hooks;
+ * - interpreter eval flags (`node -e`, `perl -e`, `ruby -e`, …) keyed on the
+ *   head word — a bare `-e` blocklist would refuse python's common
+ *   `python3 -c 'print(1)'` (which stays refused anyway: `-c` is a git-style
+ *   hatch position, and python is documented as not pattern-approvable);
+ * - a `!` head at a position that starts a command (`!rm`, `-c x=!y` — after
+ *   whitespace, start, `=`, `:` or a quote). Mid-word `!`
+ *   (`git commit -m "fix typo!"`) is fine.
  */
-const SHELL_ESCAPE = /(^|\s)-c(\s|$)|--exec-path|--upload-pack|(^|[\s=:'"])!/;
+const SHELL_ESCAPE = new RegExp(
+  [
+    /--config-env/,
+    /(^|\s)-c(\s|$)/,
+    /\bgit\s.*\bconfig\b.*\balias\./,
+    /--exec-path/,
+    /--upload-pack/,
+    /(^|\s)(node|perl|ruby|php|deno|bun)\b[^\n]*\s(-e|--eval|-p)(\s|$)/,
+    /(^|[\s=:'"])!/,
+  ]
+    .map((re) => re.source)
+    .join("|"),
+);
 
 /** One candidate action text; `shell` = it came from a command/script field. */
 export interface ActionText {
@@ -101,8 +127,14 @@ export const actionTextsOf = (input: unknown): ActionText[] => {
   return texts;
 };
 
-/** Glob → RegExp: `*`/`?` stay inside one command's text, everything else literal; anchored. `\*`/`\?` are literals. */
+/** Compiled-glob memo: one RegExp per distinct glob, reused across gated calls. */
+const GLOB_CACHE_LIMIT = 512;
+const globCache = new Map<string, RegExp>();
+
+/** Glob → RegExp: `*`/`?` stay inside one command's text, everything else literal; anchored hard (`$` must be the very end — no trailing-newline match). `\*`/`\?` are literals. */
 export const globToRegExp = (glob: string): RegExp => {
+  const cached = globCache.get(glob);
+  if (cached !== undefined) return cached;
   const source: string[] = [];
   const literal = (ch: string): string => ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const chars = [...glob];
@@ -115,7 +147,12 @@ export const globToRegExp = (glob: string): RegExp => {
       source.push(literal(chars[i] ?? ""));
     } else source.push(literal(ch));
   }
-  return new RegExp(`^${source.join("")}$`);
+  // `(?![\s\S])` instead of `$`: `$` matches before a trailing newline, and
+  // the matcher's newline refusal must not rest on the wildcard class alone.
+  const re = new RegExp(`^${source.join("")}(?![\\s\\S])`);
+  if (globCache.size >= GLOB_CACHE_LIMIT) globCache.clear();
+  globCache.set(glob, re);
+  return re;
 };
 
 /** Escape a literal action text into a glob that matches exactly it. */
@@ -126,6 +163,22 @@ export const parseAutoApproveEntry = (entry: string): { tool: string; pattern?: 
   const i = entry.indexOf(":");
   return i === -1 ? { tool: entry } : { tool: entry.slice(0, i), pattern: entry.slice(i + 1) };
 };
+
+/**
+ * Write-time shape check for an autoApprove entry: the tool half (before the
+ * FIRST colon) must be non-empty and registry-safe (`[A-Za-z0-9_-]+`), and
+ * the entry carries at most 4 wildcards — a long chain of `*a*a*a…` is a
+ * catastrophic-backtracking input against the anchored glob (the hook runs
+ * synchronously on every gated call), so the gate must not be able to stall
+ * on a stored entry. A colon-named MCP tool cannot be expressed as a BARE
+ * grant — `evil:x` reads as a pattern for tool `evil` — so colon-named tools
+ * are only grantable by an explicit pattern (`evil:x:<pattern>`).
+ */
+const MAX_WILDCARDS = 4;
+
+export const validAutoApproveEntry = (entry: string): boolean =>
+  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
+  (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS;
 
 /** How the list matches one call. */
 export type AutoApproveMatch =
@@ -139,8 +192,8 @@ export type AutoApproveMatch =
    */
   | { readonly kind: "pattern"; readonly destructive: string | undefined };
 
-/** Tools that never match a `tool:pattern` autoApprove entry (bare entries stay the owner's grant). */
-export const NEVER_PATTERN_MATCHED: readonly string[] = ["bash_host"];
+/** Tools that never match a `tool:pattern` autoApprove entry — derived from Jev's list so the two cannot drift (bare entries stay the owner's grant). */
+export const NEVER_PATTERN_MATCHED: readonly string[] = JEV_NEVER_DECIDES;
 
 /**
  * The one predicate for "would the autoApprove list approve this call" —
@@ -150,9 +203,7 @@ export const NEVER_PATTERN_MATCHED: readonly string[] = ["bash_host"];
  */
 export const mayAutoApprove = (entries: readonly string[], request: ApprovalRequest): boolean => {
   const match = matchAutoApprove(entries, request);
-  if (match.kind === "pattern")
-    return match.destructive === undefined && !NEVER_PATTERN_MATCHED.includes(request.name);
-  return match.kind === "bare";
+  return match.kind === "bare" || (match.kind === "pattern" && match.destructive === undefined);
 };
 
 /**
@@ -165,9 +216,11 @@ export const mayAutoApprove = (entries: readonly string[], request: ApprovalRequ
 const matchable = (texts: readonly ActionText[]): boolean =>
   texts.every(({ text, shell }) => !UNSAFE_TEXT.test(text) && !(shell && SHELL_ESCAPE.test(text)));
 
-/** True when some text matches the glob (call-wide safety already checked). */
-const globMatch = (glob: string, texts: readonly ActionText[]): boolean =>
-  texts.some(({ text }) => globToRegExp(glob).test(text));
+/** True when EVERY candidate text matches the glob — one benign field must not vouch for the others. */
+const globMatch = (glob: string, texts: readonly ActionText[]): boolean => {
+  const re = globToRegExp(glob);
+  return texts.length > 0 && texts.every(({ text }) => re.test(text));
+};
 
 /**
  * Match the list against one call. A bare name wins outright; a pattern
@@ -185,7 +238,10 @@ export const matchAutoApprove = (
   let bare = false;
   let pattern = false;
   const texts = actionTextsOf(request.input);
-  const mayPattern = matchable(texts);
+  // Never-pattern-matched tools (bash_host) are excluded HERE, so a caller
+  // reading `kind` directly cannot re-open the host shell by forgetting the
+  // exclusion: a pattern simply never matches for them.
+  const mayPattern = matchable(texts) && !NEVER_PATTERN_MATCHED.includes(request.name);
   for (const entry of entries) {
     const { tool, pattern: glob } = parseAutoApproveEntry(entry);
     if (tool !== request.name) continue;

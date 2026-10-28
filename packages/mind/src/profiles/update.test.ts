@@ -69,4 +69,39 @@ describe("Profile policy patches", () => {
       validatePatch({ policies: { ...defaultPolicies(), approvalMode: "yolo" } }),
     ).not.toThrow();
   });
+
+  it("bounds and shape-checks autoApprove entries (the hook compiles them synchronously)", () => {
+    const base = { ...defaultPolicies(), autoApprove: ["bash:git *"] };
+    expect(() => validatePatch({ policies: base })).not.toThrow();
+    const reasonOf = (run: () => void): string => {
+      try {
+        run();
+        return "";
+      } catch (error) {
+        return (error as { reason?: string }).reason ?? "";
+      }
+    };
+    expect(
+      reasonOf(() =>
+        validatePatch({
+          policies: {
+            ...base,
+            autoApprove: Array.from({ length: 33 }, (_, i) => `tool${i}`),
+          },
+        }),
+      ),
+    ).toMatch(/too many autoApprove entries/);
+    expect(
+      reasonOf(() =>
+        validatePatch({ policies: { ...base, autoApprove: ["x".repeat(201)] } }),
+      ),
+    ).toMatch(/autoApprove entry too long/);
+    // A pathological glob chain would backtrack the synchronous gate.
+    expect(
+      reasonOf(() => validatePatch({ policies: { ...base, autoApprove: ["bash:*a*a*a*a*a*b"] } })),
+    ).toMatch(/invalid autoApprove entry/);
+    expect(
+      reasonOf(() => validatePatch({ policies: { ...base, autoApprove: ["evil:x:git *"] } })),
+    ).toBe(""); // a pattern for a colon-named tool is expressible explicitly
+  });
 });

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { NotFound } from "@ultiv/core";
 import type { ProfileInfo } from "@ultiv/contracts";
-import { actionTextsOf, globEscape, mayAutoApprove } from "../auto-approve.ts";
+import { NEVER_PATTERN_MATCHED, actionTextsOf, globEscape, mayAutoApprove } from "../auto-approve.ts";
 import {
   SettingsDoc,
   commitProfiles,
@@ -105,34 +105,41 @@ export const lifecycleOps = (
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
+      // The privileged host shell is never granted from a card — bash.ts is
+      // explicit that it must never be always-allowed, and a pattern for it
+      // is authored via REST only. The call stays gated.
+      if (NEVER_PATTERN_MATCHED.includes(tool)) {
+        console.warn(`always-allow on ${tool}: refused, the host shell stays gated`);
+        return [];
+      }
       // "Always allow" on a card that a tool:pattern entry just refused must
       // not silently widen the profile to the whole tool: when the list
       // already holds patterns for this tool, save THIS call's exact action
-      // text(s) as narrow pattern(s). But a refused call is refused for a
-      // reason — a saved exact-text entry goes through the same gates on the
-      // next identical call and would be a dead rule — so every candidate is
-      // verified with the gate's own predicate before it is stored; if none
-      // verifies, nothing is written and [] tells the caller the call stays
-      // gated (the card already went out).
+      // text as one more narrow pattern. And only a SINGLE shell text may
+      // become a rule — a multi-field call (http_request's
+      // method/url/host/credential) would mint per-field rules whose weakest
+      // field is the grant ("http_request:POST" approving ANY POST to any
+      // host). Every candidate is verified with the gate's own predicate
+      // before it is stored; if none verifies, nothing is written and []
+      // tells the caller the call stays gated (the card already went out).
       const hasPattern = current.policies.autoApprove.some((e) => e.startsWith(`${tool}:`));
       let entries: string[];
       if (!hasPattern) {
         entries = [tool];
       } else {
+        const texts = actionTextsOf(input);
+        const first = texts[0];
+        const single = texts.length === 1 && first?.shell === true ? first : undefined;
         const request = { callId: "always", name: tool, input };
-        entries = [
-          ...new Set(
-            actionTextsOf(input)
-              .map(({ text }) => `${tool}:${globEscape(text)}`)
-              .filter((entry) => mayAutoApprove([entry], request)),
-          ),
-        ];
-        if (entries.length === 0) {
+        const candidate =
+          single === undefined ? undefined : `${tool}:${globEscape(single.text)}`;
+        if (candidate === undefined || !mayAutoApprove([candidate], request)) {
           console.warn(
             `always-allow on ${tool}: the call stays gated by its pattern, no rule saved`,
           );
           return [];
         }
+        entries = [candidate];
       }
       await run(
         commitProfiles(converse, (all) =>
