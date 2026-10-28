@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { NotFound } from "@ultiv/core";
 import type { ProfileInfo } from "@ultiv/contracts";
-import { actionTextsOf, globEscape } from "../auto-approve.ts";
+import { actionTextsOf, globEscape, matchAutoApprove } from "../auto-approve.ts";
 import {
   SettingsDoc,
   commitProfiles,
@@ -101,18 +101,40 @@ export const lifecycleOps = (
           if (profile === undefined) throw new NotFound({ what: `profile ${id}` });
           return profile;
         }),
-    allowTool: async (owner, profileId, tool, input?) => {
+    allowTool: async (owner, profileId, tool, input) => {
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
       // "Always allow" on a card that a tool:pattern entry just refused must
       // not silently widen the profile to the whole tool: when the list
       // already holds patterns for this tool, save THIS call's exact action
-      // text as one more narrow pattern instead of the bare name.
+      // text(s) as narrow pattern(s). But a refused call is refused for a
+      // reason — a saved exact-text entry goes through the same gates on the
+      // next identical call and would be a dead rule — so every candidate is
+      // verified to actually approve before it is stored; if none does, the
+      // call stays gated and nothing is written (the card already went out).
       const hasPattern = current.policies.autoApprove.some((e) => e.startsWith(`${tool}:`));
-      const entry = hasPattern
-        ? `${tool}:${globEscape(actionTextsOf(input)[0]?.text ?? "")}`
-        : tool;
+      let entries: string[];
+      if (!hasPattern) {
+        entries = [tool];
+      } else {
+        entries = [
+          ...new Set(
+            actionTextsOf(input)
+              .map(({ text }) => `${tool}:${globEscape(text)}`)
+              .filter((entry) => {
+                const verdict = matchAutoApprove([entry], { callId: "always", name: tool, input });
+                return verdict.kind === "pattern" && verdict.destructive === undefined;
+              }),
+          ),
+        ];
+        if (entries.length === 0) {
+          console.warn(
+            `always-allow on ${tool}: the call stays gated by its pattern, no rule saved`,
+          );
+          return;
+        }
+      }
       await run(
         commitProfiles(converse, (all) =>
           all.map((row) =>
@@ -121,7 +143,7 @@ export const lifecycleOps = (
                   ...row,
                   policies: {
                     ...row.policies,
-                    autoApprove: [...new Set([...row.policies.autoApprove, entry])],
+                    autoApprove: [...new Set([...row.policies.autoApprove, ...entries])],
                   },
                 }
               : row,

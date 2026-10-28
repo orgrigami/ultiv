@@ -202,6 +202,11 @@ describe("A: too complex to judge", () => {
     expect(complexityOf({ text: "a; b; c; d; e" })).toBeUndefined(); // prose, not a command
   });
 
+  it("an argv-style array under a command key reads as one command line", () => {
+    expect(destructiveOf("bash", { command: ["rm", "-rf", "/tmp/x"] })).toMatch(/rm deletes files/);
+    expect(destructiveOf("bash", { command: ["git", "status"] })).toBeUndefined();
+  });
+
   it("sends a split note without calling Jev, then the same call reaches the card", async () => {
     const r = rig({ mode: "jev", probability: 0.99 });
     const complex = call("run_script", { command: "a && b && c && d" }, "k1");

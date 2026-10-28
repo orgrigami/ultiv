@@ -16,12 +16,12 @@ export interface ProfilesService {
     patch: Partial<ProfileCreate>,
   ) => Promise<ProfileInfo>;
   readonly setArchived: (owner: string, id: string, archived: boolean) => Promise<ProfileInfo>;
-  /** Save a tool on the profile's autoApprove list — the "always allow" rule. */
+  /** Save a tool (or a verified sub-action pattern) on the profile's autoApprove list — the "always allow" rule. */
   readonly allowTool: (
     owner: string,
     profileId: string,
     tool: string,
-    input?: unknown,
+    input: unknown,
   ) => Promise<void>;
   /** Remove the profile row and its session rows; returns them for the cascade. */
   readonly remove: (owner: string, id: string) => Promise<SessionInfo[]>;

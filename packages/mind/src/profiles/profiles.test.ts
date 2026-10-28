@@ -190,7 +190,7 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     await handle.close();
   });
 
-  it("allowTool never widens a patterned autoApprove list to the whole tool", async () => {
+  it("allowTool never widens a patterned list, and never saves a rule that cannot approve", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const { profiles } = handle.mind;
     const profile = await profiles.create("harry", {
@@ -198,12 +198,17 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
       onboard: false,
       policies: { ...defaultPolicies(), autoApprove: ["bash:git *"] },
     });
-    // A card that the pattern just refused: always-allow saves THIS call's
-    // exact action text as one more pattern, not the bare tool.
+    // A destructive call the pattern refused: the exact-text rule would go
+    // through the same refusal on the next identical call — a dead rule —
+    // so nothing is saved and the call stays gated.
     await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" });
+    const after = await profiles.get("harry", profile.id);
+    expect(after?.policies.autoApprove).toEqual(["bash:git *"]);
+    // A benign call outside the pattern's glob: the exact text verifies, so
+    // one narrow pattern is added — the whole tool is never granted.
+    await profiles.allowTool("harry", profile.id, "bash", { script: "npm install" });
     const narrow = await profiles.get("harry", profile.id);
-    expect(narrow?.policies.autoApprove).toContain("bash:git push --force");
-    expect(narrow?.policies.autoApprove).not.toContain("bash");
+    expect(narrow?.policies.autoApprove).toEqual(["bash:git *", "bash:npm install"]);
     // A profile with no pattern for the tool keeps today's bare-name grant.
     const plain = await profiles.create("harry", { name: "Plain", onboard: false });
     await profiles.allowTool("harry", plain.id, "bash", { script: "ls" });

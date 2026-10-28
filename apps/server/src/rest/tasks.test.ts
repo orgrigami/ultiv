@@ -30,7 +30,7 @@ const fakeArgs = (
   return { args, body: () => captured };
 };
 
-const runningTask = (id: string, owner = "owner") => ({
+const runningTask = (id: string, owner = "owner", bot?: { owner: string; profileId: string }) => ({
   id,
   sessionId: "s1",
   owner,
@@ -41,6 +41,7 @@ const runningTask = (id: string, owner = "owner") => ({
   error: null,
   createdAt: 1,
   finishedAt: null,
+  ...(bot === undefined ? {} : { bot }),
 });
 
 describe("GET /api/tasks carries waiting approvals", () => {
@@ -95,7 +96,7 @@ describe("GET /api/tasks carries waiting approvals", () => {
     expect(rows[1]?.taskConversationId).toBeUndefined(); // settled rows pass through
   });
 
-  it("rows carry waiting approval INPUTS, so a guest sees only its own and agent rows", async () => {
+  it("rows carry waiting approval INPUTS, so a guest sees only its own rows and its bot's agent rows", async () => {
     const { args, body } = fakeArgs(
       {
         tasks: {
@@ -103,7 +104,9 @@ describe("GET /api/tasks carries waiting approvals", () => {
             Effect.succeed([
               runningTask("t-mine", "guest"),
               runningTask("t-foreign", "someone-else"),
-              runningTask("t-agent", "agent"),
+              runningTask("t-agent-mine", "agent", { owner: "guest", profileId: "p1" }),
+              runningTask("t-agent-foreign", "agent", { owner: "eve", profileId: "p2" }),
+              runningTask("t-agent-nobot", "agent"),
             ]),
           steps: async () => [],
         },
@@ -126,16 +129,21 @@ describe("GET /api/tasks carries waiting approvals", () => {
     );
     await taskRoutes(args, () => "");
     const rows = body() as Array<{ id: string }>;
-    // The foreign owner's task — inputs and all — never leaves the server.
-    expect(rows.map((row) => row.id)).toEqual(["t-mine", "t-agent"]);
+    // A foreign owner's task, an agent task bound to another principal's bot,
+    // and an unbound agent row — inputs and all — never leave the server.
+    expect(rows.map((row) => row.id)).toEqual(["t-mine", "t-agent-mine"]);
   });
 
-  it("named owners do not see each other either — the header is not a boundary", async () => {
+  it("named owners do not see each other's rows or bots either — the header is not a boundary", async () => {
     const { args, body } = fakeArgs(
       {
         tasks: {
           list: () =>
-            Effect.succeed([runningTask("t-harry", "harry"), runningTask("t-agent", "agent")]),
+            Effect.succeed([
+              runningTask("t-harry", "harry"),
+              runningTask("t-agent-eve", "agent", { owner: "eve", profileId: "p2" }),
+              runningTask("t-agent-harry", "agent", { owner: "harry", profileId: "p1" }),
+            ]),
           steps: async () => [],
         },
         converse: { conversationIdOf: () => Effect.succeed("42") },
@@ -145,6 +153,6 @@ describe("GET /api/tasks carries waiting approvals", () => {
     );
     await taskRoutes(args, () => "");
     const rows = body() as Array<{ id: string }>;
-    expect(rows.map((row) => row.id)).toEqual(["t-agent"]);
+    expect(rows.map((row) => row.id)).toEqual(["t-agent-eve"]);
   });
 });

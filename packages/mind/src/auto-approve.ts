@@ -55,10 +55,12 @@ const UNSAFE_TEXT = new RegExp(
 /**
  * Shell escape hatches on a SHELL text: git aliases (`git -c alias.x='!cmd'
  * runs arbitrary commands under a `git *` pattern`), git's exec/upload-pack
- * hooks, and `!`-prefixed heads that hide a destructive command from the
- * destructive regexes. A shell text carrying one is refused.
+ * hooks, and a `!` head at a position that starts a command (`!rm`, `-c x=!y`
+ * — after whitespace, start, `=`, `:` or a quote), which would otherwise
+ * hide a destructive command from the destructive regexes. Mid-word `!`
+ * (`git commit -m "fix typo!"`) is fine.
  */
-const SHELL_ESCAPE = /(^|\s)-c(\s|$)|--exec-path|--upload-pack|!/;
+const SHELL_ESCAPE = /(^|\s)-c(\s|$)|--exec-path|--upload-pack|(^|[\s=:'"])!/;
 
 /** One candidate action text; `shell` = it came from a command/script field. */
 export interface ActionText {
@@ -140,16 +142,16 @@ export type AutoApproveMatch =
 /**
  * True when the whole call may be pattern-matched at all: NO candidate text
  * carries a chaining/substitution operator — a benign first field must not
- * approve a call whose second field chains a shell line.
+ * approve a call whose second field chains a shell line — and no SHELL text
+ * carries an escape hatch (also call-wide: the benign field must not vouch
+ * for the one with the hatch).
  */
 const matchable = (texts: readonly ActionText[]): boolean =>
-  texts.every(({ text }) => !UNSAFE_TEXT.test(text));
+  texts.every(({ text, shell }) => !UNSAFE_TEXT.test(text) && !(shell && SHELL_ESCAPE.test(text)));
 
 /** True when some text matches the glob (call-wide safety already checked). */
-const globMatch = (glob: string, texts: readonly ActionText[]): boolean => {
-  const re = globToRegExp(glob);
-  return texts.some(({ text, shell }) => re.test(text) && !(shell && SHELL_ESCAPE.test(text)));
-};
+const globMatch = (glob: string, texts: readonly ActionText[]): boolean =>
+  texts.some(({ text }) => globToRegExp(glob).test(text));
 
 /**
  * Match the list against one call. A bare name wins outright; a pattern

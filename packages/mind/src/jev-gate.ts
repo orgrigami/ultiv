@@ -81,6 +81,14 @@ const commandsOf = (input: unknown, out: string[] = [], depth = 0): string[] => 
   if (depth > 4 || input === null || typeof input !== "object") return out;
   for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (typeof value === "string" && COMMAND_FIELDS.test(key)) out.push(value);
+    // An argv-style array under a command key is one command line — the
+    // matcher joins it the same way, so the destructive read sees it too.
+    else if (
+      Array.isArray(value) &&
+      value.every((part) => typeof part === "string") &&
+      COMMAND_FIELDS.test(key)
+    )
+      out.push((value as string[]).join(" "));
     else if (typeof value === "object") commandsOf(value, out, depth + 1);
   }
   return out;
