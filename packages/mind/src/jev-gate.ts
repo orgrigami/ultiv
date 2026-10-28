@@ -70,9 +70,9 @@ export const MAX_INPUT_CHARS = 4_000;
 /** An array with more items than this is a mass action over many targets. */
 export const MAX_TARGETS = 10;
 
-const CHAIN_OPS = /&&|\|\||;|\|/g;
-const SUBSTITUTION = /\$\(|`|<\(|>\(/;
-const SUBSHELL_OR_HEREDOC = /(^|[\s;&|])\(|<<-?\s*['"]?\w/;
+export const CHAIN_OPS = /&&|\|\||;|\|/g;
+export const SUBSTITUTION = /\$\(|`|<\(|>\(/;
+export const SUBSHELL_OR_HEREDOC = /(^|[\s;&|])\(|<<-?\s*['"]?\w/;
 
 const commandsOf = (input: unknown, out: string[] = [], depth = 0): string[] => {
   if (depth > 4 || input === null || typeof input !== "object") return out;

@@ -23,10 +23,13 @@ export const ProfilePoliciesSchema = Type.Object({
   canInitiate: Type.Array(Type.String()),
   /**
    * Gated tools pre-approved for this profile. An entry is a bare tool name
-   * ("bash" approves every bash call) or a `tool:pattern` sub-action rule
-   * ("bash:git *" approves only bash calls whose command text matches the
-   * glob: `*` any run, `?` one char, else literal, case-sensitive). Floors
-   * (first-use credential/connector, `secret_request`) outrank every entry.
+   * ("bash" approves every bash call — the owner's whole-tool grant) or a
+   * `tool:pattern` sub-action rule ("bash:git *"): an anchored glob over the
+   * call's command/action text (`*` any run, `?` one char — wildcards cannot
+   * cross a `;`/`&&`/`|` boundary; else literal, case-sensitive). A pattern
+   * match that looks destructive is refused to the normal gate, and
+   * `bash_host` never pattern-matches. Floors (first-use
+   * credential/connector, `secret_request`) outrank every entry.
    */
   autoApprove: Type.Array(Type.String()),
   /** Who answers a gated call: the owner each time, Jev as the gate, or nobody. */

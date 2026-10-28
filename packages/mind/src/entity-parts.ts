@@ -8,7 +8,7 @@ import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durab
 import type { ScopeHolder } from "@ultiv/ext";
 import type { TranscriptEntry } from "@ultiv/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
-import { autoApproves } from "./auto-approve.ts";
+import { matchAutoApprove } from "./auto-approve.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
 import type { actService } from "./act/act.ts";
@@ -206,14 +206,21 @@ export const wirePolicies = (
   approvals.setHooks({
     // A credential's first use on a host, and a connector's first use, are
     // always asked, whatever the list says. Entries are tool names or
-    // `tool:glob` sub-action patterns (see auto-approve.ts).
+    // `tool:glob` sub-action patterns (see auto-approve.ts): a bare name is
+    // the owner's whole-tool grant; a pattern match is refused when the
+    // matched text crosses a command boundary or the call looks destructive,
+    // and the privileged bash_host never pattern-matches.
     autoApprove: (conversationId, request) => {
       const profile = profiles.profileOf(conversationId);
       const mode = profile?.policies.approvalMode;
+      if (isApprovalFloor(request.name)) return false;
+      if (mode === "yolo") return true;
+      const match = matchAutoApprove(profile?.policies.autoApprove ?? [], request);
       return (
-        !isApprovalFloor(request.name) &&
-        (mode === "yolo" ||
-          (profile !== undefined && autoApproves(profile.policies.autoApprove, request)))
+        match.kind === "bare" ||
+        (match.kind === "pattern" &&
+          match.destructive === undefined &&
+          request.name !== "bash_host")
       );
     },
     // 'jev': floors and bash_host always reach the owner; see jev-gate.ts.

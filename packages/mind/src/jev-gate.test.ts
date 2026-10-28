@@ -120,35 +120,54 @@ describe("jev gate: floors and bash_host", () => {
 describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
   it("a bare name approves every call of the tool, whatever Jev would say", async () => {
     const r = rig({ mode: "jev", autoApprove: ["bash"], probability: 0.01 });
-    expect(await r.outcome(call("bash", { command: "ls -la" }))).toBe(true);
+    expect(await r.outcome(call("bash", { script: "ls -la" }))).toBe(true);
     expect(r.asked).toEqual([]);
   });
 
-  it("a tool:glob entry approves only the matching sub-action", async () => {
+  it("a tool:glob entry approves only the matching sub-action (the script field bash sends)", async () => {
     const r = rig({ mode: "jev", autoApprove: ["bash:git *"], probability: 0.01 });
-    expect(await r.outcome(call("bash", { command: "git status" }))).toBe(true);
-    expect(await r.outcome(call("bash", { command: "git push --force" }))).toBe(true);
-    // Non-matching calls fall through to Jev, which denies at 0.01:
-    expect(await r.outcome(call("bash", { command: "rm -rf /tmp/x" }))).toBe(false);
-    expect(await r.outcome(call("bash", { command: "npm test" }))).toBe(false);
-    expect(r.asked.length).toBe(2); // only the non-matching calls reached Jev
+    expect(await r.outcome(call("bash", { script: "git status" }))).toBe(true);
+    // A pattern is narrower, never looser: a destructive hit falls to Jev,
+    // which denies at 0.01 — so does anything the glob doesn't cover.
+    expect(await r.outcome(call("bash", { script: "git push --force" }))).toBe(false);
+    expect(await r.outcome(call("bash", { script: "git status && rm -rf /tmp/x" }))).toBe(false);
+    expect(await r.outcome(call("bash", { script: "npm test" }))).toBe(false);
+    // The destructive and non-matching-first calls are refused deterministically
+    // (sent back / glob miss → Jev never scores them); only npm test is scored,
+    // and the gate asks both rubrics for it.
+    expect(r.asked.length).toBe(2);
   });
 
-  it("floors outrank the list, bare or patterned", async () => {
+  it("a refused pattern match lands on the owner's card in manual mode", async () => {
+    const r = rig({ mode: "manual", autoApprove: ["bash:git *"] });
+    expect(await r.outcome(call("bash", { script: "git status" }))).toBe(true);
+    expect(await r.outcome(call("bash", { script: "git push --force" }))).toBe("card");
+    expect(await r.outcome(call("bash", { script: "git status; rm -rf /tmp/x" }))).toBe("card");
+    expect(r.asked).toEqual([]);
+  });
+
+  it("bash_host never pattern-matches; a bare bash_host entry is still the owner's grant", async () => {
+    const patterned = rig({ mode: "manual", autoApprove: ["bash_host:git *"] });
+    expect(await patterned.outcome(call("bash_host", { script: "git status" }))).toBe("card");
+    const bare = rig({ mode: "manual", autoApprove: ["bash_host"] });
+    expect(await bare.outcome(call("bash_host", { script: "git status" }))).toBe(true);
+  });
+
+  it("floors go to the card; nothing was judged or escalated", async () => {
     const r = rig({
       mode: "manual",
       autoApprove: ["secret_request", "secret_request:*", FIRST_USE_APPROVAL],
     });
     for (const name of ["secret_request", FIRST_USE_APPROVAL]) {
-      expect(await r.outcome(call(name, { command: "anything" }))).toBe("card");
+      expect(await r.outcome(call(name, { script: "anything" }))).toBe("card");
     }
     expect(r.asked).toEqual([]);
-    expect(r.audit).toEqual([]); // auto-approved, not escalated — nothing here was
+    expect(r.audit).toEqual([]);
   });
 
   it("yolo still waves everything past the floors, list untouched", async () => {
     const r = rig({ mode: "yolo", autoApprove: [], probability: 0.01 });
-    expect(await r.outcome(call("anything", { command: "whatever" }))).toBe(true);
+    expect(await r.outcome(call("anything", { script: "whatever" }))).toBe(true);
     expect(r.asked).toEqual([]);
   });
 });
