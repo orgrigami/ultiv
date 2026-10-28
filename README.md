@@ -21,7 +21,7 @@ The default bot is called Ultius. You can add as many others as you like.
 
 ## Requirements
 
-- Node 24 (pinned in `mise.toml`) and pnpm 12. You reach both through [Vite+](https://vite-plus.dev) (`vp`), which is the only toolchain this repo uses. Install it once with `npm i -g @voidzero-dev/vite-plus`.
+- Node 24 (pinned in `mise.toml`) and pnpm 12. You reach both through [Vite+](https://viteplus.dev/) (`vp`), which is the only toolchain this repo uses. Install it once with `curl -fsSL https://vite.plus | bash`.
 - For the `bash` microVM: an Apple Silicon Mac, or Linux with KVM. Everything else runs anywhere Node 24 does. Without virtualization, the `bash` tool reports an error and the rest of the app works fine.
 
 ## Install and run
