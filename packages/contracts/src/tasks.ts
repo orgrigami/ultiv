@@ -61,22 +61,13 @@ export const TaskRowSchema = Type.Object({
  * One row of GET /api/tasks: the stored task plus response-only projections.
  * `waitingApproval` stays OUT of the stored schema — the tasks doc's
  * JsonObject constraint is JSON-strict and tool inputs are arbitrary — so
- * the row type carries it and the client treats the input as opaque
- * (`unknown`), exactly like the activity route.
+ * this is the ROW schema's static, and the client treats the input as
+ * opaque (`unknown`), exactly like the activity route.
  */
-export type TaskRow = TaskInfo & {
-  /** The task's own conversation id (the decide target for its approval). */
-  taskConversationId?: string | null;
-  waitingApproval?: WaitingApproval;
-};
+export type TaskRow = Static<typeof TaskRowSchema>;
 
 /** One gate waiting on a task's own conversation (list responses only). */
-export type WaitingApproval = {
-  callId: string;
-  name: string;
-  input: unknown;
-  reason: string | null;
-};
+export type WaitingApproval = NonNullable<TaskRow["waitingApproval"]>;
 
 export const TaskListSchema = Type.Array(TaskRowSchema);
 

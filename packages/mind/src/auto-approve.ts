@@ -177,8 +177,7 @@ export const parseAutoApproveEntry = (entry: string): { tool: string; pattern?: 
 const MAX_WILDCARDS = 4;
 
 export const validAutoApproveEntry = (entry: string): boolean =>
-  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
-  (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS;
+  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) && (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS;
 
 /** How the list matches one call. */
 export type AutoApproveMatch =

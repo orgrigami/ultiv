@@ -17,6 +17,7 @@ import type {
   SessionInfo,
   TaskInfo,
   TaskRow,
+  WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
 } from "@ultiv/contracts";
@@ -140,7 +141,7 @@ export interface ArtifactRow {
 /** One row of GET /api/tasks/:id/activity — progress, waiting gate, conversation. */
 export interface TaskActivity {
   conversationId: string | null;
-  waiting: { callId: string; name: string; input: unknown; reason: string | null } | null;
+  waiting: WaitingApproval | null;
   steps: {
     kind: string;
     at: number;
@@ -367,8 +368,8 @@ export const api = {
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
-  ): Promise<boolean> =>
-    send<boolean>(
+  ): Promise<{ ok: boolean; stored: number | null }> =>
+    send<{ ok: boolean; stored: number | null }>(
       `/api/approvals/${encodeURIComponent(conversationId)}/${encodeURIComponent(callId)}`,
       "POST",
       {

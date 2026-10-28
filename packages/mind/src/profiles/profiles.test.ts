@@ -201,17 +201,15 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     // A destructive call the pattern refused: the exact-text rule would go
     // through the same refusal on the next identical call — a dead rule —
     // so nothing is saved and the call stays gated.
-    expect(await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" })).toEqual(
-      [],
-    );
-    expect((await profiles.get("harry", profile.id))?.policies.autoApprove).toEqual([
-      "bash:git *",
-    ]);
+    expect(
+      await profiles.allowTool("harry", profile.id, "bash", { script: "git push --force" }),
+    ).toEqual([]);
+    expect((await profiles.get("harry", profile.id))?.policies.autoApprove).toEqual(["bash:git *"]);
     // A benign call outside the pattern's glob: the exact text verifies, so
     // one narrow pattern is added — the whole tool is never granted.
-    expect(await profiles.allowTool("harry", profile.id, "bash", { script: "npm install" })).toEqual(
-      ["bash:npm install"],
-    );
+    expect(
+      await profiles.allowTool("harry", profile.id, "bash", { script: "npm install" }),
+    ).toEqual(["bash:npm install"]);
     expect((await profiles.get("harry", profile.id))?.policies.autoApprove).toEqual([
       "bash:git *",
       "bash:npm install",
@@ -236,9 +234,7 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     ]);
     // The privileged host shell is never granted from a card, bare or not.
     expect(await profiles.allowTool("harry", http.id, "bash_host", { script: "ls" })).toEqual([]);
-    expect((await profiles.get("harry", http.id))?.policies.autoApprove).not.toContain(
-      "bash_host",
-    );
+    expect((await profiles.get("harry", http.id))?.policies.autoApprove).not.toContain("bash_host");
     // A profile with no pattern for the tool keeps today's bare-name grant.
     const plain = await profiles.create("harry", { name: "Plain", onboard: false });
     await profiles.allowTool("harry", plain.id, "bash", { script: "ls" });

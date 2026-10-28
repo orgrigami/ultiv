@@ -170,6 +170,15 @@ describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
     expect(await r.outcome(call("anything", { script: "whatever" }))).toBe(true);
     expect(r.asked).toEqual([]);
   });
+
+  it("a stored rule approves the identical call at the broker (the always-allow round trip)", async () => {
+    const r = rig({ mode: "manual", autoApprove: ["bash:npm install"] });
+    expect(await r.outcome(call("bash", { script: "npm install" }))).toBe(true);
+    expect(await r.outcome(call("bash", { script: "npm install" }))).toBe(true);
+    // A different sub-action is not covered by the exact-text rule.
+    expect(await r.outcome(call("bash", { script: "npm ci" }))).toBe("card");
+    expect(r.asked).toEqual([]);
+  });
 });
 
 describe("jev gate: timeout", () => {

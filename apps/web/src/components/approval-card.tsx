@@ -15,12 +15,17 @@ import { SecretCard, secretAskOf } from "@/components/secure/secret-card";
 import { canAlwaysAllow, describeTool, hintOf } from "@/lib/approval-text";
 import { cn } from "@/lib/utils";
 
+export interface DecideOutcome {
+  /** The autoApprove entries "always allow" stored; 0 = the call stays gated by its pattern. */
+  stored?: number | null;
+}
+
 export type Decide = (
   callId: string,
   approved: boolean,
   always?: boolean,
   takeover?: boolean,
-) => Promise<void>;
+) => Promise<DecideOutcome | void>;
 
 export function ApprovalCard(props: {
   /** The tool's name. */
@@ -31,7 +36,11 @@ export function ApprovalCard(props: {
   who?: string | undefined;
   /** The waiting call; secure inputs post to it directly. */
   callId?: string | undefined;
-  onDecide: (approved: boolean, always?: boolean, takeover?: boolean) => Promise<void>;
+  onDecide: (
+    approved: boolean,
+    always?: boolean,
+    takeover?: boolean,
+  ) => Promise<DecideOutcome | void>;
 }) {
   const ask = props.name === "secret_request" ? secretAskOf(props.input) : null;
   if (ask !== null && props.callId !== undefined)
@@ -51,11 +60,18 @@ function DecisionCard({
   reason?: string | null | undefined;
   /** Who is asking ("Eve"); defaults to "Your bot". */
   who?: string | undefined;
-  onDecide: (approved: boolean, always?: boolean, takeover?: boolean) => Promise<void>;
+  onDecide: (
+    approved: boolean,
+    always?: boolean,
+    takeover?: boolean,
+  ) => Promise<DecideOutcome | void>;
 }) {
   const [deciding, setDeciding] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState(false);
+  // What "Always allow" actually did: 0 stored = the call stays gated by its
+  // pattern, and the owner is told instead of the click vanishing.
+  const [alwaysNote, setAlwaysNote] = useState<string | null>(null);
   const change = connectorChangeOf(input);
   const described = describeTool(name);
   const { action, risk } = described;
@@ -63,11 +79,14 @@ function DecisionCard({
   const hint = change !== null ? change.server : hintOf(input);
   const RiskIcon = risky ? ShieldAlertIcon : ShieldCheckIcon;
 
-  const decide = async (label: string, run: () => Promise<void>): Promise<void> => {
+  const decide = async (label: string, run: () => Promise<DecideOutcome | void>): Promise<void> => {
     setDeciding(label);
     setError(null);
     try {
-      await run();
+      const outcome = await run();
+      setAlwaysNote(
+        outcome?.stored === 0 ? "This call can't be granted narrowly — it will ask again." : null,
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -126,6 +145,11 @@ function DecisionCard({
       {error !== null && (
         <p className="text-destructive text-xs" role="alert">
           Decision not sent: {error}. Try again.
+        </p>
+      )}
+      {alwaysNote !== null && (
+        <p className="text-muted-foreground text-xs" role="status">
+          {alwaysNote}
         </p>
       )}
       <div className="flex items-center justify-end gap-2">

@@ -92,9 +92,7 @@ describe("Profile policy patches", () => {
       ),
     ).toMatch(/too many autoApprove entries/);
     expect(
-      reasonOf(() =>
-        validatePatch({ policies: { ...base, autoApprove: ["x".repeat(201)] } }),
-      ),
+      reasonOf(() => validatePatch({ policies: { ...base, autoApprove: ["x".repeat(201)] } })),
     ).toMatch(/autoApprove entry too long/);
     // A pathological glob chain would backtrack the synchronous gate.
     expect(

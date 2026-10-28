@@ -15,8 +15,11 @@ and Meta's Muse against our web app. Effort: S small, M medium, L large.
 ## Wave 2 — next (M)
 
 - **3 — Approval cards on the server** (M): DONE for the chat surface —
-  Allow once / Always allow / Deny; "Always allow" appends the tool to the
-  bot's `policies.autoApprove` (contract v8, `approve {always}`); pending
+  Allow once / Always allow / Deny; "Always allow" appends the tool — or, on
+  an already-patterned profile, the call's exact action text as a narrow
+  `tool:pattern` — to the bot's `policies.autoApprove` (contract v14,
+  `approve {always}` returns the stored entries; a multi-field or destructive
+  call stores nothing and the card says so); pending
   cards already survive reload (server-mirrored `pendingFor` cell); Stop now
   releases pending cards (each waiter denied) instead of leaving them active.
   Remaining: expiry tuning for background asks, and `always` support in the
@@ -52,10 +55,15 @@ and Meta's Muse against our web app. Effort: S small, M medium, L large.
   included, and the tasks poll (3 s) refreshes the card away. The activity
   dialog keeps the full tri-state for when the card has already scrolled up.
 - **Pattern 3 leftover — inbox `always`**: DONE — `POST /api/approvals/:conv/:call`
-  takes `always` and saves the same rule via the new shared
-  `mind.profiles.allowTool(owner, profileId, tool)` (the chord session's
+  takes `always` and saves the same rule via the shared
+  `mind.profiles.allowTool(owner, profileId, tool, input)` (the chord session's
   always-allow now uses it too); the task activity dialog's waiting card has
-  the full tri-state. Pattern 3 is now complete on every surface.
+  the full tri-state. Pattern 3 is now complete on every surface. Entries are
+  bounded and shape-checked on PATCH (the hook compiles globs synchronously),
+  and a patterned profile only ever gains narrow exact-text patterns — never
+  the whole tool, never `bash_host`. Patterns themselves are authored via raw
+  REST only (the bot dialog's field removes entries but cannot author a
+  pattern yet — follow-up wave).
 - **4 — Three outcomes for actions** (M): DONE (thin handback) — every
   approval surface (chat card, task activity dialog, REST inbox) offers
   **Take over** alongside Deny / Always allow / Approve. Take over denies the

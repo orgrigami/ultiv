@@ -15,7 +15,7 @@ import type {
 import { ArrowDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ApprovalCard, type Decide } from "@/components/approval-card";
+import { ApprovalCard, type Decide, type DecideOutcome } from "@/components/approval-card";
 import { ChatSkeleton, EmptyChat, StatusRow } from "@/components/chat-states";
 import { Composer } from "@/components/composer";
 import { QueuedChips } from "@/components/queued-chips";
@@ -161,12 +161,12 @@ export function SessionView({
   /** Gates waiting on this chat's tasks, shown as cards in the thread. */
   taskApprovals?: readonly TaskApproval[];
   /** Decides a task's waiting gate (routes REST to the task's own conversation). */
-  onTaskDecide?: (
+  onTaskDecide: (
     task: TaskRow,
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
-  ) => Promise<void>;
+  ) => Promise<DecideOutcome | void>;
   /** Jev's gate decisions by tool call id, shown under the calls. */
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
 }) {
@@ -240,9 +240,9 @@ export function SessionView({
                   reason={reason}
                   who={taskWho(bot?.name, task)}
                   callId={callId}
-                  onDecide={async (approved, always, takeover) => {
-                    await onTaskDecide?.(task, approved, always, takeover);
-                  }}
+                  onDecide={(approved, always, takeover) =>
+                    onTaskDecide(task, approved, always, takeover)
+                  }
                 />
               </li>
             ))}

@@ -39,15 +39,21 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       req,
     );
     const approved = body.approved === true;
+    // A stale decide (the call already resolved) is a 409, not a silent ok —
+    // the chord path throws for the same race, and the surfaces agree.
     const waiting = mind.approvals
       .pendingFor(conversationId ?? "")
       .find((request) => request.callId === callId);
+    if (waiting === undefined) {
+      json(409, { error: "this approval is no longer waiting" });
+      return true;
+    }
     // "Always allow" from the inbox saves the same per-profile rule the chat
     // card does; a failed save must not swallow the decision. An empty
     // result means the call stays gated by its pattern — noted in the audit
-    // record so the skipped save is not invisible.
+    // record and returned to the client so the skip is visible.
     let stored: string[] | null = null;
-    if (approved && body.always === true && waiting !== undefined && scope.profileId !== null) {
+    if (approved && body.always === true) {
       try {
         stored = await mind.profiles.allowTool(
           args.owner,
@@ -80,12 +86,12 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       conversationId: conversationId ?? "",
       profile: scope.profileId,
       callId: callId ?? "",
-      name: waiting?.name ?? null,
+      name: waiting.name,
       durationMs: null,
       ok: approved,
       error: notes.length === 0 ? null : notes.join("; "),
     });
-    json(200, { ok: true });
+    json(200, { ok: true, stored: stored ?? null });
     return true;
   }
   return false;

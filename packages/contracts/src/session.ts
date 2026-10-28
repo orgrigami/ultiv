@@ -149,7 +149,7 @@ export const SessionErrorSchema = Type.Union([Type.String(), Type.Null()]);
 
 /** One agent session: durable, replayable transcript plus the agent's phase. */
 export const Session = remote("ultiv.session", {
-  version: 13,
+  version: 14,
   input: Type.Object({ id: Type.String() }),
   host: hostNamed("server"),
   variants: {
@@ -204,7 +204,15 @@ export const Session = remote("ultiv.session", {
             /** With approved=false: the owner does this one themselves; the agent is told. */
             takeover: Type.Optional(Type.Boolean()),
           }),
-          Type.Object({ ok: Type.Boolean() }),
+          Type.Object({
+            ok: Type.Boolean(),
+            /**
+             * The autoApprove entries "always allow" stored; empty or null
+             * means the call stays gated by its pattern — nothing was
+             * written, and the identical call will card again.
+             */
+            stored: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()])),
+          }),
         ),
         configure: method(
           Type.Object({ model: ModelIdSchema, effort: EffortSchema }),

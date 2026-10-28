@@ -118,7 +118,7 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       error: notes.length === 0 ? null : notes.join("; "),
     });
     safeChange(cells.pending, ctx, () => mind.approvals.pendingFor(id)[0] ?? null);
-    return { ok: true };
+    return { ok: true, stored: stored ?? null };
   };
 }
 

@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { NotFound } from "@ultiv/core";
 import type { ProfileInfo } from "@ultiv/contracts";
-import { NEVER_PATTERN_MATCHED, actionTextsOf, globEscape, mayAutoApprove } from "../auto-approve.ts";
+import {
+  NEVER_PATTERN_MATCHED,
+  actionTextsOf,
+  globEscape,
+  mayAutoApprove,
+} from "../auto-approve.ts";
 import {
   SettingsDoc,
   commitProfiles,
@@ -131,8 +136,7 @@ export const lifecycleOps = (
         const first = texts[0];
         const single = texts.length === 1 && first?.shell === true ? first : undefined;
         const request = { callId: "always", name: tool, input };
-        const candidate =
-          single === undefined ? undefined : `${tool}:${globEscape(single.text)}`;
+        const candidate = single === undefined ? undefined : `${tool}:${globEscape(single.text)}`;
         if (candidate === undefined || !mayAutoApprove([candidate], request)) {
           console.warn(
             `always-allow on ${tool}: the call stays gated by its pattern, no rule saved`,

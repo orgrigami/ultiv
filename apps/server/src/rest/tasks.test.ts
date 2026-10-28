@@ -12,8 +12,9 @@ import type { RouteArgs } from "./types.ts";
 const fakeArgs = (
   mind: Record<string, unknown>,
   owner = "owner",
-): { args: RouteArgs; body: () => unknown } => {
+): { args: RouteArgs; body: () => unknown; status: () => number } => {
   let captured: unknown;
+  let capturedStatus = 0;
   const args = {
     mind,
     req: {} as IncomingMessage,
@@ -21,13 +22,14 @@ const fakeArgs = (
     url: new URL("http://x/api/tasks"),
     owner,
     path: "/api/tasks",
-    json: (_status: number, body: unknown) => {
+    json: (status: number, body: unknown) => {
+      capturedStatus = status;
       captured = body;
     },
     readJson: async <T>() => undefined as T,
     readBody: async () => Buffer.alloc(0),
   } as unknown as RouteArgs;
-  return { args, body: () => captured };
+  return { args, body: () => captured, status: () => capturedStatus };
 };
 
 const runningTask = (id: string, owner = "owner", bot?: { owner: string; profileId: string }) => ({
@@ -176,5 +178,54 @@ describe("GET /api/tasks carries waiting approvals", () => {
     await taskRoutes(args, () => "");
     const rows = body() as Array<{ id: string }>;
     expect(rows).toEqual([]);
+  });
+
+  it("every task branch is scoped: foreign ids 404, the caller's own bot row passes", async () => {
+    const mine = runningTask("t-mine", "guest", { owner: "guest", profileId: "p1" });
+    const foreign = runningTask("t-foreign", "eve", { owner: "eve", profileId: "p2" });
+    const rig = (id: string, row: typeof mine | typeof foreign | undefined, owner = "guest") => {
+      const { args, body, status } = fakeArgs(
+        {
+          tasks: {
+            list: () => Effect.succeed([]),
+            get: () => Effect.succeed(row),
+            cancel: () => Effect.succeed({ cancelled: true }),
+            remove: () => Effect.succeed({ id }),
+          },
+          converse: { conversationIdOf: () => Effect.succeed("42") },
+          approvals: { pendingFor: () => [] },
+        },
+        owner,
+      );
+      return { args, body, status };
+    };
+    const segment = (path: string) => path.slice("/api/tasks/".length);
+    // Single GET.
+    for (const path of [`/api/tasks/${foreign.id}`, `/api/tasks/${mine.id}`]) {
+      const r = rig(segment(path), path.endsWith("foreign") ? foreign : mine);
+      (r.args as { path: string }).path = path;
+      await taskRoutes(r.args, segment);
+      expect(r.status()).toBe(path.endsWith("foreign") ? 404 : 200);
+    }
+    // Cancel.
+    const cancelForeign = rig(foreign.id, foreign);
+    (cancelForeign.args as { path: string }).path = `/api/tasks/${foreign.id}/cancel`;
+    await taskRoutes(cancelForeign.args, () => "");
+    expect(cancelForeign.status()).toBe(404);
+    const cancelMine = rig(mine.id, mine);
+    (cancelMine.args as { path: string }).path = `/api/tasks/${mine.id}/cancel`;
+    await taskRoutes(cancelMine.args, () => "");
+    expect(cancelMine.status()).toBe(200);
+    // DELETE.
+    const deleteForeign = rig(foreign.id, foreign);
+    (deleteForeign.args as { path: string }).path = `/api/tasks/${foreign.id}`;
+    (deleteForeign.args as { req: IncomingMessage }).req = { method: "DELETE" } as IncomingMessage;
+    await taskRoutes(deleteForeign.args, segment);
+    expect(deleteForeign.status()).toBe(404);
+    const deleteMine = rig(mine.id, mine);
+    (deleteMine.args as { path: string }).path = `/api/tasks/${mine.id}`;
+    (deleteMine.args as { req: IncomingMessage }).req = { method: "DELETE" } as IncomingMessage;
+    await taskRoutes(deleteMine.args, segment);
+    expect(deleteMine.status()).toBe(200);
   });
 });

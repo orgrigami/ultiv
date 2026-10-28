@@ -34,13 +34,14 @@ export function useTaskActivity(task: TaskInfo, open: boolean) {
     return () => clearInterval(timer);
   }, [open, load, running]);
 
-  const decide = async (approved: boolean, always?: boolean, takeover?: boolean): Promise<void> => {
+  const decide = async (approved: boolean, always?: boolean, takeover?: boolean) => {
     const conversationId = activity?.conversationId;
     const callId = activity?.waiting?.callId;
     if (conversationId === null || conversationId === undefined || callId === undefined) return;
     // A failure throws into the card, which keeps it visible for a retry.
-    await api.approvalDecide(conversationId, callId, approved, always, takeover);
+    const result = await api.approvalDecide(conversationId, callId, approved, always, takeover);
     await load();
+    return { stored: result.stored };
   };
 
   return { activity, files, error, load, decide };
