@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ModelOptions } from "@/components/model-options";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
@@ -80,11 +81,7 @@ function ModelFields({
           onChange={(event) => setForm({ ...form, modelId: event.target.value, effort: "" })}
         >
           <option value="">Workspace default</option>
-          {models.map((model) => (
-            <option key={model.id} value={model.id}>
-              {model.label}
-            </option>
-          ))}
+          <ModelOptions models={models} />
         </Select>
       </label>
       <label

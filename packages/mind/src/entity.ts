@@ -65,7 +65,12 @@ import {
   type GenerateService,
 } from "./generate/generate.ts";
 import { Decide, decideLayer, type DecideService } from "./decide/decide.ts";
-import { MindModels, modelsLayer } from "./providers/models.ts";
+import {
+  MindModels,
+  ModelCatalog,
+  modelsLayer,
+  type ModelCatalogService,
+} from "./providers/models.ts";
 import { startMcp, type McpOptions, type McpRuntime } from "./mcp/index.ts";
 import type { SecretRequestsService } from "./secrets/index.ts";
 
@@ -87,6 +92,8 @@ export interface MindService {
   readonly approvals: ApprovalsService;
   /** One-shot app-facing completion (titles, extraction) — no conversation. */
   readonly generate: GenerateService;
+  /** The model catalog: configured providers' models from models.dev, cached. */
+  readonly models: ModelCatalogService;
   /** Background sub-agent tasks in their own durable conversations. */
   readonly tasks: TasksService;
   /** User-defined entities above sessions: registry, Bot Mode, DM threads. */
@@ -174,7 +181,16 @@ const mindLayerRaw = (
 ): Layer.Layer<
   Mind,
   never,
-  Decide | Approvals | MindModels | Registry | Converse | Generate | Tasks | Audit | PiRegistry
+  | Decide
+  | Approvals
+  | MindModels
+  | ModelCatalog
+  | Registry
+  | Converse
+  | Generate
+  | Tasks
+  | Audit
+  | PiRegistry
 > =>
   Layer.effect(
     Mind,
@@ -186,6 +202,7 @@ const mindLayerRaw = (
       const generate = yield* Generate;
       const tasks = yield* Tasks;
       const audit = yield* Audit;
+      const models = yield* ModelCatalog;
       const act = actService(
         registry,
         approvals,
@@ -207,6 +224,9 @@ const mindLayerRaw = (
           ...(mcpRef?.wiring.allowlistTools() ?? []),
         ],
         implied: (allowlist) => mcpRef?.wiring.implied(allowlist) ?? [],
+        // An empty catalog (models.dev unreachable on a first boot) cannot
+        // judge: the ref is kept and works once the catalog lands.
+        knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
       botTools = botsTools({ profiles, audit, activity: taskActivity(tasks) });
@@ -261,6 +281,7 @@ const mindLayerRaw = (
         act,
         approvals,
         generate,
+        models,
         tasks,
         profiles,
         rooms,

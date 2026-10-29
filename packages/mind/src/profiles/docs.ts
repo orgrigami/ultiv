@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import type { ProfileInfo, ProfilePolicies, SessionInfo } from "@ultiv/contracts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { ConverseService } from "../converse/converse.ts";
+import { normalizeRef } from "../providers/refs.ts";
 
 /** Registry doc: every profile row, owner-partitioned like the sessions doc. */
 export const ProfilesDoc = defineDoc<{ profiles: ProfileInfo[] }>({
@@ -128,8 +129,14 @@ export const normalizeRow = (row: SessionInfo): SessionInfo => ({
 export const readSessions = (converse: ConverseService) =>
   Effect.map(converse.docs.snapshot(SessionsDoc), (doc) => (doc?.sessions ?? []).map(normalizeRow));
 
+/** Profiles stored before provider-qualified refs carry bare (kenari) model ids. */
+const withModelRef = (profile: ProfileInfo): ProfileInfo =>
+  profile.model === null
+    ? profile
+    : { ...profile, model: { ...profile.model, id: normalizeRef(profile.model.id) } };
+
 export const readProfiles = (converse: ConverseService) =>
-  Effect.map(converse.docs.snapshot(ProfilesDoc), (doc) => doc?.profiles ?? []);
+  Effect.map(converse.docs.snapshot(ProfilesDoc), (doc) => (doc?.profiles ?? []).map(withModelRef));
 
 export const commitSessions = (
   converse: ConverseService,

@@ -12,9 +12,12 @@ export const ThinkingLevelSchema = Type.Union([
 
 export type ThinkingLevel = Static<typeof ThinkingLevelSchema>;
 
+/** One selectable model. `id` is `provider/model` (the catalog is models.dev, per configured provider). */
 export const ModelInfoSchema = Type.Object({
   id: Type.String(),
   label: Type.String(),
+  provider: Type.String(),
+  providerName: Type.String(),
   efforts: Type.Array(ThinkingLevelSchema),
   defaultEffort: ThinkingLevelSchema,
 });

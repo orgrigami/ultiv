@@ -41,7 +41,7 @@ export const rowOps = (
       ),
     create: (owner, input) => {
       // Same checks as update; `model: null` means "workspace default".
-      validatePatch(input);
+      validatePatch(input, ctx.knownModel);
       const profile: ProfileInfo = {
         id: randomUUID(),
         owner,
@@ -69,7 +69,7 @@ export const rowOps = (
       });
     },
     update: async (owner, id, patch) => {
-      validatePatch(patch);
+      validatePatch(patch, ctx.knownModel);
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === id);
       if (current === undefined) throw new NotFound({ what: `profile ${id}` });

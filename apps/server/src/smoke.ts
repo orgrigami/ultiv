@@ -8,7 +8,7 @@ import { smokeMcp } from "./smoke-mcp.ts";
 
 // The vault seals under this key for the smoke run only; the vault and the
 // artifact workspace point at throwaway dirs so the run is hermetic.
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +20,28 @@ process.env.ARTIFACTS_DIR = scratchArtifacts;
 process.env.AUDIT_LOG = join(scratchArtifacts, "audit.jsonl");
 // Connector configs land in the scratch dir too.
 process.env.MCP_DIR = join(scratchArtifacts, "mcp");
+// The model catalog never touches the network here: no models.dev fetch, a
+// scratch cache, and one keyless local provider from an overlay. The default
+// model stays unregistered, so onboarding turns fail fast as they always have.
+process.env.MODELS_DEV_URL = "off";
+process.env.MODELS_DEV_CACHE = join(scratchArtifacts, "models-dev.json");
+process.env.MODELS_OVERLAY = join(scratchArtifacts, "models.local.json");
+process.env.ULTIV_PROVIDERS = "smoke-local";
+process.env.ULTIV_MODEL = "kenari/deepseek-v4-1-flash";
+writeFileSync(
+  process.env.MODELS_OVERLAY,
+  JSON.stringify({
+    "smoke-local": {
+      name: "Smoke Local",
+      npm: "@ai-sdk/openai-compatible",
+      api: "http://127.0.0.1:9/v1",
+      env: [],
+      models: {
+        tiny: { id: "tiny", name: "Tiny", tool_call: true, limit: { context: 8192, output: 1024 } },
+      },
+    },
+  }),
+);
 
 const stack = await buildStack({ storage: new MemoryStorage(), vault: { dir: scratchVault } });
 await new Promise<void>((resolve, reject) => {
@@ -63,6 +85,22 @@ const failures: string[] = [];
 const expect = (name: string, ok: boolean): void => {
   if (!ok) failures.push(name);
 };
+
+// The model catalog: overlay providers are listed as provider/model, offline.
+const modelList = await call("GET", "/api/models");
+expect(
+  "overlay model listed",
+  modelList.status === 200 &&
+    modelList.json.some(
+      (model: { id: string; providerName: string }) =>
+        model.id === "smoke-local/tiny" && model.providerName === "Smoke Local",
+    ),
+);
+const catalog = await call("GET", "/api/models/catalog");
+expect(
+  "catalog status offline",
+  catalog.json?.source === "none" && catalog.json?.default === "kenari/deepseek-v4-1-flash",
+);
 
 // Fresh install: the workspace starts EMPTY — no default Ultius bot exists,
 // and there is no main bot until the first one is spawned.
@@ -222,15 +260,25 @@ expect("profile patch", patched.status === 200 && patched.json.description === "
 const modelPatched = await call(
   "PATCH",
   `/api/profiles/${rid}`,
-  { model: { id: "glm-5-3-flash", effort: "high" } },
+  { model: { id: "smoke-local/tiny", effort: "off" } },
   headers,
 );
 expect(
   "bot model preference sticks",
   modelPatched.status === 200 &&
-    modelPatched.json.model?.id === "glm-5-3-flash" &&
-    modelPatched.json.model?.effort === "high",
+    modelPatched.json.model?.id === "smoke-local/tiny" &&
+    modelPatched.json.model?.effort === "off",
 );
+const unknownModel = await call(
+  "PATCH",
+  `/api/profiles/${rid}`,
+  { model: { id: "nowhere/nothing", effort: "" } },
+  headers,
+);
+expect("model outside the catalog refused", unknownModel.status === 400);
+// Back to the workspace default (unregistered offline), so its turns fail fast.
+const modelReset = await call("PATCH", `/api/profiles/${rid}`, { model: null }, headers);
+expect("bot model resets to default", modelReset.status === 200 && modelReset.json.model === null);
 // Approval mode: a per-key policies patch (what the chat-box switcher sends)
 // flips the mode without clobbering the other policy keys.
 const yoloPatched = await call(

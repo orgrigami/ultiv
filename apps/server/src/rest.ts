@@ -6,7 +6,7 @@
  * ack-window bug). Owner scoping rides `x-ultiv-user`; routes live in ./rest.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { KENARI_MODELS, type MindService } from "@ultiv/mind";
+import type { MindService } from "@ultiv/mind";
 import type { CronScheduler } from "./cron.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
@@ -113,13 +113,22 @@ async function route(args: RouteArgs): Promise<void> {
   if (path === "/api/models") {
     return json(
       200,
-      KENARI_MODELS.map((spec) => ({
-        id: spec.id,
+      mind.models.list().map((spec) => ({
+        id: spec.ref,
         label: spec.label,
+        provider: spec.provider,
+        providerName: spec.providerName,
         efforts: [...spec.efforts],
         defaultEffort: spec.defaultEffort,
       })),
     );
+  }
+  if (path === "/api/models/catalog" && method === "GET") {
+    return json(200, { ...mind.models.status(), default: mind.models.defaultRef() });
+  }
+  if (path === "/api/models/refresh" && method === "POST") {
+    const status = await mind.models.refresh(true);
+    return json(200, { ...status, default: mind.models.defaultRef() });
   }
   if (path === "/api/audit" && method === "GET") {
     const limit = Number(args.url.searchParams.get("limit") ?? "100");

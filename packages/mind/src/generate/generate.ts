@@ -4,9 +4,10 @@
  * The owner rule stands: app code never touches a provider; it asks the mind,
  * and the mind's only non-conversational generation path is this faculty.
  *
- * Structured output is PROMPT-ONLY: kenari hangs on `response_format:
- * json_object`, so the schema is rendered into the prompt and the reply is
- * extracted and validated here, with one repair retry.
+ * Structured output is PROMPT-ONLY: some gateways (kenari among them) hang
+ * on `response_format: json_object`, so the schema is rendered into the
+ * prompt and the reply is extracted and validated here, with one repair
+ * retry. That works the same on every provider.
  */
 import { Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
@@ -21,8 +22,8 @@ import type {
 import { External, InvalidInput, Unavailable } from "@ultiv/core";
 import { Value } from "typebox/value";
 import type { Static, TSchema } from "typebox";
-import { kenariWiring } from "../providers/kenari.ts";
-import { MindModels } from "../providers/models.ts";
+import { MindModels, ModelCatalog } from "../providers/models.ts";
+import { parseRef } from "../providers/refs.ts";
 
 /** The seam to one model completion; tests substitute it. */
 export interface CompletionGateway {
@@ -40,7 +41,7 @@ export interface GenerateRequest {
   readonly prompt: string;
   /** When set, the reply must be JSON matching this TypeBox schema. */
   readonly schema?: TSchema;
-  /** Kenari model id; default is the mind's own. */
+  /** `provider/model`; default is the mind's own. */
   readonly model?: string;
   readonly maxTokens?: number;
 }
@@ -113,10 +114,13 @@ export const generateService = (
 
   const complete = (request: GenerateRequest): Effect.Effect<string, GenerateError> =>
     Effect.gen(function* () {
-      const id = request.model ?? defaultModelId;
-      const model = models.getModel("kenari", id);
+      const ref = parseRef(request.model ?? defaultModelId);
+      const model = models.getModel(ref.provider, ref.modelId);
       if (model === undefined) {
-        return yield* new Unavailable({ faculty: "generate", why: `no kenari model ${id}` });
+        return yield* new Unavailable({
+          faculty: "generate",
+          why: `no model ${ref.provider}/${ref.modelId} (is its provider key set?)`,
+        });
       }
       const first = yield* ask(model, request, null);
       if (request.schema === undefined) return first;
@@ -151,15 +155,15 @@ export interface GenerateOptions {
 
 export const generateLayer = (
   options: GenerateOptions = {},
-): Layer.Layer<Generate, ConfigError, MindModels> =>
+): Layer.Layer<Generate, ConfigError, MindModels | ModelCatalog> =>
   Layer.effect(
     Generate,
     Effect.gen(function* () {
       const models = yield* MindModels;
-      const wiring = yield* kenariWiring;
+      const catalog = yield* ModelCatalog;
       return generateService(
         models,
-        wiring.modelId,
+        catalog.defaultRef(),
         modelsGateway(models),
         options.maxTokens ?? 1_024,
       );

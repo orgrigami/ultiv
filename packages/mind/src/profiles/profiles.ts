@@ -38,6 +38,8 @@ export const profilesService = (deps: {
   readonly tools: () => readonly { readonly name: string }[];
   /** Names an allowlist implies (connector helpers). */
   readonly implied?: (allowlist: readonly string[]) => readonly string[];
+  /** Whether a model ref is in the live catalog; every ref passes without one (tests). */
+  readonly knownModel?: (ref: string) => boolean;
 }): ProfilesService => {
   const agentFor: ProfilesService["agentFor"] = (profile) =>
     agentForProfile(profile, deps.tools, deps.implied);
@@ -46,6 +48,7 @@ export const profilesService = (deps: {
     converse: deps.converse,
     generate: deps.generate,
     index,
+    knownModel: deps.knownModel ?? (() => true),
     self: () => service,
   };
   const service: ProfilesService = {

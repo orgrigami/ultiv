@@ -2,6 +2,7 @@
 import type { AgentChange } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ProfileInfo } from "@ultiv/contracts";
+import { parseRef } from "../providers/refs.ts";
 
 export const agentForProfile = (
   profile: ProfileInfo,
@@ -22,7 +23,7 @@ export const agentForProfile = (
   return {
     ...(profile.model !== null
       ? {
-          model: { provider: "kenari", modelId: profile.model.id },
+          model: parseRef(profile.model.id),
           // An empty effort string means "the model's default".
           ...(profile.model.effort !== ""
             ? { thinkingLevel: profile.model.effort as ModelThinkingLevel }

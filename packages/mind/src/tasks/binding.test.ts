@@ -64,8 +64,9 @@ describe("Tasks run as their bot", () => {
     expect(handle.mind.profiles.scopeOf(cid)?.kind).toBe("task");
     expect(handle.mind.profiles.profileOf(cid)?.id).toBe(bot.id);
     const chat = await Effect.runPromise(handle.mind.converse.ensure(taskConversationKey(task.id)));
+    // A bare (legacy) id reads back provider-qualified.
     expect((await Effect.runPromise(handle.mind.converse.agentOf(chat))).model).toBe(
-      "deepseek-v4-1-flash",
+      "kenari/deepseek-v4-1-flash",
     );
     await handle.close();
   });

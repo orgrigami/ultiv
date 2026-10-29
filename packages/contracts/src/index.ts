@@ -31,12 +31,19 @@ export type {
   WithdrawStatus,
 } from "./session.ts";
 export {
+  ModelCatalogStatusSchema,
   ModelListSchema,
   SessionListSchema,
   SessionInfoSchema,
   SessionKindSchema,
 } from "./sessions.ts";
-export type { Models, SessionInfo, SessionList, SessionKind } from "./sessions.ts";
+export type {
+  ModelCatalogStatus,
+  Models,
+  SessionInfo,
+  SessionList,
+  SessionKind,
+} from "./sessions.ts";
 export {
   ProfileInfoSchema,
   ProfileListSchema,

@@ -6,7 +6,6 @@
 import { InvalidInput } from "@ultiv/core";
 import type { ProfileApprovalMode, ProfileCreate, ProfileInfo } from "@ultiv/contracts";
 import { validAutoApproveEntry } from "../auto-approve.ts";
-import { KENARI_MODELS } from "../providers/kenari.ts";
 import { validTimezone } from "./docs.ts";
 
 /** Field limits, shared with create. */
@@ -20,16 +19,16 @@ export const PROFILE_LIMITS = {
 
 const APPROVAL_MODES: readonly ProfileApprovalMode[] = ["manual", "jev", "yolo"];
 
-/** Reject a patch with an unknown timezone, model, or approval mode. */
-export const validatePatch = (patch: Partial<ProfileCreate>): void => {
+/** Reject a patch with an unknown timezone, model (not in the live catalog), or approval mode. */
+export const validatePatch = (
+  patch: Partial<ProfileCreate>,
+  /** The live catalog check (profiles pass it; pure policy tests need none). */
+  knownModel: (ref: string) => boolean = () => true,
+): void => {
   if (patch.timezone !== undefined && !validTimezone(patch.timezone)) {
     throw new InvalidInput({ reason: `unknown timezone: ${patch.timezone}` });
   }
-  if (
-    patch.model !== undefined &&
-    patch.model !== null &&
-    !KENARI_MODELS.some((m) => m.id === patch.model?.id)
-  ) {
+  if (patch.model !== undefined && patch.model !== null && !knownModel(patch.model.id)) {
     throw new InvalidInput({ reason: `unknown model: ${patch.model?.id}` });
   }
   const mode = patch.policies?.approvalMode;

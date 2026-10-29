@@ -37,6 +37,19 @@ export const ModelListSchema = Type.Array(ModelInfoSchema);
 
 export type Models = Static<typeof ModelListSchema>;
 
+/** The model catalog's state (`GET /api/models/catalog`, `POST /api/models/refresh`). */
+export const ModelCatalogStatusSchema = Type.Object({
+  source: Type.Union([Type.Literal("network"), Type.Literal("cache"), Type.Literal("none")]),
+  fetchedAt: Type.Union([Type.Number(), Type.Null()]),
+  providers: Type.Array(Type.String()),
+  models: Type.Number(),
+  error: Type.Union([Type.String(), Type.Null()]),
+  /** The model new conversations start on (`provider/model`). */
+  default: Type.String(),
+});
+
+export type ModelCatalogStatus = Static<typeof ModelCatalogStatusSchema>;
+
 /**
  * The session registry is served as plain REST (`/api/sessions`, `/api/models`
  * on the server's HTTP handler), not as a chord object: it is CRUD, not

@@ -70,6 +70,14 @@ describe("Profile policy patches", () => {
     ).not.toThrow();
   });
 
+  it("validatePatch rejects a model the catalog does not list", () => {
+    const known = (ref: string) => ref === "kenari/deepseek-v4-1-flash";
+    expect(() =>
+      validatePatch({ model: { id: "kenari/deepseek-v4-1-flash", effort: "" } }, known),
+    ).not.toThrow();
+    expect(() => validatePatch({ model: { id: "acme/nope", effort: "" } }, known)).toThrow();
+  });
+
   it("bounds and shape-checks autoApprove entries (the hook compiles them synchronously)", () => {
     const base = { ...defaultPolicies(), autoApprove: ["bash:git *"] };
     expect(() => validatePatch({ policies: base })).not.toThrow();

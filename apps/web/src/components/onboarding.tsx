@@ -6,6 +6,7 @@
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import type { ModelInfo } from "@ultiv/contracts";
+import { catalogSummary } from "@/components/model-options";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -128,7 +129,7 @@ export function OnboardingHome({
         </div>
         <p className="text-muted-foreground text-xs">
           {models.length > 0
-            ? `Models available: ${models.map((model) => model.label).join(", ")}.`
+            ? `Models available: ${catalogSummary(models)}.`
             : "Couldn't load the model list, so the default model is used."}
         </p>
       </CardContent>

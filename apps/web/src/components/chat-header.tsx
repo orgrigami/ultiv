@@ -10,6 +10,7 @@ import type { ModelInfo, ProfileApprovalMode, ThinkingLevel, UsageSummary } from
 import { linkLabel, type ChatBot, type LinkState } from "@/components/bot-avatar";
 import { APPROVAL_MODE_OPTIONS } from "@/components/bot-dialog";
 import { BotSwitcher } from "@/components/bot-switcher";
+import { ModelOptions } from "@/components/model-options";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 
@@ -53,11 +54,7 @@ function SessionDetails({
           }
         >
           <option value="">Default model</option>
-          {models.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>
-              {candidate.label}
-            </option>
-          ))}
+          <ModelOptions models={models} />
         </Select>
       </label>
       <label className="flex flex-col gap-1">

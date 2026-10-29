@@ -88,6 +88,8 @@ export interface ProfilesContext {
   readonly converse: ConverseService;
   readonly generate: GenerateService;
   readonly index: ConversationIndex;
+  /** Whether a model ref is in the live catalog (profile validation). */
+  readonly knownModel: (ref: string) => boolean;
   /** The assembled service, for parts that call each other. */
   readonly self: () => ProfilesService;
 }

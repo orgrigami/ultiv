@@ -33,13 +33,8 @@ import { asEffect } from "./as-effect.ts";
 import { controlOps } from "./control.ts";
 import { selectionOps } from "./selection.ts";
 import { PiRegistry } from "./pi-registry.ts";
-import {
-  kenariAgent,
-  kenariCompaction,
-  kenariWiring,
-  type KenariWiring,
-} from "../providers/kenari.ts";
-import { MindModels } from "../providers/models.ts";
+import { MindModels, ModelCatalog } from "../providers/models.ts";
+import { parseRef, type ModelSpec } from "../providers/refs.ts";
 
 export interface TurnResult {
   /** The committed assistant text; empty when the turn produced none. */
@@ -249,7 +244,12 @@ const conversationIdFrom = (id: string): ConversationId => {
 };
 
 /** Exported for engine-level tests (faux models, MemoryStorage). */
-export const converseService = (harness: Harness, agent: AgentChange): ConverseService => ({
+export const converseService = (
+  harness: Harness,
+  agent: AgentChange,
+  /** The catalog lookup selection reads efforts from; none in engine tests. */
+  findModel: (ref: string) => ModelSpec | undefined = () => undefined,
+): ConverseService => ({
   root: () => asEffect("root conversation", harness.root(BACKGROUND_CONTEXT, { agent })),
   ensure: (key, agentOverride) => ensureConversation(harness, key, agent, agentOverride),
   open: (id) =>
@@ -291,7 +291,7 @@ export const converseService = (harness: Harness, agent: AgentChange): ConverseS
     Effect.flatMap(submitOf(conversation, content, whenBusy), (submission) =>
       settleOf(conversation, submission),
     ),
-  ...selectionOps(),
+  ...selectionOps(findModel),
   docs: {
     // The token is family-parametric; the harness call is typed once at this boundary.
     snapshot: <T extends JsonObject>(doc: SessionDocToken<T>) =>
@@ -326,13 +326,13 @@ const openSqlite: Effect.Effect<Storage, External | ConfigError> = Effect.gen(fu
  */
 export const converseLayer = (
   storage: Storage | undefined,
-): Layer.Layer<Converse, External | ConfigError, MindModels | PiRegistry> =>
+): Layer.Layer<Converse, External | ConfigError, MindModels | ModelCatalog | PiRegistry> =>
   Layer.effect(
     Converse,
     Effect.gen(function* () {
       const models = yield* MindModels;
       const piRegistry = yield* PiRegistry;
-      const wiring: KenariWiring = yield* kenariWiring;
+      const catalog = yield* ModelCatalog;
       const resolvedStorage = yield* storage !== undefined ? Effect.succeed(storage) : openSqlite;
       const harness = yield* Effect.acquireRelease(
         asEffect(
@@ -343,13 +343,19 @@ export const converseLayer = (
               models,
               registry: piRegistry,
               // Every steer queued during a step lands at the next boundary together.
-              settings: { compaction: kenariCompaction(), steeringMode: "all" },
+              // Read at every resolution: thresholds follow catalog refreshes.
+              settings: {
+                get compaction() {
+                  return catalog.compaction();
+                },
+                steeringMode: "all",
+              },
             },
             BACKGROUND_CONTEXT,
           ),
         ),
         (harness) => Effect.ignore(asEffect("close harness", harness.close(BACKGROUND_CONTEXT))),
       );
-      return converseService(harness, kenariAgent(wiring));
+      return converseService(harness, { model: parseRef(catalog.defaultRef()) }, catalog.find);
     }),
   );
