@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../../.env --watch src/main.ts",
-    "start": "node --env-file=../../.env src/main.ts",
+    "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
+    "start": "node --env-file-if-exists=../../.env src/main.ts",
     "smoke": "node src/smoke.ts",
     "test": "vp test",
     "push:keys": "node src/push-keys.ts"
