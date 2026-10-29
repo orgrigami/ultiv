@@ -10,9 +10,21 @@ allowBuilds:
   protobufjs: false
   "@mongodb-js/zstd": false
   node-liblzma: false
+# Every dependency shared by two or more workspaces (or locked to a sibling's
+# version) resolves here, so one edit moves them all. The @earendil-works set
+# ships in lockstep and chord requires typebox EXACTLY 1.3.27 -- bump together.
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.4.0
   vite-plus: 1.4.0
+  effect: ^4.0.6
+  typebox: 1.3.27
+  croner: ^10.0.1
+  "@earendil-works/chord": 1.4.0
+  "@earendil-works/pi-ai": 1.4.0
+  "@earendil-works/pi-codemode": 1.4.0
+  "@earendil-works/pi-durable": 1.4.0
+  "@modelcontextprotocol/client": ^2.4.0
+  "@modelcontextprotocol/server": ^2.4.0
 overrides:
   vite@*: "catalog:"
 peerDependencyRules:

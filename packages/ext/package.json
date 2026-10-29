@@ -11,15 +11,15 @@
     "test": "vp test"
   },
   "dependencies": {
-    "@earendil-works/pi-durable": "^1.4.0",
-    "@modelcontextprotocol/client": "^2.4.0",
+    "@earendil-works/pi-durable": "catalog:",
+    "@modelcontextprotocol/client": "catalog:",
     "@ultiv/contracts": "workspace:*",
     "@ultiv/core": "workspace:*",
-    "effect": "^4.0.6",
+    "effect": "catalog:",
     "microsandbox": "^0.7.11",
-    "typebox": "1.3.27"
+    "typebox": "catalog:"
   },
   "devDependencies": {
-    "@modelcontextprotocol/server": "^2.4.0"
+    "@modelcontextprotocol/server": "catalog:"
   }
 }

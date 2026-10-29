@@ -11,7 +11,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
-    "shadcn": "^4.22.1",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:"
   },

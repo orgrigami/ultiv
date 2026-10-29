@@ -11,14 +11,14 @@
     "push:keys": "node src/push-keys.ts"
   },
   "dependencies": {
-    "@earendil-works/chord": "^1.4.0",
-    "@earendil-works/pi-durable": "^1.4.0",
+    "@earendil-works/chord": "catalog:",
+    "@earendil-works/pi-durable": "catalog:",
     "@ultiv/contracts": "workspace:*",
     "@ultiv/ext": "workspace:*",
     "@ultiv/mind": "workspace:*",
-    "croner": "^10.0.1",
-    "effect": "^4.0.6",
-    "typebox": "1.3.27",
+    "croner": "catalog:",
+    "effect": "catalog:",
+    "typebox": "catalog:",
     "web-push": "3.6.7",
     "ws": "^8.22.0"
   },

@@ -90,7 +90,8 @@ Not run automatically (long-running or live):
 
 - ESM only; tabs (oxfmt via `vp fmt` enforces); `import type` for type-only imports (`verbatimModuleSyntax`).
 - Relative imports use explicit `.ts` extensions (`allowImportingTsExtensions` + Node type stripping).
-- `typebox` stays pinned EXACT `1.3.27` in every workspace that has it (`vp add -E typebox@1.3.27 --filter <ws>`) — chord requires exactly this version; anything else nests a duplicate copy. Bump only with chord.
+- **Shared versions live in the pnpm catalog** (`catalog:` in `pnpm-workspace.yaml`): every dependency used by two or more workspaces (`effect`, `typebox`, `croner`, the `@earendil-works/*` set, the `@modelcontextprotocol/*` pair) is declared `"catalog:"` in each `package.json` and versioned ONCE in the catalog. Adding one of them to another workspace: write `"catalog:"` in its manifest, then `vp install`. Promote a dependency into the catalog the moment a second workspace needs it.
+- `typebox` stays pinned EXACT `1.3.27` in the catalog — chord requires exactly this version; anything else nests a duplicate copy. The `@earendil-works/*` packages are pinned exact and ship in lockstep: bump them together, and typebox only with chord.
 - TypeBox is the only schema language at the chord boundary; Effect Schema stays inside effect services.
 - Strict TS: `exactOptionalPropertyTypes` (never assign explicit `undefined` to optional props), `noUncheckedIndexedAccess`.
 
