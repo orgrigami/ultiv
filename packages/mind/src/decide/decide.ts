@@ -20,7 +20,12 @@ import {
 import { Context, Effect, Layer, Option } from "effect";
 import { ConfigError } from "effect/Config";
 import { External, Unavailable } from "@ultiv/core";
-import { typesafeApiKey, typesafeModel } from "../config.ts";
+import {
+  TYPESAFE_DEFAULT_BASE_URL,
+  typesafeApiKey,
+  typesafeBaseUrl,
+  typesafeModel,
+} from "../config.ts";
 import { typesafeGateway, type JevGateway } from "./gateway.ts";
 
 /** Jev's rubric rating: expected score, confidence, and per-level probabilities. */
@@ -197,10 +202,17 @@ export const decideLayer: Layer.Layer<Decide, ConfigError | Unavailable> = Layer
   Decide,
   Effect.gen(function* () {
     const key = yield* typesafeApiKey;
-    if (Option.isNone(key)) return decideService(undefined);
+    // A blank line in .env is "not set", for the key and the endpoint alike.
+    if (Option.isNone(key) || key.value.trim() === "") return decideService(undefined);
     const model = yield* typesafeModel;
+    const configuredBase = yield* typesafeBaseUrl;
+    const baseURL =
+      Option.isSome(configuredBase) && configuredBase.value.trim() !== ""
+        ? configuredBase.value.trim()
+        : TYPESAFE_DEFAULT_BASE_URL;
     const gateway = yield* Effect.try({
-      try: () => typesafeGateway(new TypeSafeClient({ apiKey: key.value, defaultModel: model })),
+      try: () =>
+        typesafeGateway(new TypeSafeClient({ apiKey: key.value, defaultModel: model, baseURL })),
       catch: (cause) => new Unavailable({ faculty: "decide", why: String(cause) }),
     });
     return decideService(gateway);

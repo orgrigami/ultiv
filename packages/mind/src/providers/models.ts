@@ -14,6 +14,7 @@ import type { Models, MutableModels } from "@earendil-works/pi-ai";
 import type { CompactionSettings } from "@earendil-works/pi-durable";
 import {
   DEFAULT_MODEL_FALLBACK,
+  MODELS_DEV_DEFAULT_URL,
   defaultModel,
   modelMaxConcurrency,
   modelProviders,
@@ -202,25 +203,28 @@ export const createCatalog = async (
   };
 };
 
+/** ULTIV_PROVIDERS as a set; unset or blank means every configured provider. */
+const allowlistOf = (raw: Option.Option<string>): ReadonlySet<string> | null => {
+  if (Option.isNone(raw)) return null;
+  const ids = raw.value
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id !== "");
+  return ids.length > 0 ? new Set(ids) : null;
+};
+
 const catalogOptions: Effect.Effect<CatalogOptions, ConfigError> = Effect.gen(function* () {
   const url = yield* modelsDevUrl;
-  const allow = yield* modelProviders;
   const preferred = yield* defaultModel;
   return {
-    url: url === "off" || url === "" ? null : url,
+    url: url.trim() === "off" ? null : url.trim() || MODELS_DEV_DEFAULT_URL,
     cachePath: yield* modelsDevCache,
     overlayPath: yield* modelsOverlay,
     ttlMs: (yield* modelsDevTtlHours) * 3_600_000,
     env: (name) => process.env[name],
-    allow: Option.isSome(allow)
-      ? new Set(
-          allow.value
-            .split(",")
-            .map((id) => id.trim())
-            .filter((id) => id !== ""),
-        )
-      : null,
-    preferred: Option.isSome(preferred) && preferred.value !== "" ? preferred.value : null,
+    allow: allowlistOf(yield* modelProviders),
+    preferred:
+      Option.isSome(preferred) && preferred.value.trim() !== "" ? preferred.value.trim() : null,
     concurrency: yield* modelMaxConcurrency,
   };
 });

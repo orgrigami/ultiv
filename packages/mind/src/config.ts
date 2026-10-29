@@ -10,6 +10,7 @@ import { Config } from "effect";
 /** Single grep-able fallbacks (ULTIV_MODEL is the source of truth for the default model). */
 export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
 export const JEV_FALLBACK_MODEL = "jev-latest";
+export const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai";
 export const MODELS_DEV_DEFAULT_URL = "https://models.dev/api.json";
 export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
 
@@ -36,4 +37,6 @@ export const typesafeApiKey = Config.option(Config.String("TYPESAFE_API_KEY"));
 export const typesafeModel = Config.String("TYPESAFE_MODEL").pipe(
   Config.withDefault(JEV_FALLBACK_MODEL),
 );
+/** Jev's API root: a proxy, a regional or a self-hosted endpoint. */
+export const typesafeBaseUrl = Config.option(Config.String("TYPESAFE_BASE_URL"));
 export const harnessDb = Config.String("HARNESS_DB").pipe(Config.withDefault(HARNESS_DB_DEFAULT));
