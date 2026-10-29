@@ -8,6 +8,7 @@
  * idle monitor retires it); the sandbox name makes it reattachable across
  * server restarts.
  */
+import { createHash } from "node:crypto";
 import type { Sandbox } from "microsandbox";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
@@ -23,6 +24,19 @@ const VM_CPUS = 1;
 const VM_MEMORY_MIB = 512;
 /** Debian slim: python3+pip preinstalled, apt-get for everything else. */
 const DEFAULT_IMAGE = "python:3.12-slim";
+
+/** Short stable hash of a scope dir: the identity of its sandbox. */
+export const scopeHash = (value: string): string =>
+  createHash("sha256").update(value).digest("hex").slice(0, 12);
+
+/** The deterministic sandbox name for one workspace scope dir. */
+export const sandboxNameOf = (dir: string): string => `ultiv-${scopeHash(dir)}`;
+
+/** Destroy a workspace's microVM by name (a missing VM throws; callers catch). */
+export const destroySandbox = async (name: string): Promise<void> => {
+  const { Sandbox } = await import("microsandbox");
+  await Sandbox.remove(name);
+};
 
 export const sandboxShellBackend =
   (options: SandboxBackendOptions): ((homeDir: string) => ShellBackend) =>

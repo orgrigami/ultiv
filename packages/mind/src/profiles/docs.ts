@@ -81,6 +81,8 @@ export const defaultPolicies = (): ProfilePolicies => ({
   // The owner answers every gate unless they delegate (jev) or waive (yolo).
   approvalMode: "manual",
   approvalTimeout: "deny",
+  // The sandboxed bash tool is on unless the bot opts out (per-bot toggle).
+  sandbox: true,
   dailyTurnBudget: null,
   memoryKeeper: false,
 });

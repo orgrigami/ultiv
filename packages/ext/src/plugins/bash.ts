@@ -27,7 +27,7 @@ import { DurableFs } from "../fs/durable-fs.ts";
 import { scopeDir, type ScopeHolder } from "./vault.ts";
 import { artifactsDir } from "./artifacts.ts";
 import { localShellBackend, type ShellBackend, type ShellExecResult } from "../shell/backend.ts";
-import { sandboxShellBackend } from "../shell/sandbox-backend.ts";
+import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 
 const MAX_OUTPUT_CHARS = 20_000;
 const HOME = "/home";
@@ -61,9 +61,6 @@ const truncate = (text: string): string => {
 };
 
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
-
-const scopeHash = (value: string): string =>
-  createHash("sha256").update(value).digest("hex").slice(0, 12);
 
 const present = (result: ShellExecResult) => {
   const stderr = truncate(
@@ -305,7 +302,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
     options.backend !== undefined
       ? options.backend(dir, stagingOf(dir))
       : sandboxShellBackend({
-          name: `ultiv-${scopeHash(dir)}`,
+          name: sandboxNameOf(dir),
           ...(options.image === undefined ? {} : { image: options.image }),
         })(stagingOf(dir));
   return definePlugin({

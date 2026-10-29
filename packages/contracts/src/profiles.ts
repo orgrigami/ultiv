@@ -36,6 +36,13 @@ export const ProfilePoliciesSchema = Type.Object({
   approvalMode: ProfileApprovalModeSchema,
   /** What a pending approval does on timeout: deny, or deny + escalate to the inbox. */
   approvalTimeout: Type.Union([Type.Literal("deny"), Type.Literal("escalate")]),
+  /**
+   * Whether this bot gets the sandboxed `bash` tool (a microsandbox microVM
+   * over its durable workspace). Default true; false removes the tool from
+   * its every conversation (the privileged `bash_host` is unaffected). Bots
+   * created before the toggle existed read as true.
+   */
+  sandbox: Type.Optional(Type.Boolean()),
   /** Model turns per day across the profile; null = uncapped. */
   dailyTurnBudget: Type.Union([Type.Number(), Type.Null()]),
   /** This profile may distill into the owner-level memory store (the memory keeper). */

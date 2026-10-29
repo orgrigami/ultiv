@@ -6,9 +6,9 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { artifactsDir } from "@ultiv/ext";
+import { artifactsDir, destroySandbox, sandboxNameOf } from "@ultiv/ext";
 import { taskConversationKey } from "@ultiv/mind";
-import type { ProfileCreate } from "@ultiv/contracts";
+import type { ProfileCreate, ProfileInfo } from "@ultiv/contracts";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
 import {
@@ -73,10 +73,15 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
     try {
       const patch = await args.readJson<Record<string, unknown>>(req);
       const updated = await mind.profiles.update(args.owner, id, patch as never);
-      // The per-bot model preference is durable agent state: a change applies
-      // to every existing conversation too (main, sessions, room seats), not
-      // just future ones.
-      if (patch.model !== undefined) await applyModelPreference(args, updated);
+      // The per-bot model preference and tool set are durable agent state: a
+      // change applies to every existing conversation too (main, sessions,
+      // room seats), not just future ones.
+      const toolsChanged =
+        (patch.policies as { sandbox?: unknown } | undefined)?.sandbox !== undefined ||
+        patch.toolAllowlist !== undefined;
+      if (patch.model !== undefined || toolsChanged) {
+        await applyAgentPreference(args, updated, toolsChanged);
+      }
       json(200, updated);
     } catch (cause) {
       json(400, { error: errorOf(cause) });
@@ -202,16 +207,22 @@ export async function memoryRoutes(args: RouteArgs): Promise<boolean> {
   return false;
 }
 
-/** Apply a bot's model/effort preference to all its existing conversations. */
-async function applyModelPreference(
+/** Apply a bot's model/effort preference (and tool set, when it changed) to all its conversations. */
+async function applyAgentPreference(
   args: RouteArgs,
-  profile: { id: string; owner: string; model: { id: string; effort: string } | null },
+  profile: ProfileInfo,
+  toolsChanged: boolean,
 ): Promise<void> {
   const { mind } = args;
-  const selection =
-    profile.model === null
+  // The tool override is stored as a whole: re-send the full list, or null to
+  // clear it (sandbox on + no allowlist = every tool).
+  const agent = toolsChanged ? mind.profiles.agentFor(profile) : undefined;
+  const selection = {
+    ...(profile.model === null
       ? { model: null }
-      : { model: profile.model.id, effort: profile.model.effort as never };
+      : { model: profile.model.id, effort: profile.model.effort as never }),
+    ...(agent !== undefined ? { tools: agent.tools ?? null } : {}),
+  };
   const configure = async (conversationId: string): Promise<void> => {
     try {
       const chat = await Effect.runPromise(mind.converse.open(conversationId));
@@ -260,6 +271,14 @@ async function purgeProfile(args: RouteArgs, id: string): Promise<unknown> {
   } catch {
     artifacts = -1;
   }
+  // The bash tool's microVM goes with the bot: same name derivation, best
+  // effort (a missing VM or a stuck runtime never fails the purge).
+  const sandbox = await Promise.race([
+    destroySandbox(sandboxNameOf(join(artifactsDir(), args.owner, id)))
+      .then(() => true)
+      .catch(() => false),
+    new Promise<false>((resolve) => setTimeout(() => resolve(false), 8_000)),
+  ]);
   return {
     ok: true,
     sessions: sessionIds.length,
@@ -271,6 +290,7 @@ async function purgeProfile(args: RouteArgs, id: string): Promise<unknown> {
     sensors,
     rooms,
     artifacts,
+    sandbox,
     note: "transcripts stay in harness storage (retention); registry rows and files are gone",
   };
 }

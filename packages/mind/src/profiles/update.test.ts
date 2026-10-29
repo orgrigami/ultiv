@@ -51,6 +51,18 @@ describe("Profile policy patches", () => {
     expect(next.policies.approvalMode).toBe("manual");
   });
 
+  it("a sandbox patch flips only the sandbox key", () => {
+    const current = row({ ...defaultPolicies(), autoApprove: ["bash"] });
+    const next = patchedProfile(
+      current,
+      // A partial policies object, like the bot dialog sends.
+      { policies: { sandbox: false } } as Parameters<typeof patchedProfile>[1],
+    );
+    expect(next.policies.sandbox).toBe(false);
+    expect(next.policies.autoApprove).toEqual(["bash"]);
+    expect(next.policies.approvalMode).toBe("manual");
+  });
+
   it("validatePatch rejects an unknown approval mode", () => {
     let reason = "";
     try {

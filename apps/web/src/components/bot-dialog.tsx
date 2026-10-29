@@ -25,6 +25,8 @@ export interface BotForm {
   effort: string;
   /** Who answers the bot's gated tool calls. */
   approvalMode: ProfileApprovalMode;
+  /** Whether the bot gets the sandboxed bash tool. */
+  sandbox: boolean;
 }
 
 export const emptyForm: BotForm = {
@@ -34,6 +36,7 @@ export const emptyForm: BotForm = {
   modelId: "",
   effort: "",
   approvalMode: "manual",
+  sandbox: true,
 };
 
 /** The approval modes and their labels (shared by the edit dialog and the chat details). */
@@ -292,6 +295,22 @@ export function BotDialog({
               {APPROVAL_MODE_HELP[form.approvalMode]}
             </span>
           </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Sandbox (bash)
+            <Select
+              className="w-full"
+              value={form.sandbox ? "on" : "off"}
+              onChange={(event) => setForm({ ...form, sandbox: event.target.value === "on" })}
+            >
+              <option value="on">On — sandboxed bash</option>
+              <option value="off">Off — no bash tool</option>
+            </Select>
+            <span className="text-muted-foreground text-xs">
+              {form.sandbox
+                ? "The bash tool runs in this bot's own microVM sandbox; its workspace files are artifacts."
+                : "No sandboxed bash for this bot. The privileged bash_host stays, always approved by you."}
+            </span>
+          </label>
           {extra}
           {error !== null && <p className="text-destructive text-sm">{error}</p>}
           <SaveRow busy={busy} unnamed={form.name.trim() === ""} />
@@ -309,8 +328,15 @@ export const createBot = async (form: BotForm): Promise<string> =>
       ...(form.description !== "" ? { description: form.description } : {}),
       ...(form.persona !== "" ? { persona: form.persona } : {}),
       ...modelPayload(form),
-      // The default needs no key; a delegated mode rides the per-key merge.
-      ...(form.approvalMode !== "manual" ? { policies: { approvalMode: form.approvalMode } } : {}),
+      // The defaults need no key; a delegated mode and sandbox-off ride the per-key merge.
+      ...(form.approvalMode !== "manual" || form.sandbox === false
+        ? {
+            policies: {
+              ...(form.approvalMode !== "manual" ? { approvalMode: form.approvalMode } : {}),
+              ...(form.sandbox === false ? { sandbox: false } : {}),
+            },
+          }
+        : {}),
     })
   ).id;
 
@@ -378,6 +404,8 @@ export function EditBotDialog({
         modelId: bot.model?.id ?? "",
         effort: bot.model?.effort ?? "",
         approvalMode: bot.policies.approvalMode,
+        // Bots created before the toggle existed read as sandboxed.
+        sandbox: bot.policies.sandbox !== false,
       }}
       confirm={async (form) => {
         // Throws on failure, so the form stays open with the reason.
@@ -387,8 +415,8 @@ export function EditBotDialog({
           description: form.description,
           persona: form.persona,
           ...modelPayload(form),
-          // Per-key merge server-side: only the mode key changes.
-          policies: { approvalMode: form.approvalMode },
+          // Per-key merge server-side: only these keys change.
+          policies: { approvalMode: form.approvalMode, sandbox: form.sandbox },
         });
         await refresh();
       }}

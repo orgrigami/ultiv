@@ -115,7 +115,12 @@ export interface ConverseService {
    */
   readonly configure: (
     conversation: Conversation,
-    selection: { readonly model?: string | null; readonly effort?: ModelThinkingLevel | null },
+    selection: {
+      readonly model?: string | null;
+      readonly effort?: ModelThinkingLevel | null;
+      /** The tool set (an allowlist or sandbox exclusion); null clears the override. */
+      readonly tools?: AgentChange["tools"];
+    },
   ) => Effect.Effect<void, External>;
   /** The raw transcript entries of one conversation, newest first (history search). */
   readonly entriesOf: (
