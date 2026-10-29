@@ -67,6 +67,7 @@ describe("assembled prompt: key rules and budget", () => {
     "latest direct request", // priority order
     "always hold", // safety holds over the priority order
     "Voice:",
+    "Never write em dashes", // the owner's standing style, followed silently
     "task_message", // steer running tasks
     "Relay each [task …] result once",
   ];
@@ -90,14 +91,15 @@ describe("assembled prompt: key rules and budget", () => {
     expect(text).toContain("Ledger (id: p2)");
   });
 
-  // Budgets: measured size (rules 380, baseline 518, sample persona 619) plus ~10%.
+  // Budgets: measured size (rules 380; baseline 603 and sample persona after
+  // the no-em-dash style rule, +47 words, was accepted) plus a little headroom.
   // The mid-task owner-message rule (+33 words: rules 413) fits inside them;
   // the task-handling rule (ack, task_message, relay once) was paid for by trims.
   // Raising them is a decision: the rules ship on every turn of every bot.
   it("stays within its word budget", async () => {
     expect(words(OPERATING_RULES)).toBeLessThanOrEqual(420);
-    expect(words(baselineIdentityText())).toBeLessThanOrEqual(570);
-    expect(words(await persona())).toBeLessThanOrEqual(680);
+    expect(words(baselineIdentityText())).toBeLessThanOrEqual(620);
+    expect(words(await persona())).toBeLessThanOrEqual(720);
   });
 });
 
