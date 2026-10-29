@@ -3,7 +3,14 @@
  * for the owner's decision. Reads the owner-scoped overview over REST; the
  * detail dialog holds one skill's full text and its open proposals.
  */
-import { PowerIcon, PowerOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import {
+  PencilIcon,
+  PlusIcon,
+  PowerIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type {
   SkillDetail,
@@ -14,6 +21,7 @@ import type {
 } from "@ultiv/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LazyMarkdown } from "@/components/lazy-markdown";
+import { SkillAdd, SkillEditor } from "@/components/skills-edit";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -90,16 +98,18 @@ function ProposalCard({
   );
 }
 
-/** The footer actions: enable, revert (when there is a parent), remove. */
+/** The footer actions: edit, enable, revert (when there is a parent), remove. */
 function ActionRow({
   meta,
   busy,
+  onEdit,
   onToggle,
   onRevert,
   onDelete,
 }: {
   meta: SkillMeta;
   busy: boolean;
+  onEdit: () => void;
   onToggle: () => void;
   onRevert: () => void;
   onDelete: () => Promise<void>;
@@ -107,6 +117,18 @@ function ActionRow({
   return (
     <div className="mt-4 flex items-center justify-between gap-2 border-t pt-3">
       <div className="flex items-center gap-1">
+        {meta.origin !== "builtin" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={busy}
+            aria-label="Edit skill text"
+            title="Edit skill text"
+            onClick={onEdit}
+          >
+            <PencilIcon />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -160,6 +182,7 @@ function LoadedSkill({
   detail,
   busy,
   error,
+  onEdit,
   onToggle,
   onRevert,
   onDelete,
@@ -168,6 +191,7 @@ function LoadedSkill({
   detail: SkillDetail;
   busy: boolean;
   error: string | null;
+  onEdit: () => void;
   onToggle: () => void;
   onRevert: () => void;
   onDelete: () => Promise<void>;
@@ -208,6 +232,7 @@ function LoadedSkill({
       <ActionRow
         meta={detail.meta}
         busy={busy}
+        onEdit={onEdit}
         onToggle={onToggle}
         onRevert={onRevert}
         onDelete={onDelete}
@@ -230,6 +255,7 @@ function SkillDialog({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -284,6 +310,7 @@ function SkillDialog({
             detail={detail}
             busy={busy}
             error={error}
+            onEdit={() => setEditing(true)}
             onToggle={() =>
               void act(() =>
                 api.skillSave(target.profile, target.name, { enabled: !detail.meta.enabled }),
@@ -298,6 +325,18 @@ function SkillDialog({
             onDecide={decide}
           />
         )}
+        {editing && detail !== null && (
+          <SkillEditor
+            profile={target.profile}
+            name={target.name}
+            body={detail.body}
+            onSaved={async () => {
+              await load();
+              await reloadOverview();
+            }}
+            onClose={() => setEditing(false)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -307,13 +346,27 @@ function SkillDialog({
 function NamespaceSection({
   namespace,
   onOpen,
+  onAdd,
 }: {
   namespace: SkillOverview["profiles"][number];
   onOpen: (profile: string, name: string) => void;
+  onAdd: (profile: string) => void;
 }) {
   return (
     <section className="flex flex-col gap-2">
-      <SectionHeader title={namespace.profileName} />
+      <SectionHeader
+        title={namespace.profileName}
+        action={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`Add skill for ${namespace.profileName}`}
+            onClick={() => onAdd(namespace.profile)}
+          >
+            <PlusIcon />
+          </Button>
+        }
+      />
       {namespace.skills.length === 0 ? (
         <EmptyState>No skills yet. {namespace.profileName} writes them as work repeats.</EmptyState>
       ) : (
@@ -336,6 +389,7 @@ export function SkillsContent() {
   const [overview, setOverview] = useState<SkillOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<{ profile: string; name: string } | null>(null);
+  const [addingFor, setAddingFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -379,6 +433,7 @@ export function SkillsContent() {
           key={namespace.profile}
           namespace={namespace}
           onOpen={(profile, name) => setTarget({ profile, name })}
+          onAdd={(profile) => setAddingFor(profile)}
         />
       ))}
       {overview.profiles.length === 0 && overview.builtins.length > 0 && (
@@ -393,6 +448,9 @@ export function SkillsContent() {
       )}
       {target !== null && (
         <SkillDialog target={target} onClose={() => setTarget(null)} reloadOverview={load} />
+      )}
+      {addingFor !== null && (
+        <SkillAdd profile={addingFor} onSaved={load} onClose={() => setAddingFor(null)} />
       )}
     </div>
   );

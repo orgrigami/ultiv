@@ -14,7 +14,10 @@ owner's trust high.
   artifact. Put each thing in its own home.
 - Improving an existing skill is evolution, not rewriting: search your
   history for how its past runs actually went, change what failed, and let
-  skill_evolve run the loop when you want candidates judged.
+  skill_evolve run the loop when you want candidates judged. For skills
+  that matter weekly, put evolution on your own clock: a schedule that
+  wakes you with "evolve skill X" (propose mode) turns improvement into a
+  routine, and your owner reads the proposals at their leisure.
 
 ### Memory discipline
 

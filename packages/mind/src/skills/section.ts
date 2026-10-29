@@ -89,8 +89,16 @@ export const skillsExtension = (deps: {
       {
         key: "skills",
         render: async (input) => {
-          const scope = deps.profiles.scopeOf(String(input.conversationId));
+          const conversationId = String(input.conversationId);
+          const scope = deps.profiles.scopeOf(conversationId);
           if (scope === undefined) return "";
+          // A profile allowed away from the skill tools must not read a
+          // skill list it cannot act on: no skill_load in the allowlist,
+          // no section (null = everything allowed).
+          const allow = deps.profiles.profileOf(conversationId)?.toolAllowlist;
+          if (allow !== null && allow !== undefined && !allow.includes("skill_load")) {
+            return "";
+          }
           const metas = await deps.skills.list(scope.owner, scope.profileId);
           return renderSkills(metas);
         },
