@@ -151,6 +151,59 @@ function ActionRow({
   );
 }
 
+/** The loaded skill: identity line, text, open proposals, action row. */
+function LoadedSkill({
+  detail,
+  busy,
+  error,
+  onToggle,
+  onRevert,
+  onDelete,
+  onDecide,
+}: {
+  detail: SkillDetail;
+  busy: boolean;
+  error: string | null;
+  onToggle: () => void;
+  onRevert: () => void;
+  onDelete: () => Promise<void>;
+  onDecide: (proposal: SkillProposal, verdict: "accept" | "reject") => void;
+}) {
+  return (
+    <>
+      <p className="text-muted-foreground mt-1 text-sm">{describeMeta(detail.meta)}</p>
+      <div className="mt-3 min-w-0 text-sm">
+        <LazyMarkdown text={detail.body} />
+      </div>
+      {detail.proposals.length > 0 && (
+        <div className="mt-5 flex flex-col gap-2">
+          <SectionHeader title={`Proposals (${detail.proposals.length})`} />
+          {detail.proposals.map((proposal) => (
+            <ProposalCard
+              key={proposal.id}
+              proposal={proposal}
+              busy={busy}
+              onDecide={(verdict) => onDecide(proposal, verdict)}
+            />
+          ))}
+        </div>
+      )}
+      {error !== null && (
+        <div className="mt-3">
+          <ErrorState message={error} />
+        </div>
+      )}
+      <ActionRow
+        meta={detail.meta}
+        busy={busy}
+        onToggle={onToggle}
+        onRevert={onRevert}
+        onDelete={onDelete}
+      />
+    </>
+  );
+}
+
 /** The detail dialog for one skill: its text, its proposals, its actions. */
 function SkillDialog({
   target,
@@ -176,21 +229,19 @@ function SkillDialog({
   }, [target.profile, target.name]);
   useEffect(() => void load(), [load]);
 
-  const act =
-    (action: () => Promise<unknown>): (() => Promise<void>) =>
-    async () => {
-      setBusy(true);
-      setError(null);
-      try {
-        await action();
-        await load();
-        await reloadOverview();
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      } finally {
-        setBusy(false);
-      }
-    };
+  const act = (action: () => Promise<unknown>) => async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await load();
+      await reloadOverview();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const decide = (proposal: SkillProposal, verdict: "accept" | "reject"): void => {
     void act(() => api.skillProposal(target.profile, proposal.id, verdict))();
@@ -205,9 +256,6 @@ function SkillDialog({
     >
       <DialogContent>
         <DialogTitle>{target.name}</DialogTitle>
-        {detail !== null && (
-          <p className="text-muted-foreground mt-1 text-sm">{describeMeta(detail.meta)}</p>
-        )}
         {loadError !== null ? (
           <div className="mt-3">
             <ErrorState
@@ -220,46 +268,23 @@ function SkillDialog({
             <Spinner /> Loading…
           </p>
         ) : (
-          <>
-            <div className="mt-3 min-w-0 text-sm">
-              <LazyMarkdown text={detail.body} />
-            </div>
-            {detail.proposals.length > 0 && (
-              <div className="mt-5 flex flex-col gap-2">
-                <SectionHeader title={`Proposals (${detail.proposals.length})`} />
-                {detail.proposals.map((proposal) => (
-                  <ProposalCard
-                    key={proposal.id}
-                    proposal={proposal}
-                    busy={busy}
-                    onDecide={(verdict) => decide(proposal, verdict)}
-                  />
-                ))}
-              </div>
-            )}
-            {error !== null && (
-              <div className="mt-3">
-                <ErrorState message={error} />
-              </div>
-            )}
-            <ActionRow
-              meta={detail.meta}
-              busy={busy}
-              onToggle={() =>
-                void act(() =>
-                  api.skillSave(target.profile, target.name, {
-                    enabled: !detail.meta.enabled,
-                  }),
-                )()
-              }
-              onRevert={() => void act(() => api.skillRevert(target.profile, target.name))()}
-              onDelete={async () => {
-                await api.skillRemove(target.profile, target.name);
-                await reloadOverview();
-                onClose();
-              }}
-            />
-          </>
+          <LoadedSkill
+            detail={detail}
+            busy={busy}
+            error={error}
+            onToggle={() =>
+              void act(() =>
+                api.skillSave(target.profile, target.name, { enabled: !detail.meta.enabled }),
+              )()
+            }
+            onRevert={() => void act(() => api.skillRevert(target.profile, target.name))()}
+            onDelete={async () => {
+              await api.skillRemove(target.profile, target.name);
+              await reloadOverview();
+              onClose();
+            }}
+            onDecide={decide}
+          />
         )}
       </DialogContent>
     </Dialog>
