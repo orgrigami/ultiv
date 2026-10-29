@@ -16,6 +16,8 @@ process.env.VAULT_KEY = "smoke-vault-key";
 const scratchVault = mkdtempSync(join(tmpdir(), "ultiv-smoke-vault-"));
 const scratchArtifacts = mkdtempSync(join(tmpdir(), "ultiv-smoke-artifacts-"));
 process.env.ARTIFACTS_DIR = scratchArtifacts;
+// Skill stores stay hermetic too.
+process.env.SKILLS_DIR = join(scratchArtifacts, "skills");
 // Keep the audit trail hermetic: never append to a real var/audit.jsonl.
 process.env.AUDIT_LOG = join(scratchArtifacts, "audit.jsonl");
 // Connector configs land in the scratch dir too.
@@ -448,6 +450,47 @@ expect("owner memory read", memoryRead.json.length === 1);
 
 // Connectors: added, used and removed on the running stack.
 await smokeMcp(call, headers, expect);
+
+// Skills: the built-in library lists for every bot; the owner can write,
+// toggle, reread and remove one; sections pick it up on the next render.
+const skillsOverview = await call("GET", "/api/skills", undefined, headers);
+expect(
+  "skills overview lists built-ins per bot",
+  skillsOverview.status === 200 &&
+    skillsOverview.json.builtins.length === 4 &&
+    skillsOverview.json.profiles.length >= 1 &&
+    skillsOverview.json.profiles[0].skills.length === 4,
+);
+const smokeSkillBody =
+  "---\nname: smoke-skill\ndescription: A skill the smoke run wrote\n---\n\n# steps";
+const skillPut = await call(
+  "PUT",
+  `/api/skills/${bootBot.json.id}/smoke-skill`,
+  { body: smokeSkillBody },
+  headers,
+);
+expect("owner skill write", skillPut.status === 200 && skillPut.json.version === 1);
+const skillRead = await call(
+  "GET",
+  `/api/skills/${bootBot.json.id}/smoke-skill`,
+  undefined,
+  headers,
+);
+expect("owner skill reread", skillRead.status === 200 && skillRead.json.body.includes("# steps"));
+const skillToggle = await call(
+  "PUT",
+  `/api/skills/${bootBot.json.id}/smoke-skill`,
+  { enabled: false },
+  headers,
+);
+expect("owner skill disable", skillToggle.status === 200 && skillToggle.json.enabled === false);
+const skillDelete = await call(
+  "DELETE",
+  `/api/skills/${bootBot.json.id}/smoke-skill`,
+  undefined,
+  headers,
+);
+expect("owner skill delete", skillDelete.status === 200 && skillDelete.json.ok === true);
 
 if (failures.length > 0) {
   console.error(`smoke FAILED: ${failures.join(", ")}`);
