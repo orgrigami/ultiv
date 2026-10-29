@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ApprovalCard, type Decide, type DecideOutcome } from "@/components/approval-card";
 import { ChatSkeleton, EmptyChat, StatusRow } from "@/components/chat-states";
 import { Composer } from "@/components/composer";
+import { MemoryPanel } from "@/components/memory/memory-panel";
 import { QueuedChips } from "@/components/queued-chips";
 import { ChatHeader, type ChatBot, type LinkState } from "@/components/chat-header";
 import { TranscriptItems } from "@/components/transcript-items";
@@ -172,6 +173,13 @@ export function SessionView({
 }) {
   const busy = phase === "working";
   const { draft, setDraft, sending, sendFailed, run } = useSend(onInput);
+  // The bot's Memory panel, opened from the switcher or a memory chip.
+  const [memory, setMemory] = useState<{ open: boolean; query: string }>({
+    open: false,
+    query: "",
+  });
+  const openMemory = (query: string): void => setMemory({ open: true, query });
+  const hasBot = bot?.id !== undefined;
   // Control failures (model/effort/stop) are reported above the composer.
   const [controlError, setControlError] = useState<string | null>(null);
   const { transcriptRef, footerRef, footerHeight, atBottom, jumpToLatest } = useChatScroll([
@@ -192,114 +200,131 @@ export function SessionView({
 
   const announcement = useAnnouncement(bot?.name, transcript, pending);
 
+  // Frameless: the chat is the page. The transcript fills it and scrolls
+  // UNDER the translucent header and composer, which float on top.
+  // --chat-bottom is how much the page reserves below (the phone tab bar).
   return (
-    // Frameless: the chat is the page. The transcript fills it and scrolls
-    // UNDER the translucent header and composer, which float on top.
-    // --chat-bottom is how much the page reserves below (the phone tab bar).
-    <section aria-label="Chat" className="relative min-h-0 flex-1">
-      <div ref={transcriptRef} className="absolute inset-0">
-        <ScrollArea className="h-full">
-          <ul
-            className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))]"
-            style={{
-              paddingBottom: aboveComposer(footerHeight, 12),
-            }}
-          >
-            {transcript.length === 0 && link === "connecting" && <ChatSkeleton />}
-            {transcript.length === 0 && link === "live" && !busy && (
-              <EmptyChat bot={bot} onPick={setDraft} />
-            )}
-            <TranscriptItems
-              transcript={transcript}
-              busy={busy}
-              tasks={taskInfo}
-              jevNotices={jevNotices}
-            />
-            {pending !== null ? (
-              <li>
-                <ApprovalCard
-                  name={pending.name}
-                  input={pending.input}
-                  reason={pending.reason}
-                  who={bot?.name}
-                  callId={pending.callId}
-                  onDecide={(approved, always, takeover) =>
-                    onDecide(pending.callId, approved, always, takeover)
-                  }
-                />
-              </li>
-            ) : (
-              busy && <StatusRow bot={bot} transcript={transcript} pending={pending} />
-            )}
-            {/* A task's gate pops into the thread that spawned it, labelled as the task. */}
-            {taskApprovals.map(({ task, callId, name, input, reason }) => (
-              <li key={`${task.id}:${callId}`}>
-                <ApprovalCard
-                  name={name}
-                  input={input}
-                  reason={reason}
-                  who={taskWho(bot?.name, task)}
-                  callId={callId}
-                  onDecide={(approved, always, takeover) =>
-                    onTaskDecide(task, approved, always, takeover)
-                  }
-                />
-              </li>
-            ))}
-            {/* Sent while busy: pending bubbles, in order, until the turn picks them up. */}
-            {onWithdraw !== undefined && (
-              <QueuedChips
-                queued={queued}
-                approvalPending={pending !== null}
-                activity={turnActivity(transcript)}
-                onWithdraw={(id) => control(() => onWithdraw(id))}
+    <>
+      <section aria-label="Chat" className="relative min-h-0 flex-1">
+        <div ref={transcriptRef} className="absolute inset-0">
+          <ScrollArea className="h-full">
+            <ul
+              className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))]"
+              style={{
+                paddingBottom: aboveComposer(footerHeight, 12),
+              }}
+            >
+              {transcript.length === 0 && link === "connecting" && <ChatSkeleton />}
+              {transcript.length === 0 && link === "live" && !busy && (
+                <EmptyChat bot={bot} onPick={setDraft} />
+              )}
+              <TranscriptItems
+                transcript={transcript}
+                busy={busy}
+                tasks={taskInfo}
+                jevNotices={jevNotices}
+                onOpenMemory={hasBot ? openMemory : undefined}
               />
-            )}
-          </ul>
-        </ScrollArea>
-      </div>
-      <div className="from-background via-background/70 pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(max(0.5rem,env(safe-area-inset-top))+4rem)] bg-linear-to-b to-transparent" />
-      <div className="absolute inset-x-0 top-0 z-10 pt-[max(0.5rem,env(safe-area-inset-top))]">
-        <ChatHeader
-          bot={bot}
-          link={link}
-          onBack={onBack}
-          usage={usage}
-          model={model}
-          effort={effort}
-          models={models}
-          approvalMode={approvalMode}
-          onConfigure={(nextModel, nextEffort) => control(() => onConfigure(nextModel, nextEffort))}
-          onApprovalMode={(mode) => control(() => onApprovalMode(mode))}
-        />
-      </div>
-      {/* Screen readers hear new replies and approval requests. */}
-      <p aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-      {!atBottom && <JumpToLatest bottom={aboveComposer(footerHeight, 8)} onJump={jumpToLatest} />}
-      <footer
-        ref={footerRef}
-        className="pointer-events-none absolute inset-x-0 z-10 flex flex-col gap-2 pb-3 *:pointer-events-auto"
-        style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
-      >
-        {tasks}
-        {lastError !== null && <p className={floatingError}>{lastError}</p>}
-        {controlError !== null && (
-          <p className={floatingError}>Couldn't apply that: {controlError}</p>
+              {pending !== null ? (
+                <li>
+                  <ApprovalCard
+                    name={pending.name}
+                    input={pending.input}
+                    reason={pending.reason}
+                    who={bot?.name}
+                    callId={pending.callId}
+                    onDecide={(approved, always, takeover) =>
+                      onDecide(pending.callId, approved, always, takeover)
+                    }
+                  />
+                </li>
+              ) : (
+                busy && <StatusRow bot={bot} transcript={transcript} pending={pending} />
+              )}
+              {/* A task's gate pops into the thread that spawned it, labelled as the task. */}
+              {taskApprovals.map(({ task, callId, name, input, reason }) => (
+                <li key={`${task.id}:${callId}`}>
+                  <ApprovalCard
+                    name={name}
+                    input={input}
+                    reason={reason}
+                    who={taskWho(bot?.name, task)}
+                    callId={callId}
+                    onDecide={(approved, always, takeover) =>
+                      onTaskDecide(task, approved, always, takeover)
+                    }
+                  />
+                </li>
+              ))}
+              {/* Sent while busy: pending bubbles, in order, until the turn picks them up. */}
+              {onWithdraw !== undefined && (
+                <QueuedChips
+                  queued={queued}
+                  approvalPending={pending !== null}
+                  activity={turnActivity(transcript)}
+                  onWithdraw={(id) => control(() => onWithdraw(id))}
+                />
+              )}
+            </ul>
+          </ScrollArea>
+        </div>
+        <div className="from-background via-background/70 pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(max(0.5rem,env(safe-area-inset-top))+4rem)] bg-linear-to-b to-transparent" />
+        <div className="absolute inset-x-0 top-0 z-10 pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <ChatHeader
+            bot={bot}
+            link={link}
+            onBack={onBack}
+            usage={usage}
+            model={model}
+            effort={effort}
+            models={models}
+            approvalMode={approvalMode}
+            onConfigure={(nextModel, nextEffort) =>
+              control(() => onConfigure(nextModel, nextEffort))
+            }
+            onApprovalMode={(mode) => control(() => onApprovalMode(mode))}
+            onMemory={hasBot ? () => openMemory("") : undefined}
+          />
+        </div>
+        {/* Screen readers hear new replies and approval requests. */}
+        <p aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
+        {!atBottom && (
+          <JumpToLatest bottom={aboveComposer(footerHeight, 8)} onJump={jumpToLatest} />
         )}
-        <Composer
-          botName={bot?.name}
-          live={link === "live"}
-          busy={busy}
-          sending={sending}
-          sendFailed={sendFailed}
-          draft={draft}
-          onDraft={setDraft}
-          onSend={(whenBusy) => void run(whenBusy)}
-          onStop={() => control(onInterrupt)}
+        <footer
+          ref={footerRef}
+          className="pointer-events-none absolute inset-x-0 z-10 flex flex-col gap-2 pb-3 *:pointer-events-auto"
+          style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
+        >
+          {tasks}
+          {lastError !== null && <p className={floatingError}>{lastError}</p>}
+          {controlError !== null && (
+            <p className={floatingError}>Couldn't apply that: {controlError}</p>
+          )}
+          <Composer
+            botName={bot?.name}
+            live={link === "live"}
+            busy={busy}
+            sending={sending}
+            sendFailed={sendFailed}
+            draft={draft}
+            onDraft={setDraft}
+            onSend={(whenBusy) => void run(whenBusy)}
+            onStop={() => control(onInterrupt)}
+          />
+        </footer>
+      </section>
+      {bot?.id !== undefined && (
+        <MemoryPanel
+          profileId={bot.id}
+          name={bot.name}
+          open={memory.open}
+          onOpenChange={(open) => setMemory((current) => ({ ...current, open }))}
+          initialQuery={memory.query}
         />
-      </footer>
-    </section>
+      )}
+    </>
   );
 }

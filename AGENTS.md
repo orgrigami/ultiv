@@ -71,6 +71,7 @@ Not run automatically (long-running or live):
 - `cn()` comes from the `cn` package (`src/lib/utils.ts` re-exports it), not clsx + tailwind-merge.
 - Alias `@/*` → `apps/web/src/*`, declared in both `vite.config.ts` (`resolve.alias`) and `tsconfig.json` (`paths`) — keep them in sync.
 - Chat chrome (header pill = bot switcher, composer, tab bar) floats translucent over the transcript; keep text sizes ≥ `text-xs`, radii 6/10/14, border-only cards.
+- Tool calls render through the presentation lens (`src/lib/tool-text.ts` `presentationOf`: human / classic / hidden; `src/components/tool-trace.tsx` draws them): owner-worded titles, present tense while running, receipts stay collapsible, `jev_*` and `now` are hidden as inner monologue, unknown tools keep the raw wrench. Every chat owns its bot's Memory panel in place (the switcher's "What X remembers" or a memory chip's "Open in Memory" with the search pre-filled); never redirect to /bots for it.
 
 ## AI providers
 

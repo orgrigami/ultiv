@@ -118,6 +118,7 @@ export function ChatHeader({
   approvalMode,
   onConfigure,
   onApprovalMode,
+  onMemory,
 }: {
   bot?: ChatBot | undefined;
   link: LinkState;
@@ -129,6 +130,8 @@ export function ChatHeader({
   approvalMode: ProfileApprovalMode;
   onConfigure: (model: string | null, effort: ThinkingLevel | null) => void;
   onApprovalMode: (mode: ProfileApprovalMode) => void;
+  /** Opens this chat's bot Memory panel (absent when there is no bot). */
+  onMemory?: (() => void) | undefined;
 }) {
   const name = bot?.name !== undefined && bot.name !== "" ? bot.name : "Chat";
   // Floating chips: translucent + blurred so the transcript shows through.
@@ -145,7 +148,7 @@ export function ChatHeader({
         <span />
       )}
       <div className="flex min-w-0 justify-center">
-        <BotSwitcher name={name} currentId={bot?.id} link={link} />
+        <BotSwitcher name={name} currentId={bot?.id} link={link} onMemory={onMemory} />
       </div>
       <Popover.Root>
         <Popover.Trigger

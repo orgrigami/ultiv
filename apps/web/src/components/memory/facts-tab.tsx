@@ -20,6 +20,8 @@ interface TabProps {
   profileId: string;
   name: string;
   reload: () => Promise<void>;
+  /** Pre-fills the search box (a memory chip deep link). */
+  initialQuery?: string | undefined;
 }
 
 type View = "current" | "history";
@@ -29,8 +31,8 @@ const matches = (fact: MemoryV2Fact, query: string): boolean =>
   fact.text.toLowerCase().includes(query) ||
   fact.tags.some((tag) => tag.toLowerCase().includes(query));
 
-export function FactsTab({ data, profileId, name, reload }: TabProps) {
-  const [query, setQuery] = useState("");
+export function FactsTab({ data, profileId, name, reload, initialQuery }: TabProps) {
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [view, setView] = useState<View>("current");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

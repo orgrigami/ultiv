@@ -96,6 +96,7 @@ function MemoryBody({
   name,
   reload,
   refreshError,
+  initialQuery,
 }: {
   data: MemoryData;
   tab: MemoryTabId;
@@ -104,8 +105,16 @@ function MemoryBody({
   name: string;
   reload: () => Promise<void>;
   refreshError: string | null;
+  /** Pre-fills the Facts tab's search (a memory chip deep link). */
+  initialQuery?: string | undefined;
 }) {
-  const tabProps = { data, profileId, name, reload };
+  const tabProps = {
+    data,
+    profileId,
+    name,
+    reload,
+    ...(initialQuery !== undefined ? { initialQuery } : {}),
+  };
   return (
     <>
       <TabStrip tab={tab} onTab={onTab} openCount={data.openCount} />
@@ -139,6 +148,7 @@ export function MemoryPanel({
   children,
   open: controlledOpen,
   onOpenChange,
+  initialQuery,
 }: {
   profileId: string;
   name: string;
@@ -146,6 +156,8 @@ export function MemoryPanel({
   children?: React.ReactElement | undefined;
   open?: boolean | undefined;
   onOpenChange?: ((open: boolean) => void) | undefined;
+  /** Pre-fills the Facts tab's search (a memory chip deep link). */
+  initialQuery?: string | undefined;
 }) {
   const [ownOpen, setOwnOpen] = useState(false);
   const open = controlledOpen ?? ownOpen;
@@ -225,6 +237,7 @@ export function MemoryPanel({
             name={name}
             reload={load}
             refreshError={error}
+            initialQuery={initialQuery}
           />
         )}
       </DialogContent>

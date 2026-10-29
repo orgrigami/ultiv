@@ -7,6 +7,7 @@
 import { Popover } from "@base-ui/react/popover";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  BrainIcon,
   CheckIcon,
   ChevronDownIcon,
   PlusIcon,
@@ -27,12 +28,15 @@ export function BotSwitcher({
   name,
   currentId,
   link,
+  onMemory,
 }: {
   /** The name on the pill (the chat's bot). */
   name: string;
   /** The bot whose chat is on screen. */
   currentId: string | undefined;
   link: LinkState;
+  /** Opens this bot's Memory panel (absent when there is no bot). */
+  onMemory?: (() => void) | undefined;
 }) {
   const { sessions, mainId, attention, refreshAll } = useApp();
   const navigate = useNavigate();
@@ -121,6 +125,20 @@ export function BotSwitcher({
                 })}
               </ul>
               <div className="bg-border my-1 h-px" />
+              {onMemory !== undefined && (
+                <Popover.Close
+                  className={row}
+                  onClick={() => {
+                    setOpen(false);
+                    onMemory();
+                  }}
+                >
+                  <span className="bg-muted inline-flex size-7 items-center justify-center rounded-full">
+                    <BrainIcon className="size-4" />
+                  </span>
+                  <span className="text-sm font-medium">What {name} remembers</span>
+                </Popover.Close>
+              )}
               <button
                 type="button"
                 className={row}
