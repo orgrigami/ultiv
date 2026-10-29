@@ -46,6 +46,7 @@ The model list comes from [models.dev](https://models.dev). The server downloads
 - **Turning a provider on:** set its key in `.env` under the name models.dev uses for it. The provider pages on models.dev show the variable, e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KENARI_API_KEY`.
 - **The default model:** `ULTIV_MODEL=provider/model`, e.g. `anthropic/claude-sonnet-4-6`. Without it, new chats use `kenari/deepseek-v4-1-flash` when Kenari is set up, otherwise the first model in the list.
 - **Fewer providers in the picker:** `ULTIV_PROVIDERS=anthropic,kenari` lists only those, even if other keys are set. OpenRouter alone adds about 300 models, so this helps.
+- **Kenari stays fresher than models.dev:** the gateway's own `https://kenari.id/v1/models` listing is fetched alongside models.dev (cached in `apps/server/var/kenari-models.json`, revalidated every 6 hours) and **replaces** the Kenari model set — models already live on the gateway appear, retired ones drop. `KENARI_MODELS_URL=off` disables it; `MODELS_DEV_URL=off` keeps the whole catalog offline.
 - **Models models.dev doesn't have, or a local server:** add them to `apps/server/var/models.local.json`, in the same format as models.dev. The file is read on every catalog refresh. This adds an Ollama server:
 
   ```json

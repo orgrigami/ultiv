@@ -44,6 +44,14 @@ export const ModelCatalogStatusSchema = Type.Object({
   providers: Type.Array(Type.String()),
   models: Type.Number(),
   error: Type.Union([Type.String(), Type.Null()]),
+  /** The kenari live listing (the gateway runs ahead of models.dev). */
+  kenari: Type.Optional(
+    Type.Object({
+      source: Type.Union([Type.Literal("network"), Type.Literal("cache"), Type.Literal("none")]),
+      fetchedAt: Type.Union([Type.Number(), Type.Null()]),
+      models: Type.Number(),
+    }),
+  ),
   /** The model new conversations start on (`provider/model`). */
   default: Type.String(),
 });

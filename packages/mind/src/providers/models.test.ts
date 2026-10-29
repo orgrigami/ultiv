@@ -49,6 +49,9 @@ const optionsIn = (dir: string, overrides: Partial<CatalogOptions> = {}): Catalo
   cachePath: join(dir, "models-dev.json"),
   overlayPath: join(dir, "models.local.json"),
   ttlMs: 24 * 3_600_000,
+  kenariUrl: null,
+  kenariCachePath: join(dir, "kenari-models.json"),
+  kenariTtlMs: 6 * 3_600_000,
   env: (name) => (name === "KENARI_API_KEY" ? "k" : undefined),
   allow: null,
   preferred: null,
@@ -119,5 +122,58 @@ describe("createCatalog", () => {
     const preferred = await createCatalog(optionsIn(dir, { url: null, preferred: "acme/acme-1" }));
     expect(preferred.defaultRef()).toBe("acme/acme-1");
     preferred.close();
+  });
+
+  it("revalidates kenari against the gateway listing, which replaces its models", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const kenariListing = {
+      data: [
+        {
+          id: "glm-5-3-flash",
+          name: "GLM",
+          endpoints: ["chat"],
+          modalities: { input: ["text"], output: ["text"] },
+          context_length: 128_000,
+          tool_call: true,
+        },
+        {
+          id: "claude-opus-5-5",
+          name: "Opus",
+          endpoints: ["chat"],
+          modalities: { input: ["text"], output: ["text"] },
+          context_length: 200_000,
+          max_output_tokens: 32_768,
+          tool_call: true,
+          reasoning_options: ["none", "high"],
+        },
+      ],
+    };
+    const dual: Fetcher = async (url) =>
+      new Response(JSON.stringify(url.includes("kenari.id") ? kenariListing : BODY), {
+        status: 200,
+      });
+    const catalog = await createCatalog(
+      optionsIn(dir, { fetcher: dual, kenariUrl: "https://kenari.id/v1/models" }),
+    );
+    expect(catalog.status().kenari).toMatchObject({ source: "network", models: 2 });
+    // deepseek lives on models.dev but not on the gateway: it drops out.
+    expect(catalog.list().map((spec) => spec.ref)).toEqual([
+      "kenari/glm-5-3-flash",
+      "kenari/claude-opus-5-5",
+    ]);
+    // Live-only model wired through the gateway; efforts came off the flat list.
+    expect(catalog.models.getModel("kenari", "claude-opus-5-5")?.baseUrl).toBe(
+      "https://kenari.id/v1",
+    );
+    expect(catalog.find("claude-opus-5-5")?.efforts).toEqual(["off", "high"]);
+    // The listing is cached like models.dev, and later boots serve it offline.
+    expect(
+      JSON.parse(readFileSync(join(dir, "kenari-models.json"), "utf8")).body.data,
+    ).toHaveLength(2);
+    catalog.close();
+    const offline = await createCatalog(optionsIn(dir, { url: null, kenariUrl: null }));
+    expect(offline.status().kenari).toMatchObject({ source: "cache", models: 2 });
+    expect(offline.find("glm-5-3-flash")?.ref).toBe("kenari/glm-5-3-flash");
+    offline.close();
   });
 });

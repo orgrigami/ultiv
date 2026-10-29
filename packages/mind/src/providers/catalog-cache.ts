@@ -52,7 +52,13 @@ export const readJsonFile = async (path: string): Promise<unknown> => {
 export const fetchCatalog = async (
   url: string,
   previous: CachedCatalog | undefined,
-  options: { readonly fetcher: Fetcher; readonly timeoutMs: number; readonly now: number },
+  options: {
+    readonly fetcher: Fetcher;
+    readonly timeoutMs: number;
+    readonly now: number;
+    /** Who was asked, for error messages. */
+    readonly label?: string;
+  },
 ): Promise<CachedCatalog> => {
   const headers: Record<string, string> = { accept: "application/json" };
   if (previous?.etag !== undefined) headers["if-none-match"] = previous.etag;
@@ -63,7 +69,7 @@ export const fetchCatalog = async (
   if (response.status === 304 && previous !== undefined) {
     return { ...previous, fetchedAt: options.now };
   }
-  if (!response.ok) throw new Error(`models.dev answered ${response.status}`);
+  if (!response.ok) throw new Error(`${options.label ?? "models.dev"} answered ${response.status}`);
   const body = (await response.json()) as unknown;
   const etag = response.headers.get("etag");
   return { fetchedAt: options.now, ...(etag !== null ? { etag } : {}), body };

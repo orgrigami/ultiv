@@ -26,6 +26,7 @@ process.env.MCP_DIR = join(scratchArtifacts, "mcp");
 process.env.MODELS_DEV_URL = "off";
 process.env.MODELS_DEV_CACHE = join(scratchArtifacts, "models-dev.json");
 process.env.MODELS_OVERLAY = join(scratchArtifacts, "models.local.json");
+process.env.KENARI_MODELS_CACHE = join(scratchArtifacts, "kenari-models.json");
 process.env.ULTIV_PROVIDERS = "smoke-local";
 process.env.ULTIV_MODEL = "kenari/deepseek-v4-1-flash";
 writeFileSync(

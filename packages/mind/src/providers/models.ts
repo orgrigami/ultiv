@@ -2,7 +2,9 @@
  * The mind's model catalog: every provider models.dev knows whose key is
  * set, with the models it lists. The catalog boots from its disk cache and
  * revalidates against models.dev in the background (daily by default);
- * only a first boot with no cache waits on the network. Providers re-register
+ * only a first boot with no cache waits on the network. The kenari provider
+ * additionally revalidates against the gateway's own listing (see
+ * `kenari.ts`), which runs ahead of models.dev. Providers re-register
  * after each refresh, so new models appear without a restart. The whole
  * catalog is served behind the concurrency gate: one process-wide bound on
  * simultaneous model requests.
@@ -14,8 +16,12 @@ import type { Models, MutableModels } from "@earendil-works/pi-ai";
 import type { CompactionSettings } from "@earendil-works/pi-durable";
 import {
   DEFAULT_MODEL_FALLBACK,
+  KENARI_MODELS_DEFAULT_URL,
   MODELS_DEV_DEFAULT_URL,
   defaultModel,
+  kenariModelsCache,
+  kenariModelsTtlHours,
+  kenariModelsUrl,
   modelMaxConcurrency,
   modelProviders,
   modelsDevCache,
@@ -32,6 +38,7 @@ import {
   type CachedCatalog,
   type Fetcher,
 } from "./catalog-cache.ts";
+import { applyKenari, parseKenariListing } from "./kenari.ts";
 import { gateModels } from "./gate.ts";
 import { bySpecOrder, compactionFor, normalizeRef, specOf, type ModelSpec } from "./refs.ts";
 import { providerOf, type EnvLookup, type WireOptions } from "./wire.ts";
@@ -44,6 +51,12 @@ export interface CatalogStatus {
   readonly models: number;
   /** The last refresh or overlay failure, cleared by the next success. */
   readonly error: string | null;
+  /** The kenari live listing (models.dev lags the gateway). */
+  readonly kenari: {
+    readonly source: "network" | "cache" | "none";
+    readonly fetchedAt: number | null;
+    readonly models: number;
+  };
 }
 
 export interface ModelCatalogService {
@@ -74,6 +87,10 @@ export interface CatalogOptions {
   readonly cachePath: string;
   readonly overlayPath: string;
   readonly ttlMs: number;
+  /** Kenari's own listing; null = never fetch (MODELS_DEV_URL=off covers it). */
+  readonly kenariUrl: string | null;
+  readonly kenariCachePath: string;
+  readonly kenariTtlMs: number;
   readonly env: EnvLookup;
   readonly allow: ReadonlySet<string> | null;
   /** ULTIV_MODEL, when set. */
@@ -133,6 +150,11 @@ export const createCatalog = async (
   let entry: CachedCatalog | undefined = await readCache(options.cachePath);
   let source: CatalogStatus["source"] = entry !== undefined ? "cache" : "none";
   let error: string | null = null;
+  let kenariEntry: CachedCatalog | undefined = await readCache(options.kenariCachePath);
+  let kenariSource: CatalogStatus["kenari"]["source"] =
+    kenariEntry !== undefined ? "cache" : "none";
+  let kenariError: string | null = null;
+  let kenariListed = 0;
   let installed: Installed = { specs: [], byRef: new Map(), compaction: compactionFor([]) };
 
   const install = async (): Promise<void> => {
@@ -142,7 +164,9 @@ export const createCatalog = async (
     } catch (cause) {
       error = `overlay ${options.overlayPath}: ${messageOf(cause)}`;
     }
-    const catalog = mergeOverlay(parseCatalog(entry?.body), overlay);
+    const listing = kenariEntry !== undefined ? parseKenariListing(kenariEntry.body) : undefined;
+    kenariListed = listing !== undefined ? Object.keys(listing).length : 0;
+    const catalog = mergeOverlay(applyKenari(parseCatalog(entry?.body), listing), overlay);
     installed = installInto(raw, catalog, { env: options.env, allow: options.allow });
   };
 
@@ -151,30 +175,55 @@ export const createCatalog = async (
     fetchedAt: entry?.fetchedAt ?? null,
     providers: [...new Set(installed.specs.map((spec) => spec.provider))],
     models: installed.specs.length,
-    error,
+    error: error ?? kenariError,
+    kenari: {
+      source: kenariSource,
+      fetchedAt: kenariEntry?.fetchedAt ?? null,
+      models: kenariListed,
+    },
   });
 
   let inflight: Promise<CatalogStatus> | null = null;
   const refresh = (force = false): Promise<CatalogStatus> => {
-    const url = options.url;
-    if (url === null) return Promise.resolve(status());
-    if (!force && entry !== undefined && now() - entry.fetchedAt < options.ttlMs) {
-      return Promise.resolve(status());
-    }
+    const devStale =
+      options.url !== null &&
+      (force || entry === undefined || now() - entry.fetchedAt >= options.ttlMs);
+    const kenariStale =
+      options.kenariUrl !== null &&
+      (force || kenariEntry === undefined || now() - kenariEntry.fetchedAt >= options.kenariTtlMs);
+    if (!devStale && !kenariStale) return Promise.resolve(status());
+    const fetcher = options.fetcher ?? fetch;
     inflight ??= (async () => {
-      try {
-        entry = await fetchCatalog(url, entry, {
-          fetcher: options.fetcher ?? fetch,
-          timeoutMs: 20_000,
-          now: now(),
-        });
-        source = "network";
-        error = null;
-        await install();
-        await writeCache(options.cachePath, entry);
-      } catch (cause) {
-        error = `models.dev refresh: ${messageOf(cause)}`;
+      if (devStale) {
+        try {
+          entry = await fetchCatalog(options.url as string, entry, {
+            fetcher,
+            timeoutMs: 20_000,
+            now: now(),
+          });
+          source = "network";
+          error = null;
+          await writeCache(options.cachePath, entry);
+        } catch (cause) {
+          error = `models.dev refresh: ${messageOf(cause)}`;
+        }
       }
+      if (kenariStale) {
+        try {
+          kenariEntry = await fetchCatalog(options.kenariUrl as string, kenariEntry, {
+            fetcher,
+            timeoutMs: 20_000,
+            now: now(),
+            label: "kenari",
+          });
+          kenariSource = "network";
+          kenariError = null;
+          await writeCache(options.kenariCachePath, kenariEntry);
+        } catch (cause) {
+          kenariError = `kenari models refresh: ${messageOf(cause)}`;
+        }
+      }
+      await install();
       return status();
     })().finally(() => {
       inflight = null;
@@ -213,14 +262,27 @@ const allowlistOf = (raw: Option.Option<string>): ReadonlySet<string> | null => 
   return ids.length > 0 ? new Set(ids) : null;
 };
 
+/** KENARI_MODELS_URL: unset/blank = the gateway's own listing, `off` = never. */
+const kenariUrlOf = (devUrl: string | null, raw: Option.Option<string>): string | null => {
+  // MODELS_DEV_URL=off means the catalog stays offline entirely.
+  if (devUrl === null) return null;
+  if (Option.isNone(raw)) return KENARI_MODELS_DEFAULT_URL;
+  const value = raw.value.trim();
+  return value === "" ? KENARI_MODELS_DEFAULT_URL : value === "off" ? null : value;
+};
+
 const catalogOptions: Effect.Effect<CatalogOptions, ConfigError> = Effect.gen(function* () {
   const url = yield* modelsDevUrl;
   const preferred = yield* defaultModel;
+  const resolved = url.trim() === "off" ? null : url.trim() || MODELS_DEV_DEFAULT_URL;
   return {
-    url: url.trim() === "off" ? null : url.trim() || MODELS_DEV_DEFAULT_URL,
+    url: resolved,
     cachePath: yield* modelsDevCache,
     overlayPath: yield* modelsOverlay,
     ttlMs: (yield* modelsDevTtlHours) * 3_600_000,
+    kenariUrl: kenariUrlOf(resolved, yield* kenariModelsUrl),
+    kenariCachePath: yield* kenariModelsCache,
+    kenariTtlMs: (yield* kenariModelsTtlHours) * 3_600_000,
     env: (name) => process.env[name],
     allow: allowlistOf(yield* modelProviders),
     preferred:

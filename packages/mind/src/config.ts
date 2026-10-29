@@ -12,6 +12,7 @@ export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
 export const JEV_FALLBACK_MODEL = "jev-latest";
 export const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai";
 export const MODELS_DEV_DEFAULT_URL = "https://models.dev/api.json";
+export const KENARI_MODELS_DEFAULT_URL = "https://kenari.id/v1/models";
 export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
 
 /** The default model as `provider/model`. */
@@ -26,6 +27,14 @@ export const modelsDevCache = Config.String("MODELS_DEV_CACHE").pipe(
   Config.withDefault("var/models-dev.json"),
 );
 export const modelsDevTtlHours = Config.Number("MODELS_DEV_TTL_HOURS").pipe(Config.withDefault(24));
+/** Kenari's own listing; the gateway runs ahead of models.dev. `off` disables. */
+export const kenariModelsUrl = Config.option(Config.String("KENARI_MODELS_URL"));
+export const kenariModelsCache = Config.String("KENARI_MODELS_CACHE").pipe(
+  Config.withDefault("var/kenari-models.json"),
+);
+export const kenariModelsTtlHours = Config.Number("KENARI_MODELS_TTL_HOURS").pipe(
+  Config.withDefault(6),
+);
 /** The owner's additions in models.dev format: extra models, extra providers, endpoint overrides. */
 export const modelsOverlay = Config.String("MODELS_OVERLAY").pipe(
   Config.withDefault("var/models.local.json"),
