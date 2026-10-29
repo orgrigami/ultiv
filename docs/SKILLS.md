@@ -8,8 +8,10 @@ skills hold ways of working worth loading before similar work.
 ## Where they live
 
 - Built-ins: `packages/about`, the app's own self-knowledge as one
-  whole-world skill (`ultiv`): ground truths, surfaces, faculties,
-  procedures. Read-only, updated with the app.
+  whole-world skill (`ultiv`): a lean SKILL.md (ground truths, owner
+  experience, the reference index) plus `references/` for the surfaces,
+  the faculties, the procedures, and the platform contracts. Read-only,
+  updated with the app; built-in files read from the package, never disk.
 - Per-bot: `{SKILLS_DIR}/{owner}/{profile}/skills/<name>/SKILL.md`
   (default `var/skills`), metadata in `skills.index.json` beside them,
   including the previous version's body for one-click revert. Reference

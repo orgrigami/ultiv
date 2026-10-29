@@ -90,6 +90,7 @@ const builtinSkills = (): readonly BuiltinSkill[] =>
       name: doc.name,
       description: doc.description,
       markdown: skill.markdown,
+      files: skill.files,
     };
   });
 
@@ -110,7 +111,8 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
         ),
       };
     },
-    readFile: async (owner, profile, name, rel) => readSkillFile(root, owner, profile, name, rel),
+    readFile: async (owner, profile, name, rel) =>
+      readSkillFile(root, owner, profile, name, rel, builtins),
     write: async (owner, profile, input) =>
       writeSkill(
         root,

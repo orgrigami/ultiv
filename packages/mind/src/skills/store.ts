@@ -28,6 +28,8 @@ export interface BuiltinSkill {
   readonly name: string;
   readonly description: string;
   readonly markdown: string;
+  /** Reference files the package carries beside the SKILL.md. */
+  readonly files: readonly { readonly path: string; readonly content: string }[];
 }
 
 interface StoredSkill extends SkillMeta {
@@ -101,7 +103,7 @@ const builtinMeta = (skill: BuiltinSkill, enabled: boolean): SkillMeta => ({
   updatedAt: 0,
   version: 1,
   enabled,
-  files: [],
+  files: skill.files.map((file) => file.path),
   parentVersion: null,
   evolutionNote: null,
 });
@@ -161,15 +163,22 @@ export const readSkill = (
   return { meta, body };
 };
 
-/** One skill's extra file, capped; traversal-shaped paths are refused. */
+/** One skill's extra file, capped; traversal-shaped paths are refused.
+ * Built-ins resolve from the package, never disk. */
 export const readSkillFile = (
   root: string,
   owner: string,
   profile: string,
   name: string,
   rel: string,
+  builtins: readonly BuiltinSkill[] = [],
 ): string | undefined => {
   if (!relativePathOk(rel)) return undefined;
+  const builtin = builtins.find((skill) => skill.name === name);
+  if (builtin !== undefined) {
+    const file = builtin.files.find((candidate) => candidate.path === rel);
+    return file?.content;
+  }
   const file = join(skillsOf(root, owner, profile), name, rel);
   if (!existsSync(file)) return undefined;
   const text = readFileSync(file, "utf8");

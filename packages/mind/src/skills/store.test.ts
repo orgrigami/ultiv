@@ -64,6 +64,20 @@ describe("skills service over disk", () => {
     );
   });
 
+  it("built-in reference files list and read from the package", async () => {
+    const skills = skillsService({ root: fresh() });
+    const ultiv = await skills.read("harry", "p1", "ultiv");
+    expect(ultiv?.meta.files).toEqual([
+      "references/mind.md",
+      "references/platform.md",
+      "references/procedures.md",
+      "references/surfaces.md",
+    ]);
+    const surfaces = await skills.readFile("harry", "p1", "ultiv", "references/surfaces.md");
+    expect(surfaces?.includes("Chat")).toBe(true);
+    expect(await skills.readFile("harry", "p1", "ultiv", "../escape.md")).toBeUndefined();
+  });
+
   it("reference files: written as a full set, listed, pruned, readable", async () => {
     const skills = skillsService({ root: fresh() });
     await skills.write("harry", "p1", {

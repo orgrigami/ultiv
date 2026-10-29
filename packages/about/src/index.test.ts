@@ -36,9 +36,27 @@ describe("aboutSkills", () => {
     }
   });
 
-  it("built-in bodies keep the house style: no em dashes", () => {
+  it("reference files ride along, readable and within caps", () => {
+    const ultiv = aboutSkills().find((skill) => skill.name === "ultiv");
+    expect(ultiv?.files.map((file) => file.path)).toEqual([
+      "references/mind.md",
+      "references/platform.md",
+      "references/procedures.md",
+      "references/surfaces.md",
+    ]);
+    for (const file of ultiv?.files ?? []) {
+      expect(file.content.length).toBeGreaterThan(100);
+      expect(file.content.length).toBeLessThanOrEqual(100_000);
+      expect(file.content.includes("\0")).toBe(false);
+    }
+  });
+
+  it("built-in texts keep the house style: no em dashes", () => {
     for (const skill of aboutSkills()) {
       expect(skill.markdown.includes("—"), `${skill.name} contains an em dash`).toBe(false);
+      for (const file of skill.files) {
+        expect(file.content.includes("—"), `${skill.name}/${file.path}`).toBe(false);
+      }
     }
   });
 });
