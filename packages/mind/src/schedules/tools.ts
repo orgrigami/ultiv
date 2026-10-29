@@ -106,7 +106,8 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
             type: "text" as const,
             text:
               `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`} — delivers into ${main.id}` +
-              (next.length > 0 ? `\nnext fires: ${rendered} (verify this is what you meant)` : ""),
+              (next.length > 0 ? `\nnext fires: ${rendered} (verify this is what you meant)` : "") +
+              "\nyour owner sees this under Routines",
           },
         ],
         structuredOutput: { id: job.id, next },

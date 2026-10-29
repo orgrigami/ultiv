@@ -170,3 +170,19 @@ export type {
   McpToolInfo,
   McpTransport,
 } from "./mcp.ts";
+export {
+  SkillDetailSchema,
+  SkillMetaSchema,
+  SkillNamespaceSchema,
+  SkillOriginSchema,
+  SkillOverviewSchema,
+  SkillProposalSchema,
+} from "./skills.ts";
+export type {
+  SkillDetail,
+  SkillMeta,
+  SkillNamespace,
+  SkillOrigin,
+  SkillOverview,
+  SkillProposal,
+} from "./skills.ts";

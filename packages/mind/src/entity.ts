@@ -52,6 +52,7 @@ import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
+import { skillsService, type SkillsService } from "./skills/service.ts";
 import { type MemoryService } from "./memory/memory.ts";
 import { type HistoryService } from "./history/history.ts";
 import { type SchedulesService } from "./schedules/schedules.ts";
@@ -103,6 +104,8 @@ export interface MindService {
   readonly rooms: RoomsService;
   /** Inter-entity messaging on per-pair DM threads. */
   readonly mailbox: MailboxService;
+  /** Skills: built-in and self-written procedures, per profile, evolvable. */
+  readonly skills: SkillsService;
   /** The memory seam: profile and owner stores with write authority. */
   readonly memory: MemoryService;
   /** Rereading the entity's own past: search over durable transcripts. */
@@ -246,6 +249,8 @@ const mindLayerRaw = (
       const profilesRef: ProfilesService = profiles;
       botTools = botsTools({ profiles, audit, activity: taskActivity(tasks) });
       const rooms = roomsService({ converse });
+      const skills = skillsService();
+      const skillsRef: SkillsService = skills;
       const mailbox = mailboxService({
         converse,
         profiles,
@@ -277,6 +282,8 @@ const mindLayerRaw = (
         mailbox,
         botTools,
         audit,
+        approvals,
+        skills: skillsRef,
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
         ...routines,
@@ -301,6 +308,7 @@ const mindLayerRaw = (
         profiles,
         rooms,
         mailbox,
+        skills,
         ...routines,
         mcp: mcp.manager,
         secrets: mcp.secrets,

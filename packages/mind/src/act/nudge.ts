@@ -16,7 +16,9 @@ export interface NudgeGate {
 
 export const TASK_NUDGE =
   "This turn is doing a lot inline. If the rest is mechanical, task_spawn can run it in " +
-  "the background while you end your turn; you are woken with the result.";
+  "the background while you end your turn; you are woken with the result. And if this is " +
+  "a repeatable procedure, distill it into a skill with skill_write once the run settles, " +
+  "so next time is one load.";
 
 /** Tool calls within this window count as one stretch of work. */
 const WINDOW_MS = 5 * 60_000;

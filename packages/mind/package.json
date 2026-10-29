@@ -15,6 +15,7 @@
     "@earendil-works/pi-codemode": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
     "@typesafe-ai/sdk": "^0.7.0",
+    "@ultiv/about": "workspace:*",
     "@ultiv/contracts": "workspace:*",
     "@ultiv/core": "workspace:*",
     "@ultiv/ext": "workspace:*",

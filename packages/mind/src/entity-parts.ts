@@ -16,6 +16,8 @@ import { codemodeExtension } from "./act/codemode.ts";
 import { taskTools } from "./act/task-tools.ts";
 import { ENTITY_NAME } from "./act/identity.ts";
 import { runningTasksSection } from "./act/task-live.ts";
+import { skillsExtension } from "./skills/section.ts";
+import type { SkillsService } from "./skills/service.ts";
 import type { AuditService } from "./audit/audit.ts";
 import type { ConverseService } from "./converse/converse.ts";
 import type { TasksService } from "./tasks/tasks.ts";
@@ -57,10 +59,14 @@ interface Faculties {
   readonly history: HistoryService;
   /** The write guard reads the turn's origin and taint through these. */
   readonly audit?: AuditService;
+  /** The approval surface, for the skills extension's gated tools. */
+  readonly approvals?: ApprovalsService;
   /** Names beyond the guard's base set that taint a turn (installed MCP tools). */
   readonly untrustedTool?: (name: string) => boolean;
   /** bots_list / bot_info: read-only sibling discovery, in the allowlist universe. */
   readonly botTools: readonly ToolRegistration[];
+  /** The skills faculty: built-in and self-written procedures, per profile. */
+  readonly skills?: SkillsService;
 }
 
 /** Late installs are legal: the harness reconsiders its tools as the registry changes. */
@@ -74,6 +80,17 @@ export const installFaculties = (
   piRegistry.install(codemodeExtension());
   piRegistry.install(profilesExtension(profiles, ENTITY_NAME));
   piRegistry.install(memoryCoreExtension(memory, profiles));
+  if (f.skills !== undefined) {
+    piRegistry.install(
+      skillsExtension({
+        skills: f.skills,
+        profiles,
+        tasks,
+        ...(f.approvals !== undefined ? { approvals: f.approvals } : {}),
+        ...(f.audit !== undefined ? { audit: f.audit } : {}),
+      }),
+    );
+  }
   piRegistry.install(defineExtension({ name: "ultius.mind.bots", tools: [...f.botTools] }));
   piRegistry.install(
     defineExtension({

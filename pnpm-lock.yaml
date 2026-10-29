@@ -350,6 +350,8 @@ importers:
         specifier: ^6.1.2
         version: 6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
 
+  packages/about: {}
+
   packages/contracts:
     dependencies:
       '@earendil-works/chord':
@@ -410,6 +412,9 @@ importers:
       '@typesafe-ai/sdk':
         specifier: ^0.7.0
         version: 0.7.0
+      '@ultiv/about':
+        specifier: workspace:*
+        version: link:../about
       '@ultiv/contracts':
         specifier: workspace:*
         version: link:../contracts

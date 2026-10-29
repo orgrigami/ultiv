@@ -246,7 +246,12 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
         profile: scope?.profile ?? null,
       });
       return Promise.resolve({
-        output: [{ type: "text" as const, text: `artifact ${info.id} (${info.name})` }],
+        output: [
+          {
+            type: "text" as const,
+            text: `artifact ${info.id} (${info.name}) in your workspace; your owner can open it in the app`,
+          },
+        ],
         structuredOutput: { id: info.id, name: info.name },
       });
     },
