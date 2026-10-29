@@ -38,6 +38,10 @@ const ORIGIN_VARIANT: Record<SkillOrigin, "secondary" | "default" | "outline"> =
   url: "outline",
 };
 
+/** The SKILL.md body without its frontmatter; the header shows that instead. */
+const bodyWithoutFrontmatter = (body: string): string =>
+  body.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+
 /** One open skill in a bot's list, or a read-only built-in. */
 function SkillRow({ skill, onOpen }: { skill: SkillMeta; onOpen: () => void }) {
   return (
@@ -172,8 +176,16 @@ function LoadedSkill({
   return (
     <>
       <p className="text-muted-foreground mt-1 text-sm">{describeMeta(detail.meta)}</p>
-      <div className="mt-3 min-w-0 text-sm">
-        <LazyMarkdown text={detail.body} />
+      {detail.meta.description !== "" && (
+        <p className="text-muted-foreground mt-1 text-sm">{detail.meta.description}</p>
+      )}
+      {detail.meta.files.length > 0 && (
+        <p className="text-muted-foreground mt-2 text-xs">
+          Reference files: {detail.meta.files.join(", ")}
+        </p>
+      )}
+      <div className="prose prose-sm dark:prose-invert mt-3 max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere]">
+        <LazyMarkdown text={bodyWithoutFrontmatter(detail.body)} />
       </div>
       {detail.proposals.length > 0 && (
         <div className="mt-5 flex flex-col gap-2">

@@ -15,7 +15,13 @@ export interface FetchedText {
   readonly status: number;
 }
 
-const MAX_FETCH_BYTES = 200_000;
+export interface FetchedBytes {
+  readonly url: string;
+  readonly body: Buffer;
+  readonly status: number;
+}
+
+const MAX_FETCH_BYTES = 5_000_000;
 const TIMEOUT_MS = 20_000;
 const MAX_REDIRECTS = 3;
 
@@ -28,7 +34,10 @@ const getOnce = (url: URL): Promise<{ status: number; location?: string; body: B
         method: "GET",
         agent: false,
         lookup: guardedLookup(false) as never,
-        headers: { accept: "text/markdown, text/plain; q=0.9, */*; q=0.1" },
+        headers: {
+          accept:
+            "text/markdown, text/plain, application/gzip, application/x-tar; q=0.9, */*; q=0.1",
+        },
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -63,8 +72,8 @@ const getOnce = (url: URL): Promise<{ status: number; location?: string; body: B
 const redirectOf = (status: number): boolean =>
   status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 
-/** Fetch a skill file's raw text. Https URLs only; errors carry plain text. */
-export const fetchText = async (raw: string): Promise<FetchedText> => {
+/** Fetch bytes over the guarded path. Https URLs only; errors carry plain text. */
+export const fetchBytes = async (raw: string): Promise<FetchedBytes> => {
   let url: URL;
   try {
     url = new URL(raw);
@@ -89,8 +98,13 @@ export const fetchText = async (raw: string): Promise<FetchedText> => {
     if (res.status < 200 || res.status >= 300) {
       throw new Error(`GET ${url.host}${url.pathname} responded ${res.status}`);
     }
-    const text = res.body.toString("utf8");
-    if (text.trim() === "") throw new Error("the response was empty");
-    return { url: url.toString(), text, status: res.status };
+    if (res.body.length === 0) throw new Error("the response was empty");
+    return { url: url.toString(), body: res.body, status: res.status };
   }
+};
+
+/** Fetch a skill file's raw text (bytes decoded utf8). */
+export const fetchText = async (raw: string): Promise<FetchedText> => {
+  const fetched = await fetchBytes(raw);
+  return { url: fetched.url, text: fetched.body.toString("utf8"), status: fetched.status };
 };

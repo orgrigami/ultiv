@@ -10,6 +10,7 @@ import { aboutSkills } from "@ultiv/about";
 import { parseSkillDoc } from "./frontmatter.ts";
 import {
   type BuiltinSkill,
+  type SkillFileIn,
   listSkills,
   readSkill,
   readSkillFile,
@@ -39,6 +40,8 @@ export interface SkillWriteInput {
   readonly authorProfile?: string | null;
   readonly parentVersion?: number | null;
   readonly note?: string | null;
+  /** The skill's complete reference set; omitted leaves current files untouched. */
+  readonly files?: readonly SkillFileIn[];
 }
 
 export interface SkillsService {
@@ -121,6 +124,7 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
           ...(input.authorProfile !== undefined ? { authorProfile: input.authorProfile } : {}),
           ...(input.parentVersion !== undefined ? { parentVersion: input.parentVersion } : {}),
           ...(input.note !== undefined ? { note: input.note } : {}),
+          ...(input.files !== undefined ? { files: input.files } : {}),
         },
         builtins,
       ),

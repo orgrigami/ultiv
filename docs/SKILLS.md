@@ -7,11 +7,18 @@ skills hold ways of working worth loading before similar work.
 
 ## Where they live
 
-- Built-ins: `packages/about`, the app's own self-knowledge (ultiv,
-  surfaces, your-mind, procedures). Read-only, updated with the app.
+- Built-ins: `packages/about`, the app's own self-knowledge as one
+  whole-world skill (`ultiv`): ground truths, surfaces, faculties,
+  procedures. Read-only, updated with the app.
 - Per-bot: `{SKILLS_DIR}/{owner}/{profile}/skills/<name>/SKILL.md`
   (default `var/skills`), metadata in `skills.index.json` beside them,
-  including the previous version's body for one-click revert.
+  including the previous version's body for one-click revert. Reference
+  files (`references/`, `scripts/`, `assets/`, any layout) live beside the
+  SKILL.md and are listed in the metadata.
+- Names and descriptions follow the agentskills.io spec: name matches the
+  folder, 1-64 chars, lowercase alnum with single interior hyphens;
+  description at most 1024 chars. The store normalizes the frontmatter
+  name to the folder on write.
 - Proposals: `skills.proposals.json` per profile; evolution runs and
   cautious bots park changes here instead of applying them.
 
@@ -48,16 +55,16 @@ nothing is lost. Built-ins never evolve: copy one first.
 
 ## Tools
 
-| Tool            | Gate  | What it does                                            |
-| --------------- | ----- | ------------------------------------------------------- |
-| `skill_list`    | read  | full sheet: name, description, origin, version, enabled |
-| `skill_load`    | read  | full instructions into context; refuses disabled skills |
-| `skill_file`    | read  | one reference file inside a skill                       |
-| `skill_write`   | open  | create or update in the bot's own namespace             |
-| `skill_delete`  | gated | remove one of the bot's skills                          |
-| `skill_install` | gated | install from a https URL serving raw SKILL.md text      |
-| `skill_propose` | open  | park a change for the owner (proposals inbox)           |
-| `skill_evolve`  | open  | start the evolution task; `mode: propose\|apply`        |
+| Tool            | Gate  | What it does                                                    |
+| --------------- | ----- | --------------------------------------------------------------- |
+| `skill_list`    | read  | full sheet: name, description, origin, version, enabled         |
+| `skill_load`    | read  | full instructions into context; refuses disabled skills         |
+| `skill_file`    | read  | one reference file inside a skill                               |
+| `skill_write`   | open  | create or update; `files` sets the complete reference set       |
+| `skill_delete`  | gated | remove one of the bot's skills                                  |
+| `skill_install` | gated | install from https: raw SKILL.md text or a .tar.gz skill folder |
+| `skill_propose` | open  | park a change for the owner (proposals inbox)                   |
+| `skill_evolve`  | open  | start the evolution task; `mode: propose\|apply`                |
 
 ## Owner surface
 

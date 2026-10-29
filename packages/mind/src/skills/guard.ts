@@ -1,16 +1,26 @@
 /**
- * Skill content rules, enforced wherever skill text enters the store: slugs
- * are filesystem-and-tool safe, bodies are bounded, and secret-shaped text
- * is refused outright (the memory guard's rule, one tier up: a skill is
- * instructions, and instructions never carry credentials). The scan is
- * deliberately high-precision: a few token shapes, not a keyword fog.
+ * Skill content rules, enforced wherever skill text enters the store. The
+ * name and description limits are the agentskills.io spec's own: lowercase
+ * alnum plus single interior hyphens, 64 chars, matching the folder; a
+ * description of at most 1024. Beyond the spec: bodies are bounded, and
+ * secret-shaped text is refused outright (the memory guard's rule, one tier
+ * up: a skill is instructions, and instructions never carry credentials).
+ * The scan is deliberately high-precision: a few token shapes, not a
+ * keyword fog.
  */
 
-export const SKILL_SLUG = /^[a-z0-9][a-z0-9-]{0,47}$/;
+/** Spec name rule: 1-64, no lead/trail/consecutive hyphens. */
+export const SKILL_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const MAX_NAME_CHARS = 64;
+export const MAX_DESCRIPTION_CHARS = 1024;
 export const MAX_SKILL_CHARS = 20_000;
 export const MAX_SKILL_FILE_CHARS = 100_000;
+/** Reference files per skill, and their total size. */
+export const MAX_SKILL_FILES = 50;
+export const MAX_SKILL_FILES_BYTES = 512_000;
 
-export const slugOk = (name: string): boolean => SKILL_SLUG.test(name);
+export const slugOk = (name: string): boolean =>
+  name.length <= MAX_NAME_CHARS && SKILL_SLUG.test(name);
 
 /** "invoice-workflow" from "Invoice Workflow!" when an install omits a name. */
 export const slugify = (raw: string): string =>
@@ -18,7 +28,7 @@ export const slugify = (raw: string): string =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 48)
+    .slice(0, MAX_NAME_CHARS)
     .replace(/-+$/g, "");
 
 const SECRET_PATTERNS: readonly { readonly kind: string; readonly re: RegExp }[] = [

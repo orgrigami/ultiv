@@ -457,9 +457,9 @@ const skillsOverview = await call("GET", "/api/skills", undefined, headers);
 expect(
   "skills overview lists built-ins per bot",
   skillsOverview.status === 200 &&
-    skillsOverview.json.builtins.length === 4 &&
+    skillsOverview.json.builtins.length === 1 &&
     skillsOverview.json.profiles.length >= 1 &&
-    skillsOverview.json.profiles[0].skills.length === 4,
+    skillsOverview.json.profiles[0].skills.length === 1,
 );
 const smokeSkillBody =
   "---\nname: smoke-skill\ndescription: A skill the smoke run wrote\n---\n\n# steps";

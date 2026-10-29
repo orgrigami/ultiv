@@ -22,13 +22,8 @@ const parse = (markdown: string): { name: string; description: string } | undefi
 };
 
 describe("aboutSkills", () => {
-  it("ships the four first-party skills in display order", () => {
-    expect(aboutSkills().map((skill) => skill.name)).toEqual([
-      "ultiv",
-      "surfaces",
-      "your-mind",
-      "procedures",
-    ]);
+  it("ships the built-in library in display order", () => {
+    expect(aboutSkills().map((skill) => skill.name)).toEqual(["ultiv"]);
   });
 
   it("every skill parses and stays within the store's cap", () => {

@@ -24,7 +24,7 @@ describe("skills service over disk", () => {
     const skills = skillsService({ root: fresh() });
     const list = await skills.list("harry", "p1");
     const builtinNames = list.filter((meta) => meta.origin === "builtin").map((meta) => meta.name);
-    expect(builtinNames).toEqual(["ultiv", "surfaces", "your-mind", "procedures"]);
+    expect(builtinNames).toEqual(["ultiv"]);
     await expect(
       skills.write("harry", "p1", { name: "ultiv", body: BODY("ultiv", "d", "b") }),
     ).rejects.toThrow(/built-in/);
@@ -62,6 +62,42 @@ describe("skills service over disk", () => {
     await expect(skills.write("harry", "p1", { name: "leaky", body: leaky })).rejects.toThrow(
       /secret/,
     );
+  });
+
+  it("reference files: written as a full set, listed, pruned, readable", async () => {
+    const skills = skillsService({ root: fresh() });
+    await skills.write("harry", "p1", {
+      name: "pack",
+      body: BODY("pack", "Packing procedure", "# steps"),
+      files: [
+        { path: "references/checklist.md", content: "- passport" },
+        { path: "scripts/run.sh", content: "echo go" },
+      ],
+    });
+    const detail = await skills.read("harry", "p1", "pack");
+    expect(detail?.meta.files).toEqual(["references/checklist.md", "scripts/run.sh"]);
+    expect(await skills.readFile("harry", "p1", "pack", "scripts/run.sh")).toBe("echo go");
+    // A rewrite with an empty set prunes; the SKILL.md itself stays.
+    await skills.write("harry", "p1", {
+      name: "pack",
+      body: BODY("pack", "Packing procedure", "# steps 2"),
+      files: [],
+    });
+    const pruned = await skills.read("harry", "p1", "pack");
+    expect(pruned?.meta.files).toEqual([]);
+    expect(pruned?.body.includes("# steps 2")).toBe(true);
+    expect(await skills.readFile("harry", "p1", "pack", "scripts/run.sh")).toBeUndefined();
+    // Omitting files leaves them untouched.
+    await skills.write("harry", "p1", {
+      name: "pack",
+      body: BODY("pack", "Packing procedure", "# steps 3"),
+      files: [{ path: "references/list.md", content: "one" }],
+    });
+    const again = await skills.write("harry", "p1", {
+      name: "pack",
+      body: BODY("pack", "Packing procedure", "# steps 4"),
+    });
+    expect(again.files).toEqual(["references/list.md"]);
   });
 
   it("proposals: reject leaves the skill, accept applies as a new version", async () => {

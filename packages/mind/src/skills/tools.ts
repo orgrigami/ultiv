@@ -118,7 +118,7 @@ const fileTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
 
 const WriteParams = Type.Object({
   name: Type.String({
-    description: "The skill's name: lowercase-and-hyphens, ≤48 chars (create or update).",
+    description: "The skill's name: lowercase-and-hyphens, at most 64 chars (create or update).",
   }),
   body: Type.String({
     description: `The full SKILL.md text (frontmatter with name and description, then markdown), up to ${MAX_SKILL_CHARS} chars.`,
@@ -129,6 +129,23 @@ const WriteParams = Type.Object({
         "One-line description for the skill list; used when the body has no frontmatter.",
     }),
   ),
+  files: Type.Optional(
+    Type.Array(
+      Type.Object({
+        path: Type.String({
+          description:
+            "Path relative to the skill folder: references/, scripts/, assets/, or any layout.",
+        }),
+        content: Type.String({ description: "The file's UTF-8 text content." }),
+      }),
+      {
+        description:
+          "The skill's COMPLETE reference set (references, templates, scripts): these are " +
+          "written and extras on disk are pruned. Omit to leave current files untouched; " +
+          "pass [] to remove all. Text only, no secrets.",
+      },
+    ),
+  ),
 });
 
 const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
@@ -137,8 +154,9 @@ const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
     description:
       "Write a skill: a procedure of yours worth keeping (done twice, or your owner said " +
       '"do it this way from now on"). Creates or updates it in YOUR namespace; it joins your ' +
-      "skill list next turn. Never put secrets in skill text. Updating keeps the previous " +
-      "version, so an edit is reversible.",
+      "skill list next turn. Reference files (templates, scripts, docs) ride along: pass " +
+      "`files` as the complete set and read them back with skill_file. Never put secrets in " +
+      "skill text. Updating keeps the previous version, so an edit is reversible.",
     parameters: WriteParams,
     structuredOutputSchema: Type.Object({ name: Type.String(), version: Type.Number() }),
     execute: async (args, api) => {
@@ -167,6 +185,7 @@ const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
       const meta = await skills.write(owner, profileId, {
         name: args.name,
         body,
+        ...(args.files !== undefined ? { files: args.files } : {}),
         ...(existing === undefined
           ? { authorProfile: profileId }
           : { origin: existing.meta.origin, authorProfile: existing.meta.authorProfile }),

@@ -1,18 +1,21 @@
 /**
  * skill_install: the one door outside skills enter through, and it is gated
- * every time (the connector_* rule: never auto-approved). The fetch is
- * SSRF-guarded and size-capped; the fetched text must parse as a skill
- * before it lands, and it lands with its source stamped on it. Until the
- * owner approves the call, outside content stays data.
+ * every time (the connector_* rule: never auto-approved). Two forms: a URL
+ * serving raw SKILL.md text, or a .tar.gz archive of a skill folder
+ * (multi-file skills keep their references, scripts and assets). The fetch
+ * is SSRF-guarded and size-capped; content must parse as a skill before it
+ * lands, and it lands with its source stamped on it. Until the owner
+ * approves the call, outside content stays data.
  */
 import { Type } from "typebox";
 import { defineTool, type Tool } from "@ultiv/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
-import { fetchText } from "./fetch.ts";
-import { parseSkillDoc } from "./frontmatter.ts";
+import { fetchBytes } from "./fetch.ts";
+import { parseSkillDoc, type SkillDoc } from "./frontmatter.ts";
 import { slugify, slugOk } from "./guard.ts";
 import type { SkillsService } from "./service.ts";
 import { skillsScope } from "./tools.ts";
+import { extractSkill } from "./tarball.ts";
 
 /** skill_install: the gated door outside skills enter through. */
 export const installTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
@@ -20,15 +23,25 @@ export const installTool = (skills: SkillsService, profiles: ProfilesService): T
     name: "skill_install",
     gated: true,
     description:
-      "Install a skill from a URL that serves a SKILL.md file's raw text (e.g. a GitHub raw " +
-      "or gist URL). Your owner approves every install: say in one sentence what the skill " +
-      "is for and where it comes from. After install it reads like any skill of yours, with " +
-      "its source stamped on it. To refresh one you installed from the same URL, install it " +
-      "again.",
+      "Install a skill from outside, with your owner's approval (always asked). Two forms: a " +
+      "https URL serving a SKILL.md file's raw text (GitHub raw, gists), or a .tar.gz archive " +
+      "of a skill folder (GitHub codeload links work; use `path` when the archive holds " +
+      "several folders). Multi-file skills keep their references, scripts and assets. " +
+      "Installed skills carry their source URL, so reinstalling from the same URL updates " +
+      "in place.",
     parameters: Type.Object({
-      url: Type.String({ description: "https URL serving the SKILL.md text." }),
+      url: Type.String({
+        description: "https URL: raw SKILL.md text, or a .tar.gz of a skill folder.",
+      }),
       name: Type.Optional(
         Type.String({ description: "Install under this name instead of the file's own." }),
+      ),
+      path: Type.Optional(
+        Type.String({
+          description:
+            'For archives: the folder inside holding SKILL.md (e.g. "my-skill", "skills/one"). ' +
+            "Default: the shallowest folder containing SKILL.md.",
+        }),
       ),
     }),
     structuredOutputSchema: Type.Object({ name: Type.String(), version: Type.Number() }),
@@ -41,16 +54,35 @@ export const installTool = (skills: SkillsService, profiles: ProfilesService): T
         };
       }
       const { owner, profileId } = resolved.scope;
-      const fetched = await fetchText(args.url).catch((cause: unknown) => {
+      const fetched = await fetchBytes(args.url).catch((cause: unknown) => {
         throw new Error(cause instanceof Error ? cause.message : String(cause));
       });
-      const doc = parseSkillDoc(fetched.text);
+      // Gzip magic bytes pick the archive path (unless the URL names a .md).
+      const gzipped =
+        fetched.body[0] === 0x1f && fetched.body[1] === 0x8b && !args.url.endsWith(".md");
+      let doc: SkillDoc | undefined;
+      let body: string;
+      let files: readonly { path: string; content: string }[] | undefined;
+      let skippedNote = "";
+      if (gzipped) {
+        const tar = extractSkill(fetched.body, args.path);
+        doc = parseSkillDoc(tar.skillMd);
+        body = tar.skillMd;
+        files = tar.files;
+        skippedNote =
+          tar.skipped.length > 0
+            ? `; skipped ${tar.skipped.length} binary or oversized file(s)`
+            : "";
+      } else {
+        body = fetched.body.toString("utf8");
+        doc = parseSkillDoc(body);
+      }
       if (doc === undefined) {
         return {
           output: [
             {
               type: "text" as const,
-              text: "that URL did not serve a skill file (frontmatter with name and description required)",
+              text: "that URL did not serve a skill (a SKILL.md with frontmatter, or an archive containing one)",
             },
           ],
           isError: true as const,
@@ -75,14 +107,15 @@ export const installTool = (skills: SkillsService, profiles: ProfilesService): T
       }
       const meta = await skills.write(owner, profileId, {
         name,
-        body: fetched.text,
+        body,
+        ...(files !== undefined ? { files } : {}),
         origin: "url",
         sourceUrl: fetched.url,
         authorProfile: profileId,
       });
       return {
         ...textResponse(
-          `skill "${meta.name}" installed from ${fetched.url} (v${meta.version}); in your list next turn`,
+          `skill "${meta.name}" installed from ${fetched.url} (v${meta.version})${skippedNote}; in your list next turn`,
         ),
         structuredOutput: { name: meta.name, version: meta.version },
       };

@@ -16,8 +16,8 @@ export interface AboutSkill {
   readonly markdown: string;
 }
 
-/** Reading order: identity first, then the map, the inventory, the craft. */
-const ORDER = ["ultiv", "surfaces", "your-mind", "procedures"];
+/** Reading order for the built-in library (currently one whole-world skill). */
+const ORDER = ["ultiv"];
 
 let cached: readonly AboutSkill[] | null = null;
 

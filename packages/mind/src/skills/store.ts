@@ -12,13 +12,16 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join } from "node:path";
 import type { SkillMeta, SkillOrigin } from "@ultiv/contracts";
 import {
+  MAX_DESCRIPTION_CHARS,
   MAX_SKILL_CHARS,
   MAX_SKILL_FILE_CHARS,
+  MAX_SKILL_FILES,
+  MAX_SKILL_FILES_BYTES,
   relativePathOk,
   secretIn,
   slugOk,
 } from "./guard.ts";
-import { parseSkillDoc } from "./frontmatter.ts";
+import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
 
 /** A skill that ships with the app: parsed once, merged into every listing. */
 export interface BuiltinSkill {
@@ -76,11 +79,11 @@ const writeIndex = (root: string, owner: string, profile: string, index: Profile
 };
 
 /** Files beside SKILL.md, relative paths, sorted ([] when the folder is gone). */
+/** Paths under the skills dir (relative to it), SKILL.md roots excluded. */
 const extraFiles = (dir: string): string[] => {
-  const skillDir = join(dir, "skills");
-  if (!existsSync(skillDir)) return [];
+  if (!existsSync(dir)) return [];
   const walk = (rel: string): string[] =>
-    readdirSync(join(skillDir, rel), { withFileTypes: true }).flatMap((entry) => {
+    readdirSync(join(dir, rel), { withFileTypes: true }).flatMap((entry) => {
       if (entry.name === "SKILL.md" && rel === "") return [];
       const path = rel === "" ? entry.name : `${rel}/${entry.name}`;
       return entry.isDirectory() ? walk(path) : [path];
@@ -173,6 +176,12 @@ export const readSkillFile = (
   return text.length > MAX_SKILL_FILE_CHARS ? text.slice(0, MAX_SKILL_FILE_CHARS) : text;
 };
 
+export interface SkillFileIn {
+  /** Path relative to the skill folder (references/, scripts/, assets/…). */
+  readonly path: string;
+  readonly content: string;
+}
+
 export interface SkillWrite {
   readonly name: string;
   readonly body: string;
@@ -181,11 +190,66 @@ export interface SkillWrite {
   readonly authorProfile?: string | null;
   readonly parentVersion?: number | null;
   readonly note?: string | null;
+  /**
+   * The skill's COMPLETE reference set: given files are written, extras on
+   * disk are pruned. Undefined leaves the current files untouched.
+   */
+  readonly files?: readonly SkillFileIn[];
 }
 
 /**
- * Create or update a skill: validates slug/size/secrets/frontmatter, keeps
- * the previous body for revert, refreshes the file listing. Built-ins refuse.
+ * The skill folder's reference files, full-set: validate (path, size, text,
+ * secrets), write every given file, prune anything not given. Returns the
+ * stored list, relative to the skill folder.
+ */
+const applySkillFiles = (dir: string, name: string, files: readonly SkillFileIn[]): string[] => {
+  if (files.length > MAX_SKILL_FILES) {
+    throw new Error(`a skill carries at most ${MAX_SKILL_FILES} reference files`);
+  }
+  const seen = new Set<string>();
+  let total = 0;
+  for (const file of files) {
+    if (!relativePathOk(file.path) || file.path === "SKILL.md") {
+      throw new Error(`not a skill file path: "${file.path}"`);
+    }
+    if (seen.has(file.path)) throw new Error(`duplicate file: ${file.path}`);
+    seen.add(file.path);
+    if (file.content.length > MAX_SKILL_FILE_CHARS) {
+      throw new Error(`"${file.path}" exceeds ${MAX_SKILL_FILE_CHARS} chars`);
+    }
+    if (file.content.includes("\0")) {
+      throw new Error(`"${file.path}" is binary; skill files are text`);
+    }
+    const secret = secretIn(file.content);
+    if (secret !== null) {
+      throw new Error(`refused: "${file.path}" looks like it contains ${secret}`);
+    }
+    total += file.content.length;
+    if (total > MAX_SKILL_FILES_BYTES) {
+      throw new Error(`reference files exceed ${MAX_SKILL_FILES_BYTES} bytes in total`);
+    }
+  }
+  const skillDir = join(dir, name);
+  for (const file of files) {
+    const target = join(skillDir, file.path);
+    mkdirSync(join(target, ".."), { recursive: true });
+    writeFileSync(target, file.content, "utf8");
+  }
+  // Prune stored extras that the new set does not carry (full-set semantics).
+  for (const existing of extraFiles(dir)) {
+    const rel = existing.slice(name.length + 1);
+    if (existing.startsWith(`${name}/`) && !seen.has(rel)) {
+      rmSync(join(skillDir, rel), { recursive: true, force: true });
+    }
+  }
+  return [...seen];
+};
+
+/**
+ * Create or update a skill: validates slug/size/secrets/frontmatter (the
+ * stored frontmatter name is normalized to the folder name, as the spec
+ * requires), keeps the previous body for revert, applies the reference set.
+ * Built-ins refuse.
  */
 export const writeSkill = (
   root: string,
@@ -195,7 +259,7 @@ export const writeSkill = (
   builtins: readonly BuiltinSkill[],
 ): SkillMeta => {
   if (!slugOk(input.name))
-    throw new Error(`not a skill name: "${input.name}" (lowercase-and-hyphens, ≤48)`);
+    throw new Error(`not a skill name: "${input.name}" (lowercase-and-hyphens, at most 64)`);
   if (input.body.length > MAX_SKILL_CHARS) {
     throw new Error(`skill body exceeds ${MAX_SKILL_CHARS} chars; split it or tighten it`);
   }
@@ -214,12 +278,18 @@ export const writeSkill = (
       "the body needs frontmatter: ---\\nname: …\\ndescription: …\\n--- above the markdown",
     );
   }
+  if (doc.description.length > MAX_DESCRIPTION_CHARS) {
+    throw new Error(`description exceeds ${MAX_DESCRIPTION_CHARS} chars`);
+  }
+  // The spec requires frontmatter name == folder name; normalize silently.
+  const body =
+    doc.name === input.name ? input.body : serializeSkillDoc(input.name, doc.description, doc.body);
   const index = readIndex(root, owner, profile);
   const existing = index.skills[input.name];
   const now = Date.now();
   const stored: StoredSkill = {
     name: input.name,
-    description: doc.description.slice(0, 200),
+    description: doc.description,
     origin: input.origin,
     sourceUrl: input.sourceUrl ?? existing?.sourceUrl ?? null,
     authorProfile: input.authorProfile ?? existing?.authorProfile ?? null,
@@ -227,7 +297,10 @@ export const writeSkill = (
     updatedAt: now,
     version: (existing?.version ?? 0) + 1,
     enabled: existing?.enabled ?? true,
-    files: [],
+    files:
+      input.files === undefined
+        ? (existing?.files ?? [])
+        : applySkillFiles(skillsOf(root, owner, profile), input.name, input.files),
     parentVersion: input.parentVersion ?? null,
     evolutionNote: input.note ?? null,
     previous:
@@ -240,10 +313,7 @@ export const writeSkill = (
   };
   const dir = skillsOf(root, owner, profile);
   mkdirSync(join(dir, input.name), { recursive: true });
-  writeFileSync(join(dir, input.name, "SKILL.md"), input.body, "utf8");
-  stored.files = extraFiles(dir).filter((file) => file.startsWith(`${input.name}/`));
-  // Paths are stored relative to the skill folder.
-  stored.files = stored.files.map((file) => file.slice(input.name.length + 1));
+  writeFileSync(join(dir, input.name, "SKILL.md"), body, "utf8");
   index.skills[input.name] = stored;
   writeIndex(root, owner, profile, index);
   const { previous: _previous, ...meta } = stored;
