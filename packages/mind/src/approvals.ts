@@ -18,6 +18,8 @@ import type { ProfileApprovalMode } from "@ultiv/contracts";
 export interface ApprovalRequest {
   readonly callId: string;
   readonly name: string;
+  /** What the tool is for (its registration description) — context for the judges. */
+  readonly description?: string;
   readonly input: unknown;
 }
 
@@ -260,6 +262,7 @@ export const withApproval = <TParameters extends TSchema>(
       approvals.request(conversationId, api.callId, {
         callId: api.callId,
         name: tool.name,
+        ...(tool.description !== "" ? { description: tool.description } : {}),
         input: args,
       }),
     );

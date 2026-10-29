@@ -163,7 +163,11 @@ export const makeDescriber =
     const context = reasonContext(recent);
     const prompt = [
       `A gated tool call is waiting for the owner's approval.`,
-      `Tool: ${request.name}`,
+      `Tool: ${request.name}${
+        request.description !== undefined && request.description !== ""
+          ? ` — ${request.description.slice(0, 200)}`
+          : ""
+      }`,
       `Input: ${JSON.stringify(request.input).slice(0, 600)}`,
       context !== "" ? `Recent transcript:\n${context}` : "No prior conversation.",
       "Write ONE short sentence (max 25 words) for the approval card: what this call does and why the bot is doing it. Plain text, no quotes.",

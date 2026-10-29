@@ -13,6 +13,7 @@ import {
   destructiveOf,
   makeAdjudicator,
   JEV_COMPLEX_RUBRIC,
+  opaqueOf,
 } from "./jev-gate.ts";
 
 const call = (name: string, input: unknown = {}, callId = `c-${name}`): ApprovalRequest => ({
@@ -202,13 +203,17 @@ describe("yolo is unchanged", () => {
 });
 
 describe("A: too complex to judge", () => {
-  it("flags chaining, substitution, length and many targets; leaves simple calls alone", () => {
+  it("flags chaining, substitution and many targets; length is only a hint", () => {
     expect(complexityOf({ command: "ls -la" })).toBeUndefined();
     expect(complexityOf({ command: "a && b && c && d" })).toMatch(/chained/);
     expect(complexityOf({ command: "echo $(cat x)" })).toMatch(/substitution/);
-    expect(complexityOf({ command: "x".repeat(500) })).toMatch(/characters/);
+    expect(complexityOf({ command: "x".repeat(500) })).toBeUndefined(); // long is not complex
     expect(complexityOf({ ids: Array.from({ length: 20 }, (_, i) => i) })).toMatch(/targets/);
     expect(complexityOf({ text: "a; b; c; d; e" })).toBeUndefined(); // prose, not a command
+    expect(opaqueOf({ command: "x".repeat(500) })[0]).toMatch(/500-character command/);
+    expect(opaqueOf({ command: "cat <<'EOF'\nprint('hi')\nEOF" })[0]).toMatch(/heredoc/);
+    expect(opaqueOf({ command: "python run.py", body: "y".repeat(5_000) })[0]).toMatch(/payload/);
+    expect(opaqueOf({ command: "ls" })).toEqual([]);
   });
 
   it("an argv-style array under a command key reads as one command line", () => {
@@ -256,13 +261,14 @@ describe("B: context", () => {
       ),
       input("please tidy my notes, token=hunter2", 40),
     ];
-    const ctx = buildContext(
-      { name: "Nova", description: "notes bot" },
-      transcript,
-      call("note_write", { password: "p4ss", body: "Bearer abc.def" }),
-    );
+    const ctx = buildContext({ name: "Nova", description: "notes bot" }, transcript, {
+      ...call("note_write", { password: "p4ss", body: "Bearer abc.def" }),
+      description: "Writes one note file in the bot's own workspace.",
+    });
     expect(ctx.bot).toBe("Nova — notes bot");
     expect(ctx.request).toContain("please tidy my notes");
+    expect(ctx.call.description).toContain("own workspace");
+    expect(ctx.hints).toEqual([]);
     expect(ctx.recent).toHaveLength(5);
     expect(ctx.recent.at(-1)?.name).toBe("vault_list");
     expect(ctx.recent.at(-1)?.result).toBeNull();
