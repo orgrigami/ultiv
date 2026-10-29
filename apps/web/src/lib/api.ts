@@ -15,6 +15,8 @@ import type {
   RoutineEvent,
   SensorInfo,
   SessionInfo,
+  SkillDetail,
+  SkillOverview,
   TaskInfo,
   TaskRow,
   WaitingApproval,
@@ -417,5 +419,23 @@ export const api = {
     send<{ ok: boolean }>(
       `/api/state/${encodeURIComponent(profile)}/${encodeURIComponent(key)}`,
       "DELETE",
+    ),
+  skills: (): Promise<SkillOverview> => getJson<SkillOverview>("/api/skills"),
+  skill: (profile: string, name: string): Promise<SkillDetail> =>
+    getJson<SkillDetail>(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}`),
+  skillSave: (
+    profile: string,
+    name: string,
+    patch: { body?: string; enabled?: boolean },
+  ): Promise<unknown> =>
+    send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}`, "PUT", patch),
+  skillRemove: (profile: string, name: string): Promise<boolean> =>
+    drop(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}`),
+  skillRevert: (profile: string, name: string): Promise<unknown> =>
+    send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/revert`, "POST"),
+  skillProposal: (profile: string, id: string, verdict: "accept" | "reject"): Promise<unknown> =>
+    send(
+      `/api/skills/${encodeURIComponent(profile)}/proposals/${encodeURIComponent(id)}/${verdict}`,
+      "POST",
     ),
 };
