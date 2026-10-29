@@ -4,13 +4,33 @@ Ultiv is a self-hosted web app for running AI bots on your own machine. Each bot
 
 Ultiv is built with Hermes and Grok.
 
-It's a pnpm monorepo with a Node API server, a React client, and a "mind" package that hosts the bots. It's written with Effect. Provider keys stay on the server in `.env`, and the credentials bots use live in a local encrypted vault that the model never reads.
+It runs on any model provider [models.dev](https://models.dev) knows about: Anthropic, OpenAI, Google, OpenRouter, DeepSeek, Kenari and a couple hundred more, or a model running on your own machine. Provider keys stay on the server in `.env`. The credentials bots use live in a local encrypted vault that the model never reads.
 
-The default bot is called Ultius. You can add as many others as you like.
+A fresh install starts with no bots. The first one you create becomes your main bot, and you can add as many others as you like.
+
+## Quick start
+
+You need [Vite+](https://viteplus.dev/) (`vp`), which brings Node 24 and pnpm with it. It's the only toolchain this repo uses.
+
+```sh
+curl -fsSL https://vite.plus | bash     # once, installs vp
+git clone https://github.com/orgrigami/ultiv.git && cd ultiv
+vp install
+cp .env.example .env
+```
+
+Put at least one provider key in `.env` (for example `ANTHROPIC_API_KEY` or `KENARI_API_KEY`). Setting `VAULT_KEY` too is a good idea; see [Configuration](#configuration). Then:
+
+```sh
+vp run dev        # API on :8787, web on :5173
+```
+
+Open http://localhost:5173 and create your first bot. If `vp` isn't on your PATH afterwards, add `~/.vite-plus/bin`.
 
 ## What it does
 
 - **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
+- **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
 - **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and always asks first.
 - **A vault for credentials.** Items are sealed with AES-256-GCM, and bots only see names and masked hints. When a bot needs to use a secret, the credential broker makes the HTTP request itself, only to the hosts, methods and paths that secret is bound to. Responses are scrubbed before the bot sees them.
 - **Routines.** Bots can wake on cron schedules, on webhooks they set up themselves, or on sensors (RSS, a calendar ICS feed, watched URLs). Schedules respect time zones. Webhooks are validated against a schema, retried, and dead-lettered if they keep failing.
@@ -19,40 +39,66 @@ The default bot is called Ultius. You can add as many others as you like.
 - **MCP connectors.** Add HTTP, SSE or stdio MCP servers from the UI, or let a bot add one (that also goes through an approval card). OAuth and headers pulled from the vault are supported, and there are a few presets.
 - **Installable on your phone.** The web app is a PWA with Web Push for finished tasks, pending approvals and routine replies. The service worker only caches the offline shell.
 
-## Requirements
+## Models
 
-- Node 24 (pinned in `mise.toml`) and pnpm 12. You reach both through [Vite+](https://viteplus.dev/) (`vp`), which is the only toolchain this repo uses. Install it once with `curl -fsSL https://vite.plus | bash`.
-- For the `bash` microVM: an Apple Silicon Mac, or Linux with KVM. Everything else runs anywhere Node 24 does. Without virtualization, the `bash` tool reports an error and the rest of the app works fine.
+The model list comes from [models.dev](https://models.dev). The server downloads it on first start, keeps a copy in `apps/server/var/models-dev.json`, and checks for updates once a day, so new models show up without a restart or an upgrade. Only models that can chat and call tools are listed.
 
-## Install and run
+- **Turning a provider on:** set its key in `.env` under the name models.dev uses for it. The provider pages on models.dev show the variable, e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KENARI_API_KEY`.
+- **The default model:** `ULTIV_MODEL=provider/model`, e.g. `anthropic/claude-sonnet-4-6`. Without it, new chats use `kenari/deepseek-v4-1-flash` when Kenari is set up, otherwise the first model in the list.
+- **Fewer providers in the picker:** `ULTIV_PROVIDERS=anthropic,kenari` lists only those, even if other keys are set. OpenRouter alone adds about 300 models, so this helps.
+- **Models models.dev doesn't have, or a local server:** add them to `apps/server/var/models.local.json`, in the same format as models.dev. The file is read on every catalog refresh. This adds an Ollama server:
 
-```sh
-git clone https://github.com/orgrigami/ultiv.git && cd ultiv
-vp install              # installs dependencies (vp runs pnpm for you)
-cp .env.example .env    # fill in the keys you want to use
-vp run dev              # API on :8787, web on :5173
-```
+  ```json
+  {
+    "ollama": {
+      "name": "Ollama",
+      "npm": "@ai-sdk/openai-compatible",
+      "api": "http://127.0.0.1:11434/v1",
+      "env": [],
+      "models": {
+        "qwen3:14b": {
+          "name": "Qwen3 14B",
+          "tool_call": true,
+          "limit": { "context": 40960, "output": 8192 }
+        }
+      }
+    }
+  }
+  ```
 
-Then open http://localhost:5173, create a bot and start chatting. If `vp` isn't on your PATH, `AGENTS.md` has notes on that.
+  A provider with no key (`"env": []`) only loads when it's listed in `ULTIV_PROVIDERS`, so list it there along with the others you use.
 
-Easier installation steps incoming™.
+- **Refreshing by hand:** `POST /api/models/refresh`. `GET /api/models/catalog` shows where the list came from, when, and the current default.
 
-### Environment
+Providers that need their own SDK (Bedrock, Vertex, Azure, Cohere) aren't wired up yet and are skipped.
 
-Every key in `.env` is optional. Features whose key is missing just show up as off. The ones you'll most likely care about:
+**Jev** is a separate decision model from [Typesafe.AI](https://typesafe.ai) that bots use for yes/no, pick, rate and ask, and for judging approvals when a bot is in Jev approval mode. Set `TYPESAFE_API_KEY` to turn it on, and `TYPESAFE_BASE_URL` to send it through a proxy or another endpoint (default `https://api.typesafe.ai`).
+
+## Configuration
+
+Every setting in `.env` is optional, and the keys and URLs below can be left blank. Features whose key is missing show up as off. The ones you'll most likely care about:
 
 | Key                                      | What it's for                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| A provider key                           | Chat and generation. Any [models.dev](https://models.dev) provider: `KENARI_API_KEY`, `ANTHROPIC_API_KEY`, …   |
-| `ULTIV_MODEL`                            | Optional default model as `provider/model` (default `kenari/deepseek-v4-1-flash`)                              |
-| `TYPESAFE_API_KEY`                       | Typesafe.AI decision model (Jev), used for yes/no, pick, rate and ask                                          |
+| A provider key                           | Chat and generation. See [Models](#models). You need at least one to have conversations.                       |
+| `ULTIV_MODEL`                            | Default model as `provider/model`                                                                              |
+| `ULTIV_PROVIDERS`                        | Only these providers, comma separated                                                                          |
+| `TYPESAFE_API_KEY` / `TYPESAFE_BASE_URL` | Jev, the decision model, and where to reach it                                                                 |
 | `VAULT_KEY`                              | Turns the vault on. Use a long random secret, e.g. `printf 'VAULT_KEY=%s\n' "$(openssl rand -hex 32)" >> .env` |
+| `TINYFISH_API_KEY`                       | Live web search and fetch for bots                                                                             |
+| `CALENDAR_ICS_URL`                       | A secret iCal feed, so bots know your schedule (read only)                                                     |
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them with `vpr @ultiv/server#push:keys`                                                     |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @ultiv/server#push:keys`                                                |
 
 `.env.example` lists the rest, with a comment on each.
 
 Back up `VAULT_KEY` somewhere other than this machine. If you lose it or change it, every saved vault item becomes unreadable, and there's no key rotation yet.
+
+## Using it from your phone and other devices
+
+The server listens on every interface, and the web dev server accepts any host name, so the app works on `localhost`, your LAN address, or a Tailscale name without extra config. Set `HOST=127.0.0.1` to keep it on this machine only.
+
+Push notifications need HTTPS. `tailscale serve` gives you that. On an iPhone, push only works after you add the app to the Home Screen.
 
 ## The two shells
 
@@ -63,7 +109,17 @@ Back up `VAULT_KEY` somewhere other than this machine. If you lose it or change 
 
 Both keep the working directory between calls. Anything a `bash` script writes under `/home` becomes an artifact: it shows up in `artifact_list`, the web UI serves it, and it survives restarts. Deletions sync too. The file store is the source of truth. Each call copies it into the VM and copies changes back out, so if the VM crashes you don't lose anything that was already synced.
 
+The microVM needs an Apple Silicon Mac, or Linux with KVM. Without virtualization, the `bash` tool reports an error and the rest of the app works fine.
+
 Use `bash_host` only when a task really needs your actual machine. It's left out of "always allow" on purpose, because the approval is the safety check.
+
+## Security
+
+- **There's no login yet.** The server takes the user from the `x-ultiv-user` header, and requests without it count as `guest`. Data is partitioned by owner, and the identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Ultiv on a machine and network you control.
+- **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
+- **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval. Some can never be blanket-allowed: deleting artifacts, changing connectors, using a credential on a new host for the first time, and `bash_host`.
+- **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
+- **`.env` stays on the server.** It's never printed or sent to the client.
 
 ## Layout
 
@@ -72,11 +128,11 @@ apps/server         Node 24 server: REST, chord replication, triggers (cron/webh
 apps/web            React 19 + TanStack Router + shadcn (Base UI) + Tailwind 4 client
 packages/core       tagged errors and the bridge between promises and Effect
 packages/ext        tools, plugins, registry, vault, credential broker, shells
-packages/mind       the bots themselves: converse, decide, act, generate, tasks, profiles, routines, memory
+packages/mind       the bots themselves: models, converse, decide, act, generate, tasks, profiles, routines, memory
 packages/contracts  TypeBox chord contracts shared by server and web
 ```
 
-Each profile is one bot running in a shared runtime. Sessions replicate over chord. The registries (sessions, artifacts, webhooks, cron, audit) are plain REST. `AGENTS.md` is the full developer guide: what's in each package, how to use `vp`, conventions, and known pitfalls.
+It's a pnpm monorepo written with Effect. Each profile is one bot running in a shared runtime. Sessions replicate over chord; the registries (sessions, models, artifacts, webhooks, cron, audit) are plain REST.
 
 ## Development
 
@@ -86,20 +142,12 @@ Use `vp` for everything, not `npm`, `pnpm`, `node`, `tsc` or `vitest` directly:
 vp install                                  # dependencies
 vp check --fix                              # format and lint
 vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all six have to pass)
-vp test                                     # unit tests
+vp test                                     # unit tests (offline: no models.dev, no providers)
 vp -C apps/web build                        # production web build
 vp run smoke                                # starts the whole stack offline on a random port and hits the REST API
 ```
 
-Before a change goes in, I run `vp check`, the six typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try a real provider (needs real keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
-
-## Security
-
-- **There's no login yet.** The server takes the user from the `x-ultiv-user` header, and requests without it count as `guest`. Data is partitioned by owner, and the identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Ultiv on a machine and network you control.
-- **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
-- **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval. Some can never be blanket-allowed: deleting artifacts, changing connectors, using a credential on a new host for the first time, and `bash_host`.
-- **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
-- **`.env` stays on the server.** It's never printed or sent to the client.
+Before a change goes in, I run `vp check`, the six typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
 
 ## More docs
 
