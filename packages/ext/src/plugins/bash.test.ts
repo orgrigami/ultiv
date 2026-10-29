@@ -111,7 +111,8 @@ describe("bash_host tool (privileged shell)", () => {
     const host = toolOf(plugin, "bash_host");
     const failed = await host.execute({ script: "ls /definitely-not-here-xyz" }, api, {} as never);
     expect(failed.isError).toBeUndefined();
-    expect(failed.structuredOutput).toMatchObject({ exitCode: 1 });
+    // BSD ls exits 1 on a missing path, GNU ls exits 2: any non-zero proves the failure surfaced.
+    expect((failed.structuredOutput as { exitCode: number }).exitCode).toBeGreaterThan(0);
     expect(((failed.output ?? [])[0] as { text: string }).text).toContain("stderr");
   });
 
