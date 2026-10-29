@@ -42,6 +42,8 @@ Not run automatically (long-running or live):
 - `vp -C apps/web dev` — web dev server.
 - `vpr @ultiv/server#push:keys` — one-time VAPID key generation: appends `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` to `.env` only when absent, prints no value. Never rotate casually (every device must re-subscribe).
 
+**Every facet reaches the app:** the server binds all interfaces IPv4+IPv6 when `HOST` is unset (`apps/server/src/listen.ts` logs one URL per facet on boot); `vp dev` and `vp preview` accept any Host name (`ALLOWED_HOSTS` narrows) and proxy `/api`, `/hooks` and `/chord` to `API_URL` (default `http://127.0.0.1:$PORT`), and the client always talks same-origin (`/chord` for the socket). So localhost, 127.0.0.1, `[::1]`, the LAN, a tailnet IP / MagicDNS name / `tailscale serve` HTTPS, or any other name that routes here all work without config.
+
 **The owner's live dev server runs in tmux session `ultiv`** (API on 8787 under `node --watch`, Vite on 5173; the tailnet serves them as `https://<mac>.ts.net` and `:8443`). Do NOT restart it: `--watch` already reloads on source and `.env` changes. Only if it errors or a dependency change forces it, restart it yourself in that tmux session and read its log. Smoke tests and screenshot stacks use a spare random port, never 8787/5173.
 
 **Gate for every change:** `vp check` → the six `vp exec tsc -p …` → `vp test` → `vp -C apps/web build` → `vp run smoke`. Re-run smoke after any dependency change; a clean typecheck alone does not prove runtime ESM wiring.

@@ -48,7 +48,7 @@ export const createRestHandler = (deps: RestDeps) => {
   const headers = {
     "content-type": "application/json",
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET, POST, PATCH, DELETE, OPTIONS",
+    "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "access-control-allow-headers": "content-type, x-ultiv-user",
   };
   return (req: IncomingMessage, res: ServerResponse): void => {

@@ -120,7 +120,7 @@ export async function artifactRoutes(
       json(403, { error: "not your artifact" });
       return true;
     }
-    res.writeHead(200, { "content-type": found.info.mime });
+    res.writeHead(200, { "content-type": found.info.mime, "access-control-allow-origin": "*" });
     res.end(readFileSync(file));
     return true;
   }

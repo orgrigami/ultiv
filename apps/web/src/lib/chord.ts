@@ -16,10 +16,9 @@ function wsUrl(): string {
   const override = import.meta.env.VITE_CHORD_URL;
   if (override !== undefined && override !== "") return override;
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  // Dev rides the vite proxy at /chord (the server accepts upgrades on any
-  // path); prod connects same-origin at the root.
-  const path = import.meta.env.DEV ? "/chord" : "/";
-  return `${protocol}//${location.host}${path}`;
+  // Same-origin /chord on every facet: the vite dev/preview proxy forwards it,
+  // and the server itself accepts upgrades on any path.
+  return `${protocol}//${location.host}/chord`;
 }
 
 /** The browser's chord host: a client peer linked upstream to the server. One per page. */

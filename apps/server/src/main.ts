@@ -4,6 +4,7 @@
  * REST live here; every AI capability lives in @ultiv/mind.
  */
 import { createServer } from "node:http";
+import { reachableUrls } from "./listen.ts";
 import { pathToFileURL } from "node:url";
 import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
@@ -120,12 +121,14 @@ const isMain =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const port = Number(process.env.PORT ?? 8787);
-  // Default 0.0.0.0 so the tailnet can reach the server; HOST narrows it.
-  const host = process.env.HOST ?? "0.0.0.0";
+  // Unset HOST binds every interface, IPv4 AND IPv6 (Node's dual-stack `::`),
+  // so localhost, 127.0.0.1, [::1], the LAN and the tailnet all reach it; HOST narrows it.
+  const host = process.env.HOST === "" ? undefined : process.env.HOST;
   const stack = await buildStack();
-  stack.http.listen(port, host, () => {
-    console.log(`ultiv server listening on http://${host}:${port}`);
-  });
+  const ready = () =>
+    console.log(`ultiv server listening on ${reachableUrls(stack.http, host).join("  ")}`);
+  if (host === undefined) stack.http.listen(port, ready);
+  else stack.http.listen(port, host, ready);
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.once(signal, () => {
       void stack.close().then(() => process.exit(0));
