@@ -5,6 +5,7 @@
  * typing indicator.
  */
 import type { PendingApproval, TranscriptEntry } from "@ultiv/contracts";
+import { presentationOf } from "@/lib/tool-text";
 import { BotAvatar, type ChatBot } from "@/components/chat-header";
 import { SUGGESTIONS } from "@/components/composer";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,12 @@ export function EmptyChat({
 function activityOf(transcript: TranscriptEntry[], pending: PendingApproval): string {
   if (pending !== null) return "Waiting for your approval";
   const last = transcript[transcript.length - 1];
-  if (last?.kind === "tool" && last.step.status === "running") return `Using ${last.step.name}…`;
+  if (last?.kind === "tool" && last.step.status === "running") {
+    const presentation = presentationOf(last.step);
+    if (presentation.kind === "hidden") return "Working…";
+    if (presentation.kind === "human") return presentation.view.live;
+    return `Using ${last.step.name}…`;
+  }
   if (last?.kind === "output" && last.streaming) return "Writing…";
   if (last?.kind === "thinking") return "Thinking…";
   return "Working…";

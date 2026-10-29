@@ -2,38 +2,23 @@
  * The transcript body: markdown output, collapsed reasoning, tool traces and
  * machinery notes, grouped so consecutive tool steps read as one sequence.
  */
-import { Fragment, memo, type ReactNode } from "react";
+import { memo } from "react";
 import { useApp } from "@/lib/app-state";
 import { formatDivider, formatFull } from "@/lib/format";
 import { readNote } from "@/lib/note-text";
 import { parseSystem } from "@/lib/system-text";
 import { SystemCard } from "@/components/system/system-card";
+import { JevLine, ToolGroup } from "@/components/tool-trace";
 import type { TaskInfo, ToolStep, TranscriptEntry } from "@ultiv/contracts";
-import {
-  BrainIcon,
-  CircleAlertIcon,
-  CircleSlashIcon,
-  ScissorsIcon,
-  ShieldAlertIcon,
-  ShieldCheckIcon,
-  ShieldXIcon,
-  WrenchIcon,
-} from "lucide-react";
-import type { JevKind, JevNotice } from "@/lib/jev-text";
+import { BrainIcon, CircleSlashIcon } from "lucide-react";
+import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";
-import {
-  CodeBlock,
-  CodeBlockContent,
-  CodeBlockCopyButton,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from "@/components/ui/code-block";
+import { CodeBlockCopyButton } from "@/components/ui/code-block";
 import {
   Trace,
   TraceCollapsible,
   TraceCollapsibleContent,
   TraceCollapsibleTrigger,
-  TraceDescription,
   TraceIcon,
   TraceLine,
   TraceTitle,
@@ -71,7 +56,7 @@ const Output = memo(function Output({
     <>
       {!empty && (
         <div className={roleStyles.agent}>
-          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2">
+          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere]">
             <LazyMarkdown text={text} />
             {streaming && (
               <span aria-hidden className="motion-safe:animate-pulse">
@@ -121,67 +106,6 @@ const Thinking = memo(function Thinking({ text, live }: { text: string; live: bo
   );
 });
 
-/** Tool call as a Trace line: name + duration, collapsible input/output. */
-const Tool = memo(function Tool({ step }: { step: ToolStep }) {
-  const lineStatus =
-    step.status === "running" || step.status === "error" ? { status: step.status } : {};
-  return (
-    <TraceCollapsible>
-      <TraceCollapsibleTrigger>
-        <TraceLine {...lineStatus}>
-          <TraceIcon>{step.status === "error" ? <CircleAlertIcon /> : <WrenchIcon />}</TraceIcon>
-          <TraceTitle>{step.name}</TraceTitle>
-          <TraceDescription>
-            {step.durationMs === null ? "running…" : `${step.durationMs} ms`}
-          </TraceDescription>
-        </TraceLine>
-      </TraceCollapsibleTrigger>
-      <TraceCollapsibleContent>
-        <div className="flex flex-col gap-2">
-          <CodeBlock size="sm">
-            <CodeBlockHeader>
-              <CodeBlockTitle>input</CodeBlockTitle>
-            </CodeBlockHeader>
-            <CodeBlockContent wrap className="max-h-64 overflow-y-auto">
-              {JSON.stringify(step.input, null, 2)}
-            </CodeBlockContent>
-          </CodeBlock>
-          {step.output !== null && step.output !== "" && (
-            <CodeBlock size="sm">
-              <CodeBlockHeader>
-                <CodeBlockTitle>output</CodeBlockTitle>
-              </CodeBlockHeader>
-              <CodeBlockContent wrap className="max-h-64 overflow-y-auto">
-                {step.output}
-              </CodeBlockContent>
-            </CodeBlock>
-          )}
-        </div>
-      </TraceCollapsibleContent>
-    </TraceCollapsible>
-  );
-});
-
-const JEV_ICONS: Record<JevKind, ReactNode> = {
-  approved: <ShieldCheckIcon className="mt-0.5 size-3 shrink-0" aria-hidden />,
-  denied: <ShieldXIcon className="text-destructive mt-0.5 size-3 shrink-0" aria-hidden />,
-  split: <ScissorsIcon className="mt-0.5 size-3 shrink-0" aria-hidden />,
-  destructive: <ShieldAlertIcon className="text-destructive mt-0.5 size-3 shrink-0" aria-hidden />,
-};
-
-/** Jev answered this call's gate on its own: say so, with its reason. */
-function JevLine({ notice }: { notice: JevNotice }) {
-  return (
-    <p className="text-muted-foreground flex items-start gap-1 -mt-1 px-1 text-xs break-words">
-      {JEV_ICONS[notice.kind]}
-      <span className="min-w-0">
-        <span className="text-foreground/80 font-medium">{notice.title}</span>
-        {notice.reason !== "" && <> — {notice.reason}</>}
-      </span>
-    </p>
-  );
-}
-
 /** A machinery note: small caption + markdown body, in owner-facing words. */
 const Note = memo(function Note({ text }: { text: string }) {
   const { sessions } = useApp();
@@ -224,6 +148,7 @@ export function TranscriptItems({
   busy = false,
   tasks = [],
   jevNotices,
+  onOpenMemory,
 }: {
   transcript: TranscriptEntry[];
   busy?: boolean;
@@ -231,6 +156,8 @@ export function TranscriptItems({
   tasks?: readonly TaskInfo[];
   /** Jev's gate decisions by tool call id. */
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
+  /** Opens this chat's bot Memory panel with a search pre-filled (memory chips). */
+  onOpenMemory?: ((query: string) => void) | undefined;
 }) {
   return (
     <>
@@ -248,7 +175,7 @@ export function TranscriptItems({
           ) : null;
         return [
           divider,
-          renderGroup(group, busy && index === groups.length - 1, tasks, jevNotices),
+          renderGroup(group, busy && index === groups.length - 1, tasks, jevNotices, onOpenMemory),
         ];
       })}
     </>
@@ -275,24 +202,15 @@ function renderGroup(
   group: Group,
   last: boolean,
   tasks: readonly TaskInfo[],
-  jevNotices?: ReadonlyMap<string, JevNotice>,
+  jevNotices?: ReadonlyMap<string, JevNotice> | undefined,
+  onOpenMemory?: ((query: string) => void) | undefined,
 ) {
   const system = "tools" in group ? undefined : systemItem(group.entry, group.key, tasks);
   if (system !== undefined) return system;
   return "tools" in group ? (
     <li key={group.key} className="w-full">
       <Trace>
-        {group.tools.map((step) => {
-          const notice = jevNotices?.get(step.callId);
-          return notice === undefined ? (
-            <Tool key={step.callId} step={step} />
-          ) : (
-            <Fragment key={step.callId}>
-              <Tool step={step} />
-              <JevLine notice={notice} />
-            </Fragment>
-          );
-        })}
+        <ToolGroup tools={group.tools} jevNotices={jevNotices} onOpenMemory={onOpenMemory} />
       </Trace>
     </li>
   ) : group.entry.kind === "input" ? (
