@@ -200,7 +200,7 @@ export function SessionView({
       <div ref={transcriptRef} className="absolute inset-0">
         <ScrollArea className="h-full">
           <ul
-            className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))] pr-2"
+            className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))]"
             style={{
               paddingBottom: aboveComposer(footerHeight, 12),
             }}

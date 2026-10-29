@@ -17,7 +17,6 @@ function ScrollArea({ className, children, ...props }: ScrollAreaPrimitive.Root.
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );
