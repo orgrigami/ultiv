@@ -40,7 +40,7 @@ export interface BashOptions {
   readonly root?: string;
   /** Profile-scope resolver; when set, each conversation works in its profile's tree. */
   readonly holder?: ScopeHolder;
-  /** OCI image for the microVM; default "ubuntu". */
+  /** OCI image for the microVM; default `ultiv-sandbox:latest`, `ULTIV_SANDBOX_IMAGE` overrides. */
   readonly image?: string;
   /**
    * Backend factory override, keyed by the scope's absolute workspace dir.

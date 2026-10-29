@@ -22,8 +22,20 @@ export interface SandboxBackendOptions {
 const HOME = "/home";
 const VM_CPUS = 1;
 const VM_MEMORY_MIB = 512;
-/** Debian slim: python3+pip preinstalled, apt-get for everything else. */
-const DEFAULT_IMAGE = "python:3.12-slim";
+/**
+ * The default VM image: built from `packages/ext/sandbox/Dockerfile`
+ * (node 24, python 3 + pip, jq, tar, curl, git on Debian slim) and loaded
+ * into the runtime's image store with `msb load`. A registry tag cannot
+ * stand in for it, so a fresh machine must build it once; `apt-get` inside
+ * the VM is the escape hatch either way.
+ */
+const DEFAULT_IMAGE = "ultiv-sandbox:latest";
+
+/** The image for new VMs: `ULTIV_SANDBOX_IMAGE` when set, else the built-in tag. */
+export const sandboxImage = (): string => {
+  const raw = process.env.ULTIV_SANDBOX_IMAGE?.trim();
+  return raw !== undefined && raw !== "" ? raw : DEFAULT_IMAGE;
+};
 
 /** Short stable hash of a scope dir: the identity of its sandbox. */
 export const scopeHash = (value: string): string =>
@@ -49,7 +61,7 @@ export const sandboxShellBackend =
       // actually needed, so tests and non-bash paths never touch it.
       const { Sandbox } = await import("microsandbox");
       vm = await Sandbox.builder(options.name)
-        .image(options.image ?? DEFAULT_IMAGE)
+        .image(options.image ?? sandboxImage())
         .cpus(VM_CPUS)
         .memory(VM_MEMORY_MIB)
         .workdir(HOME)
