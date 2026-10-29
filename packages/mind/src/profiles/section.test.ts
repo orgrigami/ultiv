@@ -68,8 +68,9 @@ describe("assembled prompt: key rules and budget", () => {
     "always hold", // safety holds over the priority order
     "Voice:",
     "Never write em dashes", // the owner's standing style, followed silently
+    "if sincerely asked whether you are an AI, say yes", // honest identity
     "task_message", // steer running tasks
-    "Relay each [task …] result once",
+    "Relay each [task ...] result once",
   ];
   const persona = async (): Promise<string> =>
     render(
@@ -91,15 +92,14 @@ describe("assembled prompt: key rules and budget", () => {
     expect(text).toContain("Ledger (id: p2)");
   });
 
-  // Budgets: measured size (rules 380; baseline 603 and sample persona after
-  // the no-em-dash style rule, +47 words, was accepted) plus a little headroom.
-  // The mid-task owner-message rule (+33 words: rules 413) fits inside them;
-  // the task-handling rule (ack, task_message, relay once) was paid for by trims.
+  // Budgets: measured after the owner's identity rewrite (rules 426, baseline
+  // 626, sample persona ~724: the AI-honesty sentence and the no-em-dash
+  // style rule were both accepted) plus a little headroom.
   // Raising them is a decision: the rules ship on every turn of every bot.
   it("stays within its word budget", async () => {
-    expect(words(OPERATING_RULES)).toBeLessThanOrEqual(420);
-    expect(words(baselineIdentityText())).toBeLessThanOrEqual(620);
-    expect(words(await persona())).toBeLessThanOrEqual(720);
+    expect(words(OPERATING_RULES)).toBeLessThanOrEqual(440);
+    expect(words(baselineIdentityText())).toBeLessThanOrEqual(640);
+    expect(words(await persona())).toBeLessThanOrEqual(740);
   });
 });
 
