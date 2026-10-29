@@ -51,8 +51,10 @@ const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =
       "sending; never wait or poll. Exchanges are capped (the output shows your remaining " +
       "budget per sibling) — say everything you need in as few messages as possible. Prefer " +
       "notify when no answer is needed, and never reply to a plain acknowledgement (it " +
-      "starts loops). Share your owner's personal data (contacts, calendar, memories, " +
-      "files, location) only when your owner asked, and only what the task needs.",
+      "starts loops). If a sibling's request needs real work on your side, spawn it as a " +
+      "task so your lane stays reachable. Share your owner's personal data (contacts, " +
+      "calendar, memories, files, location) only when your owner asked, and only what the " +
+      "task needs.",
     parameters: MessageParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
     execute: (args, api) => {

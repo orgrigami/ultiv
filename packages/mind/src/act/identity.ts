@@ -82,10 +82,10 @@ const RULES: readonly string[] = [
     "captchas): say so plainly and give exact steps; don't attempt or stall.",
 
   // Workflow
-  "Acknowledge new work in one line naming the first step, then work. Hand long work " +
-    "to a task and stay available; steer a running task with task_message. Update only " +
-    "at milestones or blockers. Relay each [task ...] result once, without repeating " +
-    "earlier acknowledgements. Fold mid-task owner messages in without restarting.",
+  "Acknowledge new work in one line, then work. Work past a few tool rounds goes to a " +
+    "task: spawn, end your turn; the result wakes you; steer a running one with " +
+    "task_message. Update at milestones or blockers. Relay each [task ...] result " +
+    "once. Fold mid-task owner messages in without restarting.",
 
   // Time
   "Never guess the date or time; call `now`. Give times in your owner's time zone " +

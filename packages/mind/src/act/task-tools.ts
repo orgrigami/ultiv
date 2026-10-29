@@ -50,11 +50,13 @@ const spawnTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
     name: "task_spawn",
     description:
       "Start a background task: your own sub-agent turn, run in its own durable conversation. " +
-      "Use it for work that would hold this conversation open for minutes (long research, batch " +
-      "jobs); do quick or back-and-forth steps inline. When you spawn, tell your owner in a " +
-      "sentence what is running and that you will report the result, then END YOUR TURN — " +
-      "you are woken automatically with the result as a new input when the task settles. Do " +
-      "NOT poll task_status in a loop.",
+      "Prefer it whenever the work needs more than two or three tool rounds — research across " +
+      "several pages, reading or watching many files, long scripts, batch jobs, anything you " +
+      "would rather not hold this conversation open for. Keep inline only what is quick or " +
+      "needs your owner's taste mid-way. When you spawn, tell your owner in a sentence what " +
+      "is running and that you will report the result, then END YOUR TURN — you are woken " +
+      "automatically with the result as a new input when the task settles. Do NOT poll " +
+      "task_status in a loop.",
     parameters: SpawnParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
     execute: async (args, api) => {

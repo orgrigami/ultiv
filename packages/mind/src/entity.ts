@@ -38,6 +38,7 @@ import {
 } from "@ultiv/ext";
 import { Approvals, approvalsLayer, type ApprovalsService } from "./approvals.ts";
 import { actService } from "./act/act.ts";
+import { tasksVisibleTo } from "./act/task-live.ts";
 import type { ScopeHolder } from "@ultiv/ext";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
@@ -46,7 +47,7 @@ import { temporalPlugin } from "./act/temporal.ts";
 import { Audit, auditLayer, type AuditService } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
 import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
-import { Tasks, tasksLayer, type TasksService } from "./tasks/tasks.ts";
+import { Tasks, MAX_RUNNING_TASKS, tasksLayer, type TasksService } from "./tasks/tasks.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
@@ -208,6 +209,20 @@ const mindLayerRaw = (
         approvals,
         audit,
         (conversationId) => profilesRef?.profileOf(conversationId)?.id ?? null,
+        {
+          // The background-work nudge fires only when a spawn is actually
+          // possible: not from inside a task, and under the running cap.
+          maySpawn: async (conversationId) => {
+            if (profilesRef === undefined) return false;
+            if (await Effect.runPromise(tasks.isTaskConversation(conversationId))) return false;
+            const visible = tasksVisibleTo(
+              profilesRef,
+              conversationId,
+              await Effect.runPromise(tasks.list()),
+            );
+            return visible.filter((task) => task.status === "running").length < MAX_RUNNING_TASKS;
+          },
+        },
       );
       // One runtime, one entity per profile: the profiles service owns the
       // session registry and the conversation→profile index; its identity
