@@ -43,8 +43,8 @@ Every key in `.env` is optional. Features whose key is missing just show up as o
 
 | Key                                      | What it's for                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `KENARI_API_KEY`                         | LLM gateway for chat and generation. You need this one to have conversations.                                  |
-| `KENARI_MODEL`                           | Optional model override (default `deepseek-v4-1-flash`)                                                        |
+| A provider key                           | Chat and generation. Any [models.dev](https://models.dev) provider: `KENARI_API_KEY`, `ANTHROPIC_API_KEY`, …   |
+| `ULTIV_MODEL`                            | Optional default model as `provider/model` (default `kenari/deepseek-v4-1-flash`)                              |
 | `TYPESAFE_API_KEY`                       | Typesafe.AI decision model (Jev), used for yes/no, pick, rate and ask                                          |
 | `VAULT_KEY`                              | Turns the vault on. Use a long random secret, e.g. `printf 'VAULT_KEY=%s\n' "$(openssl rand -hex 32)" >> .env` |
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
