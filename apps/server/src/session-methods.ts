@@ -4,11 +4,11 @@
  * (steer by default, follow-up, or the explicit Redirect now).
  */
 import type { Ctx, Host } from "@earendil-works/chord";
-import type { Conversation } from "@earendil-works/pi-durable";
+import type { Conversation, UserInput } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { artifactsDir, readArtifact } from "@ultiv/ext";
 import type { SendMode, ThinkingLevel } from "@ultiv/contracts";
 import { redirectTurn, stopTurn, type MindService } from "@ultiv/mind";
+import { buildInputContent } from "./input-content.ts";
 import type { Principal } from "./identity.ts";
 import {
   safeChange,
@@ -145,13 +145,21 @@ export function inputMethod(scope: MethodScope) {
       // Admit first, in the method: an entry becomes visible through the
       // durable transcript projection only once it is committed to storage.
       const chat = await conversation;
-      const content = attachments === undefined ? text : await withAttachments(text, attachments);
+      // Attachments become prompt content (images inline on vision models)
+      // plus the entry metadata the transcript projection renders chips from.
+      const built =
+        attachments === undefined
+          ? undefined
+          : await buildInputContent({ text, attachments, owner: scope.owner, mind, chat });
+      const content: UserInput = built?.content ?? text;
       // Redirect now is explicit: stop the running turn at the nearest safe
       // point (its partial stays, marked interrupted), then answer this.
       const submission =
         whenBusy === "redirect"
-          ? (await redirectTurn(mind, chat, content)).submission
-          : await Effect.runPromise(mind.converse.submit(chat, content, whenBusy ?? "steer"));
+          ? (await redirectTurn(mind, chat, content, built?.entry)).submission
+          : await Effect.runPromise(
+              mind.converse.submit(chat, content, whenBusy ?? "steer", undefined, built?.entry),
+            );
       settle({ ...scope, conversation: chat, submission, text });
     } catch (error) {
       inFlight.finish();
@@ -161,15 +169,4 @@ export function inputMethod(scope: MethodScope) {
       throw error;
     }
   };
-}
-
-/** The attachment block an input carries: one reference line per artifact id. */
-async function withAttachments(text: string, attachments: readonly string[]): Promise<string> {
-  const dir = artifactsDir();
-  const lines = attachments.map((id) => {
-    const found = readArtifact(dir, id);
-    if (found === undefined) return `- artifact ${id}: (unknown)`;
-    return `- artifact ${found.info.id} "${found.info.name}" (${found.info.mime}): use artifact_read to open it`;
-  });
-  return `${text}\n\nAttached artifacts:\n${lines.join("\n")}`;
 }

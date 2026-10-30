@@ -12,10 +12,11 @@ import {
   clearArtifacts,
   deleteArtifact,
   listArtifacts,
+  MAX_UPLOAD_BYTES,
   mimeOfName,
   readArtifactInfo,
   searchArtifacts,
-  writeArtifact,
+  writeArtifactBytes,
 } from "@ultiv/ext";
 import { queryOr, type RouteArgs } from "./types.ts";
 
@@ -140,14 +141,18 @@ export async function artifactRoutes(
         ? ((await conversationIdOf(mind, args.owner, sessionId)) ?? null)
         : null;
     const body = await args.readBody(req);
+    if (body.length > MAX_UPLOAD_BYTES) {
+      json(413, { error: "file too large (10 MB max)" });
+      return true;
+    }
     json(
       200,
-      writeArtifact(
+      writeArtifactBytes(
         row !== undefined ? join(artifactsDir(), row.owner, row.profile) : artifactsDir(),
         {
           name,
           mime,
-          content: body.toString("utf8"),
+          data: body,
           conversationId,
           owner: row?.owner ?? null,
           profile: row?.profile ?? null,

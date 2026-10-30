@@ -121,6 +121,7 @@ async function route(args: RouteArgs): Promise<void> {
         providerName: spec.providerName,
         efforts: [...spec.efforts],
         defaultEffort: spec.defaultEffort,
+        input: [...spec.input],
       })),
     );
   }

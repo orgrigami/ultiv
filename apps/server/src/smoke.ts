@@ -168,6 +168,35 @@ expect(
 const missingMeta = await fetch(`${base}/api/artifacts/nope/meta`);
 expect("artifact meta unknown", missingMeta.status === 404);
 
+// Binary uploads survive: raw bytes in, the same bytes back out.
+const binaryBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe, 0x01]);
+const binaryUpload = await fetch(`${base}/api/artifacts?name=smoke.png&mime=image%2Fpng`, {
+  method: "POST",
+  body: binaryBytes,
+});
+const binary = (await binaryUpload.json()) as { id: string };
+expect("binary artifact upload", binaryUpload.status === 200);
+const binaryRaw = await fetch(`${base}/api/artifacts/${binary.id}`);
+const binaryBack = new Uint8Array(await binaryRaw.arrayBuffer());
+expect(
+  "binary artifact round-trip",
+  binaryRaw.status === 200 &&
+    binaryRaw.headers.get("content-type") === "image/png" &&
+    binaryBack.length === binaryBytes.length &&
+    binaryBack.every((byte, index) => byte === binaryBytes[index]),
+);
+const overCap = await fetch(`${base}/api/artifacts?name=big.bin`, {
+  method: "POST",
+  body: new Uint8Array(10_000_001),
+});
+expect("upload cap 413", overCap.status === 413);
+
+// Models expose their input modalities (vision badge / gate data).
+const tiny = (modelList.json as { id: string; input?: string[] }[]).find(
+  (model) => model.id === "smoke-local/tiny",
+);
+expect("models carry input modalities", tiny !== undefined && Array.isArray(tiny.input));
+
 const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id });
 expect(
   "webhook create + bad token is 401",

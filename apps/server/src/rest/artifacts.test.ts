@@ -27,6 +27,7 @@ interface RawResponse {
 const fakeArgs = (
   target: string,
   owner = "owner",
+  options: { method?: string; body?: Buffer } = {},
 ): { args: RouteArgs; json: () => { status: number; body: unknown }; raw: () => RawResponse } => {
   let captured: unknown;
   let capturedStatus = 0;
@@ -35,7 +36,7 @@ const fakeArgs = (
   const path = new URL(`http://x${target}`).pathname;
   const args = {
     mind: { profiles: { list: async () => [{ id: "p1" }] } },
-    req: { method: "GET" } as IncomingMessage,
+    req: { method: options.method ?? "GET" } as IncomingMessage,
     res: {
       writeHead: (status: number, headers: Record<string, string>) => {
         raw.status = status;
@@ -53,7 +54,7 @@ const fakeArgs = (
       captured = body;
     },
     readJson: async <T>() => undefined as T,
-    readBody: async () => Buffer.alloc(0),
+    readBody: async () => options.body ?? Buffer.alloc(0),
   } as unknown as RouteArgs;
   return {
     args,
@@ -130,5 +131,38 @@ describe("GET /api/artifacts/:id/meta", () => {
     expect(missing.json).toMatchObject({ status: 404, body: { error: "unknown artifact" } });
     const foreign = await get(`/api/artifacts/${info.id}/meta`, "someone-else");
     expect(foreign.json).toMatchObject({ status: 403, body: { error: "not your artifact" } });
+  });
+});
+
+describe("POST /api/artifacts", () => {
+  const post = async (target: string, body: Buffer, owner = "owner") => {
+    const faked = fakeArgs(target, owner, { method: "POST", body });
+    const handled = await artifactRoutes(faked.args, (after) =>
+      new URL(`http://x${target}`).pathname.slice(after.length),
+    );
+    return { handled, json: faked.json() };
+  };
+
+  it("stores raw bytes binary-safe and serves them back byte-identical", async () => {
+    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    process.env["ARTIFACTS_DIR"] = dir;
+    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe, 0x01]);
+    const uploaded = await post("/api/artifacts?name=shot.png&mime=image%2Fpng", bytes);
+    expect(uploaded.handled).toBe(true);
+    expect(uploaded.json.status).toBe(200);
+    const info = uploaded.json.body as { id: string; mime: string; bytes: number };
+    expect(info.mime).toBe("image/png");
+    expect(info.bytes).toBe(bytes.byteLength);
+    const served = await get(`/api/artifacts/${info.id}`);
+    expect((served.raw.body as Buffer).equals(bytes)).toBe(true);
+    expect(served.raw.headers["content-type"]).toBe("image/png");
+  });
+
+  it("answers 413 over the upload cap", async () => {
+    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    process.env["ARTIFACTS_DIR"] = dir;
+    const over = await post("/api/artifacts?name=big.bin", Buffer.alloc(10_000_001));
+    expect(over.json.status).toBe(413);
+    expect(over.json.body).toMatchObject({ error: "file too large (10 MB max)" });
   });
 });
