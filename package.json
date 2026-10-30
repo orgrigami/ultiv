@@ -1,6 +1,7 @@
 {
   "name": "ultiv",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "export PORT=${CHORD_PORT:-8787}; vpr @ultiv/server#dev & vpr @ultiv/web#dev & wait",
