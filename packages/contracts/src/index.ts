@@ -1,5 +1,6 @@
 export { Session } from "./session.ts";
 export {
+  AttachmentRefSchema,
   EffortSchema,
   ModelIdSchema,
   ModelInfoSchema,
@@ -18,6 +19,7 @@ export {
   WithdrawStatusSchema,
 } from "./session.ts";
 export type {
+  AttachmentRef,
   ModelInfo,
   ThinkingLevel,
   UsageSummary,

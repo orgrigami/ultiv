@@ -20,6 +20,8 @@ export const ModelInfoSchema = Type.Object({
   providerName: Type.String(),
   efforts: Type.Array(ThinkingLevelSchema),
   defaultEffort: ThinkingLevelSchema,
+  /** Accepted input modalities, e.g. ["text","image"] (models.dev). */
+  input: Type.Array(Type.String()),
 });
 
 export type ModelInfo = Static<typeof ModelInfoSchema>;
@@ -68,6 +70,16 @@ export const PendingApprovalSchema = Type.Union([
 
 export type PendingApproval = Static<typeof PendingApprovalSchema>;
 
+/** One file an owner attached to an input; rendered as a chip linking to /api/artifacts/:id. */
+export const AttachmentRefSchema = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  mime: Type.String(),
+  bytes: Type.Optional(Type.Number()),
+});
+
+export type AttachmentRef = Static<typeof AttachmentRefSchema>;
+
 /** One rendered step of a session: user input, agent output, reasoning, or a tool call. */
 export const TranscriptEntrySchema = Type.Union([
   Type.Object({
@@ -75,6 +87,8 @@ export const TranscriptEntrySchema = Type.Union([
     kind: Type.Literal("input"),
     at: Type.Number(),
     text: Type.String(),
+    /** Files the owner attached; chips/cards resolve through /api/artifacts/:id. */
+    attachments: Type.Optional(Type.Array(AttachmentRefSchema)),
   }),
   Type.Object({
     id: Type.Number(),
@@ -154,7 +168,7 @@ export const SessionErrorSchema = Type.Union([Type.String(), Type.Null()]);
 
 /** One agent session: durable, replayable transcript plus the agent's phase. */
 export const Session = remote("ultiv.session", {
-  version: 16,
+  version: 17,
   input: Type.Object({ id: Type.String() }),
   host: hostNamed("server"),
   variants: {
