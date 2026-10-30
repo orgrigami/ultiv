@@ -1,9 +1,8 @@
 /**
  * The slim chat bar: a round back button, the bot as a centred avatar+name
- * pill that switches bots (phones only — the side nav's switcher takes over
- * from sm: up), and a round "…" that opens the session details (model,
- * effort, spend, connection). Details live in the popover so the messages
- * get the room.
+ * pill that switches bots at every width, and a round "…" that opens the
+ * session details (model, effort, spend, connection). Details live in the
+ * popover so the messages get the room.
  */
 import { Popover } from "@base-ui/react/popover";
 import { ChevronLeftIcon, EllipsisIcon } from "lucide-react";

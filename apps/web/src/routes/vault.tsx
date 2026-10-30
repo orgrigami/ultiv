@@ -1,17 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Page } from "@/components/page";
-import { VaultContent } from "@/components/vault-panel";
-import { useApp } from "@/lib/app-state";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** Vault merged into the Tools page. */
 export const Route = createFileRoute("/vault")({
-  component: VaultPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/tools", search: { tab: "vault" }, replace: true });
+  },
 });
-
-function VaultPage() {
-  const { sessions } = useApp();
-  return (
-    <Page title="Vault">
-      <VaultContent profiles={sessions.profiles} />
-    </Page>
-  );
-}

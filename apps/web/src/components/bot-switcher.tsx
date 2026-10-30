@@ -1,8 +1,8 @@
 /**
- * The phone chat-header pill: tap it for the shared bot panel (bots with
- * role lines and activity, New bot, What-X-remembers, Bot talks). The side
- * nav's switcher takes over from sm: up, so the pill is sm:hidden. Link
- * state stays in the SessionDetails popover.
+ * The chat-header pill (every width): tap it for the shared bot panel
+ * (bots with role lines and activity, New bot, What-X-remembers, Bot talks).
+ * The side nav has its own switcher block; the pill keeps the chat's own
+ * context under the pointer. Link state stays in the SessionDetails popover.
  */
 import { Popover } from "@base-ui/react/popover";
 import { ChevronDownIcon } from "lucide-react";
@@ -33,7 +33,7 @@ export function BotSwitcher({
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger
           aria-label={`${name}: switch bot`}
-          className="bg-background/60 supports-backdrop-filter:bg-background/40 hover:bg-muted/80 border-border/60 relative flex max-w-full min-w-0 cursor-pointer pointer-coarse:min-h-11 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1 shadow-sm backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+          className="bg-background/60 supports-backdrop-filter:bg-background/40 hover:bg-muted/80 border-border/60 relative flex max-w-full min-w-0 cursor-pointer pointer-coarse:min-h-11 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1 shadow-sm backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <BotAvatar name={name} />
           <span className="flex min-w-0 flex-col text-left leading-tight">

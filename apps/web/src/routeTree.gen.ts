@@ -16,6 +16,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as RoomsRouteImport } from './routes/rooms'
 import { Route as RoutinesRouteImport } from './routes/routines'
 import { Route as SkillsRouteImport } from './routes/skills'
+import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as VaultRouteImport } from './routes/vault'
 import { Route as CSessionIdRouteImport } from './routes/c.$sessionId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
@@ -55,6 +56,11 @@ const SkillsRoute = SkillsRouteImport.update({
   path: '/skills',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ToolsRoute = ToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
   path: '/vault',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
+  '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
+  '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
+  '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/rooms'
     | '/routines'
     | '/skills'
+    | '/tools'
     | '/vault'
     | '/c/$sessionId'
     | '/sessions/$sessionId'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/rooms'
     | '/routines'
     | '/skills'
+    | '/tools'
     | '/vault'
     | '/c/$sessionId'
     | '/sessions/$sessionId'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/rooms'
     | '/routines'
     | '/skills'
+    | '/tools'
     | '/vault'
     | '/c/$sessionId'
     | '/sessions/$sessionId'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   RoomsRoute: typeof RoomsRoute
   RoutinesRoute: typeof RoutinesRoute
   SkillsRoute: typeof SkillsRoute
+  ToolsRoute: typeof ToolsRoute
   VaultRoute: typeof VaultRoute
   CSessionIdRoute: typeof CSessionIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
@@ -211,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SkillsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vault': {
       id: '/vault'
       path: '/vault'
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   RoomsRoute: RoomsRoute,
   RoutinesRoute: RoutinesRoute,
   SkillsRoute: SkillsRoute,
+  ToolsRoute: ToolsRoute,
   VaultRoute: VaultRoute,
   CSessionIdRoute: CSessionIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,

@@ -1,80 +1,52 @@
 /**
  * The app's sections as real links: a bottom tab bar on phones (translucent,
- * safe-area aware, Chat as a raised centre circle) and a single-scroll side
- * nav on desktop (bot switcher, New chat, sections with a collapsible Tools
- * group, per-bot Recents). Both mark the current section with aria-current.
- * Chat covers the home chat and any /c/ session.
+ * safe-area aware, Chat as a raised centre circle) and a fixed 256px side
+ * nav from sm: up (bot switcher block, New chat, sections, per-bot Recents).
+ * Both mark the current section with aria-current. Chat covers the home chat
+ * and any /c/ session.
  */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellIcon,
   BotIcon,
-  KeyRoundIcon,
   MessageCircleIcon,
-  PlugIcon,
   PlusIcon,
-  SparklesIcon,
   WrenchIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { NavRecents } from "@/components/nav-recents";
 import { NavSwitcher } from "@/components/nav-switcher";
-import { MoreSheet, ToolsSheet } from "@/components/nav-sheets";
+import { MoreSheet } from "@/components/nav-sheets";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useApp } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 
 export type Section = "chat" | "bots" | "routines" | "tools";
 
-interface NavChild {
-  label: string;
-  to: "/connectors" | "/skills" | "/vault";
-  icon: LucideIcon;
-}
-
 interface NavSection {
   id: Section;
   label: string;
   icon: LucideIcon;
-  /** Where a plain section links; absent for the collapsible Tools group. */
-  to?: "/" | "/bots" | "/routines";
-  children?: readonly NavChild[];
+  to: "/" | "/bots" | "/routines" | "/tools";
 }
 
 const SECTIONS: readonly NavSection[] = [
   { id: "chat", label: "Chat", icon: MessageCircleIcon, to: "/" },
   { id: "bots", label: "Bots", icon: BotIcon, to: "/bots" },
   { id: "routines", label: "Routines", icon: BellIcon, to: "/routines" },
-  {
-    id: "tools",
-    label: "Tools",
-    icon: WrenchIcon,
-    children: [
-      { label: "Connectors", to: "/connectors", icon: PlugIcon },
-      { label: "Skills", to: "/skills", icon: SparklesIcon },
-      { label: "Vault", to: "/vault", icon: KeyRoundIcon },
-    ],
-  },
+  { id: "tools", label: "Tools", icon: WrenchIcon, to: "/tools" },
 ];
 
-/** Path prefixes per section, most specific first. */
+/** Path prefixes per section; no prefix is a prefix of another. */
 const MATCHES: readonly (readonly [string, Section])[] = [
   ["/c/", "chat"],
   ["/bots", "bots"],
   ["/routines", "routines"],
+  ["/tools", "tools"],
   ["/connectors", "tools"],
   ["/skills", "tools"],
   ["/vault", "tools"],
 ];
-
-/** The shared row classes for a section entry (rail centres icons). */
-const sectionRow = (current: boolean): string =>
-  cn(
-    "focus-visible:ring-ring/50 aria-[current=page]:bg-muted hover:bg-muted pointer-coarse:min-h-11 flex flex-col items-center gap-1 rounded-lg px-2 py-2 text-xs outline-none focus-visible:ring-3 lg:flex-row lg:gap-3 lg:text-sm",
-    current ? "text-foreground" : "text-muted-foreground",
-  );
 
 function useSection(): Section | null {
   const path = useRouterState({ select: (state) => state.location.pathname });
@@ -101,72 +73,26 @@ function useActiveBotId(): string | undefined {
   return lastBot ?? mainId ?? undefined;
 }
 
-/**
- * One section row. Plain sections are Links; Tools is a collapsible group
- * whose trigger marks aria-current when one of its child routes is open.
- */
-function SectionLink({
-  section,
-  toolsOpen,
-  onToolsToggle,
-}: {
-  section: NavSection;
-  toolsOpen: boolean;
-  onToolsToggle: (open: boolean) => void;
-}) {
+/** The shared row classes for a section entry. */
+const sectionRow = (current: boolean): string =>
+  cn(
+    "focus-visible:ring-ring/50 aria-[current=page]:bg-muted hover:bg-muted pointer-coarse:min-h-11 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm outline-none focus-visible:ring-3",
+    current ? "text-foreground" : "text-muted-foreground",
+  );
+
+function SectionLink({ section }: { section: NavSection }) {
   const { lastBot } = useApp();
   const current = useSection() === section.id;
   const Icon = section.icon;
-  if (section.children === undefined) {
-    const target = section.to ?? "/";
-    return (
-      <Link
-        to={target}
-        search={target === "/" && lastBot !== undefined ? { bot: lastBot } : {}}
-        aria-current={current ? "page" : undefined}
-        className={sectionRow(current)}
-      >
-        <Icon className="size-5 shrink-0" />
-        {section.label}
-      </Link>
-    );
-  }
-  return (
-    <Collapsible open={toolsOpen} onOpenChange={onToolsToggle}>
-      <CollapsibleTrigger
-        aria-current={current ? "true" : undefined}
-        className={sectionRow(current)}
-      >
-        <Icon className="size-5 shrink-0" />
-        {section.label}
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="flex flex-col">
-          {section.children.map((child) => (
-            <NavChildLink key={child.to} child={child} />
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-/** A Tools child: indented on the wide sidebar, icon-centred on the rail. */
-function NavChildLink({ child }: { child: NavChild }) {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const active = pathname.startsWith(child.to);
-  const Icon = child.icon;
   return (
     <Link
-      to={child.to}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "focus-visible:ring-ring/50 flex min-h-9 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs outline-none focus-visible:ring-3 lg:flex-row lg:justify-start lg:gap-3 lg:pl-8 lg:text-sm",
-        active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted",
-      )}
+      to={section.to}
+      search={section.to === "/" && lastBot !== undefined ? { bot: lastBot } : {}}
+      aria-current={current ? "page" : undefined}
+      className={sectionRow(current)}
     >
       <Icon className="size-5 shrink-0" />
-      <span className="hidden lg:inline">{child.label}</span>
+      {section.label}
     </Link>
   );
 }
@@ -196,13 +122,12 @@ function NewChatButton({ botId }: { botId: string | undefined }) {
     >
       <Button
         variant="outline"
-        size="sm"
         disabled={disabled}
         onClick={() => void create()}
-        className="pointer-coarse:min-h-11 lg:w-full"
+        className="pointer-coarse:min-h-11 w-full"
       >
         <PlusIcon className="size-4 shrink-0" />
-        <span className="hidden lg:inline">New chat</span>
+        New chat
       </Button>
     </span>
   );
@@ -210,30 +135,16 @@ function NewChatButton({ botId }: { botId: string | undefined }) {
 
 export function SideNav() {
   const botId = useActiveBotId();
-  const [toolsOpen, setToolsOpen] = useState(() => localStorage.getItem("nav.tools") !== "false");
-  const toggle = (open: boolean): void => {
-    setToolsOpen(open);
-    try {
-      localStorage.setItem("nav.tools", String(open));
-    } catch {
-      // Private mode: the group just won't persist.
-    }
-  };
   return (
     <nav
       aria-label="Sections"
-      className="bg-background hidden w-20 shrink-0 flex-col gap-1 overflow-y-auto border-r p-2 sm:flex lg:w-52 lg:p-3"
+      className="bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-3 sm:flex"
     >
       <NavSwitcher botId={botId} />
       <NewChatButton botId={botId} />
-      <div className="flex flex-col gap-1">
+      <div className="mt-2 flex flex-col gap-1">
         {SECTIONS.map((section) => (
-          <SectionLink
-            key={section.id}
-            section={section}
-            toolsOpen={toolsOpen}
-            onToolsToggle={toggle}
-          />
+          <SectionLink key={section.id} section={section} />
         ))}
       </div>
       <NavRecents profileId={botId} />
@@ -241,14 +152,13 @@ export function SideNav() {
   );
 }
 
-/** A phone tab for a plain section (Bots, Routines). */
+/** A phone tab for a plain section (Bots, Routines, Tools). */
 function TabLink({ section }: { section: NavSection }) {
   const current = useSection() === section.id;
   const Icon = section.icon;
-  const target = section.to ?? "/";
   return (
     <Link
-      to={target}
+      to={section.to}
       aria-current={current ? "page" : undefined}
       className={cn(
         "focus-visible:ring-ring/50 pointer-coarse:min-h-11 flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg text-xs outline-none focus-visible:ring-3",
@@ -283,7 +193,7 @@ export function TabBar() {
           <MessageCircleIcon className="size-5" />
         </Link>
       </div>
-      <ToolsSheet active={section === "tools"} />
+      <TabLink section={SECTIONS[3]!} />
       <MoreSheet active={false} botId={botId} />
     </nav>
   );

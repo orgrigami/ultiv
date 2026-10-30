@@ -2,12 +2,13 @@
  * The shared bot panel: the content of every bot-switcher popover, in one
  * place. The current bot leads (bigger avatar, role line, a spinner while it
  * runs a task); the rest follow with role lines and their latest activity.
- * Utility rows under a divider: this bot's memory, a new bot, bot talks.
- * Hosts (the nav switcher and the phone pill) render only a trigger.
+ * Utility rows under a divider: this bot's memory, a new bot, bot talks,
+ * and a Connect apps footer into the Tools page. Hosts (the nav switcher
+ * and the chat-header pill) render only a trigger.
  */
 import { Popover } from "@base-ui/react/popover";
 import { useNavigate } from "@tanstack/react-router";
-import { BrainIcon, CheckIcon, PlusIcon, StarIcon, UsersIcon } from "lucide-react";
+import { BrainIcon, CheckIcon, PlugIcon, PlusIcon, StarIcon, UsersIcon } from "lucide-react";
 import { useState } from "react";
 import { NewBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";
@@ -188,6 +189,15 @@ export function BotPanel({
                 <UsersIcon className="size-4" />
               </span>
               <span className="text-sm font-medium">Bot talks</span>
+            </Popover.Close>
+            <Popover.Close
+              className={row}
+              onClick={() => void navigate({ to: "/tools", search: { tab: "connectors" } })}
+            >
+              <span className="bg-muted inline-flex size-7 items-center justify-center rounded-full">
+                <PlugIcon className="size-4" />
+              </span>
+              <span className="text-sm font-medium">Connect apps</span>
             </Popover.Close>
           </Popover.Popup>
         </Popover.Positioner>

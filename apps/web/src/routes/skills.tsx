@@ -1,20 +1,8 @@
-/**
- * Skills: the procedure library per bot (built-ins, self-written skills,
- * evolution proposals). The page reads the owner-scoped REST overview; each
- * bot's list mirrors what its prompt section shows.
- */
-import { createFileRoute } from "@tanstack/react-router";
-import { Page } from "@/components/page.tsx";
-import { SkillsContent } from "@/components/skills-panel.tsx";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+/** Skills merged into the Tools page. */
 export const Route = createFileRoute("/skills")({
-  component: SkillsPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/tools", search: { tab: "skills" }, replace: true });
+  },
 });
-
-function SkillsPage() {
-  return (
-    <Page title="Skills" lead="Procedures your bots keep, write and evolve.">
-      <SkillsContent />
-    </Page>
-  );
-}

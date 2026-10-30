@@ -1,20 +1,11 @@
 /**
- * The phone tab bar's two sheet tabs: Tools (Connectors, Skills, Vault) and
- * More (History, Bot talks). Dialogs are already bottom sheets under sm:.
- * Rows are plain buttons + navigate (no DialogClose-rendered Links, so no
- * nativeButton dance), and each tab closes the sheet before navigating.
+ * The phone tab bar's More sheet: History and Bot talks (the two destinations
+ * without a nav slot). Dialogs are already bottom sheets under sm:. Rows are
+ * plain buttons + navigate (no DialogClose-rendered Links, so no nativeButton
+ * dance), and the tab closes the sheet before navigating.
  */
 import { useNavigate } from "@tanstack/react-router";
-import {
-  HistoryIcon,
-  KeyRoundIcon,
-  MoreHorizontalIcon,
-  PlugIcon,
-  SparklesIcon,
-  UsersIcon,
-  WrenchIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { HistoryIcon, MoreHorizontalIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ListRow } from "@/components/ui/list-row";
@@ -86,29 +77,6 @@ function SheetTab({
         <div className="mt-2 flex flex-col gap-0.5">{children}</div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-export function ToolsSheet({ active }: { active: boolean }) {
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const go = (to: "/connectors" | "/skills" | "/vault"): void => {
-    setOpen(false);
-    void navigate({ to });
-  };
-  return (
-    <SheetTab
-      icon={WrenchIcon}
-      label="Tools"
-      active={active}
-      title="Tools"
-      open={open}
-      onOpenChange={setOpen}
-    >
-      <SheetRow icon={PlugIcon} label="Connectors" onClick={() => go("/connectors")} />
-      <SheetRow icon={SparklesIcon} label="Skills" onClick={() => go("/skills")} />
-      <SheetRow icon={KeyRoundIcon} label="Vault" onClick={() => go("/vault")} />
-    </SheetTab>
   );
 }
 
