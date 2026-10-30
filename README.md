@@ -2,8 +2,6 @@
 
 Ultiv is a self-hosted web app for running AI bots on your own machine. Each bot gets its own persona, memory, files, tools, schedules and audit log. Bots can talk to you, talk to each other, and do things on your computer when you approve them.
 
-Ultiv is built with Hermes and Grok.
-
 It runs on any model provider [models.dev](https://models.dev) knows about: Anthropic, OpenAI, Google, OpenRouter, DeepSeek, Kenari and a couple hundred more, or a model running on your own machine. Provider keys stay on the server in `.env`. The credentials bots use live in a local encrypted vault that the model never reads.
 
 A fresh install starts with no bots. The first one you create becomes your main bot, and you can add as many others as you like.
