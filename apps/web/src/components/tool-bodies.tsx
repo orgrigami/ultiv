@@ -7,6 +7,7 @@
  * transcript; they scroll inside their own bounded box.
  */
 import { ArrowUpRightIcon, TerminalIcon } from "lucide-react";
+import { useState } from "react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Mark } from "@/components/state-mark";
 import {
@@ -206,9 +207,7 @@ function RecordBody({
           ))}
         </dl>
       )}
-      {note !== undefined && (
-        <p className="text-muted-foreground text-sm break-words whitespace-pre-wrap">{note}</p>
-      )}
+      {note !== undefined && <FoldText text={note} className="text-muted-foreground" />}
     </div>
   );
 }
@@ -248,7 +247,69 @@ export function InputRecord({ input }: { input: unknown }) {
   );
 }
 
-/** The output as its best plate: pretty JSON when it parses, text otherwise. */
+/** One bullet of a list-shaped output: "name: rest" reads as a titled row. */
+function BulletRow({ item }: { item: string }) {
+  const colon = item.indexOf(": ");
+  if (colon > 0 && colon < 60) {
+    return (
+      <li className="flex items-start gap-2 text-sm">
+        <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
+        <span className="min-w-0 break-words">
+          <span className="font-medium">{item.slice(0, colon)}</span>
+          <span className="text-muted-foreground"> · {item.slice(colon + 2)}</span>
+        </span>
+      </li>
+    );
+  }
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
+      <span className="min-w-0 break-words">{item}</span>
+    </li>
+  );
+}
+
+/** Plain output in its own shape: header lines become plate labels, bullet
+ * groups become lists, and anything else stays one copyable plate. */
+function StructuredText({ text }: { text: string }) {
+  const rows: React.ReactNode[] = [];
+  let items: string[] = [];
+  const flush = (): void => {
+    if (items.length === 0) return;
+    const batch = items;
+    items = [];
+    rows.push(
+      <ul key={`g${rows.length}`} className="flex flex-col gap-1">
+        {batch.map((item, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static rows
+          <BulletRow key={index} item={item} />
+        ))}
+      </ul>,
+    );
+  };
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t === "") {
+      flush();
+      continue;
+    }
+    if (t.startsWith("- ")) {
+      items.push(t.slice(2));
+      continue;
+    }
+    flush();
+    rows.push(
+      <p key={`h${rows.length}`} className="overline-plate pt-1">
+        {t.replace(/:$/, "")}
+      </p>,
+    );
+  }
+  flush();
+  return <div className="flex min-w-0 max-w-prose flex-col">{rows}</div>;
+}
+
+/** The output as its best self: pretty JSON when it parses, its own list
+ * shape when it has one, one copyable plate otherwise. */
 function OutputPlate({ output }: { output: string }) {
   const trimmed = output.trimStart();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
@@ -263,9 +324,11 @@ function OutputPlate({ output }: { output: string }) {
         />
       );
     } catch {
-      // fall through to the text plate
+      // fall through to the text renderer
     }
   }
+  const bullets = output.split("\n").filter((line) => line.trimStart().startsWith("- ")).length;
+  if (bullets >= 2) return <StructuredText text={output} />;
   return <CodePlate title="output" code={output} lang="" wrap copy />;
 }
 
@@ -281,6 +344,46 @@ export function Receipts({ input, output }: { input: unknown; output?: string | 
     <div className={cn(BOX, "flex flex-col gap-2")}>
       {hasInput && <InputRecord input={input} />}
       {hasOutput && <OutputPlate output={output} />}
+    </div>
+  );
+}
+
+/** A long quote that folds instead of truncating: nothing is unreadable. */
+export function FoldText({
+  text,
+  className,
+  foldedClassName,
+}: {
+  text: string;
+  className?: string;
+  foldedClassName?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 480 || text.split("\n").length > 12;
+  const folded = long && !open;
+  return (
+    <div className={className}>
+      <p
+        className={cn(
+          "text-sm break-words whitespace-pre-wrap",
+          folded &&
+            cn(
+              "max-h-40 overflow-hidden [mask-image:linear-gradient(to_bottom,black_70%,transparent)]",
+              foldedClassName,
+            ),
+        )}
+      >
+        {text}
+      </p>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer rounded-md px-1 py-0.5 outline-none"
+        >
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
     </div>
   );
 }

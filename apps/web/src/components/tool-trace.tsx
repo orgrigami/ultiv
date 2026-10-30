@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import type { ToolStep } from "@ultiv/contracts";
 import { FileCard } from "@/components/file-card";
-import { ErrorNote, Receipts, ToolBody } from "@/components/tool-bodies";
+import { ErrorNote, FoldText, Receipts, ToolBody } from "@/components/tool-bodies";
 import { Mark } from "@/components/state-mark";
 import { useApp } from "@/lib/app-state";
 import type { JevNotice } from "@/lib/jev-text";
@@ -117,7 +117,8 @@ const clipFor = (text: string): string | undefined => {
   return clean === "" ? undefined : clean;
 };
 
-/** The quoted body of a social call: the memory kept, the mail sent. */
+/** The quoted body of a social call: the memory kept, the mail sent. Long
+ * letters fold instead of truncating. */
 function Body({
   view,
   onOpenMemory,
@@ -128,9 +129,10 @@ function Body({
   const fragment = view.lookup !== undefined ? clipFor(view.lookup) : undefined;
   return (
     <div className="mt-1 mb-1 ml-[3.75rem] max-w-prose">
-      <p className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed italic">
-        {view.body}
-      </p>
+      <FoldText
+        text={view.body ?? ""}
+        className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed italic [&>button]:ml-[-1px]"
+      />
       <div className="text-muted-foreground/80 mt-1 flex flex-wrap items-center gap-x-2 pl-3 text-xs">
         {view.tags?.map((tag) => (
           <span key={tag}>{tag}</span>

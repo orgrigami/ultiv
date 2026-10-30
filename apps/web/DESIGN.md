@@ -208,7 +208,7 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 
 - **Style:** the transcript's tool layer. Each call is one line: state mark or family icon, zero-padded two-digit index in `.readout` at 50% muted, owner-worded title (past tense done, present tense while running with a shimmer), truncated detail, tabular duration when ≥ 3s.
 - **States:** running lines shimmer their title; error lines and triggers take `--destructive`; hover raises text to foreground.
-- **Expansion:** bodies indent under a left hairline (`border-l pl-4`); bodies are shaped (search hit lists with numbered readout rows, definition-list records, terminal and HTTP code plates, rendered page markdown); raw input/output JSON receipts stay one click away; bodies scroll inside a bounded box (`max-h-72/80`), never the whole transcript. Long runs (over 8 steps) fold their head behind a "Show N earlier steps" readout line, keeping the last 3.
+- **Expansion:** bodies indent under a left hairline (`border-l pl-4`); bodies are shaped (search hit lists with numbered readout rows, definition-list records, terminal and HTTP code plates, rendered page markdown); unshaped calls read as input rows plus a typed output plate (pretty JSON, or the output's own bullet/key-value shape as titled rows); bodies scroll inside a bounded box (`max-h-72/80`), never the whole transcript. Long runs (over 8 steps) fold their head behind a "Show N earlier steps" readout line, keeping the last 3.
 
 ### Cards / Containers
 
