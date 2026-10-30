@@ -5,7 +5,6 @@
  * owner's block at the bottom. On phones, a bottom tab bar (Crew, Routines,
  * raised Chat, Tools, More). Both mark the current section with aria-current.
  */
-import { Popover } from "@base-ui/react/popover";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   CalendarClockIcon,
@@ -14,15 +13,11 @@ import {
   MessageCircleIcon,
   PlusIcon,
   WrenchIcon,
-  ChevronsUpDownIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
-import { BotPanel } from "@/components/bot-panel";
 import { Mark } from "@/components/state-mark";
-import { MemoryPanel } from "@/components/memory/memory-panel";
 import { MoreSheet } from "@/components/nav-sheets";
 import { NavRecents } from "@/components/nav-recents";
 import { OwnerBlock } from "@/components/owner-block";
@@ -202,31 +197,11 @@ function Wordmark() {
   );
 }
 
-/** The crew section header: the label plus the shared bot-panel trigger. */
-function CrewPlate({ botId, onMemory }: { botId: string | undefined; onMemory: () => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <div className="flex items-center justify-between gap-1 pr-1 pl-3">
-        <span className="section-label">Crew</span>
-        <Popover.Trigger
-          aria-label="Crew overview"
-          className="text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/60 flex size-7 items-center justify-center rounded-md outline-none"
-        >
-          <ChevronsUpDownIcon className="size-3.5" />
-        </Popover.Trigger>
-      </div>
-      <BotPanel currentId={botId} onMemory={onMemory} />
-    </Popover.Root>
-  );
-}
-
 export function SideNav() {
   const botId = useActiveBotId();
   const { sessions, mainId, attention, busy } = useApp();
   const section = useSection();
   const navigate = useNavigate();
-  const [memory, setMemory] = useState<{ id: string; name: string } | null>(null);
   const roster = sessions.profiles
     .filter((bot) => bot.archivedAt === null)
     .sort((a, b) => (a.id === mainId ? -1 : b.id === mainId ? 1 : 0));
@@ -238,15 +213,7 @@ export function SideNav() {
     >
       <div className="flex flex-col gap-0.5 p-3 pb-0">
         <Wordmark />
-        <div className="mt-2">
-          <CrewPlate
-            botId={botId}
-            onMemory={() => {
-              const bot = roster.find((candidate) => candidate.id === botId);
-              if (bot !== undefined) setMemory({ id: bot.id, name: bot.name });
-            }}
-          />
-        </div>
+        <div className="section-label mt-2 px-3">Crew</div>
         <div className="mt-1 flex flex-col">
           {roster.map((bot) => (
             <CrewRow
@@ -297,14 +264,6 @@ export function SideNav() {
         <NavRecents profileId={botId} />
       </div>
       <OwnerBlock className="shrink-0" />
-      <MemoryPanel
-        profileId={memory?.id ?? ""}
-        name={memory?.name ?? ""}
-        open={memory !== null}
-        onOpenChange={(open) => {
-          if (!open) setMemory(null);
-        }}
-      />
     </nav>
   );
 }
