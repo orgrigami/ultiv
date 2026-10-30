@@ -47,6 +47,30 @@ describe("presentationOf", () => {
     }
   });
 
+  it("gives list tools their output as the body, no input noise", () => {
+    const view = presentationOf(
+      step({
+        name: "bots_list",
+        input: { includeArchived: true },
+        output: "1 bot(s):\n- V (id: ba79-4ef4) (you) · Chief of Staff; tools: all tools",
+      }),
+    );
+    if (view.kind !== "human") return fail();
+    expect(view.view.detail).toBeUndefined();
+    expect(view.view.structured).toEqual({
+      t: "output",
+      text: "1 bot(s):\n- V (id: ba79-4ef4) (you) · Chief of Staff; tools: all tools",
+    });
+  });
+
+  it("booleans never ride the line as a detail", () => {
+    const view = presentationOf(
+      step({ name: "schedule_set", input: { schedule: "30 9 * * 1", once: true } }),
+    );
+    if (view.kind !== "human") return fail();
+    expect(view.view.detail).toBe("30 9 * * 1");
+  });
+
   it("previews a skill's reference file like any file", () => {
     const view = presentationOf(
       step({

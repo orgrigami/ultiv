@@ -70,7 +70,22 @@ export type ToolBodyData =
       readonly note?: string | undefined;
     }
   | { readonly t: "page"; readonly url: string; readonly host: string; readonly text: string }
+  | { readonly t: "output"; readonly text: string }
   | { readonly t: "json" };
+
+/** Tools whose input adds nothing worth a row: their body is the output. */
+const INPUTLESS = new Set([
+  "bots_list",
+  "vault_list",
+  "connector_list",
+  "skill_list",
+  "task_list",
+  "schedule_list",
+  "sensor_list",
+  "webhook_list",
+  "state_list",
+  "artifact_list",
+]);
 
 export type ToolView = {
   readonly family: ToolFamily;
@@ -666,8 +681,22 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     default: {
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {
+        const output = rawOf(step.output);
+        if (INPUTLESS.has(step.name)) {
+          return {
+            kind: "human",
+            view: {
+              family: verbed[2],
+              done: verbed[0],
+              live: verbed[1],
+              ...(output !== undefined
+                ? { structured: { t: "output", text: clip(output, 8000) ?? output } }
+                : {}),
+            },
+          };
+        }
         const made = recordOfInput(recordOf(step.input), ["conversationId"], step.name);
-        const lead = made.fields[0];
+        const lead = made.fields.find((field) => field.v !== "true" && field.v !== "false");
         return {
           kind: "human",
           view: {

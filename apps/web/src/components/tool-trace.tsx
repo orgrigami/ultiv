@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import type { ToolStep } from "@ultiv/contracts";
 import { FileCard } from "@/components/file-card";
-import { ErrorNote, FoldText, Receipts, ToolBody } from "@/components/tool-bodies";
+import { ErrorNote, FoldText, Receipts, ToolBody, TypedOutput } from "@/components/tool-bodies";
 import { Mark } from "@/components/state-mark";
 import { useApp } from "@/lib/app-state";
 import type { JevNotice } from "@/lib/jev-text";
@@ -214,6 +214,9 @@ export const ToolTrace = memo(function ToolTrace({
           {error !== undefined && <ErrorNote message={error} />}
           {body === "structured" && human?.structured !== undefined && (
             <ToolBody data={human.structured} />
+          )}
+          {human?.structured?.t === "record" && step.output !== null && step.output !== "" && (
+            <TypedOutput output={step.output} />
           )}
           {body === "lines" && <Lines lines={human?.lines ?? []} />}
           {body === undefined && (

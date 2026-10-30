@@ -247,6 +247,22 @@ export function InputRecord({ input }: { input: unknown }) {
   );
 }
 
+/** Raw ids read as machine noise: dimmed wherever they appear in a row. */
+function withDimIds(text: string): React.ReactNode[] {
+  const parts = text.split(/(\(id:\s*[^)]+\))/g);
+  return parts.map((part, index) =>
+    // biome-ignore lint/suspicious/noArrayIndexKey: static split parts
+    part.startsWith("(id:") ? (
+      <span key={index} className="text-muted-foreground/60 font-mono text-xs">
+        {part}
+      </span>
+    ) : (
+      // biome-ignore lint/suspicious/noArrayIndexKey: static split parts
+      <span key={index}>{part}</span>
+    ),
+  );
+}
+
 /** One bullet of a list-shaped output: "name: rest" reads as a titled row. */
 function BulletRow({ item }: { item: string }) {
   const colon = item.indexOf(": ");
@@ -255,8 +271,8 @@ function BulletRow({ item }: { item: string }) {
       <li className="flex items-start gap-2 text-sm">
         <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
         <span className="min-w-0 break-words">
-          <span className="font-medium">{item.slice(0, colon)}</span>
-          <span className="text-muted-foreground"> · {item.slice(colon + 2)}</span>
+          <span className="font-medium">{withDimIds(item.slice(0, colon))}</span>
+          <span className="text-muted-foreground"> · {withDimIds(item.slice(colon + 2))}</span>
         </span>
       </li>
     );
@@ -264,7 +280,7 @@ function BulletRow({ item }: { item: string }) {
   return (
     <li className="flex items-start gap-2 text-sm">
       <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
-      <span className="min-w-0 break-words">{item}</span>
+      <span className="min-w-0 break-words">{withDimIds(item)}</span>
     </li>
   );
 }
@@ -328,8 +344,13 @@ function OutputPlate({ output }: { output: string }) {
     }
   }
   const bullets = output.split("\n").filter((line) => line.trimStart().startsWith("- ")).length;
-  if (bullets >= 2) return <StructuredText text={output} />;
+  if (bullets >= 1) return <StructuredText text={output} />;
   return <CodePlate title="output" code={output} lang="" wrap copy />;
+}
+
+/** The call's output, typed: the piece record bodies otherwise swallow. */
+export function TypedOutput({ output }: { output: string }) {
+  return <OutputPlate output={output} />;
 }
 
 /** The fallback body for calls no lens shapes: input as rows, output as a plate. */
@@ -413,6 +434,8 @@ export function ToolBody({ data }: { data: ToolBodyData }) {
       return <PageBody url={data.url} host={data.host} text={data.text} />;
     case "record":
       return <RecordBody fields={data.fields} note={data.note} />;
+    case "output":
+      return <OutputPlate output={data.text} />;
     case "json":
       return null;
   }
