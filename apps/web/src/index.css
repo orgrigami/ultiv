@@ -288,6 +288,13 @@
   --border-radius: var(--radius-lg);
 }
 
+/* The transcript sinks under the floating chrome: content fades as it
+   reaches the header band instead of being sliced mid-line. */
+.scroll-under {
+  mask-image: linear-gradient(to bottom, transparent 0, black 4.75rem);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 4.75rem);
+}
+
 /* Floating chrome: translucent over the transcript, offset shadow (depth with
    direction), hairline edge. */
 .chrome-float {

@@ -205,7 +205,7 @@ export function SessionView({
   return (
     <>
       <section aria-label="Chat" className="relative min-h-0 flex-1">
-        <div ref={transcriptRef} className="absolute inset-0">
+        <div ref={transcriptRef} className="scroll-under absolute inset-0">
           <ScrollArea className="h-full">
             <ul
               className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))]"

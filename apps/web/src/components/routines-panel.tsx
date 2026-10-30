@@ -21,6 +21,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { Spinner } from "@/components/ui/spinner";
 import { ScheduleRow, SensorRow } from "@/components/routine-rows";
 import { CreateWebhook, WebhookRow } from "@/components/webhook-row";
+import { Mark } from "@/components/state-mark";
 import { api } from "@/lib/api";
 import { formatFull, formatWhen } from "@/lib/format";
 
@@ -155,18 +156,21 @@ export function RoutinesContent({ profiles }: { profiles: ProfileInfo[] }) {
 
 function EscalationRow({ event, bot }: { event: AuditEvent; bot: string }) {
   return (
-    <li className="flex flex-col gap-0.5 px-3 py-2 text-sm">
-      <span className="break-words first-letter:uppercase">
-        {event.error ?? "Something went wrong"}
-      </span>
-      <span className="text-muted-foreground text-xs">
-        {[
-          bot,
-          event.name === null ? null : `wanted to ${describeTool(event.name).action}`,
-          formatWhen(event.at),
-        ]
-          .filter((part) => part !== null)
-          .join(" · ")}
+    <li className="flex items-start gap-2 px-3 py-2 text-sm">
+      <Mark kind="attention" tone="signal" label="Needs your attention" className="mt-1 size-3.5" />
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-signal break-words first-letter:uppercase">
+          {event.error ?? "Something went wrong"}
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {[
+            bot,
+            event.name === null ? null : `wanted to ${describeTool(event.name).action}`,
+            formatWhen(event.at),
+          ]
+            .filter((part) => part !== null)
+            .join(" · ")}
+        </span>
       </span>
     </li>
   );

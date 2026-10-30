@@ -27,6 +27,6 @@ STORY: the owner reads at a glance who is working, what waits for them, and what
 
 FIRST VIEWPORT: console rail left (wordmark plate, crew roster with presence marks, labeled systems nav, per-bot recents, owner block with theme control), center the current bot's transcript with the overlay-layer tool trace, floating pill composer; on phones, tab bar with Crew, Routines, centre Chat, Tools, More.
 
-FORM: assigned grounded direction (observatory control room), seed key 48e2f21f.
+FORM: the assigned grounded direction from the seven-candidate roll (observatory control room); the roll's seed reference stays in the session run record, not in this committed document.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
