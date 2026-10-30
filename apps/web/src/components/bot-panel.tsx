@@ -9,10 +9,10 @@
 import { Popover } from "@base-ui/react/popover";
 import { useNavigate } from "@tanstack/react-router";
 import { BrainIcon, CheckIcon, PlugIcon, PlusIcon, StarIcon, UsersIcon } from "lucide-react";
+import { Mark } from "@/components/state-mark";
 import { useState } from "react";
 import { NewBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";
-import { Spinner } from "@/components/ui/spinner";
 import { useApp } from "@/lib/app-state";
 import { formatWhen } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
@@ -72,9 +72,13 @@ export function BotPanel({
             {current !== undefined && (
               <div className="flex items-center gap-3 px-2 pt-2 pb-1" aria-current="true">
                 <span className="relative">
-                  <BotAvatar name={current.name} size="xl" />
+                  <BotAvatar id={current.id} name={current.name} size="xl" />
                   {attention.has(current.id) && (
-                    <span className="bg-destructive ring-popover absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2" />
+                    <Mark
+                      kind="attention"
+                      tone="signal"
+                      className="ring-popover absolute -top-1 -right-1.5 size-3.5 rounded-full ring-2"
+                    />
                   )}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -82,7 +86,7 @@ export function BotPanel({
                     <span className="truncate">{current.name}</span>
                     {current.id === mainId && (
                       <StarIcon
-                        className="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+                        className="size-3.5 shrink-0 fill-live text-live"
                         aria-label="Main bot"
                       />
                     )}
@@ -95,7 +99,9 @@ export function BotPanel({
                         : "No role yet"}
                   </span>
                 </span>
-                {busy.has(current.id) && <Spinner className="size-3.5 text-emerald-500" />}
+                {busy.has(current.id) && (
+                  <Mark kind="working" tone="live" className="live-breathe" />
+                )}
                 <CheckIcon className="size-4 shrink-0" aria-label="Open now" />
               </div>
             )}
@@ -111,9 +117,13 @@ export function BotPanel({
                       onClick={() => pick(bot.id)}
                     >
                       <span className="relative">
-                        <BotAvatar name={bot.name} />
+                        <BotAvatar id={bot.id} name={bot.name} />
                         {needsYou && (
-                          <span className="bg-destructive ring-popover absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2" />
+                          <Mark
+                            kind="attention"
+                            tone="signal"
+                            className="ring-popover absolute -top-1 -right-1.5 size-3.5 rounded-full ring-2"
+                          />
                         )}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -121,7 +131,7 @@ export function BotPanel({
                           <span className="truncate">{bot.name}</span>
                           {bot.id === mainId && (
                             <StarIcon
-                              className="size-3.5 shrink-0 fill-amber-400 text-amber-400"
+                              className="size-3.5 shrink-0 fill-live text-live"
                               aria-label="Main bot"
                             />
                           )}
@@ -135,8 +145,10 @@ export function BotPanel({
                         </span>
                       </span>
                       {busy.has(bot.id) && (
-                        <span
-                          className="bg-emerald-500 size-2 shrink-0 rounded-full"
+                        <Mark
+                          kind="working"
+                          tone="live"
+                          className="live-breathe size-3"
                           aria-label="Running a task"
                         />
                       )}

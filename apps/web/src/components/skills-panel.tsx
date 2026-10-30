@@ -4,6 +4,7 @@
  * detail dialog holds one skill's full text and its open proposals.
  */
 import {
+  FileTextIcon,
   PencilIcon,
   PlusIcon,
   PowerIcon,
@@ -22,6 +23,7 @@ import type {
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { SkillAdd, SkillEditor } from "@/components/skills-edit";
+import { Mark } from "@/components/state-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -50,15 +52,29 @@ const ORIGIN_VARIANT: Record<SkillOrigin, "secondary" | "default" | "outline"> =
 const bodyWithoutFrontmatter = (body: string): string =>
   body.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
 
-/** One open skill in a bot's list, or a read-only built-in. */
+/** One open skill in a bot's list, or a read-only built-in. Status rides the row. */
 function SkillRow({ skill, onOpen }: { skill: SkillMeta; onOpen: () => void }) {
   return (
     <ListRow
       leading={<Badge variant={ORIGIN_VARIANT[skill.origin]}>{ORIGIN_LABEL[skill.origin]}</Badge>}
       title={skill.name}
       subtitle={skill.description === "" ? undefined : skill.description}
-      meta={`v${skill.version}`}
+      meta={<span className="readout">v{skill.version}</span>}
       onClick={onOpen}
+      trailing={
+        <span
+          className="text-muted-foreground flex w-14 shrink-0 items-center justify-end gap-1.5 pr-0.5 text-xs"
+          title={skill.enabled ? "Enabled: the bot can load it" : "Disabled: the bot can't load it"}
+        >
+          <Mark
+            kind={skill.enabled ? "done" : "disabled"}
+            tone={skill.enabled ? "ok" : "muted"}
+            className="size-3"
+          />
+          {skill.enabled ? "on" : "off"}
+        </span>
+      }
+      className={skill.enabled ? "pr-2.5" : "pr-2.5 opacity-70"}
     />
   );
 }
@@ -68,6 +84,97 @@ function describeMeta(meta: SkillMeta): string {
   const updated =
     meta.updatedAt === 0 ? "ships with the app" : `updated ${formatFull(meta.updatedAt)}`;
   return `${ORIGIN_LABEL[meta.origin]} · v${meta.version} · ${updated}`;
+}
+
+/** One reference file of a skill, opened inline below its row. */
+function ReferenceFile({
+  profile,
+  name,
+  path,
+  open,
+  onToggle,
+}: {
+  profile: string;
+  name: string;
+  path: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || content !== null) return;
+    let gone = false;
+    api
+      .skillFile(profile, name, path)
+      .then((file) => {
+        if (!gone) setContent(file.content);
+      })
+      .catch((cause: unknown) => {
+        if (!gone) setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      gone = true;
+    };
+  }, [open, content, profile, name, path]);
+  return (
+    <li>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-xs outline-none focus-visible:ring-2"
+      >
+        <FileTextIcon className="text-muted-foreground size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-mono">{path}</span>
+      </button>
+      {open && (
+        <div className="mt-1 mb-2 ml-6">
+          {error !== null ? (
+            <ErrorState message={`Couldn't load the file: ${error}`} />
+          ) : content === null ? (
+            <p className="text-muted-foreground flex items-center gap-2 py-2 text-xs">
+              <Spinner /> Loading…
+            </p>
+          ) : (
+            <pre className="bg-card text-foreground max-h-64 overflow-auto rounded-lg border p-2.5 font-mono text-xs leading-relaxed">
+              {content}
+            </pre>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** A skill's reference files, each inspectable in place. */
+function ReferenceFiles({
+  profile,
+  name,
+  files,
+}: {
+  profile: string;
+  name: string;
+  files: readonly string[];
+}) {
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  return (
+    <div className="mt-2">
+      <p className="overline-plate mb-1">Reference files</p>
+      <ul className="flex flex-col">
+        {files.map((path) => (
+          <ReferenceFile
+            key={path}
+            profile={profile}
+            name={name}
+            path={path}
+            open={openPath === path}
+            onToggle={() => setOpenPath(openPath === path ? null : path)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /** One parked change with its accept/reject pair. */
@@ -81,7 +188,7 @@ function ProposalCard({
   onDecide: (verdict: "accept" | "reject") => void;
 }) {
   return (
-    <div className="flex flex-col gap-2 rounded-[14px] border p-3 text-sm">
+    <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
       <p className="min-w-0 break-words">{proposal.note}</p>
       <p className="text-muted-foreground text-xs">
         Proposes a new version (base v{proposal.baseVersion})
@@ -179,6 +286,7 @@ function ActionRow({
 
 /** The loaded skill: identity line, text, open proposals, action row. */
 function LoadedSkill({
+  profile,
   detail,
   busy,
   error,
@@ -188,6 +296,7 @@ function LoadedSkill({
   onDelete,
   onDecide,
 }: {
+  profile: string;
   detail: SkillDetail;
   busy: boolean;
   error: string | null;
@@ -204,9 +313,7 @@ function LoadedSkill({
         <p className="text-muted-foreground mt-1 text-sm">{detail.meta.description}</p>
       )}
       {detail.meta.files.length > 0 && (
-        <p className="text-muted-foreground mt-2 text-xs">
-          Reference files: {detail.meta.files.join(", ")}
-        </p>
+        <ReferenceFiles profile={profile} name={detail.meta.name} files={detail.meta.files} />
       )}
       <div className="prose prose-sm dark:prose-invert mt-3 max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere]">
         <LazyMarkdown text={bodyWithoutFrontmatter(detail.body)} />
@@ -307,6 +414,7 @@ function SkillDialog({
           </p>
         ) : (
           <LoadedSkill
+            profile={target.profile}
             detail={detail}
             busy={busy}
             error={error}
@@ -370,7 +478,7 @@ function NamespaceSection({
       {namespace.skills.length === 0 ? (
         <EmptyState>No skills yet. {namespace.profileName} writes them as work repeats.</EmptyState>
       ) : (
-        <div className="divide-border/70 divide-y rounded-[14px] border">
+        <div className="divide-border/70 divide-y rounded-xl border">
           {namespace.skills.map((skill) => (
             <SkillRow
               key={skill.name}
@@ -439,7 +547,7 @@ export function SkillsContent() {
       {overview.profiles.length === 0 && overview.builtins.length > 0 && (
         <section className="flex flex-col gap-2">
           <SectionHeader title="Built-in library" />
-          <div className="divide-border/70 divide-y rounded-[14px] border">
+          <div className="divide-border/70 divide-y rounded-xl border">
             {overview.builtins.map((skill) => (
               <SkillRow key={skill.name} skill={skill} onOpen={() => undefined} />
             ))}

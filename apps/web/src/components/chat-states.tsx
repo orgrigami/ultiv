@@ -7,11 +7,12 @@
 import type { PendingApproval, TranscriptEntry } from "@ultiv/contracts";
 import { presentationOf } from "@/lib/tool-text";
 import { BotAvatar, type ChatBot } from "@/components/chat-header";
+import { Mark } from "@/components/state-mark";
 import { SUGGESTIONS } from "@/components/composer";
 import { Button } from "@/components/ui/button";
 
 export function ChatSkeleton() {
-  const bar = "bg-muted animate-pulse rounded-2xl";
+  const bar = "bg-muted/70 animate-pulse rounded-lg";
   return (
     <li aria-hidden className="flex flex-col gap-3 pt-2">
       <div className={`${bar} h-10 w-2/3 self-start`} />
@@ -31,7 +32,7 @@ export function EmptyChat({
   const name = bot?.name !== undefined && bot.name !== "" ? bot.name : "your bot";
   return (
     <li className="flex flex-col items-center gap-3 px-2 pt-10 text-center">
-      <BotAvatar name={name} size="lg" />
+      <BotAvatar id={bot?.id} name={name} size="lg" />
       <div className="flex flex-col gap-1">
         <p className="font-heading text-lg font-semibold">{name}</p>
         {bot !== undefined && bot.description !== "" && (
@@ -79,16 +80,11 @@ export function StatusRow({
   transcript: TranscriptEntry[];
   pending: PendingApproval;
 }) {
-  const dot = "bg-muted-foreground size-1 animate-bounce rounded-full";
   return (
     <li className="text-muted-foreground flex items-center gap-2 self-start text-sm">
-      <BotAvatar name={bot?.name ?? "?"} size="sm" />
+      <BotAvatar id={bot?.id} name={bot?.name ?? "?"} size="sm" />
+      <Mark kind="working" tone="live" className="size-3" />
       <span>{activityOf(transcript, pending)}</span>
-      <span aria-hidden className="flex items-center gap-0.5">
-        <span className={dot} />
-        <span className={`${dot} [animation-delay:150ms]`} />
-        <span className={`${dot} [animation-delay:300ms]`} />
-      </span>
     </li>
   );
 }

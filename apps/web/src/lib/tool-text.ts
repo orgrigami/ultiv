@@ -22,6 +22,44 @@ export type ToolFamily =
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
 const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now"]);
 
+/** One web hit. */
+export type SearchHit = {
+  readonly title: string;
+  readonly url: string;
+  readonly site?: string | undefined;
+  readonly snippet?: string | undefined;
+  readonly date?: string | undefined;
+};
+
+/** One key-value row of a structured record (a created bot, a set schedule). */
+export type RecordField = {
+  readonly k: string;
+  readonly v: string;
+  /** Values that are code, paths or ids render in the instrument voice. */
+  readonly mono?: boolean | undefined;
+};
+
+/** The expanded body of a tool call, already shaped for its kind. */
+export type ToolBodyData =
+  | { readonly t: "search"; readonly query: string; readonly hits: readonly SearchHit[] }
+  | {
+      readonly t: "http";
+      readonly method: string;
+      readonly url: string;
+      readonly status?: number | undefined;
+      readonly sent?: string | undefined;
+      readonly got?: string | undefined;
+    }
+  | { readonly t: "term"; readonly command: string; readonly output: string }
+  | { readonly t: "file"; readonly name: string; readonly text: string }
+  | {
+      readonly t: "record";
+      readonly fields: readonly RecordField[];
+      readonly note?: string | undefined;
+    }
+  | { readonly t: "page"; readonly url: string; readonly host: string; readonly text: string }
+  | { readonly t: "json" };
+
 export type ToolView = {
   readonly family: ToolFamily;
   /** Past tense, for a finished call: "Searched the web". */
@@ -40,6 +78,8 @@ export type ToolView = {
   readonly lookup?: string | undefined;
   /** A saved file to render as a card (artifact_write on success only). */
   readonly artifact?: FileRef | undefined;
+  /** The expanded view's shaped body; absent means raw receipts. */
+  readonly structured?: ToolBodyData | undefined;
 };
 
 export type ToolPresentation =
@@ -82,6 +122,54 @@ const hostOf = (url: string | undefined): string | undefined => {
 
 /** Resolves a sibling profile id to its name when the app knows it. */
 export type NameOf = (profileId: string) => string | undefined;
+
+/** The output as JSON when it parses; undefined otherwise. */
+const jsonOf = (step: ToolStep): unknown => {
+  const raw = rawOf(step.output);
+  if (raw === undefined || !raw.startsWith("{")) return undefined;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The owner-facing error line: the payload's own words when it has them. */
+export function errorTextOf(step: ToolStep): string | undefined {
+  if (step.status !== "error") return undefined;
+  const raw = rawOf(step.output);
+  if (raw === undefined) return "The call failed.";
+  const parsed = jsonOf(step);
+  if (typeof parsed === "object" && parsed !== null) {
+    const said = (parsed as Record<string, unknown>).error;
+    if (typeof said === "string" && said.trim() !== "") return said.trim();
+  }
+  return raw.split("\n")[0] ?? raw;
+}
+
+/** A definition-list body from an input object: scalars only, long text as note. */
+function recordOfInput(
+  input: Record<string, unknown>,
+  skip: readonly string[] = [],
+): { fields: RecordField[]; note?: string } {
+  const fields: RecordField[] = [];
+  let note: string | undefined;
+  for (const [key, value] of Object.entries(input)) {
+    if (skip.includes(key)) continue;
+    if (typeof value === "string") {
+      const flat = value.length > 160 ? undefined : value.replace(/\s+/g, " ").trim();
+      if (flat === undefined) {
+        note = value.trim();
+        continue;
+      }
+      if (flat === "") continue;
+      fields.push({ k: key, v: flat });
+    } else if (typeof value === "number" || typeof value === "boolean") {
+      fields.push({ k: key, v: String(value) });
+    }
+  }
+  return { fields, ...(note === undefined ? {} : { note }) };
+}
 
 /* ---- per-tool wordings ---- */
 
@@ -186,28 +274,67 @@ const roomView = (step: ToolStep): ToolView => {
   };
 };
 
-const searchView = (step: ToolStep): ToolView => ({
-  family: "web",
-  done: "Searched the web",
-  live: "Searching the web…",
-  detail: clip(flatOf(recordOf(step.input).query), 40),
-});
+const searchView = (step: ToolStep): ToolView => {
+  const query = clip(flatOf(recordOf(step.input).query), 60) ?? "";
+  const parsed = jsonOf(step) as { results?: unknown } | undefined;
+  const raw = Array.isArray(parsed?.results) ? (parsed?.results as readonly unknown[]) : [];
+  const hits = raw
+    .flatMap((hit): SearchHit[] => {
+      const row = recordOf(hit);
+      const title = flatOf(row.title);
+      const url = flatOf(row.url);
+      if (title === undefined || url === undefined) return [];
+      return [
+        {
+          title,
+          url,
+          site: flatOf(row.site),
+          snippet: clip(flatOf(row.snippet), 200),
+          date: flatOf(row.date),
+        },
+      ];
+    })
+    .slice(0, 12);
+  return {
+    family: "web",
+    done:
+      hits.length > 0
+        ? `Searched the web · ${hits.length} ${hits.length === 1 ? "hit" : "hits"}`
+        : "Searched the web",
+    live: "Searching the web…",
+    detail: clip(query, 40),
+    ...(hits.length > 0 ? { structured: { t: "search", query, hits } } : {}),
+  };
+};
 
-const fetchView = (step: ToolStep): ToolView => ({
-  family: "web",
-  done: "Read a web page",
-  live: "Reading a web page…",
-  detail: hostOf(flatOf(recordOf(step.input).url)),
-});
+const fetchView = (step: ToolStep): ToolView => {
+  const url = flatOf(recordOf(step.input).url);
+  const host = hostOf(url) ?? "page";
+  const parsed = jsonOf(step) as { content?: unknown } | undefined;
+  const text =
+    typeof parsed?.content === "string"
+      ? clip(parsed.content, 6000)
+      : clip(rawOf(step.output), 6000);
+  return {
+    family: "web",
+    done: "Read a web page",
+    live: "Reading a web page…",
+    detail: host,
+    ...(url === undefined || text === undefined
+      ? {}
+      : { structured: { t: "page", url, host, text } }),
+  };
+};
 
 const taskView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
+  const title = clip(flatOf(input.title) ?? flatOf(input.prompt), 40);
   return {
     family: "task",
     done: "Started a task",
     live: "Starting a task…",
-    detail: clip(flatOf(input.title) ?? flatOf(input.prompt), 40),
-    body: clip(rawOf(input.prompt), 300),
+    detail: title,
+    structured: { t: "record", fields: [], note: clip(rawOf(input.prompt), 400) },
   };
 };
 
@@ -230,39 +357,67 @@ const artifactFileOf = (step: ToolStep): FileRef | undefined => {
 const artifactView = (step: ToolStep, past: string, live: string): ToolView => {
   const input = recordOf(step.input);
   const file = artifactFileOf(step);
+  const name = clip(flatOf(input.name) ?? flatOf(input.path), 40);
+  const listing = step.name === "artifact_list" ? rawOf(step.output) : undefined;
+  const read = step.name === "artifact_read" ? rawOf(step.output) : undefined;
   return {
     family: "artifact",
     done: past,
     live,
-    detail: clip(flatOf(input.name) ?? flatOf(input.path), 40),
+    detail: name,
+    ...(listing === undefined
+      ? {}
+      : { lines: listing.split("\n").filter((line) => line.trim() !== "") }),
+    ...(read === undefined || name === undefined
+      ? {}
+      : { structured: { t: "file", name, text: clip(read, 8000) ?? read } }),
     ...(file === undefined ? {} : { artifact: file }),
   };
 };
 
 const bashView = (step: ToolStep): ToolView => {
-  const command = flatOf(recordOf(step.input).command);
+  const command = flatOf(recordOf(step.input).command) ?? "";
   return {
     family: "code",
     done: "Ran a script",
     live: "Running a script…",
     detail: clip(command, 44),
+    structured: { t: "term", command, output: rawOf(step.output) ?? "" },
   };
 };
 
 const requestView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
-  const host = hostOf(flatOf(input.url));
+  const url = flatOf(input.url) ?? "";
+  const host = hostOf(url);
+  const method = (flatOf(input.method) ?? "GET").toUpperCase();
+  const parsed = jsonOf(step) as Record<string, unknown> | undefined;
+  const status = typeof parsed?.status === "number" ? parsed.status : undefined;
+  const got =
+    typeof parsed?.body === "string" ? clip(parsed.body, 6000) : clip(rawOf(step.output), 6000);
   return {
     family: "credentials",
     done: host === undefined ? "Sent a web request" : `Called ${host}`,
     live: host === undefined ? "Sending a web request…" : `Calling ${host}…`,
-    detail: flatOf(input.method),
+    detail: method,
+    ...(url === "" ? {} : { structured: { t: "http", method, url, status, got } }),
   };
 };
 
 /** The main bot minting a sibling: the name is the one detail worth showing. */
 const botCreateView = (step: ToolStep): ToolView => {
-  const name = flatOf(recordOf(step.input).name);
+  const input = recordOf(step.input);
+  const name = flatOf(input.name);
+  const made = recordOfInput(input, ["name", "persona"]);
+  const persona = clip(rawOf(input.persona), 200);
+  const fields = [
+    ...(name !== undefined ? [{ k: "name", v: name }] : []),
+    ...made.fields.map((field) => ({
+      ...field,
+      mono: field.k === "effort" || field.k === "model",
+    })),
+    ...(persona !== undefined ? [{ k: "persona", v: persona }] : []),
+  ];
   return {
     family: "social",
     done:
@@ -273,6 +428,9 @@ const botCreateView = (step: ToolStep): ToolView => {
           : `Created bot ${name}`,
     live: "Creating a bot…",
     detail: name,
+    ...(step.status === "done" && fields.length > 0
+      ? { structured: { t: "record", fields, note: clip(rawOf(step.output), 240) } }
+      : {}),
   };
 };
 
@@ -342,9 +500,17 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     default: {
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {
+        const made = recordOfInput(recordOf(step.input), ["conversationId"]);
         return {
           kind: "human",
-          view: { family: verbed[2], done: verbed[0], live: verbed[1] },
+          view: {
+            family: verbed[2],
+            done: verbed[0],
+            live: verbed[1],
+            ...(made.fields.length > 0 || made.note !== undefined
+              ? { structured: { t: "record", ...made } }
+              : {}),
+          },
         };
       }
       return { kind: "classic" };

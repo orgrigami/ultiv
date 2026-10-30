@@ -1,22 +1,13 @@
-/** One icon per task status, shared by the task pill and the task cards. */
+/** One mark per task status, shared by the task pill and the task cards. */
 import type { TaskStatus } from "@ultiv/contracts";
-import { CircleAlertIcon, CircleCheckIcon, CircleStopIcon, LoaderCircleIcon } from "lucide-react";
+import { Mark } from "@/components/state-mark";
 import { cn } from "@/lib/utils";
 
 export function TaskStatusIcon({ status, className }: { status: TaskStatus; className?: string }) {
   const base = cn("size-4 shrink-0", className);
   if (status === "running")
-    return (
-      <LoaderCircleIcon
-        aria-hidden
-        className={cn(base, "text-primary animate-spin motion-reduce:animate-none")}
-      />
-    );
-  if (status === "done")
-    return (
-      <CircleCheckIcon aria-hidden className={cn(base, "text-emerald-600 dark:text-emerald-400")} />
-    );
-  if (status === "failed")
-    return <CircleAlertIcon aria-hidden className={cn(base, "text-destructive")} />;
-  return <CircleStopIcon aria-hidden className={cn(base, "text-muted-foreground")} />;
+    return <Mark kind="working" tone="live" className={cn(base, "live-breathe")} />;
+  if (status === "done") return <Mark kind="done" tone="ok" className={base} />;
+  if (status === "failed") return <Mark kind="error" tone="signal" className={base} />;
+  return <Mark kind="disabled" tone="muted" className={base} />;
 }

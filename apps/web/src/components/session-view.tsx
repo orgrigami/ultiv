@@ -16,6 +16,7 @@ import { ArrowDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ApprovalCard, type Decide, type DecideOutcome } from "@/components/approval-card";
+import { ErrorNote } from "@/components/tool-bodies";
 import { ChatSkeleton, EmptyChat, StatusRow } from "@/components/chat-states";
 import { Composer } from "@/components/composer";
 import { MemoryPanel } from "@/components/memory/memory-panel";
@@ -61,7 +62,7 @@ function useSend(onInput: (text: string, whenBusy?: SendMode) => Promise<void>) 
     setSendFailed(false);
     try {
       await onInput(text, whenBusy);
-      // Clear only what was sent — anything typed meanwhile stays.
+      // Clear only what was sent; anything typed meanwhile stays.
       setDraft((current) => (current.trim() === text ? "" : current));
     } catch {
       setSendFailed(true);
@@ -103,9 +104,6 @@ const taskWho = (botName: string | undefined, task: TaskRow): string => {
   const label = (task.title ?? task.prompt).slice(0, 40);
   return `${who} · task "${label}"`;
 };
-
-const floatingError =
-  "bg-background/70 text-destructive w-fit rounded-lg px-3 py-1.5 text-sm backdrop-blur-md";
 
 export function SessionView({
   bot,
@@ -302,10 +300,8 @@ export function SessionView({
           style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
         >
           {tasks}
-          {lastError !== null && <p className={floatingError}>{lastError}</p>}
-          {controlError !== null && (
-            <p className={floatingError}>Couldn't apply that: {controlError}</p>
-          )}
+          {lastError !== null && <ErrorNote message={lastError} />}
+          {controlError !== null && <ErrorNote message={`Couldn't apply that: ${controlError}`} />}
           <Composer
             botName={bot?.name}
             live={link === "live"}

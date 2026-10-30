@@ -1,10 +1,13 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { SideNav, TabBar } from "@/components/app-nav";
+import { RouteError, RouteNotFound } from "@/components/route-error";
 import { AppProvider } from "@/lib/app-state";
 
 export const Route = createRootRoute({
   component: RootLayout,
+  errorComponent: RouteError,
+  notFoundComponent: RouteNotFound,
 });
 
 /**
@@ -22,7 +25,7 @@ function RootLayout() {
         </main>
         <TabBar />
       </AppProvider>
-      <Toaster position="top-center" theme="system" richColors closeButton />
+      <Toaster position="top-center" theme="system" closeButton />
     </div>
   );
 }

@@ -12,7 +12,16 @@ export interface FileRef {
   readonly bytes?: number;
 }
 
-export type PreviewKind = "image" | "text" | "pdf" | "audio" | "video" | "none" | "blocked";
+export type PreviewKind =
+  | "image"
+  | "text"
+  | "markdown"
+  | "csv"
+  | "pdf"
+  | "audio"
+  | "video"
+  | "none"
+  | "blocked";
 
 export const TEXT_PREVIEW_CHARS = 100_000;
 export const MEDIA_PREVIEW_BYTES = 25_000_000;
@@ -103,6 +112,9 @@ const extOf = (name: string): string => {
 
 export const langOf = (name: string): string => LANGS[extOf(name)] ?? "";
 
+const MARKDOWN_EXTS = new Set(["md", "markdown"]);
+const CSV_EXTS = new Set(["csv", "tsv"]);
+
 export const previewKindOf = (mime: string | undefined, name: string): PreviewKind => {
   if (mime !== undefined) {
     if (BLOCKED_MIMES.has(mime)) return "blocked";
@@ -110,9 +122,16 @@ export const previewKindOf = (mime: string | undefined, name: string): PreviewKi
     if (mime === "application/pdf") return "pdf";
     if (mime.startsWith("audio/")) return "audio";
     if (mime.startsWith("video/")) return "video";
+    if (mime === "text/markdown" || (mime.startsWith("text/") && MARKDOWN_EXTS.has(extOf(name))))
+      return "markdown";
+    if (mime === "text/csv" || (mime.startsWith("text/") && CSV_EXTS.has(extOf(name))))
+      return "csv";
     if (mime.startsWith("text/") || mime === "application/json") return "text";
   }
-  return CODE_EXTS.has(extOf(name)) ? "text" : "none";
+  const ext = extOf(name);
+  if (MARKDOWN_EXTS.has(ext)) return "markdown";
+  if (CSV_EXTS.has(ext)) return "csv";
+  return CODE_EXTS.has(ext) ? "text" : "none";
 };
 
 const KINDS: Record<string, string> = {

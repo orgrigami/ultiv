@@ -14,6 +14,7 @@ import {
   ImageIcon,
   MusicIcon,
   VideoIcon,
+  TableIcon,
 } from "lucide-react";
 import { FilePreviewDialog } from "@/components/file-preview";
 import { api } from "@/lib/api";
@@ -28,6 +29,8 @@ import {
 const ICONS: Record<PreviewKind, ComponentType<{ className?: string }>> = {
   image: ImageIcon,
   text: FileTextIcon,
+  markdown: FileTextIcon,
+  csv: TableIcon,
   pdf: FileTypeIcon,
   audio: MusicIcon,
   video: VideoIcon,

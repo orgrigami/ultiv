@@ -70,7 +70,7 @@ function BotsField(props: {
         ))}
       </div>
       {gaps.length > 0 && (
-        <p className="text-amber-700 dark:text-amber-400 flex items-start gap-1.5 text-xs">
+        <p className="text-live flex items-start gap-1.5 text-xs">
           <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           {gaps.map((p) => p.name).join(", ")} can't make web requests: their tool list leaves out
           http_request.

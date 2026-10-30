@@ -8,6 +8,7 @@ import { Popover } from "@base-ui/react/popover";
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
+import { Mark } from "@/components/state-mark";
 import { BotPanel } from "@/components/bot-panel";
 import { useApp } from "@/lib/app-state";
 
@@ -35,15 +36,16 @@ export function BotSwitcher({
           aria-label={`${name}: switch bot`}
           className="bg-background/60 supports-backdrop-filter:bg-background/40 hover:bg-muted/80 border-border/60 relative flex max-w-full min-w-0 cursor-pointer pointer-coarse:min-h-11 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1 shadow-sm backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BotAvatar name={name} />
+          <BotAvatar id={currentId} name={name} />
           <span className="flex min-w-0 flex-col text-left leading-tight">
             <span className="truncate text-sm font-medium">{name}</span>
           </span>
           <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
           {waiting && (
-            <span
-              className="bg-destructive ring-background absolute top-0.5 left-6 size-2.5 rounded-full ring-2"
-              aria-label="Another bot needs your approval"
+            <Mark
+              kind="attention"
+              tone="signal"
+              className="ring-background absolute top-0.5 left-6 size-3 rounded-full ring-2"
             />
           )}
         </Popover.Trigger>

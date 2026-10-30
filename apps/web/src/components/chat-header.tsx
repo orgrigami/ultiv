@@ -8,6 +8,7 @@ import { Popover } from "@base-ui/react/popover";
 import { ChevronLeftIcon, EllipsisIcon } from "lucide-react";
 import type { ModelInfo, ProfileApprovalMode, ThinkingLevel, UsageSummary } from "@ultiv/contracts";
 import { linkLabel, type ChatBot, type LinkState } from "@/components/bot-avatar";
+import { Mark } from "@/components/state-mark";
 import { APPROVAL_MODE_OPTIONS } from "@/components/bot-dialog";
 import { BotSwitcher } from "@/components/bot-switcher";
 import { ModelOptions } from "@/components/model-options";
@@ -45,7 +46,7 @@ function SessionDetails({
   return (
     <div className="flex flex-col gap-3 text-sm">
       <label className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-xs">Model</span>
+        <span className="overline-plate">Model</span>
         <Select
           className="w-full"
           value={model ?? ""}
@@ -58,7 +59,7 @@ function SessionDetails({
         </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-xs">Effort</span>
+        <span className="overline-plate">Effort</span>
         <Select
           className="w-full"
           value={effort ?? ""}
@@ -78,7 +79,7 @@ function SessionDetails({
         </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="text-muted-foreground text-xs">Approvals</span>
+        <span className="overline-plate">Approvals</span>
         <Select
           className="w-full"
           value={approvalMode}
@@ -92,14 +93,18 @@ function SessionDetails({
         </Select>
       </label>
       {usage !== null && (
-        <p className="text-muted-foreground text-xs">
-          {formatTokens(usage.totalTokens)} tokens · {formatTokens(usage.input)} in ·{" "}
-          {formatTokens(usage.output)} out
+        <p className="readout text-muted-foreground flex items-center justify-between gap-3">
+          <span>{formatTokens(usage.totalTokens)} tokens</span>
+          <span>
+            {formatTokens(usage.input)} in · {formatTokens(usage.output)} out
+          </span>
         </p>
       )}
-      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-        <span
-          className={`size-2 rounded-full ${link === "live" ? "bg-emerald-500" : link === "lost" ? "bg-destructive" : "bg-muted-foreground"}`}
+      <p className="text-muted-foreground readout flex items-center gap-1.5">
+        <Mark
+          kind={link === "live" ? "done" : link === "lost" ? "error" : "pending"}
+          tone={link === "live" ? "ok" : link === "lost" ? "signal" : "muted"}
+          className="size-2.5"
         />
         {linkLabel[link]}
       </p>

@@ -14,7 +14,7 @@ import type { ChatTasks } from "@/lib/use-tasks";
 import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 
-const glass = "bg-background/65 border-border/70 border shadow-sm backdrop-blur-xl";
+const glass = "chrome-float";
 
 export function TasksPill({ chatTasks }: { chatTasks: ChatTasks }) {
   const [open, setOpen] = useState(false);

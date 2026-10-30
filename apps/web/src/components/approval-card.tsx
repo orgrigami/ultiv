@@ -10,6 +10,7 @@ import { ChevronRightIcon, EllipsisIcon, ShieldAlertIcon, ShieldCheckIcon } from
 import { useState } from "react";
 import type { ModelInfo } from "@ultiv/contracts";
 import { BotCreateCard } from "@/components/bot-create-card";
+import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
@@ -102,7 +103,7 @@ function DecisionCard({
     try {
       const outcome = await run();
       setAlwaysNote(
-        outcome?.stored === 0 ? "This call can't be granted narrowly — it will ask again." : null,
+        outcome?.stored === 0 ? "This call can't be granted narrowly, so it will ask again." : null,
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -121,12 +122,20 @@ function DecisionCard({
       aria-label="Approval needed"
       className={cn(
         "bg-card flex w-full flex-col gap-2 rounded-xl border p-3",
-        risky ? "border-destructive/60" : "border-ring/60",
+        risky ? "border-destructive/60" : "border-ring/50",
       )}
     >
-      <p className="text-sm font-medium">
-        {who ?? "Your bot"} wants to {action}
-        {hint !== null && <span className="text-muted-foreground font-normal">: {hint}</span>}
+      <p className="flex items-start gap-2 text-sm font-medium">
+        <Mark
+          kind="attention"
+          tone={risky ? "signal" : "live"}
+          label="Waiting for your approval"
+          className="mt-0.5 size-3.5"
+        />
+        <span className="min-w-0">
+          {who ?? "Your bot"} wants to {action}
+          {hint !== null && <span className="text-muted-foreground font-normal">: {hint}</span>}
+        </span>
       </p>
       <p
         className={cn(

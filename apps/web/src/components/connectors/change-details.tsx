@@ -60,10 +60,7 @@ export function ChangeDetails({ change }: { change: ConnectorChange }) {
           role="note"
           className="flex gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-2 text-xs"
         >
-          <TriangleAlertIcon
-            className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400"
-            aria-hidden
-          />
+          <TriangleAlertIcon className="text-live mt-0.5 size-3.5 shrink-0" aria-hidden />
           {change.caution}
         </p>
       )}

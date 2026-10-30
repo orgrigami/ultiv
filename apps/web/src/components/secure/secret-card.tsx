@@ -77,10 +77,7 @@ export function SecretCard({
       >
         {phase.kind === "saved" ? (
           <>
-            <CheckCircle2Icon
-              className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
-              aria-hidden
-            />
+            <CheckCircle2Icon className="text-ok mt-0.5 size-4 shrink-0" aria-hidden />
             <span>
               Saved to your vault as <span className="font-medium">{phase.names.join(", ")}</span>.{" "}
               {who ?? "Your bot"} can use it but never sees it.

@@ -14,7 +14,7 @@ import { StopTask } from "./stop-task";
 
 const PILL = {
   running: "bg-primary/10 text-primary",
-  done: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  done: "bg-ok/10 text-ok",
   failed: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground",
 } as const;

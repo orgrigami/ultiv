@@ -1,4 +1,4 @@
-import { CircleAlertIcon } from "lucide-react";
+import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +24,15 @@ export function ErrorState({
   className?: string;
 }) {
   return (
-    <p role="alert" className={cn("text-destructive flex items-center gap-2 text-sm", className)}>
-      <CircleAlertIcon className="size-4 shrink-0" aria-hidden />
-      <span className="min-w-0">{message}</span>
+    <p
+      role="alert"
+      className={cn(
+        "border-signal/25 bg-signal/5 text-signal flex items-center gap-2 rounded-lg border px-2.5 py-2 text-sm",
+        className,
+      )}
+    >
+      <Mark kind="error" tone="signal" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1">{message}</span>
       {onRetry !== undefined && (
         <Button variant="outline" size="xs" onClick={onRetry}>
           Retry

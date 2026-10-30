@@ -2,13 +2,13 @@
  * The transcript body: markdown output, collapsed reasoning, tool traces and
  * machinery notes, grouped so consecutive tool steps read as one sequence.
  */
-import { memo } from "react";
+import { memo, useState } from "react";
 import { useApp } from "@/lib/app-state";
 import { formatDivider, formatFull } from "@/lib/format";
 import { readNote } from "@/lib/note-text";
 import { parseSystem } from "@/lib/system-text";
 import { SystemCard } from "@/components/system/system-card";
-import { JevLine, ToolGroup } from "@/components/tool-trace";
+import { ToolGroup } from "@/components/tool-trace";
 import type { TaskInfo, ToolStep, TranscriptEntry } from "@ultiv/contracts";
 import { BrainIcon, CircleSlashIcon } from "lucide-react";
 import type { JevNotice } from "@/lib/jev-text";
@@ -24,13 +24,16 @@ import {
   TraceTitle,
 } from "@/components/ui/trace";
 
-// Messenger bubbles: the owner on the right in the muted surface, the bot on
-// the left in a lighter one (a hairline keeps it visible on white).
+// The prose is the terrain: the bot speaks on the open ground, the owner
+// writes on a quiet raised card to the right.
 const roleStyles = {
-  user: "self-end max-w-[80%] rounded-2xl bg-muted px-4 py-2.5 leading-relaxed whitespace-pre-wrap break-words",
-  agent:
-    "min-w-0 max-w-full rounded-2xl bg-muted/40 px-4 py-2.5 border border-border/60 dark:border-transparent",
+  user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words",
 } as const;
+
+// Past this much text a finished reply folds; the fold is a reading aid,
+// never a wall.
+const FOLD_CHARS = 1200;
+const FOLD_LINES = 24;
 
 /** A new divider when this much time passed since the previous message. */
 const DIVIDER_GAP_MS = 10 * 60_000;
@@ -50,13 +53,32 @@ const Output = memo(function Output({
   streaming: boolean;
   interrupted: boolean;
 }) {
+  const [open, setOpen] = useState(false);
   // Cut while thinking: nothing was said, so only the marker shows.
   const empty = text === "" && !streaming;
+  const foldable =
+    !streaming && !open && (text.length > FOLD_CHARS || text.split("\n").length > FOLD_LINES);
+  const copy = !streaming && !empty && (
+    <div className="opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 pointer-coarse:opacity-100">
+      <CodeBlockCopyButton
+        value={text}
+        aria-label="Copy message"
+        className="text-muted-foreground"
+      />
+    </div>
+  );
   return (
     <>
       {!empty && (
-        <div className={roleStyles.agent}>
-          <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere]">
+        <div className="min-w-0 max-w-full">
+          <div
+            className={
+              "prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere] " +
+              (foldable
+                ? "max-h-80 overflow-hidden [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
+                : "")
+            }
+          >
             <LazyMarkdown text={text} />
             {streaming && (
               <span aria-hidden className="motion-safe:animate-pulse">
@@ -64,6 +86,24 @@ const Output = memo(function Output({
               </span>
             )}
           </div>
+          {foldable && (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 outline-none"
+            >
+              Show more
+            </button>
+          )}
+          {open && text.length > FOLD_CHARS && (
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 outline-none"
+            >
+              Show less
+            </button>
+          )}
         </div>
       )}
       {interrupted && (
@@ -72,15 +112,7 @@ const Output = memo(function Output({
           {empty ? "Interrupted before replying" : "Interrupted"}
         </span>
       )}
-      {!streaming && !empty && (
-        <div className="opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 pointer-coarse:opacity-100">
-          <CodeBlockCopyButton
-            value={text}
-            aria-label="Copy message"
-            className="text-muted-foreground"
-          />
-        </div>
-      )}
+      {copy}
     </>
   );
 });
@@ -168,9 +200,11 @@ export function TranscriptItems({
             <li
               key={`divider-${group.key}`}
               role="separator"
-              className="text-muted-foreground self-center py-1 text-xs"
+              className="text-muted-foreground/70 flex items-center gap-3 self-stretch py-1"
             >
-              {formatDivider(group.at)}
+              <span className="bg-border h-px flex-1" />
+              <span className="readout">{formatDivider(group.at)}</span>
+              <span className="bg-border h-px flex-1" />
             </li>
           ) : null;
         return [
@@ -236,7 +270,7 @@ function renderGroup(
   ) : group.entry.kind === "note" ? (
     <li
       key={group.key}
-      className="bg-muted/30 text-muted-foreground w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
+      className="border-border/70 text-muted-foreground w-full rounded-lg border px-3.5 py-2.5 text-sm leading-relaxed"
       title={formatFull(group.entry.at)}
     >
       <Note text={group.entry.text} />

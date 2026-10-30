@@ -17,7 +17,6 @@ import type {
   SessionInfo,
   SkillDetail,
   SkillOverview,
-  TaskInfo,
   TaskRow,
   WaitingApproval,
   VaultItemInfo,
@@ -436,6 +435,17 @@ export const api = {
     send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}`, "PUT", patch),
   skillRemove: (profile: string, name: string): Promise<boolean> =>
     drop(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}`),
+  skillFile: (
+    profile: string,
+    name: string,
+    path: string,
+  ): Promise<{ path: string; content: string }> =>
+    getJson<{ path: string; content: string }>(
+      `/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/files/${path
+        .split("/")
+        .map((part) => encodeURIComponent(part))
+        .join("/")}`,
+    ),
   skillRevert: (profile: string, name: string): Promise<unknown> =>
     send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/revert`, "POST"),
   skillProposal: (profile: string, id: string, verdict: "accept" | "reject"): Promise<unknown> =>

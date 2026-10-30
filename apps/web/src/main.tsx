@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { router } from "./router.ts";
-import { followColorScheme } from "./lib/color-scheme.ts";
+import { followColorScheme } from "./lib/theme.ts";
 import { registerServiceWorker, startPresence } from "./lib/push.ts";
 
 followColorScheme();

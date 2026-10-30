@@ -52,7 +52,7 @@ export function BotsPanel({
   return (
     <section aria-label="Bots" className="flex flex-col gap-2">
       <SectionHeader
-        title="Your bots"
+        title="Roster"
         action={
           <BotDialog
             title="New bot"
@@ -71,7 +71,7 @@ export function BotsPanel({
       />
       {error !== null && <ErrorState message={error} />}
       {ordered.length > 0 && (
-        <ul className="divide-y rounded-[14px] border">
+        <ul className="divide-border divide-y rounded-xl border">
           {ordered.map((bot, index) => (
             <Fragment key={bot.id}>
               {bot.archivedAt !== null && ordered[index - 1]?.archivedAt === null && (

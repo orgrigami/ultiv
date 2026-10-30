@@ -64,7 +64,7 @@ export function Composer({
         <RedirectPill onRedirect={() => onSend("redirect")} />
       )}
       {/* Translucent and blurred: the transcript scrolls underneath it. */}
-      <div className="bg-background/65 border-border/70 focus-within:ring-ring/40 flex items-end gap-1.5 rounded-[1.75rem] border p-1.5 shadow-lg shadow-black/5 backdrop-blur-xl focus-within:ring-2">
+      <div className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 rounded-[1.75rem] p-1.5 focus-within:ring-2">
         <Popover.Root>
           <Popover.Trigger
             disabled={!live}
@@ -122,7 +122,7 @@ export function Composer({
             type="button"
             variant="outline"
             size="icon-lg"
-            className={`${round} text-destructive`}
+            className={`${round} text-signal`}
             aria-label="Stop"
             title="Stop"
             disabled={!live}
@@ -134,15 +134,15 @@ export function Composer({
         <SendButton busy={busy} enabled={canSend(live, sending, draft)} onSend={onSend} />
       </div>
       {sendFailed && (
-        <p
-          className="bg-background/70 text-destructive flex w-fit items-center gap-2 rounded-lg px-3 py-1 text-sm backdrop-blur-md"
+        <div
           role="alert"
+          className="chrome-float flex w-fit items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm"
         >
-          Not sent.
+          <span className="text-signal">Not sent.</span>
           <Button type="submit" variant="link" size="xs" className="h-auto p-0">
             Retry
           </Button>
-        </p>
+        </div>
       )}
     </form>
   );

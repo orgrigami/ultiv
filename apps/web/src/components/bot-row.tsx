@@ -8,12 +8,14 @@ import { Menu } from "@base-ui/react/menu";
 import { EllipsisIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { EditBotDialog } from "@/components/bot-dialog";
+import { Mark } from "@/components/state-mark";
 import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MemoryPanel } from "@/components/memory/memory-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useApp } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 import type { ModelInfo, ProfileInfo } from "@ultiv/contracts";
 
@@ -43,6 +45,7 @@ export interface BotRowProps {
 
 export function BotRow(props: BotRowProps) {
   const { bot, active, mainId, needsYou, models, onOpenMain } = props;
+  const { busy } = useApp();
   const archived = bot.archivedAt !== null;
   const role = bot.description !== "" ? bot.description : "No role yet";
   const sub = `${needsYou ? "Needs your approval" : role} · ${modelName(bot, models)}`;
@@ -53,26 +56,30 @@ export function BotRow(props: BotRowProps) {
         aria-current={active ? "true" : undefined}
         onClick={() => onOpenMain(bot.id)}
         className={cn(
-          "hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[10px] px-2 py-1.5 text-left outline-none focus-visible:ring-3",
+          "hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-3",
           active && "bg-muted",
         )}
       >
         <span className="relative">
-          <BotAvatar name={bot.name} />
+          <BotAvatar id={bot.id} name={bot.name} />
           {needsYou && (
-            <span className="bg-destructive ring-background absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2" />
+            <Mark
+              kind="attention"
+              tone="signal"
+              className="ring-background absolute -top-1 -right-1.5 size-3.5 rounded-full ring-2"
+            />
           )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate font-medium">{bot.name}</span>
             {bot.id === mainId && (
-              <StarIcon
-                className="size-3.5 shrink-0 fill-amber-400 text-amber-400"
-                aria-label="Main bot"
-              />
+              <StarIcon className="size-3.5 shrink-0 fill-live text-live" aria-label="Main bot" />
             )}
             {archived && <Badge variant="outline">Hidden</Badge>}
+            {busy.has(bot.id) && (
+              <Mark kind="working" tone="live" className="live-breathe size-3" />
+            )}
           </span>
           <span
             className={cn(

@@ -1,17 +1,15 @@
 /**
  * Tool calls as the transcript tells them: a human line while a call runs
- * and after it lands (the same lens StatusRow uses), bespoke bodies for the
- * social calls (memories, sibling mail), and the raw receipts one click
- * away. Unknown tools keep the classic wrench and payload view.
+ * and after it lands, the call's index in the run (the course overlay over
+ * the prose terrain), bespoke bodies for the calls that have them, and raw
+ * receipts one click away. Unknown tools keep the classic receipt view.
  */
 import { memo, type ReactNode } from "react";
 import {
   BrainIcon,
   CalendarClockIcon,
-  CircleAlertIcon,
   FolderIcon,
   GlobeIcon,
-  HistoryIcon,
   KeyRoundIcon,
   ListTodoIcon,
   MailIcon,
@@ -25,27 +23,23 @@ import {
 } from "lucide-react";
 import type { ToolStep } from "@ultiv/contracts";
 import { FileCard } from "@/components/file-card";
+import { ErrorNote, Receipts, ToolBody } from "@/components/tool-bodies";
+import { Mark } from "@/components/state-mark";
 import { useApp } from "@/lib/app-state";
 import type { JevNotice } from "@/lib/jev-text";
 import {
   DURATION_FLOOR_MS,
+  errorTextOf,
   humanizeMs,
   presentationOf,
   type ToolFamily,
   type ToolView,
 } from "@/lib/tool-text";
 import {
-  CodeBlock,
-  CodeBlockContent,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from "@/components/ui/code-block";
-import {
   TraceCollapsible,
   TraceCollapsibleContent,
   TraceCollapsibleTrigger,
   TraceDescription,
-  TraceIcon,
   TraceLine,
   TraceTitle,
 } from "@/components/ui/trace";
@@ -63,15 +57,30 @@ const FAMILY_ICONS: Record<ToolFamily, ReactNode> = {
   generic: <WrenchIcon />,
 };
 
-/** The line's title, duration and status chip, shared by every rendering. */
+/** The leading slot: the run's state first, the family as the quiet default. */
+function LeadMark({ step, icon }: { step: ToolStep; icon: ReactNode }) {
+  if (step.status === "running") {
+    return <Mark kind="working" tone="live" />;
+  }
+  if (step.status === "error") {
+    return <Mark kind="error" tone="signal" />;
+  }
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4">{icon}</span>
+  );
+}
+
+/** The line's state mark, index, title, detail and tabular duration. */
 function Line({
   step,
   icon,
+  index,
   title,
   detail,
 }: {
   step: ToolStep;
   icon: ReactNode;
+  index: number;
   title: string;
   detail?: string | undefined;
 }) {
@@ -82,7 +91,10 @@ function Line({
       : null;
   return (
     <TraceLine {...(status !== undefined ? { status } : {})}>
-      <TraceIcon>{step.status === "error" ? <CircleAlertIcon /> : icon}</TraceIcon>
+      <LeadMark step={step} icon={icon} />
+      <span className="readout text-muted-foreground/50 w-5 text-right select-none">
+        {String(index).padStart(2, "0")}
+      </span>
       <TraceTitle>{title}</TraceTitle>
       {detail !== undefined && (
         <span className="text-muted-foreground/70 min-w-0 truncate">{detail}</span>
@@ -112,8 +124,8 @@ function Body({
 }) {
   const fragment = view.lookup !== undefined ? clipFor(view.lookup) : undefined;
   return (
-    <div className="mt-1 mb-1 ml-6 max-w-prose">
-      <p className="text-muted-foreground border-l-2 pl-3 text-sm leading-relaxed italic">
+    <div className="mt-1 mb-1 ml-[3.75rem] max-w-prose">
+      <p className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed italic">
         {view.body}
       </p>
       <div className="text-muted-foreground/80 mt-1 flex flex-wrap items-center gap-x-2 pl-3 text-xs">
@@ -139,6 +151,7 @@ function Lines({ lines }: { lines: readonly string[] }) {
   return (
     <ul className="flex flex-col gap-1.5">
       {lines.map((line, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static rendered rows
         <li key={index} className="text-sm break-words whitespace-pre-wrap">
           {line}
         </li>
@@ -147,39 +160,15 @@ function Lines({ lines }: { lines: readonly string[] }) {
   );
 }
 
-/** Raw input/output blocks, for calls whose payload is the point. */
-function Receipts({ step }: { step: ToolStep }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <CodeBlock size="sm">
-        <CodeBlockHeader>
-          <CodeBlockTitle>input</CodeBlockTitle>
-        </CodeBlockHeader>
-        <CodeBlockContent wrap className="max-h-64 overflow-y-auto">
-          {JSON.stringify(step.input, null, 2)}
-        </CodeBlockContent>
-      </CodeBlock>
-      {step.output !== null && step.output !== "" && (
-        <CodeBlock size="sm">
-          <CodeBlockHeader>
-            <CodeBlockTitle>output</CodeBlockTitle>
-          </CodeBlockHeader>
-          <CodeBlockContent wrap className="max-h-64 overflow-y-auto">
-            {step.output}
-          </CodeBlockContent>
-        </CodeBlock>
-      )}
-    </div>
-  );
-}
-
 /** One tool call. `notice` is Jev's gate decision for this exact call. */
 export const ToolTrace = memo(function ToolTrace({
   step,
+  index = 1,
   onOpenMemory,
   notice,
 }: {
   step: ToolStep;
+  index?: number | undefined;
   onOpenMemory?: ((query: string) => void) | undefined;
   notice?: JevNotice | undefined;
 }) {
@@ -194,22 +183,44 @@ export const ToolTrace = memo(function ToolTrace({
   const human = presentation.kind === "human" ? presentation.view : undefined;
   const title =
     human === undefined ? step.name : step.status === "running" ? human.live : human.done;
+  const error = errorTextOf(step);
+  const body =
+    human === undefined
+      ? undefined
+      : human.structured !== undefined && human.structured.t !== "json"
+        ? "structured"
+        : human.lines !== undefined
+          ? "lines"
+          : undefined;
   return (
     <TraceCollapsible>
       <TraceCollapsibleTrigger>
         <Line
           step={step}
           icon={human === undefined ? <WrenchIcon /> : FAMILY_ICONS[human.family]}
+          index={index}
           title={title}
           detail={human?.detail}
         />
       </TraceCollapsibleTrigger>
       {human?.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}
       {human?.artifact !== undefined && (
-        <FileCard file={human.artifact} className="mt-1 mb-1 ml-6 max-w-prose" />
+        <FileCard file={human.artifact} className="mt-1 mb-1 ml-[3.75rem] max-w-prose" />
       )}
       <TraceCollapsibleContent>
-        {human?.lines !== undefined ? <Lines lines={human.lines} /> : <Receipts step={step} />}
+        <div className="flex flex-col gap-2">
+          {error !== undefined && <ErrorNote message={error} />}
+          {body === "structured" && human?.structured !== undefined && (
+            <ToolBody data={human.structured} />
+          )}
+          {body === "lines" && <Lines lines={human?.lines ?? []} />}
+          {body === undefined && (
+            <Receipts
+              input={JSON.stringify(step.input, null, 2)}
+              {...(step.output !== null && step.output !== "" ? { output: step.output } : {})}
+            />
+          )}
+        </div>
       </TraceCollapsibleContent>
     </TraceCollapsible>
   );
@@ -228,15 +239,18 @@ export function ToolGroup({
   onOpenMemory?: ((query: string) => void) | undefined;
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
 }) {
-  const render = (step: ToolStep) => (
+  const render = (step: ToolStep, index: number) => (
     <ToolTrace
       key={step.callId}
       step={step}
+      index={index}
       onOpenMemory={onOpenMemory}
       notice={jevNotices?.get(step.callId)}
     />
   );
-  if (tools.length <= GROUP_MAX) return <>{tools.map(render)}</>;
+  if (tools.length <= GROUP_MAX) {
+    return <>{tools.map((step, index) => render(step, index + 1))}</>;
+  }
   const head = tools.slice(0, tools.length - GROUP_TAIL);
   const tail = tools.slice(-GROUP_TAIL);
   return (
@@ -244,15 +258,14 @@ export function ToolGroup({
       <TraceCollapsible>
         <TraceCollapsibleTrigger>
           <TraceLine>
-            <TraceIcon>
-              <HistoryIcon />
-            </TraceIcon>
-            <TraceTitle>Show {head.length} earlier steps</TraceTitle>
+            <TraceTitle className="readout">Show {head.length} earlier steps</TraceTitle>
           </TraceLine>
         </TraceCollapsibleTrigger>
-        <TraceCollapsibleContent>{head.map(render)}</TraceCollapsibleContent>
+        <TraceCollapsibleContent>
+          {head.map((step, index) => render(step, index + 1))}
+        </TraceCollapsibleContent>
       </TraceCollapsible>
-      {tail.map(render)}
+      {tail.map((step, index) => render(step, head.length + index + 1))}
     </>
   );
 }
@@ -271,7 +284,7 @@ export function JevLine({ notice }: { notice: JevNotice }) {
       {JEV_ICONS[notice.kind]}
       <span className="min-w-0">
         <span className="text-foreground/80 font-medium">{notice.title}</span>
-        {notice.reason !== "" && <> — {notice.reason}</>}
+        {notice.reason !== "" && <span> · {notice.reason}</span>}
       </span>
     </p>
   );

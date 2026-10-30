@@ -1,47 +1,21 @@
 /**
- * The task's steps as a compact vertical timeline: one friendly line per tool
- * call (tap for the raw call, pretty-printed and truncated), thinking folded
- * to "Thought for a moment", bot messages as normal text. The newest step
- * pulses while the task runs (still under reduced motion).
+ * The task's steps on one timeline: tool calls render through the same
+ * presentation lens as the main transcript (numbered rows, shaped bodies),
+ * thinking folds, the bot's messages read as prose. The newest step marks
+ * itself live while the task runs.
  */
-import { useId, useState } from "react";
 import {
-  BookmarkIcon,
-  ChevronDownIcon,
-  ClockIcon,
-  FileTextIcon,
-  GlobeIcon,
-  KeyRoundIcon,
   LightbulbIcon,
-  ListChecksIcon,
-  type LucideIcon,
   MegaphoneIcon,
   MessageSquareIcon,
-  PlugIcon,
-  SearchIcon,
-  SendIcon,
-  TerminalIcon,
   UserIcon,
-  WrenchIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
-import { formatDuration, type TimelineItem, type ToolIcon } from "@/lib/task-steps";
+import { Mark } from "@/components/state-mark";
+import { ToolTrace } from "@/components/tool-trace";
+import { toolStepOf, type TimelineItem } from "@/lib/task-steps";
 import { cn } from "@/lib/utils";
-import { Payload } from "./payload";
-
-const TOOL_ICON: Record<ToolIcon, LucideIcon> = {
-  clock: ClockIcon,
-  search: SearchIcon,
-  page: GlobeIcon,
-  file: FileTextIcon,
-  memory: BookmarkIcon,
-  terminal: TerminalIcon,
-  message: SendIcon,
-  task: ListChecksIcon,
-  plug: PlugIcon,
-  key: KeyRoundIcon,
-  tool: WrenchIcon,
-};
 
 const KIND_ICON = {
   thinking: LightbulbIcon,
@@ -50,108 +24,54 @@ const KIND_ICON = {
   input: UserIcon,
 } as const;
 
-function Dot({ icon: Icon, live, error }: { icon: LucideIcon; live: boolean; error: boolean }) {
+/** The gutter mark: live work breathes, the rest stays quiet ink. */
+function Gutter({ icon: Icon, live }: { icon: LucideIcon; live: boolean }) {
+  if (live) return <Mark kind="working" tone="live" className="top-1.5 absolute left-1" />;
   return (
-    <span
+    <Icon
       aria-hidden
-      className={cn(
-        "bg-muted text-muted-foreground absolute top-2.5 left-0 flex size-6 items-center justify-center rounded-full",
-        live && "bg-primary/15 text-primary ring-primary/40 ring-2 motion-safe:animate-pulse",
-        error && "bg-destructive/10 text-destructive",
-      )}
-    >
-      <Icon className="size-3.5" />
-    </span>
+      className="text-muted-foreground/70 absolute top-2.5 left-1 size-4 shrink-0"
+    />
   );
 }
 
-/** A row that folds open: the summary line is the 44px button. */
-function Fold({
-  summary,
-  meta,
-  muted,
-  children,
-}: {
-  summary: string;
-  meta?: string | null | undefined;
-  muted?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
+/** A thinking row that folds open. */
+function ThinkFold({ text, live }: { text: string; live: boolean }) {
   return (
-    <>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen((value) => !value)}
-        className="focus-visible:ring-ring/50 hover:bg-muted/50 -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-sm outline-none focus-visible:ring-3"
-      >
-        <span className={cn("min-w-0 flex-1 break-words", muted && "text-muted-foreground")}>
-          {summary}
-        </span>
-        {meta !== null && meta !== undefined && (
-          <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{meta}</span>
-        )}
-        <ChevronDownIcon
-          aria-hidden
-          className={cn(
-            "text-muted-foreground size-4 shrink-0 transition-transform motion-reduce:transition-none",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-      {open && (
-        <div id={id} className="pb-2">
-          {children}
-        </div>
-      )}
-    </>
+    <details className="group/think py-1">
+      <summary className="text-muted-foreground hover:text-foreground flex min-h-9 w-fit cursor-pointer list-none items-center gap-2 text-sm outline-none">
+        {live ? "Thinking…" : "Thought for a moment"}
+      </summary>
+      <p className="text-muted-foreground mt-1 text-sm break-words whitespace-pre-wrap">{text}</p>
+    </details>
   );
 }
 
-function ToolBody({ item }: { item: Extract<TimelineItem, { kind: "tool" }> }) {
-  if (item.input === null && item.output === null)
-    return <p className="text-muted-foreground text-xs">No details.</p>;
-  return (
-    <div className="flex flex-col gap-2">
-      {item.input !== null && <Payload label="Sent" text={item.input} />}
-      {item.output !== null && <Payload label="Got back" text={item.output} />}
-    </div>
-  );
-}
-
-function Step({ item, live }: { item: TimelineItem; live: boolean }) {
+function Step({ item, live, index }: { item: TimelineItem; live: boolean; index: number }) {
   if (item.kind === "tool") {
-    const meta = item.status === "running" ? "working…" : formatDuration(item.durationMs);
     return (
-      <>
-        <Dot icon={TOOL_ICON[item.icon]} live={live} error={item.status === "error"} />
-        <Fold summary={item.status === "error" ? `${item.line} — failed` : item.line} meta={meta}>
-          <ToolBody item={item} />
-        </Fold>
-      </>
+      <div className="py-0.5">
+        <ToolTrace step={toolStepOf(item)} index={index} />
+      </div>
     );
   }
   const icon = KIND_ICON[item.kind];
-  if (item.kind === "thinking")
+  if (item.kind === "thinking") {
     return (
       <>
-        <Dot icon={icon} live={live} error={false} />
-        <Fold summary={live ? "Thinking…" : "Thought for a moment"} muted>
-          <p className="text-muted-foreground text-sm break-words whitespace-pre-wrap">
-            {item.text}
-          </p>
-        </Fold>
+        <Gutter icon={icon} live={false} />
+        <ThinkFold text={item.text} live={live} />
       </>
     );
+  }
   return (
     <>
-      <Dot icon={icon} live={live} error={false} />
-      <div className="py-2.5 text-sm break-words">
-        {item.kind === "note" && <span className="text-muted-foreground">Update: </span>}
-        {item.kind === "input" && <span className="text-muted-foreground">You: </span>}
+      <Gutter icon={icon} live={false} />
+      <div
+        className={cn("py-2 text-sm break-words", item.kind === "note" && "text-muted-foreground")}
+      >
+        {item.kind === "note" && <span className="overline-plate me-2">Update</span>}
+        {item.kind === "input" && <span className="overline-plate me-2">You</span>}
         {item.kind === "message" ? (
           <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <LazyMarkdown text={item.text} />
@@ -176,9 +96,9 @@ export function Timeline({ items, running }: { items: readonly TimelineItem[]; r
       {items.map((item, index) => (
         <li
           key={item.key}
-          className="before:bg-border relative pl-9 before:absolute before:top-9 before:bottom-0 before:left-3 before:w-px last:before:hidden"
+          className="relative pl-7 last:before:hidden before:bg-border before:absolute before:top-8 before:bottom-0 before:left-[0.4375rem] before:w-px"
         >
-          <Step item={item} live={running && index === items.length - 1} />
+          <Step item={item} live={running && index === items.length - 1} index={index + 1} />
         </li>
       ))}
     </ol>

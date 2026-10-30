@@ -21,7 +21,7 @@ export function ListRow({
   meta?: React.ReactNode;
   trailing?: React.ReactNode;
   onClick: () => void;
-  className?: string;
+  className?: string | undefined;
 }) {
   return (
     <div className={cn("flex items-center gap-1", className)}>

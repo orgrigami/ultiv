@@ -12,7 +12,10 @@ function BotsPage() {
   const { sessions, mainId, refreshAll, lastBot } = useApp();
   const navigate = useNavigate();
   return (
-    <Page title="Bots">
+    <Page
+      title="Crew"
+      lead="The bots of this station: who they are, what they run on, and what they remember."
+    >
       <BotsPanel
         profiles={sessions.profiles}
         models={sessions.models}

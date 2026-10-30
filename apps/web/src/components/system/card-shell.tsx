@@ -31,12 +31,12 @@ export function CardShell({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={cn("w-full rounded-2xl border px-3.5 py-2.5 text-sm", tones[tone], enter)}>
+    <div className={cn("w-full rounded-lg border px-3.5 py-2.5 text-sm", tones[tone], enter)}>
       <div className="flex min-w-0 items-center gap-2">
         <span className="flex shrink-0 [&_svg]:size-4">{icon}</span>
         <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
         <time
-          className="text-muted-foreground shrink-0 text-xs tabular-nums"
+          className="text-muted-foreground readout shrink-0"
           dateTime={new Date(at).toISOString()}
           title={formatFull(at)}
         >

@@ -14,7 +14,7 @@ describe("previewKindOf", () => {
     expect(previewKindOf("application/pdf", "p.pdf")).toBe("pdf");
     expect(previewKindOf("audio/mpeg", "a.mp3")).toBe("audio");
     expect(previewKindOf("video/mp4", "v.mp4")).toBe("video");
-    expect(previewKindOf("text/markdown", "r.md")).toBe("text");
+    expect(previewKindOf("text/markdown", "r.md")).toBe("markdown");
     expect(previewKindOf("application/json", "d.json")).toBe("text");
     expect(previewKindOf("application/octet-stream", "d.py")).toBe("text");
     expect(previewKindOf(undefined, "d.py")).toBe("text");

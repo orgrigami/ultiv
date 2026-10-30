@@ -6,6 +6,7 @@
  * humanized name and malformed output never throws.
  */
 import type { TaskActivity } from "@/lib/api";
+import type { ToolStep as ToolStepContract } from "@ultiv/contracts";
 
 export type ActivityStep = TaskActivity["steps"][number];
 
@@ -28,10 +29,13 @@ export type TimelineItem =
       key: string;
       icon: ToolIcon;
       line: string;
+      name: string;
       status: "running" | "done" | "error";
       durationMs: number | null;
       input: string | null;
       output: string | null;
+      inputRaw: unknown;
+      outputRaw: unknown;
     }
   | { kind: "thinking"; key: string; text: string }
   | { kind: "message"; key: string; text: string }
@@ -237,10 +241,31 @@ function toolItem(step: ActivityStep, key: string, text: string): TimelineItem {
     key,
     icon,
     line,
+    name,
     status: tool?.status ?? (text.endsWith(" …") ? "running" : "done"),
     durationMs: tool?.durationMs ?? null,
     input: prettyPayload(tool?.input),
     output: prettyPayload(output),
+    inputRaw: tool?.input ?? null,
+    outputRaw: output ?? null,
+  };
+}
+
+/** A timeline tool row as the transcript's ToolStep, so both surfaces share
+ * one presentation lens. */
+export function toolStepOf(item: Extract<TimelineItem, { kind: "tool" }>): ToolStepContract {
+  return {
+    callId: item.key,
+    name: item.name,
+    status: item.status,
+    input: parseLoose(item.inputRaw),
+    output:
+      typeof item.outputRaw === "string"
+        ? item.outputRaw
+        : item.outputRaw === null || item.outputRaw === undefined
+          ? null
+          : JSON.stringify(item.outputRaw, null, 2),
+    durationMs: item.durationMs,
   };
 }
 

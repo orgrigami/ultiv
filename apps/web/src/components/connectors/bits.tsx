@@ -10,8 +10,8 @@ import { stateTone, type SecretRow } from "@/lib/connector-text";
 import { cn } from "@/lib/utils";
 
 const TONE = {
-  good: "bg-emerald-500",
-  busy: "bg-amber-400 animate-pulse motion-reduce:animate-none",
+  good: "bg-ok",
+  busy: "bg-live animate-pulse motion-reduce:animate-none",
   warn: "bg-amber-500",
   bad: "bg-destructive",
   off: "bg-muted-foreground/40",
