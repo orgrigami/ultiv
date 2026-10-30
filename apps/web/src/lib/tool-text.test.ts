@@ -18,8 +18,63 @@ describe("presentationOf", () => {
     expect(presentationOf(step({ name: "now" })).kind).toBe("hidden");
   });
 
-  it("leaves unknown tools in the classic wrench style", () => {
-    expect(presentationOf(step({ name: "mcp__linear_create_issue" })).kind).toBe("classic");
+  it("gives unknown tools a human title, receipts as their body", () => {
+    const view = presentationOf(step({ name: "mcp__linear_create_issue" }));
+    expect(view.kind).toBe("human");
+    if (view.kind !== "human") return fail();
+    expect(view.view.done).toBe("Linear create issue");
+    expect(view.view.live).toBe("Linear create issue…");
+    expect(view.view.structured).toBeUndefined();
+  });
+
+  it("covers the whole registry: skills, vault, crew, connectors, history, calendar", () => {
+    for (const [name, done] of [
+      ["skill_list", "Listed its skills"],
+      ["skill_install", "Installed a skill"],
+      ["skill_evolve", "Started improving a skill"],
+      ["vault_list", "Checked the vault"],
+      ["vault_contacts", "Looked up a contact"],
+      ["bots_list", "Listed the crew"],
+      ["bot_info", "Read a sibling's profile"],
+      ["connector_load", "Loaded connector tools"],
+      ["connector_reconnect", "Reconnected a connector"],
+      ["history_search", "Searched past chats"],
+      ["calendar_events", "Read the calendar"],
+    ] as const) {
+      const view = presentationOf(step({ name }));
+      if (view.kind !== "human") return fail();
+      expect(view.view.done).toBe(done);
+    }
+  });
+
+  it("previews a skill's reference file like any file", () => {
+    const view = presentationOf(
+      step({
+        name: "skill_file",
+        input: { name: "async-research", path: "references/triage.md" },
+        output: "# Triage on arrival\n\nRead the request first.",
+      }),
+    );
+    if (view.kind !== "human") return fail();
+    expect(view.view.detail).toBe("references/triage.md");
+    expect(view.view.structured).toEqual({
+      t: "file",
+      name: "references/triage.md",
+      text: "# Triage on arrival\n\nRead the request first.",
+    });
+  });
+
+  it("reads a record off a skill write", () => {
+    const view = presentationOf(
+      step({
+        name: "skill_write",
+        input: { name: "async-research", description: "How to take research requests" },
+        output: "wrote skill async-research v1",
+      }),
+    );
+    if (view.kind !== "human") return fail();
+    expect(view.view.done).toBe("Wrote a skill");
+    expect(view.view.structured).toBeDefined();
   });
 
   it("words a memory write by its consolidation verb, quoting the fact", () => {

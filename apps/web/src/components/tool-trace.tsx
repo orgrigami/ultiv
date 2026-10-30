@@ -2,7 +2,8 @@
  * Tool calls as the transcript tells them: a human line while a call runs
  * and after it lands, the call's index in the run (the course overlay over
  * the prose terrain), bespoke bodies for the calls that have them, and raw
- * receipts one click away. Unknown tools keep the classic receipt view.
+ * receipts one click away. Every tool renders in owner words; a tool no lens
+ * knows takes a humanized title and raw receipts as its body.
  */
 import { memo, type ReactNode } from "react";
 import {
@@ -18,6 +19,7 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   ShieldXIcon,
+  SparklesIcon,
   TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -51,6 +53,7 @@ const FAMILY_ICONS: Record<ToolFamily, ReactNode> = {
   task: <ListTodoIcon />,
   routine: <CalendarClockIcon />,
   artifact: <FolderIcon />,
+  skill: <SparklesIcon />,
   code: <TerminalIcon />,
   credentials: <KeyRoundIcon />,
   connectors: <PlugIcon />,
@@ -180,27 +183,24 @@ export const ToolTrace = memo(function ToolTrace({
   if (presentation.kind === "hidden") {
     return notice === undefined ? null : <JevLine notice={notice} />;
   }
-  const human = presentation.kind === "human" ? presentation.view : undefined;
-  const title =
-    human === undefined ? step.name : step.status === "running" ? human.live : human.done;
+  const human = presentation.view;
+  const title = step.status === "running" ? human.live : human.done;
   const error = errorTextOf(step);
   const body =
-    human === undefined
-      ? undefined
-      : human.structured !== undefined && human.structured.t !== "json"
-        ? "structured"
-        : human.lines !== undefined
-          ? "lines"
-          : undefined;
+    human.structured !== undefined && human.structured.t !== "json"
+      ? "structured"
+      : human.lines !== undefined
+        ? "lines"
+        : undefined;
   return (
     <TraceCollapsible>
       <TraceCollapsibleTrigger>
         <Line
           step={step}
-          icon={human === undefined ? <WrenchIcon /> : FAMILY_ICONS[human.family]}
+          icon={FAMILY_ICONS[human.family]}
           index={index}
           title={title}
-          detail={human?.detail}
+          detail={human.detail}
         />
       </TraceCollapsibleTrigger>
       {human?.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}

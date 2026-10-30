@@ -191,6 +191,7 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 ## Components
 
 ### Buttons
+
 - **Shape:** rounded-lg (8px), heights 2rem default / 1.75rem sm / 1.5rem xs; icons square.
 - **Primary:** warm ivory fill, dark ink text, hover at 80% opacity.
 - **Ghost:** transparent, hover fills to `--muted`; the default for quiet chrome (copy buttons, icon triggers).
@@ -198,33 +199,39 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 - **States:** active presses translate 1px down; disabled drops to 50% opacity with no hover; focus is the shared ring.
 
 ### Marks (state vocabulary)
+
 - **Style:** 14px drawn SVG (`Mark`), one stroke, current-color; kinds pending (faint ring), working (open arc, spinning), done (filled dot), error (ring + slash), attention (filled dot + soft ping), disabled (ring + backslash at 50%).
 - **Tone:** ink (quiet), live amber (working), signal red (demands owner), ok green (settled), muted.
 - **Motion:** working marks spin; roster presence breathes (`.live-breathe`, 2.6s); attention pings (`ping-soft`, 2.4s, motion-safe only). All stop under reduced motion.
 
 ### Trace (the numbered overlay)
+
 - **Style:** the transcript's tool layer. Each call is one line: state mark or family icon, zero-padded two-digit index in `.readout` at 50% muted, owner-worded title (past tense done, present tense while running with a shimmer), truncated detail, tabular duration when ≥ 3s.
 - **States:** running lines shimmer their title; error lines and triggers take `--destructive`; hover raises text to foreground.
 - **Expansion:** bodies indent under a left hairline (`border-l pl-4`); bodies are shaped (search hit lists with numbered readout rows, definition-list records, terminal and HTTP code plates, rendered page markdown); raw input/output JSON receipts stay one click away; bodies scroll inside a bounded box (`max-h-72/80`), never the whole transcript. Long runs (over 8 steps) fold their head behind a "Show N earlier steps" readout line, keeping the last 3.
 
 ### Cards / Containers
+
 - **Corner Style:** rounded-lg (8px); expanded bodies rounded-xl.
 - **Background:** tier tokens only — card, popover, muted at 70% for the owner's message card.
 - **Border:** 1px hairline; error notes tint border/background/text to signal (25% / 5% / full).
 - **Internal Padding:** 10–14px; cards stay border-only, no shadow.
 
 ### Inputs / Fields
+
 - **Style:** hairline `--input` border on ground, rounded-lg; the composer floats in `.chrome-float` instead.
 - **Focus:** `:focus-visible` outline 2px at 65% `--ring` mix, offset 2px; controls get a 3px ring at 50% ring; the caret is always `--live`.
 - **Error:** `aria-invalid` borders/rings destructive; a failed load is an ErrorState strip (signal tint, mark, Retry button), never an empty list.
 - **Phones:** form controls force 16px below 640px so iOS Safari never zooms.
 
 ### Navigation
+
 - **Console rail (sm+):** 16rem, rail-black tier, right hairline. Crew rows: 28px spectral avatar, name, right-aligned state mark (signal attention, breathing amber working); active row fills `--sidebar-accent`. System links: icon + label at 36px height, `aria-current` fills accent. The wordmark plate reads link state as a mark + readout ("live" green / "linking" muted / "lost" red).
 - **Tab bar (phones):** 65% translucent ground, blur, top hairline; raised 3rem primary Chat circle; current tab ivory, rest muted.
 - **Page header:** display title, optional muted lead, sealed by a plate rule.
 
 ### Signature Surfaces
+
 - **Bot avatar:** round initials plate in the bot's spectral tint (`--spec-soft` fill, 62%-mixed spec text, 30% inset spec ring). No images are stored; the class letter is legible identity.
 - **Composer pill:** `.chrome-float` bar — round "+" (quick prompts), the message box, round send arrow that joins a Stop while the bot works; a "Redirect now" pill rides above it mid-turn.
 - **Wordmark plate:** "ultiv" at 15px/600 tracking-tight beside the link-state mark and readout — the station's own status line.
@@ -232,6 +239,7 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 ## Do's and Don'ts
 
 ### Do:
+
 - **Do** use semantic tokens (`bg-background`, `text-muted-foreground`, `text-signal`) — every color on screen routes through one; never a raw hex or Tailwind palette color.
 - **Do** render all counts, durations, indices and timestamps with `.readout` or `.tnum` (tabular figures) in Geist Mono.
 - **Do** state every state through the `Mark` vocabulary with its tone; keep marks at row scale (14px) and one stroke.
@@ -240,6 +248,7 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 - **Do** respect reduced motion: breathing, pinging, shimmering and the streaming caret all stop (`motion-safe` / `motion-reduce` guards).
 
 ### Don't:
+
 - **Don't** glow. No box-shadow halos, no text-shadows, no luminous accents; the signal light is a color, not a lamp.
 - **Don't** spend signal red on anything the owner isn't being asked to look at, and don't spend amber on anything that isn't running right now.
 - **Don't** mix tool output into the prose terrain; tool activity stays in the numbered Trace overlay, and raw JSON never appears where a shaped lens exists.

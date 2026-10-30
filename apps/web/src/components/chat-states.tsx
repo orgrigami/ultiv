@@ -63,8 +63,7 @@ function activityOf(transcript: TranscriptEntry[], pending: PendingApproval): st
   if (last?.kind === "tool" && last.step.status === "running") {
     const presentation = presentationOf(last.step);
     if (presentation.kind === "hidden") return "Working…";
-    if (presentation.kind === "human") return presentation.view.live;
-    return `Using ${last.step.name}…`;
+    return presentation.view.live;
   }
   if (last?.kind === "output" && last.streaming) return "Writing…";
   if (last?.kind === "thinking") return "Thinking…";

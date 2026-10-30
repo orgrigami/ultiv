@@ -4,40 +4,318 @@
   "title": "Design System: ultiv",
   "extensions": {
     "colorMeta": {
-      "primary": { "role": "primary", "displayName": "Warm Ivory Ink", "canonical": "oklch(0.878 0.05 85)", "tonalRamp": ["oklch(0.15 0.05 85)", "oklch(0.25 0.05 85)", "oklch(0.35 0.05 85)", "oklch(0.45 0.05 85)", "oklch(0.55 0.05 85)", "oklch(0.66 0.05 85)", "oklch(0.78 0.05 85)", "oklch(0.9 0.04 85)"] },
-      "live": { "role": "secondary", "displayName": "Live Amber", "canonical": "oklch(0.8 0.125 75)", "tonalRamp": ["oklch(0.15 0.125 75)", "oklch(0.25 0.125 75)", "oklch(0.35 0.125 75)", "oklch(0.45 0.125 75)", "oklch(0.55 0.125 75)", "oklch(0.64 0.125 75)", "oklch(0.72 0.125 75)", "oklch(0.92 0.08 75)"] },
-      "signal": { "role": "secondary", "displayName": "Signal Red", "canonical": "oklch(0.71 0.185 33)", "tonalRamp": ["oklch(0.15 0.185 33)", "oklch(0.25 0.185 33)", "oklch(0.35 0.185 33)", "oklch(0.45 0.185 33)", "oklch(0.55 0.185 33)", "oklch(0.63 0.185 33)", "oklch(0.71 0.185 33)", "oklch(0.9 0.1 33)"] },
-      "ok": { "role": "secondary", "displayName": "Ok Green", "canonical": "oklch(0.75 0.11 160)", "tonalRamp": ["oklch(0.15 0.11 160)", "oklch(0.25 0.11 160)", "oklch(0.35 0.11 160)", "oklch(0.45 0.11 160)", "oklch(0.55 0.11 160)", "oklch(0.65 0.11 160)", "oklch(0.75 0.11 160)", "oklch(0.92 0.07 160)"] },
-      "destructive": { "role": "secondary", "displayName": "Destructive", "canonical": "oklch(0.65 0.2 25)", "tonalRamp": ["oklch(0.15 0.2 25)", "oklch(0.25 0.2 25)", "oklch(0.35 0.2 25)", "oklch(0.45 0.2 25)", "oklch(0.55 0.2 25)", "oklch(0.6 0.2 25)", "oklch(0.65 0.2 25)", "oklch(0.88 0.1 25)"] },
-      "background": { "role": "neutral", "displayName": "Ground", "canonical": "oklch(0.166 0.012 275)", "tonalRamp": ["oklch(0.146 0.011 275)", "oklch(0.166 0.012 275)", "oklch(0.2 0.014 275)", "oklch(0.222 0.015 275)", "oklch(0.248 0.014 275)", "oklch(0.27 0.017 275)", "oklch(0.35 0.016 275)", "oklch(0.45 0.015 275)"] },
-      "foreground": { "role": "neutral", "displayName": "Ivory Foreground", "canonical": "oklch(0.928 0.014 85)", "tonalRamp": ["oklch(0.15 0.014 85)", "oklch(0.25 0.014 85)", "oklch(0.35 0.014 85)", "oklch(0.45 0.014 85)", "oklch(0.55 0.014 85)", "oklch(0.685 0.02 85)", "oklch(0.8 0.015 85)", "oklch(0.928 0.014 85)"] },
-      "muted-foreground": { "role": "neutral", "displayName": "Muted Ivory", "canonical": "oklch(0.685 0.02 85)", "tonalRamp": ["oklch(0.15 0.02 85)", "oklch(0.25 0.02 85)", "oklch(0.35 0.02 85)", "oklch(0.45 0.02 85)", "oklch(0.55 0.02 85)", "oklch(0.62 0.02 85)", "oklch(0.685 0.02 85)", "oklch(0.8 0.015 85)"] },
-      "border": { "role": "neutral", "displayName": "Hairline", "canonical": "oklch(1 0 0 / 8.5%)", "tonalRamp": ["oklch(1 0 0 / 4%)", "oklch(1 0 0 / 6%)", "oklch(1 0 0 / 8.5%)", "oklch(1 0 0 / 11%)", "oklch(1 0 0 / 13%)", "oklch(1 0 0 / 16%)", "oklch(1 0 0 / 20%)", "oklch(1 0 0 / 28%)"] },
-      "sidebar": { "role": "neutral", "displayName": "Rail Black", "canonical": "oklch(0.146 0.011 275)", "tonalRamp": ["oklch(0.1 0.01 275)", "oklch(0.146 0.011 275)", "oklch(0.166 0.012 275)", "oklch(0.2 0.014 275)", "oklch(0.24 0.014 275)", "oklch(0.3 0.015 275)", "oklch(0.4 0.014 275)", "oklch(0.55 0.012 275)"] },
-      "spec-o": { "role": "tertiary", "displayName": "Spectral O", "canonical": "oklch(0.82 0.05 250)", "tonalRamp": ["oklch(0.15 0.05 250)", "oklch(0.25 0.05 250)", "oklch(0.35 0.05 250)", "oklch(0.45 0.05 250)", "oklch(0.55 0.09 255)", "oklch(0.65 0.06 250)", "oklch(0.75 0.05 250)", "oklch(0.82 0.05 250)"] },
-      "spec-b": { "role": "tertiary", "displayName": "Spectral B", "canonical": "oklch(0.76 0.09 255)", "tonalRamp": ["oklch(0.15 0.09 255)", "oklch(0.25 0.09 255)", "oklch(0.35 0.09 255)", "oklch(0.45 0.12 258)", "oklch(0.55 0.1 255)", "oklch(0.65 0.09 255)", "oklch(0.76 0.09 255)", "oklch(0.9 0.05 255)"] },
-      "spec-a": { "role": "tertiary", "displayName": "Spectral A", "canonical": "oklch(0.9 0.02 260)", "tonalRamp": ["oklch(0.15 0.02 260)", "oklch(0.25 0.02 260)", "oklch(0.35 0.02 260)", "oklch(0.45 0.02 260)", "oklch(0.6 0.02 260)", "oklch(0.75 0.02 260)", "oklch(0.9 0.02 260)", "oklch(0.96 0.01 260)"] },
-      "spec-f": { "role": "tertiary", "displayName": "Spectral F", "canonical": "oklch(0.88 0.045 95)", "tonalRamp": ["oklch(0.15 0.045 95)", "oklch(0.25 0.045 95)", "oklch(0.35 0.045 95)", "oklch(0.45 0.045 95)", "oklch(0.55 0.08 90)", "oklch(0.7 0.05 95)", "oklch(0.88 0.045 95)", "oklch(0.95 0.03 95)"] },
-      "spec-g": { "role": "tertiary", "displayName": "Spectral G", "canonical": "oklch(0.82 0.1 85)", "tonalRamp": ["oklch(0.15 0.1 85)", "oklch(0.25 0.1 85)", "oklch(0.35 0.1 85)", "oklch(0.45 0.1 85)", "oklch(0.58 0.11 80)", "oklch(0.7 0.1 85)", "oklch(0.82 0.1 85)", "oklch(0.93 0.06 85)"] },
-      "spec-k": { "role": "tertiary", "displayName": "Spectral K", "canonical": "oklch(0.76 0.13 60)", "tonalRamp": ["oklch(0.15 0.13 60)", "oklch(0.25 0.13 60)", "oklch(0.35 0.13 60)", "oklch(0.45 0.13 60)", "oklch(0.55 0.14 55)", "oklch(0.65 0.13 60)", "oklch(0.76 0.13 60)", "oklch(0.9 0.08 60)"] },
-      "spec-m": { "role": "tertiary", "displayName": "Spectral M", "canonical": "oklch(0.68 0.15 30)", "tonalRamp": ["oklch(0.15 0.15 30)", "oklch(0.25 0.15 30)", "oklch(0.35 0.15 30)", "oklch(0.45 0.15 30)", "oklch(0.5 0.16 28)", "oklch(0.6 0.15 30)", "oklch(0.68 0.15 30)", "oklch(0.86 0.09 30)"] }
+      "primary": {
+        "role": "primary",
+        "displayName": "Warm Ivory Ink",
+        "canonical": "oklch(0.878 0.05 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 85)",
+          "oklch(0.25 0.05 85)",
+          "oklch(0.35 0.05 85)",
+          "oklch(0.45 0.05 85)",
+          "oklch(0.55 0.05 85)",
+          "oklch(0.66 0.05 85)",
+          "oklch(0.78 0.05 85)",
+          "oklch(0.9 0.04 85)"
+        ]
+      },
+      "live": {
+        "role": "secondary",
+        "displayName": "Live Amber",
+        "canonical": "oklch(0.8 0.125 75)",
+        "tonalRamp": [
+          "oklch(0.15 0.125 75)",
+          "oklch(0.25 0.125 75)",
+          "oklch(0.35 0.125 75)",
+          "oklch(0.45 0.125 75)",
+          "oklch(0.55 0.125 75)",
+          "oklch(0.64 0.125 75)",
+          "oklch(0.72 0.125 75)",
+          "oklch(0.92 0.08 75)"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Signal Red",
+        "canonical": "oklch(0.71 0.185 33)",
+        "tonalRamp": [
+          "oklch(0.15 0.185 33)",
+          "oklch(0.25 0.185 33)",
+          "oklch(0.35 0.185 33)",
+          "oklch(0.45 0.185 33)",
+          "oklch(0.55 0.185 33)",
+          "oklch(0.63 0.185 33)",
+          "oklch(0.71 0.185 33)",
+          "oklch(0.9 0.1 33)"
+        ]
+      },
+      "ok": {
+        "role": "secondary",
+        "displayName": "Ok Green",
+        "canonical": "oklch(0.75 0.11 160)",
+        "tonalRamp": [
+          "oklch(0.15 0.11 160)",
+          "oklch(0.25 0.11 160)",
+          "oklch(0.35 0.11 160)",
+          "oklch(0.45 0.11 160)",
+          "oklch(0.55 0.11 160)",
+          "oklch(0.65 0.11 160)",
+          "oklch(0.75 0.11 160)",
+          "oklch(0.92 0.07 160)"
+        ]
+      },
+      "destructive": {
+        "role": "secondary",
+        "displayName": "Destructive",
+        "canonical": "oklch(0.65 0.2 25)",
+        "tonalRamp": [
+          "oklch(0.15 0.2 25)",
+          "oklch(0.25 0.2 25)",
+          "oklch(0.35 0.2 25)",
+          "oklch(0.45 0.2 25)",
+          "oklch(0.55 0.2 25)",
+          "oklch(0.6 0.2 25)",
+          "oklch(0.65 0.2 25)",
+          "oklch(0.88 0.1 25)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "oklch(0.166 0.012 275)",
+        "tonalRamp": [
+          "oklch(0.146 0.011 275)",
+          "oklch(0.166 0.012 275)",
+          "oklch(0.2 0.014 275)",
+          "oklch(0.222 0.015 275)",
+          "oklch(0.248 0.014 275)",
+          "oklch(0.27 0.017 275)",
+          "oklch(0.35 0.016 275)",
+          "oklch(0.45 0.015 275)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Ivory Foreground",
+        "canonical": "oklch(0.928 0.014 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 85)",
+          "oklch(0.25 0.014 85)",
+          "oklch(0.35 0.014 85)",
+          "oklch(0.45 0.014 85)",
+          "oklch(0.55 0.014 85)",
+          "oklch(0.685 0.02 85)",
+          "oklch(0.8 0.015 85)",
+          "oklch(0.928 0.014 85)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Muted Ivory",
+        "canonical": "oklch(0.685 0.02 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 85)",
+          "oklch(0.25 0.02 85)",
+          "oklch(0.35 0.02 85)",
+          "oklch(0.45 0.02 85)",
+          "oklch(0.55 0.02 85)",
+          "oklch(0.62 0.02 85)",
+          "oklch(0.685 0.02 85)",
+          "oklch(0.8 0.015 85)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(1 0 0 / 8.5%)",
+        "tonalRamp": [
+          "oklch(1 0 0 / 4%)",
+          "oklch(1 0 0 / 6%)",
+          "oklch(1 0 0 / 8.5%)",
+          "oklch(1 0 0 / 11%)",
+          "oklch(1 0 0 / 13%)",
+          "oklch(1 0 0 / 16%)",
+          "oklch(1 0 0 / 20%)",
+          "oklch(1 0 0 / 28%)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Rail Black",
+        "canonical": "oklch(0.146 0.011 275)",
+        "tonalRamp": [
+          "oklch(0.1 0.01 275)",
+          "oklch(0.146 0.011 275)",
+          "oklch(0.166 0.012 275)",
+          "oklch(0.2 0.014 275)",
+          "oklch(0.24 0.014 275)",
+          "oklch(0.3 0.015 275)",
+          "oklch(0.4 0.014 275)",
+          "oklch(0.55 0.012 275)"
+        ]
+      },
+      "spec-o": {
+        "role": "tertiary",
+        "displayName": "Spectral O",
+        "canonical": "oklch(0.82 0.05 250)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 250)",
+          "oklch(0.25 0.05 250)",
+          "oklch(0.35 0.05 250)",
+          "oklch(0.45 0.05 250)",
+          "oklch(0.55 0.09 255)",
+          "oklch(0.65 0.06 250)",
+          "oklch(0.75 0.05 250)",
+          "oklch(0.82 0.05 250)"
+        ]
+      },
+      "spec-b": {
+        "role": "tertiary",
+        "displayName": "Spectral B",
+        "canonical": "oklch(0.76 0.09 255)",
+        "tonalRamp": [
+          "oklch(0.15 0.09 255)",
+          "oklch(0.25 0.09 255)",
+          "oklch(0.35 0.09 255)",
+          "oklch(0.45 0.12 258)",
+          "oklch(0.55 0.1 255)",
+          "oklch(0.65 0.09 255)",
+          "oklch(0.76 0.09 255)",
+          "oklch(0.9 0.05 255)"
+        ]
+      },
+      "spec-a": {
+        "role": "tertiary",
+        "displayName": "Spectral A",
+        "canonical": "oklch(0.9 0.02 260)",
+        "tonalRamp": [
+          "oklch(0.15 0.02 260)",
+          "oklch(0.25 0.02 260)",
+          "oklch(0.35 0.02 260)",
+          "oklch(0.45 0.02 260)",
+          "oklch(0.6 0.02 260)",
+          "oklch(0.75 0.02 260)",
+          "oklch(0.9 0.02 260)",
+          "oklch(0.96 0.01 260)"
+        ]
+      },
+      "spec-f": {
+        "role": "tertiary",
+        "displayName": "Spectral F",
+        "canonical": "oklch(0.88 0.045 95)",
+        "tonalRamp": [
+          "oklch(0.15 0.045 95)",
+          "oklch(0.25 0.045 95)",
+          "oklch(0.35 0.045 95)",
+          "oklch(0.45 0.045 95)",
+          "oklch(0.55 0.08 90)",
+          "oklch(0.7 0.05 95)",
+          "oklch(0.88 0.045 95)",
+          "oklch(0.95 0.03 95)"
+        ]
+      },
+      "spec-g": {
+        "role": "tertiary",
+        "displayName": "Spectral G",
+        "canonical": "oklch(0.82 0.1 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.1 85)",
+          "oklch(0.25 0.1 85)",
+          "oklch(0.35 0.1 85)",
+          "oklch(0.45 0.1 85)",
+          "oklch(0.58 0.11 80)",
+          "oklch(0.7 0.1 85)",
+          "oklch(0.82 0.1 85)",
+          "oklch(0.93 0.06 85)"
+        ]
+      },
+      "spec-k": {
+        "role": "tertiary",
+        "displayName": "Spectral K",
+        "canonical": "oklch(0.76 0.13 60)",
+        "tonalRamp": [
+          "oklch(0.15 0.13 60)",
+          "oklch(0.25 0.13 60)",
+          "oklch(0.35 0.13 60)",
+          "oklch(0.45 0.13 60)",
+          "oklch(0.55 0.14 55)",
+          "oklch(0.65 0.13 60)",
+          "oklch(0.76 0.13 60)",
+          "oklch(0.9 0.08 60)"
+        ]
+      },
+      "spec-m": {
+        "role": "tertiary",
+        "displayName": "Spectral M",
+        "canonical": "oklch(0.68 0.15 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 30)",
+          "oklch(0.25 0.15 30)",
+          "oklch(0.35 0.15 30)",
+          "oklch(0.45 0.15 30)",
+          "oklch(0.5 0.16 28)",
+          "oklch(0.6 0.15 30)",
+          "oklch(0.68 0.15 30)",
+          "oklch(0.86 0.09 30)"
+        ]
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Page titles only, one per screen above the plate rule." },
-      "body": { "displayName": "Body", "purpose": "Prose voice: transcripts, leads, labels. 13px base, never below 12px rendered." },
-      "overline": { "displayName": "Overline Plate", "purpose": "The instrument voice: plate headers and record keys, uppercase mono at 10px, 0.14em tracking." },
-      "readout": { "displayName": "Readout", "purpose": "Tabular accounting: indices, durations, timestamps, link state, counts. Mono 11px, tabular figures." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles only, one per screen above the plate rule."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose voice: transcripts, leads, labels. 13px base, never below 12px rendered."
+      },
+      "overline": {
+        "displayName": "Overline Plate",
+        "purpose": "The instrument voice: plate headers and record keys, uppercase mono at 10px, 0.14em tracking."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Tabular accounting: indices, durations, timestamps, link state, counts. Mono 11px, tabular figures."
+      }
     },
     "shadows": [
-      { "name": "chrome-offset-dark", "value": "0 12px 32px -16px oklch(0 0 0 / 0.55)", "purpose": "The only shadow in the system: directional depth under floating translucent chrome (composer, tasks pill)." },
-      { "name": "chrome-offset-light", "value": "0 12px 32px -18px oklch(0.235 0.018 275 / 0.3)", "purpose": "Light-theme variant of the chrome offset; softened to ink." }
+      {
+        "name": "chrome-offset-dark",
+        "value": "0 12px 32px -16px oklch(0 0 0 / 0.55)",
+        "purpose": "The only shadow in the system: directional depth under floating translucent chrome (composer, tasks pill)."
+      },
+      {
+        "name": "chrome-offset-light",
+        "value": "0 12px 32px -18px oklch(0.235 0.018 275 / 0.3)",
+        "purpose": "Light-theme variant of the chrome offset; softened to ink."
+      }
     ],
     "motion": [
-      { "name": "breathe", "value": "opacity 1 -> 0.55 -> 1, 2.6s ease-in-out infinite", "purpose": "Live presence marks breathe on the crew roster; disabled under prefers-reduced-motion." },
-      { "name": "ping-soft", "value": "scale 1 -> 2.1 with opacity 0.6 -> 0, 2.4s cubic-bezier(0, 0, 0.2, 1) infinite", "purpose": "Attention marks ping once per cycle; motion-safe only." },
-      { "name": "shimmer", "value": "shadcn shimmer utility on the trace title", "purpose": "A running tool call's title shimmers; motion-reduce:shimmer-none." },
-      { "name": "collapse", "value": "height transition 200ms", "purpose": "Trace and collapsible bodies open with a height transition." },
-      { "name": "caret-pulse", "value": "animate-pulse on the streaming caret (motion-safe)", "purpose": "The newest streaming block ends in a pulsing block caret." }
+      {
+        "name": "breathe",
+        "value": "opacity 1 -> 0.55 -> 1, 2.6s ease-in-out infinite",
+        "purpose": "Live presence marks breathe on the crew roster; disabled under prefers-reduced-motion."
+      },
+      {
+        "name": "ping-soft",
+        "value": "scale 1 -> 2.1 with opacity 0.6 -> 0, 2.4s cubic-bezier(0, 0, 0.2, 1) infinite",
+        "purpose": "Attention marks ping once per cycle; motion-safe only."
+      },
+      {
+        "name": "shimmer",
+        "value": "shadcn shimmer utility on the trace title",
+        "purpose": "A running tool call's title shimmers; motion-reduce:shimmer-none."
+      },
+      {
+        "name": "collapse",
+        "value": "height transition 200ms",
+        "purpose": "Trace and collapsible bodies open with a height transition."
+      },
+      {
+        "name": "caret-pulse",
+        "value": "animate-pulse on the streaming caret (motion-safe)",
+        "purpose": "The newest streaming block ends in a pulsing block caret."
+      }
     ],
     "breakpoints": [
       { "name": "sm", "value": "640px" },
@@ -130,12 +408,36 @@
       "Hairline borders, plate rules with a graduation tick, no glow anywhere"
     ],
     "rules": [
-      { "name": "The One Signal Rule", "body": "Red is reserved for what demands the owner. Amber means working, green means settled, red means the owner is needed. A screen shows red only where an owner decision or a failure lives.", "section": "colors" },
-      { "name": "The No Glow Rule", "body": "Nothing glows. Presence and work are stated with drawn marks and opacity breathing, never box-shadow glows, text-shadows, or luminous halos.", "section": "colors" },
-      { "name": "The Hairline Rule", "body": "Every seam is a 1px translucent-ink hairline from the theme (--border), never a solid gray and never thicker than a device pixel.", "section": "colors" },
-      { "name": "The Instrument Voice Rule", "body": "Anything counted, measured, or hashed renders in Geist Mono with tabular figures. Anything said in prose renders in Geist Sans. A number inside a sentence is prose; a number in a column, a duration, or an index is an instrument readout.", "section": "typography" },
-      { "name": "The Offset Shadow Rule", "body": "A shadow appears only on floating translucent chrome, points straight down, and is negative-spread tightened. Flat surfaces never gain shadows to look clickable.", "section": "elevation" },
-      { "name": "The Sinking Transcript Rule", "body": "Content approaching floating chrome fades under it (mask gradient); it is never clipped by a hard edge.", "section": "elevation" }
+      {
+        "name": "The One Signal Rule",
+        "body": "Red is reserved for what demands the owner. Amber means working, green means settled, red means the owner is needed. A screen shows red only where an owner decision or a failure lives.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Glow Rule",
+        "body": "Nothing glows. Presence and work are stated with drawn marks and opacity breathing, never box-shadow glows, text-shadows, or luminous halos.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Every seam is a 1px translucent-ink hairline from the theme (--border), never a solid gray and never thicker than a device pixel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Instrument Voice Rule",
+        "body": "Anything counted, measured, or hashed renders in Geist Mono with tabular figures. Anything said in prose renders in Geist Sans. A number inside a sentence is prose; a number in a column, a duration, or an index is an instrument readout.",
+        "section": "typography"
+      },
+      {
+        "name": "The Offset Shadow Rule",
+        "body": "A shadow appears only on floating translucent chrome, points straight down, and is negative-spread tightened. Flat surfaces never gain shadows to look clickable.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Sinking Transcript Rule",
+        "body": "Content approaching floating chrome fades under it (mask gradient); it is never clipped by a hard edge.",
+        "section": "elevation"
+      }
     ],
     "dos": [
       "Do use semantic tokens (bg-background, text-muted-foreground, text-signal) — every color on screen routes through one; never a raw hex or Tailwind palette color.",

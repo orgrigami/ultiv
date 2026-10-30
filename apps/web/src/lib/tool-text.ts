@@ -14,10 +14,22 @@ export type ToolFamily =
   | "task"
   | "routine"
   | "artifact"
+  | "skill"
   | "code"
   | "credentials"
   | "connectors"
   | "generic";
+
+/** Any tool name in owner words: "mcp__linear_create_issue" -> "Linear create issue". */
+export function humanizeToolName(name: string): string {
+  const cleaned = name
+    .replace(/^mcp__?/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_\-.:]+/g, " ")
+    .trim();
+  if (cleaned === "") return "Used a tool";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
 
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
 const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now"]);
@@ -84,7 +96,6 @@ export type ToolView = {
 
 export type ToolPresentation =
   | { readonly kind: "hidden" }
-  | { readonly kind: "classic" }
   | { readonly kind: "human"; readonly view: ToolView };
 
 /* ---- small safe readers over the untyped JSON input ---- */
@@ -467,6 +478,41 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   state_list: ["Listed its working notes", "Listing its notes…", "generic"],
   state_delete: ["Removed a working note", "Removing a note…", "generic"],
   bash_host: ["Ran a script on the host", "Running a host script…", "code"],
+  skill_list: ["Listed its skills", "Listing its skills…", "skill"],
+  skill_load: ["Loaded a skill", "Loading a skill…", "skill"],
+  skill_write: ["Wrote a skill", "Writing a skill…", "skill"],
+  skill_delete: ["Removed a skill", "Removing a skill…", "skill"],
+  skill_install: ["Installed a skill", "Installing a skill…", "skill"],
+  skill_propose: ["Proposed a skill improvement", "Proposing an improvement…", "skill"],
+  skill_evolve: ["Started improving a skill", "Improving a skill…", "skill"],
+  vault_list: ["Checked the vault", "Checking the vault…", "credentials"],
+  vault_contacts: ["Looked up a contact", "Looking up a contact…", "credentials"],
+  bots_list: ["Listed the crew", "Listing the crew…", "social"],
+  bot_info: ["Read a sibling's profile", "Reading a profile…", "social"],
+  connector_list: ["Listed connectors", "Listing connectors…", "connectors"],
+  connector_load: ["Loaded connector tools", "Loading connector tools…", "connectors"],
+  connector_reconnect: ["Reconnected a connector", "Reconnecting a connector…", "connectors"],
+  connector_resources: ["Listed connector resources", "Listing connector resources…", "connectors"],
+  history_search: ["Searched past chats", "Searching past chats…", "memory"],
+  calendar_events: ["Read the calendar", "Reading the calendar…", "routine"],
+  email_send: ["Sent an email", "Sending an email…", "social"],
+  send_message: ["Sent a message", "Sending a message…", "social"],
+};
+
+/** A skill's reference file read: the content, previewed like any file. */
+const skillFileView = (step: ToolStep): ToolView => {
+  const input = recordOf(step.input);
+  const name = clip(flatOf(input.path) ?? flatOf(input.file) ?? flatOf(input.name), 48);
+  const text = rawOf(step.output);
+  return {
+    family: "skill",
+    done: "Read a skill file",
+    live: "Reading a skill file…",
+    detail: name,
+    ...(name === undefined || text === undefined
+      ? {}
+      : { structured: { t: "file", name, text: clip(text, 8000) ?? text } }),
+  };
 };
 
 /** The owner-facing lens on one tool call. */
@@ -486,7 +532,10 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     case "web_search":
       return { kind: "human", view: searchView(step) };
     case "web_fetch":
+    case "fetch":
       return { kind: "human", view: fetchView(step) };
+    case "skill_file":
+      return { kind: "human", view: skillFileView(step) };
     case "task_spawn":
       return { kind: "human", view: taskView(step) };
     case "bash":
@@ -513,7 +562,11 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
           },
         };
       }
-      return { kind: "classic" };
+      const humanized = humanizeToolName(step.name);
+      return {
+        kind: "human",
+        view: { family: "generic", done: humanized, live: `${humanized}…` },
+      };
     }
   }
 }
