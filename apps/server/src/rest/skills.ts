@@ -75,6 +75,7 @@ export async function skillRoutes(args: RouteArgs): Promise<boolean> {
   const method = args.req.method ?? "GET";
   if (!path.startsWith("/api/skills") && !path.startsWith("/api/skills/")) return false;
   const detail = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)$/);
+  const file = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/files\/(.+)$/);
   const proposal = path.match(/^\/api\/skills\/([^/]+)\/proposals\/([^/]+)\/(accept|reject)$/);
   const revert = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/revert$/);
   try {
@@ -104,6 +105,19 @@ export async function skillRoutes(args: RouteArgs): Promise<boolean> {
       const found = await args.mind.skills.read(args.owner, profileId ?? "", name ?? "");
       if (found === undefined) return notFound(json, "skill", name);
       json(200, found);
+      return true;
+    }
+    if (file !== null && method === "GET") {
+      const [, profileId, name, rel] = file;
+      if (!(await knownProfile(args, profileId))) return notFound(json, "profile", profileId);
+      const content = await args.mind.skills.readFile(
+        args.owner,
+        profileId ?? "",
+        name ?? "",
+        rel ?? "",
+      );
+      if (content === undefined) return notFound(json, "skill file", rel);
+      json(200, { path: rel, content });
       return true;
     }
     if (detail !== null && method === "PUT") {
