@@ -13,6 +13,8 @@ export interface AppState {
   mainId: string | null;
   /** Bot ids with an approval waiting on the owner. */
   attention: ReadonlySet<string>;
+  /** Bot ids with a background task running right now. */
+  busy: ReadonlySet<string>;
   /** Bumps on every refreshAll, so screens re-resolve a bot's main chat. */
   epoch: number;
   reloadMain: () => Promise<void>;
@@ -49,9 +51,41 @@ function useAttention(): ReadonlySet<string> {
   return attention;
 }
 
+function useBusy(): ReadonlySet<string> {
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      try {
+        const rows = await api.tasks();
+        if (alive)
+          setBusy(
+            new Set(
+              rows
+                .filter((row) => row.status === "running" && row.bot !== undefined)
+                .map((row) => row.bot?.profileId ?? ""),
+            ),
+          );
+        pollRecovered("busy-poll");
+      } catch (cause) {
+        // Keep the last known set, but say the spinners may be stale.
+        pollFailed("busy-poll", "Running indicators may be out of date", cause);
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 5_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, []);
+  return busy;
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const sessions = useSessions();
   const attention = useAttention();
+  const busy = useBusy();
   const [mainId, setMainId] = useState<string | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [lastBot, setLastBot] = useState<string | undefined>(undefined);
@@ -82,6 +116,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sessions,
         mainId,
         attention,
+        busy,
         epoch,
         reloadMain,
         refreshAll,

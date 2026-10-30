@@ -17,7 +17,7 @@ function RootLayout() {
     <div className="root bg-background text-foreground flex h-dvh w-full antialiased">
       <AppProvider>
         <SideNav />
-        <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
+        <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4.75rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
           <Outlet />
         </main>
         <TabBar />

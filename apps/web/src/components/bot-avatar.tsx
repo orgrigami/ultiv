@@ -26,6 +26,7 @@ const initialsOf = (name: string): string =>
 const sizes = {
   sm: "size-6 text-xs",
   md: "size-7 text-xs",
+  xl: "size-10 text-sm",
   lg: "size-14 text-lg",
 } as const;
 

@@ -1,8 +1,9 @@
 /**
  * The slim chat bar: a round back button, the bot as a centred avatar+name
- * pill that switches bots, and a round "…" that opens the session details
- * (model, effort, spend, connection). Details live in the popover so the
- * messages get the room.
+ * pill that switches bots (phones only — the side nav's switcher takes over
+ * from sm: up), and a round "…" that opens the session details (model,
+ * effort, spend, connection). Details live in the popover so the messages
+ * get the room.
  */
 import { Popover } from "@base-ui/react/popover";
 import { ChevronLeftIcon, EllipsisIcon } from "lucide-react";
@@ -148,7 +149,7 @@ export function ChatHeader({
         <span />
       )}
       <div className="flex min-w-0 justify-center">
-        <BotSwitcher name={name} currentId={bot?.id} link={link} onMemory={onMemory} />
+        <BotSwitcher name={name} currentId={bot?.id} onMemory={onMemory} />
       </div>
       <Popover.Root>
         <Popover.Trigger

@@ -12,7 +12,7 @@ export function useSessions(): {
   selected: string | undefined;
   select: (profileId: string | undefined) => void;
   createProfile: (input: { name: string; persona?: string }) => Promise<ProfileInfo | undefined>;
-  create: (title: string | null) => Promise<{ id: string } | undefined>;
+  create: (title: string | null, profileId?: string) => Promise<{ id: string } | undefined>;
   remove: (id: string) => Promise<boolean>;
 } {
   const [phase, setPhase] = useState<"connecting" | "live" | "lost">("connecting");
@@ -72,9 +72,9 @@ export function useSessions(): {
   );
 
   const create = useCallback(
-    async (title: string | null) => {
+    async (title: string | null, profileId?: string) => {
       try {
-        const created = await api.create(title, selected);
+        const created = await api.create(title, profileId ?? selected);
         await refresh(selected);
         return created;
       } catch (cause) {
