@@ -66,11 +66,18 @@ export function controlMethods({ mind, conversation, conversationId, cells }: Me
   };
 }
 
-type ApproveInput = { callId: string; approved: boolean; always?: boolean; takeover?: boolean };
+type ApproveInput = {
+  callId: string;
+  approved: boolean;
+  always?: boolean;
+  takeover?: boolean;
+  /** With approved=true on an editable card: the corrected input replaces the proposal. */
+  input?: unknown;
+};
 
 /** Decide a waiting approval card (with "always allow" and "take over"). */
 export function approveMethod({ mind, owner, conversationId, cells }: MethodScope) {
-  return async ({ callId, approved, always, takeover }: ApproveInput, ctx: C) => {
+  return async ({ callId, approved, always, takeover, input }: ApproveInput, ctx: C) => {
     const id = await conversationId;
     const waiting = mind.approvals.pendingFor(id).find((r) => r.callId === callId);
     // "Always allow" saves the tool on the profile's autoApprove list;
@@ -99,6 +106,9 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       takenOver
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
         : undefined,
+      // An editable card (bot_create) may approve with the owner's corrected
+      // input; it replaces the proposed arguments inside the gate.
+      approved && input !== undefined ? input : undefined,
     );
     const notes = [
       takenOver ? "taken over by the owner" : null,

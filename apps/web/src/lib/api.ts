@@ -370,6 +370,7 @@ export const api = {
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
+    input?: unknown,
   ): Promise<{ ok: boolean; stored: number | null }> =>
     send<{ ok: boolean; stored: number | null }>(
       `/api/approvals/${encodeURIComponent(conversationId)}/${encodeURIComponent(callId)}`,
@@ -378,6 +379,7 @@ export const api = {
         approved,
         ...(always === true ? { always: true } : {}),
         ...(takeover === true ? { takeover: true } : {}),
+        ...(input !== undefined ? { input } : {}),
       },
     ),
   artifactsFor: (conversationId: string): Promise<ArtifactRow[]> =>

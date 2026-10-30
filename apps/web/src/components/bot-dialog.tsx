@@ -61,18 +61,22 @@ export const APPROVAL_MODE_HELP: Record<ProfileApprovalMode, string> = {
 };
 
 /** Model and effort: side by side only when both selects have room for their labels. */
-function ModelFields({
-  form,
-  setForm,
+export function ModelFields({
+  modelId,
+  effort,
+  onModel,
+  onEffort,
   models,
 }: {
-  form: BotForm;
-  setForm: (form: BotForm) => void;
+  modelId: string;
+  effort: string;
+  onModel: (modelId: string) => void;
+  onEffort: (effort: string) => void;
   models: ModelInfo[];
 }) {
   const efforts = useMemo(
-    () => models.find((model) => model.id === form.modelId)?.efforts ?? [],
-    [models, form.modelId],
+    () => models.find((model) => model.id === modelId)?.efforts ?? [],
+    [models, modelId],
   );
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
@@ -80,8 +84,8 @@ function ModelFields({
         Model
         <Select
           className="w-full"
-          value={form.modelId}
-          onChange={(event) => setForm({ ...form, modelId: event.target.value, effort: "" })}
+          value={modelId}
+          onChange={(event) => onModel(event.target.value)}
         >
           <option value="">Workspace default</option>
           <ModelOptions models={models} />
@@ -94,14 +98,14 @@ function ModelFields({
         Effort
         <Select
           className="w-full"
-          value={form.effort}
+          value={effort}
           disabled={efforts.length === 0}
-          onChange={(event) => setForm({ ...form, effort: event.target.value })}
+          onChange={(event) => onEffort(event.target.value)}
         >
           <option value="">Model default</option>
-          {efforts.map((effort) => (
-            <option key={effort} value={effort}>
-              {effort}
+          {efforts.map((level) => (
+            <option key={level} value={level}>
+              {level}
             </option>
           ))}
         </Select>
@@ -275,7 +279,13 @@ export function BotDialog({
               placeholder={"You are meticulous. You check rather than guess…"}
             />
           </label>
-          <ModelFields form={form} setForm={setForm} models={models} />
+          <ModelFields
+            modelId={form.modelId}
+            effort={form.effort}
+            onModel={(modelId) => setForm({ ...form, modelId, effort: "" })}
+            onEffort={(effort) => setForm({ ...form, effort })}
+            models={models}
+          />
           <label className="flex flex-col gap-1 text-sm">
             Approval mode
             <Select

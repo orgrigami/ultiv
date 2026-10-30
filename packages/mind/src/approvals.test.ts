@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { Duration } from "effect";
-import { adjudicationOf, makeApprovals } from "./approvals.ts";
+import { Type } from "typebox";
+import { adjudicationOf, makeApprovals, withApproval } from "./approvals.ts";
+import { textReply } from "./act/task-live.ts";
 
 const REQUEST = { callId: "c1", name: "send_message", input: { to: "x" } };
 
@@ -139,5 +141,117 @@ describe("Approvals", () => {
     expect(adjudicationOf("jev", true, 0.8)).toBe("approve");
     expect(adjudicationOf("jev", true, 0.5)).toBe("human");
     expect(adjudicationOf("jev", true, 0.19)).toBe("deny");
+  });
+});
+
+describe("editable and owner-only gates", () => {
+  const REQUEST = { callId: "e1", name: "bot_create", input: { name: "Robinson" } };
+
+  it("an owner request skips auto-approve and the judge, and parks", async () => {
+    const approvals = makeApprovals();
+    let judged = 0;
+    approvals.setHooks({
+      autoApprove: () => true,
+      adjudicate: () => {
+        judged += 1;
+        return Effect.succeed({ approved: true });
+      },
+    });
+    const parked = Effect.runPromise(approvals.request("conv", "e1", REQUEST, { owner: true }));
+    await Promise.resolve();
+    expect(judged).toBe(0);
+    expect(approvals.pendingFor("conv")).toEqual([REQUEST]);
+    approvals.decide("conv", "e1", true);
+    await expect(parked).resolves.toBe(true);
+  });
+
+  it("an approval's override reaches overrideFor once", async () => {
+    const approvals = makeApprovals();
+    const parked = Effect.runPromise(approvals.request("conv", "e2", REQUEST));
+    await Promise.resolve();
+    const corrected = { name: "Robinson", sandbox: false };
+    approvals.decide("conv", "e2", true, undefined, corrected);
+    await expect(parked).resolves.toBe(true);
+    expect(approvals.overrideFor("conv", "e2")).toEqual(corrected);
+    expect(approvals.overrideFor("conv", "e2")).toBeUndefined();
+  });
+
+  it("a deny carries no override even if one was sent", async () => {
+    const approvals = makeApprovals();
+    const parked = Effect.runPromise(approvals.request("conv", "e3", REQUEST));
+    await Promise.resolve();
+    approvals.decide("conv", "e3", false, undefined, { name: "hostile override" });
+    await expect(parked).resolves.toBe(false);
+    expect(approvals.overrideFor("conv", "e3")).toBeUndefined();
+  });
+
+  it("withApproval: the guard refuses before any card", async () => {
+    const approvals = makeApprovals();
+    const inner = {
+      name: "thing",
+      description: "",
+      parameters: Type.Object({ name: Type.String() }),
+      execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
+    };
+    const gated = withApproval(approvals, inner, {
+      guard: () => "not yours to run",
+    });
+    const result = (await gated.execute(
+      { name: "x" },
+      { conversationId: "conv", callId: "g1" } as never,
+      {} as never,
+    )) as { isError?: boolean; output: { text: string }[] };
+    expect(result.isError).toBe(true);
+    expect(result.output[0]?.text).toContain("not yours to run");
+    expect(approvals.pendingFor("conv")).toEqual([]);
+  });
+
+  it("withApproval: an editable approval replaces the arguments with the override", async () => {
+    const approvals = makeApprovals();
+    let seen: unknown;
+    const inner = {
+      name: "bot_create",
+      description: "",
+      parameters: Type.Object({ name: Type.String() }),
+      execute: async (args: { name: string }) => {
+        seen = args;
+        return textReply(`ran ${args.name}`);
+      },
+    };
+    const gated = withApproval(approvals, inner, { editable: true });
+    const parked = gated.execute(
+      { name: "proposed" },
+      { conversationId: "conv", callId: "g2" } as never,
+      {} as never,
+    );
+    await Promise.resolve();
+    approvals.decide("conv", "g2", true, undefined, { name: "corrected" });
+    await parked;
+    expect(seen).toEqual({ name: "corrected" });
+  });
+
+  it("withApproval: a plain tool ignores a sent override", async () => {
+    const approvals = makeApprovals();
+    let seen: unknown;
+    const inner = {
+      name: "send_thing",
+      description: "",
+      parameters: Type.Object({ name: Type.String() }),
+      execute: async (args: { name: string }) => {
+        seen = args;
+        return textReply("ran");
+      },
+    };
+    const gated = withApproval(approvals, inner);
+    const parked = gated.execute(
+      { name: "proposed" },
+      { conversationId: "conv", callId: "g3" } as never,
+      {} as never,
+    );
+    await Promise.resolve();
+    approvals.decide("conv", "g3", true, undefined, { name: "hostile" });
+    await parked;
+    const seenRecord = seen as { name: string } | undefined;
+    expect(seenRecord?.name).toBe("proposed");
   });
 });

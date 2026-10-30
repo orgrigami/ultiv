@@ -167,6 +167,7 @@ export function SessionView({
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
+    input?: unknown,
   ) => Promise<DecideOutcome | void>;
   /** Jev's gate decisions by tool call id, shown under the calls. */
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
@@ -233,8 +234,9 @@ export function SessionView({
                     reason={pending.reason}
                     who={bot?.name}
                     callId={pending.callId}
-                    onDecide={(approved, always, takeover) =>
-                      onDecide(pending.callId, approved, always, takeover)
+                    models={models}
+                    onDecide={(approved, always, takeover, input) =>
+                      onDecide(pending.callId, approved, always, takeover, input)
                     }
                   />
                 </li>
@@ -250,8 +252,9 @@ export function SessionView({
                     reason={reason}
                     who={taskWho(bot?.name, task)}
                     callId={callId}
-                    onDecide={(approved, always, takeover) =>
-                      onTaskDecide(task, approved, always, takeover)
+                    models={models}
+                    onDecide={(approved, always, takeover, input) =>
+                      onTaskDecide(task, approved, always, takeover, input)
                     }
                   />
                 </li>

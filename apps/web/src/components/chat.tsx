@@ -60,6 +60,7 @@ export function Chat({
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
+    input?: unknown,
   ): Promise<{ stored: number | null }> => {
     const conversationId = task.taskConversationId;
     const callId = task.waitingApproval?.callId;
@@ -69,7 +70,14 @@ export function Chat({
       throw new Error("That approval is no longer waiting — the task moved on.");
     }
     // A failure throws into the card, which keeps it visible for a retry.
-    const result = await api.approvalDecide(conversationId, callId, approved, always, takeover);
+    const result = await api.approvalDecide(
+      conversationId,
+      callId,
+      approved,
+      always,
+      takeover,
+      input,
+    );
     await chatTasks.refresh();
     return { stored: result.stored };
   };

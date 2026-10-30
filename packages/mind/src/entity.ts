@@ -50,6 +50,7 @@ import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
 import { Tasks, MAX_RUNNING_TASKS, tasksLayer, type TasksService } from "./tasks/tasks.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
+import { botCreateTools } from "./profiles/bot-create.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
@@ -247,7 +248,10 @@ const mindLayerRaw = (
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
-      botTools = botsTools({ profiles, audit, activity: taskActivity(tasks) });
+      botTools = [
+        ...botsTools({ profiles, audit, activity: taskActivity(tasks) }),
+        ...botCreateTools({ profiles, approvals, audit }),
+      ];
       const rooms = roomsService({ converse });
       const skills = skillsService();
       const skillsRef: SkillsService = skills;

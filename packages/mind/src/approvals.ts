@@ -102,6 +102,18 @@ interface PendingEntry {
 /** What surfaces read: the waiting call plus whatever reason is known. */
 export type PendingCall = ApprovalRequest & { readonly reason?: string };
 
+/** Options a gated tool may pass with its request. */
+export interface RequestOptions {
+  /** The wait before the call auto-denies; the default suits one-click cards. */
+  readonly timeout?: Duration.Duration;
+  /**
+   * The owner answers this one, whatever the profile says: auto-approve rules
+   * and the Jev judge are skipped. For acts that mint new actors (a bot
+   * creating a bot): delegation must not decide its own scope.
+   */
+  readonly owner?: boolean;
+}
+
 export interface ApprovalsService {
   /**
    * Called by a gated tool: resolves once the user decides (or the timeout
@@ -111,21 +123,26 @@ export interface ApprovalsService {
     conversationId: string,
     callId: string,
     request: ApprovalRequest,
-    options?: { readonly timeout?: Duration.Duration },
+    options?: RequestOptions,
   ) => Effect.Effect<boolean>;
   /**
    * Called by the surface's `approve` method with the user's decision. An
    * optional `note` (a takeover, a reason) rides along and surfaces in the
-   * tool's denial message via `noteFor`.
+   * tool's denial message via `noteFor`. An `override` (an editable card's
+   * corrected input) rides an approval and replaces the proposed arguments,
+   * for tools wrapped with `editable` (see `withApproval`).
    */
   readonly decide: (
     conversationId: string,
     callId: string,
     approved: boolean,
     note?: string,
+    override?: unknown,
   ) => void;
   /** The decision note for this call, if any — read-once (the tool consumes it). */
   readonly noteFor: (conversationId: string, callId: string) => string | undefined;
+  /** The corrected input an editable card was approved with, if any; read-once. */
+  readonly overrideFor: (conversationId: string, callId: string) => unknown | undefined;
   /** Snapshot of what is waiting for this conversation (empty: nothing). */
   readonly pendingFor: (conversationId: string) => readonly PendingCall[];
   /** Every pending approval across conversations — the cross-profile inbox. */
@@ -150,6 +167,7 @@ export const makeApprovals = (
   const pending = new Map<string, PendingEntry>();
   const waiters = new Map<string, Deferred.Deferred<boolean>>();
   const notes = new Map<string, string>();
+  const overrides = new Map<string, unknown>();
   let hooks: ApprovalsHooks = {};
   const listeners = new Set<(conversationId: string, request: ApprovalRequest) => void>();
   const key = (conversationId: string, callId: string): string => `${conversationId}:${callId}`;
@@ -171,10 +189,15 @@ export const makeApprovals = (
     request: (conversationId, callId, request, options) =>
       Effect.gen(function* () {
         let opinion: string | undefined;
-        if (hooks.autoApprove?.(conversationId, request) === true) return true;
         const k = key(conversationId, callId);
         notes.delete(k); // a stale note must not leak into this call's denial
-        if (hooks.adjudicate !== undefined) {
+        overrides.delete(k);
+        // An owner-only gate skips the hooks entirely: delegation never
+        // answers an act that mints actors.
+        if (options?.owner !== true && hooks.autoApprove?.(conversationId, request) === true) {
+          return true;
+        }
+        if (options?.owner !== true && hooks.adjudicate !== undefined) {
           // A failing or slow judge is no verdict: fall through to the owner.
           const judged = hooks
             .adjudicate(conversationId, request)
@@ -220,9 +243,12 @@ export const makeApprovals = (
         settle(k, Exit.isSuccess(exit));
         return Exit.isSuccess(exit) ? exit.value : false;
       }),
-    decide: (conversationId, callId, approved, note) => {
+    decide: (conversationId, callId, approved, note, override) => {
       const k = key(conversationId, callId);
       if (note !== undefined && !approved) notes.set(k, note);
+      // An override only ever rides an approval, and is stored before the
+      // waiter wakes so the tool reads it as soon as the gate opens.
+      if (approved && override !== undefined) overrides.set(k, override);
       settle(k, approved);
     },
     noteFor: (conversationId, callId) => {
@@ -230,6 +256,12 @@ export const makeApprovals = (
       const note = notes.get(k);
       notes.delete(k);
       return note;
+    },
+    overrideFor: (conversationId, callId) => {
+      const k = key(conversationId, callId);
+      const override = overrides.get(k);
+      overrides.delete(k);
+      return override;
     },
     pendingFor: (conversationId) => {
       const prefix = `${conversationId}:`;
@@ -246,6 +278,30 @@ export const makeApprovals = (
 
 export const approvalsLayer: Layer.Layer<Approvals> = Layer.succeed(Approvals, makeApprovals());
 
+/** Options a gated tool passes its gate: who answers, and how flexible the card is. */
+export interface ApprovalOptions {
+  /** Park on the owner every time (skip auto-approve and the Jev judge). */
+  readonly owner?: boolean;
+  /**
+   * The card may come back with a corrected input: an approval whose override
+   * replaces the proposed arguments wholesale. Only for tools whose whole
+   * input is owner-shaped (a form); never for commands or URLs a model
+   * authored, where a swap would approve one thing and run another.
+   */
+  readonly editable?: boolean;
+  /**
+   * Refused before any card: return the reason, or undefined to proceed to
+   * the gate. A refusal is final for the call: no wait, no owner round-trip.
+   */
+  readonly guard?: (
+    args: unknown,
+    api: unknown,
+    context: unknown,
+  ) => string | undefined | Promise<string | undefined>;
+  /** The wait before the parked call auto-denies; the default suits one-click cards. */
+  readonly timeout?: Duration.Duration;
+}
+
 /**
  * Wrap a side-effecting tool so its execution waits for the user's approval
  * first. This is the ONLY way a tool should gate: one seam, applied at the
@@ -254,32 +310,45 @@ export const approvalsLayer: Layer.Layer<Approvals> = Layer.succeed(Approvals, m
 export const withApproval = <TParameters extends TSchema>(
   approvals: ApprovalsService,
   tool: ToolRegistration<TParameters>,
+  options?: ApprovalOptions,
 ): ToolRegistration<TParameters> => ({
   ...tool,
   execute: async (args, api, context) => {
     const conversationId = String(api.conversationId);
+    const refused = await options?.guard?.(args, api, context);
+    if (refused !== undefined) return textResult(refused);
     const approved = await Effect.runPromise(
-      approvals.request(conversationId, api.callId, {
-        callId: api.callId,
-        name: tool.name,
-        ...(tool.description !== "" ? { description: tool.description } : {}),
-        input: args,
-      }),
+      approvals.request(
+        conversationId,
+        api.callId,
+        {
+          callId: api.callId,
+          name: tool.name,
+          ...(tool.description !== "" ? { description: tool.description } : {}),
+          input: args,
+        },
+        {
+          ...(options?.owner === true ? { owner: true } : {}),
+          ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
+        },
+      ),
     );
     if (!approved) {
       const note = approvals.noteFor(conversationId, api.callId);
-      return {
-        isError: true,
-        output: [
-          {
-            type: "text",
-            text:
-              note ??
-              "not approved (the owner denied it, stopped the turn, or did not answer in time) — do not retry; tell the owner what was not done",
-          },
-        ],
-      };
+      return textResult(
+        note ??
+          "not approved (the owner denied it, stopped the turn, or did not answer in time) — do not retry; tell the owner what was not done",
+      );
     }
-    return tool.execute(args, api, context);
+    // An editable card may return the input as the owner corrected it; it
+    // replaces the proposal wholesale, so the tool validates it like any call.
+    const override =
+      options?.editable === true ? approvals.overrideFor(conversationId, api.callId) : undefined;
+    return tool.execute((override ?? args) as typeof args, api, context);
   },
+});
+
+const textResult = (text: string) => ({
+  isError: true as const,
+  output: [{ type: "text" as const, text }],
 });

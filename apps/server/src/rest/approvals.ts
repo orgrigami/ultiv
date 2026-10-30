@@ -35,9 +35,12 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       json(403, { error: "not your conversation" });
       return true;
     }
-    const body = await args.readJson<{ approved?: boolean; always?: boolean; takeover?: boolean }>(
-      req,
-    );
+    const body = await args.readJson<{
+      approved?: boolean;
+      always?: boolean;
+      takeover?: boolean;
+      input?: unknown;
+    }>(req);
     const approved = body.approved === true;
     // A stale decide (the call already resolved) is a 409, not a silent ok —
     // the chord path throws for the same race, and the surfaces agree.
@@ -73,6 +76,8 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       !approved && body.takeover === true
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
         : undefined,
+      // An editable card may approve with the owner's corrected input.
+      approved && body.input !== undefined ? body.input : undefined,
     );
     const notes = [
       !approved && body.takeover === true ? "taken over by the owner" : null,

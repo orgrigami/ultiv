@@ -152,7 +152,7 @@ export const SessionErrorSchema = Type.Union([Type.String(), Type.Null()]);
 
 /** One agent session: durable, replayable transcript plus the agent's phase. */
 export const Session = remote("ultiv.session", {
-  version: 14,
+  version: 15,
   input: Type.Object({ id: Type.String() }),
   host: hostNamed("server"),
   variants: {
@@ -206,6 +206,11 @@ export const Session = remote("ultiv.session", {
             always: Type.Optional(Type.Boolean()),
             /** With approved=false: the owner does this one themselves; the agent is told. */
             takeover: Type.Optional(Type.Boolean()),
+            /**
+             * With approved=true on an editable card (bot_create): the input
+             * as the owner corrected it on the form, replacing the proposal.
+             */
+            input: Type.Optional(Type.Unknown()),
           }),
           Type.Object({
             ok: Type.Boolean(),

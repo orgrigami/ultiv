@@ -100,6 +100,10 @@ const KNOWN: Record<string, Known> = {
     risk: "What you type goes straight to your vault. The bot never sees it.",
     risky: false,
   },
+  bot_create: {
+    action: "create a new bot",
+    risk: "Lower risk: it joins your bots with the details on the form; edit or archive it any time.",
+  },
 };
 
 /** "schedule_set" -> "schedule set"; camelCase too. */

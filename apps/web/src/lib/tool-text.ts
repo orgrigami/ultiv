@@ -239,6 +239,22 @@ const requestView = (step: ToolStep): ToolView => {
   };
 };
 
+/** The main bot minting a sibling: the name is the one detail worth showing. */
+const botCreateView = (step: ToolStep): ToolView => {
+  const name = flatOf(recordOf(step.input).name);
+  return {
+    family: "social",
+    done:
+      step.status === "error"
+        ? "Couldn't create the bot"
+        : name === undefined
+          ? "Created a bot"
+          : `Created bot ${name}`,
+    live: "Creating a bot…",
+    detail: name,
+  };
+};
+
 /** Simple verb tables: exact tool name → [past, live-ing, family]. */
 const VERBED: Record<string, [string, string, ToolFamily]> = {
   memory_forget: ["Let a memory go", "Letting a memory go…", "memory"],
@@ -300,6 +316,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: requestView(step) };
     case "artifact_write":
       return { kind: "human", view: artifactView(step, "Saved a file", "Saving a file…") };
+    case "bot_create":
+      return { kind: "human", view: botCreateView(step) };
     default: {
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {

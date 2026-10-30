@@ -33,6 +33,7 @@ export function useSession(sessionId: string): {
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
+    input?: unknown,
   ) => Promise<{ stored: number | null }>;
   configure: (model: string | null, effort: ThinkingLevel | null) => Promise<void>;
   /** Stop the reply; with `tasks`, also this chat's running background tasks. */
@@ -126,12 +127,14 @@ export function useSession(sessionId: string): {
       approved: boolean,
       always?: boolean,
       takeover?: boolean,
+      input?: unknown,
     ): Promise<{ stored: number | null }> => {
       const result = await linked().approve({
         callId,
         approved,
         ...(always === true ? { always: true } : {}),
         ...(takeover === true ? { takeover: true } : {}),
+        ...(input !== undefined ? { input } : {}),
       });
       return { stored: result.stored?.length ?? null };
     },

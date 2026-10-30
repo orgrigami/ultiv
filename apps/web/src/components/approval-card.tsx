@@ -8,6 +8,8 @@
 import { Menu } from "@base-ui/react/menu";
 import { ChevronRightIcon, EllipsisIcon, ShieldAlertIcon, ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
+import type { ModelInfo } from "@ultiv/contracts";
+import { BotCreateCard } from "@/components/bot-create-card";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
@@ -25,6 +27,7 @@ export type Decide = (
   approved: boolean,
   always?: boolean,
   takeover?: boolean,
+  input?: unknown,
 ) => Promise<DecideOutcome | void>;
 
 export function ApprovalCard(props: {
@@ -36,15 +39,29 @@ export function ApprovalCard(props: {
   who?: string | undefined;
   /** The waiting call; secure inputs post to it directly. */
   callId?: string | undefined;
+  /** Model catalog for editable cards (the bot_create form's dropdowns). */
+  models?: ModelInfo[] | undefined;
   onDecide: (
     approved: boolean,
     always?: boolean,
     takeover?: boolean,
+    input?: unknown,
   ) => Promise<DecideOutcome | void>;
 }) {
   const ask = props.name === "secret_request" ? secretAskOf(props.input) : null;
   if (ask !== null && props.callId !== undefined)
-    return <SecretCard key={props.callId} callId={props.callId} ask={ask} who={props.who} />;
+    return <SecretCard key={props.callId} callId={props.callId} who={props.who} ask={ask} />;
+  if (props.name === "bot_create" && props.callId !== undefined)
+    return (
+      <BotCreateCard
+        key={props.callId}
+        input={props.input}
+        reason={props.reason}
+        who={props.who}
+        models={props.models ?? []}
+        onDecide={props.onDecide}
+      />
+    );
   return <DecisionCard {...props} />;
 }
 
