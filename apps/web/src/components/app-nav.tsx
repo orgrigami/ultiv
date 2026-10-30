@@ -76,8 +76,8 @@ function useActiveBotId(): string | undefined {
 /** The shared row classes for a section entry. */
 const sectionRow = (current: boolean): string =>
   cn(
-    "focus-visible:ring-ring/50 aria-[current=page]:bg-muted hover:bg-muted pointer-coarse:min-h-11 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm outline-none focus-visible:ring-3",
-    current ? "text-foreground" : "text-muted-foreground",
+    "focus-visible:ring-ring/50 aria-[current=page]:bg-sidebar-accent hover:bg-sidebar-accent/60 pointer-coarse:min-h-11 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm outline-none focus-visible:ring-2",
+    current ? "text-sidebar-foreground font-medium" : "text-muted-foreground",
   );
 
 function SectionLink({ section }: { section: NavSection }) {
@@ -91,7 +91,12 @@ function SectionLink({ section }: { section: NavSection }) {
       aria-current={current ? "page" : undefined}
       className={sectionRow(current)}
     >
-      <Icon className="size-5 shrink-0" />
+      <Icon
+        className={cn(
+          "size-5 shrink-0",
+          current ? "text-sidebar-foreground" : "text-muted-foreground",
+        )}
+      />
       {section.label}
     </Link>
   );
@@ -124,7 +129,7 @@ function NewChatButton({ botId }: { botId: string | undefined }) {
         variant="outline"
         disabled={disabled}
         onClick={() => void create()}
-        className="pointer-coarse:min-h-11 w-full"
+        className="border-sidebar-border pointer-coarse:min-h-11 h-10 w-full rounded-xl font-medium shadow-xs"
       >
         <PlusIcon className="size-4 shrink-0" />
         New chat
@@ -138,11 +143,14 @@ export function SideNav() {
   return (
     <nav
       aria-label="Sections"
-      className="bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-3 sm:flex"
+      className="bg-sidebar text-sidebar-foreground hidden w-64 shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-sidebar-border p-3 sm:flex"
     >
       <NavSwitcher botId={botId} />
       <NewChatButton botId={botId} />
-      <div className="mt-2 flex flex-col gap-1">
+      <div className="mt-3 flex flex-col gap-1">
+        <div className="text-muted-foreground flex min-h-7 items-center px-3 text-[11px] font-medium tracking-wider uppercase">
+          Menu
+        </div>
         {SECTIONS.map((section) => (
           <SectionLink key={section.id} section={section} />
         ))}

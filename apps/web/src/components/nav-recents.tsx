@@ -39,8 +39,10 @@ function RecentRow({
         params={{ sessionId }}
         aria-current={active ? "page" : undefined}
         className={
-          (active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted") +
-          " focus-visible:ring-ring/50 flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-3"
+          (active
+            ? "bg-sidebar-accent text-sidebar-foreground"
+            : "text-muted-foreground hover:bg-sidebar-accent/60") +
+          " focus-visible:ring-ring/50 flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-2"
         }
       >
         <span className="min-w-0 flex-1 truncate">{title}</span>
@@ -94,7 +96,7 @@ export function NavRecents({ profileId }: { profileId: string | undefined }) {
       ))}
       <Link
         to="/history"
-        className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring/50 flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-3"
+        className="text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground focus-visible:ring-ring/50 flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-2"
       >
         <MoreHorizontalIcon className="size-4 shrink-0" />
         More…
