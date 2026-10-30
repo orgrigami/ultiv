@@ -1,8 +1,8 @@
 {
   "name": "@ultiv/server",
-  "license": "MIT",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
