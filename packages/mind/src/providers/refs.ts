@@ -41,6 +41,8 @@ export interface ModelSpec {
   readonly efforts: readonly SessionEffort[];
   /** The lowest effort it offers: off where it can, else its lightest reasoning. */
   readonly defaultEffort: SessionEffort;
+  /** Accepted input modalities, e.g. ["text","image"] (models.dev). */
+  readonly input: readonly string[];
 }
 
 export const specOf = (model: Model<Api>, providerName: string): ModelSpec => {
@@ -55,6 +57,7 @@ export const specOf = (model: Model<Api>, providerName: string): ModelSpec => {
     contextWindow: model.contextWindow,
     efforts,
     defaultEffort: efforts[0] ?? "off",
+    input: model.input,
   };
 };
 

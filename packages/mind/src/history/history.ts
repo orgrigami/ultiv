@@ -7,6 +7,7 @@
  */
 import { Effect } from "effect";
 import type { ConverseService } from "../converse/converse.ts";
+import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND } from "../converse/steps.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 export interface HistoryHit {
@@ -26,7 +27,11 @@ const entryText = (entry: {
   text: string;
 } => {
   const role =
-    entry.kind === "pi.user" ? "user" : entry.kind === "pi.tool-result" ? "tool" : "assistant";
+    entry.kind === "pi.user" || entry.kind === INPUT_ENTRY_KIND
+      ? "user"
+      : entry.kind === "pi.tool-result"
+        ? "tool"
+        : "assistant";
   const parts: string[] = [];
   for (const message of entry.model ?? []) {
     const content = (message as { content?: unknown }).content;
@@ -38,7 +43,9 @@ const entryText = (entry: {
       }
     }
   }
-  return { role, text: parts.join(" ") };
+  // Attachment reference lines are machinery: history searches what was said.
+  const text = (parts.join(" ").split(ATTACHMENTS_MARK)[0] ?? "").trim();
+  return { role, text };
 };
 
 const snippetAround = (text: string, at: number, span = 80): string => {

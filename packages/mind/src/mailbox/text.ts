@@ -11,7 +11,9 @@ export const envelopeText = (
   topic: string,
 ): string => {
   const grants =
-    envelope.artifacts.length > 0 ? `\n\nGranted artifacts: ${envelope.artifacts.join(", ")}` : "";
+    envelope.artifacts.length > 0
+      ? `\n\nGranted artifacts: ${envelope.artifacts.join(", ")} (open with artifact_read; images attach as viewable images)`
+      : "";
   const room = topic === "" ? "" : ` • ${topic}`;
   // The answer expectation is explicit: the recipient must never have to
   // guess whether this thread is asking them or informing them. The request

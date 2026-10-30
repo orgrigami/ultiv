@@ -14,7 +14,13 @@
  *   tool unwinds with a denial instead of holding the turn.
  * Queued messages stay queued (unlike Stop) and are placed with the redirect.
  */
-import type { Conversation, LiveState, Submission } from "@earendil-works/pi-durable";
+import type {
+  Conversation,
+  InputEntry,
+  LiveState,
+  Submission,
+  UserInput,
+} from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import type { ApprovalsService } from "../approvals.ts";
 import type { ConverseService } from "./converse.ts";
@@ -55,7 +61,8 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 export const redirectTurn = async (
   deps: RedirectDeps,
   conversation: Conversation,
-  content: string,
+  content: UserInput,
+  entry?: InputEntry,
 ): Promise<RedirectResult> => {
   const id = String(conversation.id);
   const deadline = Date.now() + (deps.graceMs ?? REDIRECT_TOOL_GRACE_MS);
@@ -81,6 +88,8 @@ export const redirectTurn = async (
     await sleep(deps.pollMs ?? 100);
   }
   // Steer covers a turn some other input started between the abort and now.
-  const submission = await Effect.runPromise(deps.converse.submit(conversation, content, "steer"));
+  const submission = await Effect.runPromise(
+    deps.converse.submit(conversation, content, "steer", undefined, entry),
+  );
   return { submission, interrupted };
 };

@@ -17,6 +17,7 @@ import {
   type AgentChange,
   type Conversation,
   type EntryRecord,
+  type InputEntry,
   type JsonObject,
   type LiveState,
   type ConversationId,
@@ -25,6 +26,7 @@ import {
   type Storage,
   type Submission,
   type Tx,
+  type UserInput,
 } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { External } from "@ultiv/core";
@@ -61,11 +63,13 @@ export interface ConverseService {
   /** Admit an input into the durable transcript (visibility = durability). */
   readonly submit: (
     conversation: Conversation,
-    content: string,
+    content: UserInput,
     /** When a turn is in flight: steer it at the next boundary, queue as follow-up, or reject. */
     whenBusy?: "steer" | "followUp" | "reject",
     /** Idempotency key: a repeat with the same id returns the first submission. */
     requestId?: string,
+    /** Place the input as this entry (attachment metadata); default `pi.user`. */
+    entry?: InputEntry,
   ) => Effect.Effect<Submission, External>;
   /**
    * Append a passive app entry (never a model input, never wakes a turn):
@@ -102,7 +106,7 @@ export interface ConverseService {
   /** One admitted turn: submit -> settle. The only path an input reaches a model. */
   readonly turn: (
     conversation: Conversation,
-    content: string,
+    content: UserInput,
     /** When a turn is in flight: steer it at the next boundary, queue as follow-up, or reject. */
     whenBusy?: "steer" | "followUp" | "reject",
   ) => Effect.Effect<TurnResult, External>;
@@ -195,9 +199,10 @@ const ensureConversation = (
 /** One admitted turn: submit -> wait -> commit. */
 const submitOf = (
   conversation: Conversation,
-  content: string,
+  content: UserInput,
   whenBusy?: "steer" | "followUp" | "reject",
   requestId?: string,
+  entry?: InputEntry,
 ): Effect.Effect<Submission, External> =>
   asEffect(
     "submit",
@@ -207,6 +212,7 @@ const submitOf = (
         content,
         ...(whenBusy !== undefined ? { whenBusy } : {}),
         ...(requestId !== undefined ? { requestId } : {}),
+        ...(entry !== undefined ? { entry } : {}),
       },
       BACKGROUND_CONTEXT,
     ),
@@ -282,8 +288,8 @@ export const converseService = (
               (page) => page.items,
             ),
     ),
-  submit: (conversation, content, whenBusy, requestId) =>
-    submitOf(conversation, content, whenBusy, requestId),
+  submit: (conversation, content, whenBusy, requestId, entry) =>
+    submitOf(conversation, content, whenBusy, requestId, entry),
   settle: (conversation, submission) => settleOf(conversation, submission),
   write: (conversation, kind, data) =>
     Effect.asVoid(

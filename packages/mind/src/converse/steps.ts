@@ -5,10 +5,41 @@
  * renders through this. Shape: `@ultiv/contracts` TranscriptEntry.
  */
 import type { EntryRecord, LiveState } from "@earendil-works/pi-durable";
-import type { TranscriptEntry } from "@ultiv/contracts";
+import type { AttachmentRef, TranscriptEntry } from "@ultiv/contracts";
 import { TASK_UPDATE_KIND } from "../tasks/notify.ts";
 
 export type Step = TranscriptEntry;
+
+/** The app entry kind an owner input with attachments is placed as. */
+export const INPUT_ENTRY_KIND = "ultiv.input";
+/** The reference-line block an input's attachments append; display text cuts here. */
+export const ATTACHMENTS_MARK = "\n\nAttached artifacts:";
+
+/** Attachment refs an `ultiv.input` entry carries; junk data yields none. */
+function attachmentRefsOf(data: unknown): readonly AttachmentRef[] | undefined {
+  if (data === null || typeof data !== "object") return undefined;
+  const raw = (data as { attachments?: unknown }).attachments;
+  if (!Array.isArray(raw)) return undefined;
+  const refs: AttachmentRef[] = [];
+  for (const item of raw) {
+    if (item === null || typeof item !== "object") continue;
+    const row = item as { id?: unknown; name?: unknown; mime?: unknown; bytes?: unknown };
+    if (
+      typeof row.id !== "string" ||
+      typeof row.name !== "string" ||
+      typeof row.mime !== "string"
+    ) {
+      continue;
+    }
+    refs.push({
+      id: row.id,
+      name: row.name,
+      mime: row.mime,
+      ...(typeof row.bytes === "number" ? { bytes: row.bytes } : {}),
+    });
+  }
+  return refs;
+}
 
 function textOf(content: unknown): string {
   if (typeof content === "string") return content;
@@ -63,7 +94,13 @@ function committedSteps(entries: readonly EntryRecord[], results: Map<string, To
       continue;
     }
     for (const message of (entry.model ?? []) as readonly unknown[]) {
-      messageSteps(message, entry.id, results, out);
+      messageSteps(
+        message,
+        entry.id,
+        results,
+        entry.kind === INPUT_ENTRY_KIND ? attachmentRefsOf(entry.data) : undefined,
+        out,
+      );
     }
   }
   return out;
@@ -81,6 +118,7 @@ function messageSteps(
   message: unknown,
   entryId: number,
   results: Map<string, ToolResult>,
+  refs: readonly AttachmentRef[] | undefined,
   out: Step[],
 ): void {
   const record = message as MessageRecord;
@@ -90,7 +128,7 @@ function messageSteps(
     ? (record.content as readonly unknown[])
     : [{ type: "text", text: textOf(record.content) }];
   if (record.role === "user") {
-    userStep(blocks[0], entryId * 100, at, out);
+    userStep(blocks, entryId * 100, at, refs, out);
     return;
   }
   // Stop or Redirect now cut this reply short: pi-durable kept the partial.
@@ -131,16 +169,34 @@ function messageSteps(
 /**
  * A user message. Bracketed inputs are machinery, not things the user typed.
  * The onboarding seed is dropped outright; relays and room wakes render as
- * muted notes. The model still sees all of them.
+ * muted notes. The model still sees all of them. Display text joins every
+ * text block (image blocks may follow) and cuts the attachment reference
+ * block — the entry's attachment refs render as chips instead.
  */
-function userStep(block: unknown, id: number, at: number, out: Step[]): void {
-  const text = String((block as { text?: unknown } | undefined)?.text ?? "").trim();
+function userStep(
+  blocks: readonly unknown[],
+  id: number,
+  at: number,
+  refs: readonly AttachmentRef[] | undefined,
+  out: Step[],
+): void {
+  const full = blocks
+    .map((block) => String((block as { text?: unknown } | undefined)?.text ?? ""))
+    .join("")
+    .trim();
+  const text = (full.split(ATTACHMENTS_MARK)[0] ?? "").trim();
   if (text === "" || text.startsWith("[onboarding]")) return;
-  if (/^\[(relay|message from|reply from|nack from|owner|cron )/.test(text)) {
+  if (/^\[(relay|message from|reply from|nack from|owner|cron )/.test(full)) {
     out.push({ id, kind: "note", at, text });
-  } else {
-    out.push({ id, kind: "input", at, text });
+    return;
   }
+  out.push({
+    id,
+    kind: "input",
+    at,
+    text,
+    ...(refs !== undefined && refs.length > 0 ? { attachments: [...refs] } : {}),
+  });
 }
 
 /** A tool call: `message` renders as a visible outgoing note, others as trace steps. */

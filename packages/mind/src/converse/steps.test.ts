@@ -140,4 +140,54 @@ describe("projectTranscript", () => {
     const tool = withoutDetails[0];
     expect(tool?.kind === "tool" && "details" in tool.step).toBe(false);
   });
+
+  it("carries attachment refs on the input step and never leaks base64", () => {
+    const steps = projectTranscript(
+      [
+        {
+          id: 1,
+          kind: "ultiv.input",
+          data: { attachments: [{ id: "a1", name: "shot.png", mime: "image/png", bytes: 4 }] },
+          model: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: 'what\'s in this picture?\n\nAttached artifacts:\n- "shot.png" (image/png): included as an image in this message',
+                },
+                { type: "image", data: "QUJD", mimeType: "image/png" },
+              ],
+              timestamp: 100,
+            },
+          ],
+        } as unknown as EntryRecord,
+      ],
+      undefined,
+      false,
+    );
+    const input = steps.find((step) => step.kind === "input");
+    expect(input !== undefined && input.kind === "input" && input.attachments).toEqual([
+      { id: "a1", name: "shot.png", mime: "image/png", bytes: 4 },
+    ]);
+    const inputText = input !== undefined && input.kind === "input" ? input.text : "";
+    expect(inputText).toBe("what's in this picture?");
+    expect(JSON.stringify(steps)).not.toContain("QUJD");
+  });
+
+  it("shows a text-only message from an ultiv.input entry without refs", () => {
+    const steps = projectTranscript(
+      [
+        {
+          id: 1,
+          kind: "ultiv.input",
+          data: {},
+          model: [{ role: "user", content: "plain", timestamp: 100 }],
+        } as unknown as EntryRecord,
+      ],
+      undefined,
+      false,
+    );
+    expect(steps).toEqual([{ id: 100, kind: "input", at: 100, text: "plain" }]);
+  });
 });
