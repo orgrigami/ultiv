@@ -4,14 +4,20 @@
  * The all-sessions list is already app-wide, so this is a pure filter.
  */
 import { Link, useRouterState } from "@tanstack/react-router";
-import { MoreHorizontalIcon } from "lucide-react";
+import { MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/app-state";
 import { formatWhen } from "@/lib/format";
 import { useNow } from "@/lib/use-now";
 
 const RECENTS_LIMIT = 6;
 
-/** One recent-chat row: a real Link so the row can carry aria-current="page". */
+/**
+ * One recent-chat row: a real Link so the row can carry aria-current="page".
+ * Hovering swaps the timestamp for a delete button (the history-page
+ * confirm); touch pointers keep both visible since there is no hover.
+ */
 function RecentRow({
   sessionId,
   title,
@@ -23,23 +29,42 @@ function RecentRow({
   at: number;
   now: number;
 }) {
+  const { sessions } = useApp();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const active = pathname === `/c/${sessionId}`;
   return (
-    <Link
-      to="/c/$sessionId"
-      params={{ sessionId }}
-      aria-current={active ? "page" : undefined}
-      className={
-        (active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted") +
-        " focus-visible:ring-ring/50 flex min-h-9 min-w-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-3"
-      }
-    >
-      <span className="min-w-0 flex-1 truncate">{title}</span>
-      <time className="text-muted-foreground shrink-0 text-xs">
-        {formatWhen(at, new Date(now))}
-      </time>
-    </Link>
+    <div className="group flex items-center gap-0.5">
+      <Link
+        to="/c/$sessionId"
+        params={{ sessionId }}
+        aria-current={active ? "page" : undefined}
+        className={
+          (active ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted") +
+          " focus-visible:ring-ring/50 flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-3"
+        }
+      >
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <time className="text-muted-foreground shrink-0 text-xs group-hover:hidden">
+          {formatWhen(at, new Date(now))}
+        </time>
+      </Link>
+      <ConfirmDialog
+        title="Delete this chat?"
+        warning="The chat and all its messages are removed. This can't be undone."
+        onConfirm={async () => {
+          await sessions.remove(sessionId);
+        }}
+      >
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Delete ${title}`}
+          className="text-muted-foreground hover:text-foreground hidden group-hover:flex group-focus-within:flex pointer-coarse:flex"
+        >
+          <Trash2Icon className="size-3.5" />
+        </Button>
+      </ConfirmDialog>
+    </div>
   );
 }
 
