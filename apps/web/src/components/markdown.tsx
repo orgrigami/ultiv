@@ -1,11 +1,13 @@
 /**
  * Chat markdown (GFM). Fenced code renders as a CodeBlock with a copy button,
  * highlighted by shiki once its language has loaded (plain text until then,
- * and for languages we don't ship).
+ * and for languages we don't ship). A link to an artifact renders as a file
+ * card — the bot's way of handing the owner a file mid-reply.
  */
 import { isValidElement, memo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { FileCard } from "@/components/file-card";
 import {
   CodeBlock,
   CodeBlockActions,
@@ -15,6 +17,7 @@ import {
   CodeBlockLine,
   CodeBlockTitle,
 } from "@/components/ui/code-block";
+import { artifactLinkOf } from "@/lib/file-meta";
 import { useHighlightedCode } from "@/hooks/use-highlighted-code";
 
 function FencedCode({ code, language }: { code: string; language: string }) {
@@ -45,6 +48,14 @@ const components: Components = {
     const language = /language-(\S+)/.exec(props.className ?? "")?.[1] ?? "";
     const code = typeof props.children === "string" ? props.children : String(props.children ?? "");
     return <FencedCode code={code.replace(/\n$/, "")} language={language} />;
+  },
+  a: ({ href, children }) => {
+    const file = artifactLinkOf(href ?? "");
+    if (file === null) {
+      return <a href={href}>{children}</a>;
+    }
+    const text = typeof children === "string" ? children.trim() : "";
+    return <FileCard file={{ id: file.id, name: text !== "" ? text : file.name }} />;
   },
 };
 

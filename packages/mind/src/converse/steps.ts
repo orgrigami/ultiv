@@ -22,6 +22,7 @@ interface ToolResult {
   readonly content: unknown;
   readonly isError: boolean;
   readonly durationMs: number | null;
+  readonly details?: unknown;
 }
 
 /** toolCallId -> committed result, paired into the toolCall steps below. */
@@ -35,12 +36,14 @@ function toolResultsOf(entries: readonly EntryRecord[]): Map<string, ToolResult>
         content?: unknown;
         isError?: boolean;
         durationMs?: unknown;
+        details?: unknown;
       };
       if (record.role !== "toolResult" || record.toolCallId === undefined) continue;
       results.set(String(record.toolCallId), {
         content: record.content,
         isError: record.isError === true,
         durationMs: typeof record.durationMs === "number" ? record.durationMs : null,
+        ...(record.details === undefined ? {} : { details: record.details }),
       });
     }
   }
@@ -168,6 +171,7 @@ function toolStep(block: unknown, id: number, at: number, result: ToolResult | u
       input: (block as { arguments?: unknown }).arguments ?? null,
       output: result === undefined ? null : textOf(result.content).trim(),
       durationMs: result === undefined ? null : result.durationMs,
+      ...(result?.details === undefined ? {} : { details: result.details }),
     },
   };
 }

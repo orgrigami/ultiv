@@ -50,11 +50,66 @@ const findArtifact = async (
 const ownedBy = (info: { owner: string | null }, owner: string): boolean =>
   info.owner === null || info.owner === owner;
 
+const UNSAFE_INLINE = new Set(["text/html", "image/svg+xml", "application/xhtml+xml"]);
+
+/**
+ * Content-Disposition for `?dl=1`: a sanitized ASCII fallback plus the RFC 5987
+ * `filename*` form, so unicode names survive and headers stay injectable-proof.
+ */
+const dispositionOf = (name: string): string => {
+  const ascii = Array.from(name)
+    .map((ch) => (ch >= " " && ch <= "~" ? ch : " "))
+    .join("")
+    .replaceAll('"', " ")
+    .trim();
+  return `attachment; filename="${ascii === "" ? "file" : ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+};
+
+const serveMeta = async (args: RouteArgs, id: string): Promise<boolean> => {
+  const found = await findArtifact(args, id);
+  if (found === undefined) {
+    args.json(404, { error: "unknown artifact" });
+    return true;
+  }
+  if (!ownedBy(found.info, args.owner)) {
+    args.json(403, { error: "not your artifact" });
+    return true;
+  }
+  args.json(200, found.info);
+  return true;
+};
+
+const serveRaw = async (args: RouteArgs, id: string): Promise<boolean> => {
+  const found = await findArtifact(args, id);
+  const file = found !== undefined ? artifactFile(found.dir, found.info.id) : undefined;
+  if (found === undefined || file === undefined) {
+    args.json(404, { error: "unknown artifact" });
+    return true;
+  }
+  if (!ownedBy(found.info, args.owner)) {
+    args.json(403, { error: "not your artifact" });
+    return true;
+  }
+  const download = queryOr(args, "dl") === "1";
+  args.res.writeHead(200, {
+    "content-type": found.info.mime,
+    "access-control-allow-origin": "*",
+    "x-content-type-options": "nosniff",
+    ...(download
+      ? { "content-disposition": dispositionOf(found.info.name) }
+      : UNSAFE_INLINE.has(found.info.mime)
+        ? { "content-security-policy": "sandbox" }
+        : {}),
+  });
+  args.res.end(readFileSync(file));
+  return true;
+};
+
 export async function artifactRoutes(
   args: RouteArgs,
   segment: (after: string) => string,
 ): Promise<boolean> {
-  const { req, mind, path, json, res } = args;
+  const { req, mind, path, json } = args;
   const method = req.method ?? "GET";
   if (path === "/api/artifacts" && method === "GET") {
     const profile = queryOr(args, "profile");
@@ -110,19 +165,11 @@ export async function artifactRoutes(
     return true;
   }
   if (path.startsWith("/api/artifacts/") && method === "GET") {
-    const found = await findArtifact(args, segment("/api/artifacts/"));
-    const file = found !== undefined ? artifactFile(found.dir, found.info.id) : undefined;
-    if (found === undefined || file === undefined) {
-      json(404, { error: "unknown artifact" });
-      return true;
-    }
-    if (!ownedBy(found.info, args.owner)) {
-      json(403, { error: "not your artifact" });
-      return true;
-    }
-    res.writeHead(200, { "content-type": found.info.mime, "access-control-allow-origin": "*" });
-    res.end(readFileSync(file));
-    return true;
+    // Meta first: ids never contain a slash, and ?dl=1 stays in the query.
+    const seg = segment("/api/artifacts/");
+    return seg.endsWith("/meta")
+      ? serveMeta(args, seg.slice(0, -"/meta".length))
+      : serveRaw(args, seg);
   }
   if (path.startsWith("/api/artifacts/") && method === "DELETE") {
     const found = await findArtifact(args, segment("/api/artifacts/"));

@@ -48,6 +48,8 @@ export const ToolStepSchema = Type.Object({
   input: Type.Unknown(),
   output: Type.Union([Type.String(), Type.Null()]),
   durationMs: Type.Union([Type.Number(), Type.Null()]),
+  /** The tool's UI channel (pi-durable `details`), e.g. artifact_write's { id, name, mime, bytes }. Present only when the tool reported it. */
+  details: Type.Optional(Type.Unknown()),
 });
 
 export type ToolStep = Static<typeof ToolStepSchema>;
@@ -152,7 +154,7 @@ export const SessionErrorSchema = Type.Union([Type.String(), Type.Null()]);
 
 /** One agent session: durable, replayable transcript plus the agent's phase. */
 export const Session = remote("ultiv.session", {
-  version: 15,
+  version: 16,
   input: Type.Object({ id: Type.String() }),
   host: hostNamed("server"),
   variants: {

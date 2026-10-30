@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   artifactFile,
+  artifactsPlugin,
   copyArtifact,
   readArtifactInfo,
   clearArtifacts,
@@ -121,5 +122,42 @@ describe("artifact grants", () => {
     } finally {
       rmSync(base, { recursive: true, force: true });
     }
+  });
+});
+
+describe("artifact_write tool", () => {
+  const api = { conversationId: "conv-1" } as never;
+
+  it("carries file details on the UI channel", async () => {
+    const root = tempDir();
+    const capability = artifactsPlugin({ root }).capabilities[0];
+    if (capability?.kind !== "tool") throw new Error("missing artifact_write tool");
+    const result = await capability.tool.execute(
+      { name: "notes.md", content: "# hi" },
+      api,
+      {} as never,
+    );
+    expect(result.isError).toBeUndefined();
+    const id = (result.details as { id?: unknown }).id;
+    expect(typeof id).toBe("string");
+    expect(readArtifactInfo(root, String(id))?.name).toBe("notes.md");
+    expect(result.details).toMatchObject({
+      id,
+      name: "notes.md",
+      mime: "text/markdown",
+      bytes: 4,
+    });
+  });
+
+  it("reports oversize content without details", async () => {
+    const capability = artifactsPlugin({ root: tempDir() }).capabilities[0];
+    if (capability?.kind !== "tool") throw new Error("missing artifact_write tool");
+    const result = await capability.tool.execute(
+      { name: "big.md", content: "x".repeat(1_000_001) },
+      api,
+      {} as never,
+    );
+    expect(result.isError).toBe(true);
+    expect(result.details).toBeUndefined();
   });
 });

@@ -226,7 +226,9 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
     name: "artifact_write",
     description:
       "Write a file into the workspace the app can serve: reports, data, code, anything the " +
-      "user should keep. Returns the artifact id clients fetch it by.",
+      "user should keep. Returns the artifact id clients fetch it by. The owner sees a file " +
+      "card with preview and download in the chat for every write; to share a file made " +
+      "earlier (by you or bash), link it as /api/artifacts/<id> in your reply.",
     parameters: WriteParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), name: Type.String() }),
     execute: (args, api) => {
@@ -253,6 +255,7 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
           },
         ],
         structuredOutput: { id: info.id, name: info.name },
+        details: { id: info.id, name: info.name, mime: info.mime, bytes: info.bytes },
       });
     },
   });

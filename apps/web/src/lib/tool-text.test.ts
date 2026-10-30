@@ -166,3 +166,46 @@ describe("humanizeMs", () => {
 function fail(): never {
   throw new Error("expected a human presentation");
 }
+
+describe("artifact_write file card", () => {
+  it("carries the file ref from details on a done write", () => {
+    const view = presentationOf(
+      step({
+        name: "artifact_write",
+        input: { name: "report.md", content: "ignored" },
+        details: { id: "a1", name: "report.md", mime: "text/markdown", bytes: 12 },
+      }),
+    );
+    if (view.kind !== "human") fail();
+    expect(view.view.artifact).toEqual({
+      id: "a1",
+      name: "report.md",
+      mime: "text/markdown",
+      bytes: 12,
+    });
+  });
+
+  it("falls back to the legacy output line for old entries", () => {
+    const view = presentationOf(
+      step({
+        name: "artifact_write",
+        input: { name: "old.md", content: "" },
+        output: "artifact a2 (old.md) in your workspace; your owner can open it in the app",
+      }),
+    );
+    if (view.kind !== "human") fail();
+    expect(view.view.artifact).toEqual({ id: "a2", name: "old.md" });
+  });
+
+  it("shows no card while running, on error, or for reads", () => {
+    for (const s of [
+      step({ name: "artifact_write", status: "running" }),
+      step({ name: "artifact_write", status: "error" }),
+      step({ name: "artifact_read", status: "done", details: { id: "x" } }),
+    ]) {
+      const view = presentationOf(s);
+      if (view.kind !== "human") fail();
+      expect(view.view.artifact).toBeUndefined();
+    }
+  });
+});

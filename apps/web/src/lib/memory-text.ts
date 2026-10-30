@@ -151,6 +151,5 @@ export const kvDeleteWarning = (name: string): string =>
   `${name} may redo work this marker was guarding against. This cannot be undone.`;
 
 export const filesEmpty = "No files yet.";
-export const downloadAria = (name: string): string => `Download ${name}`;
 
 export const footer = `Shared lines and facts are marked "Shared" — changes apply to every bot in the workspace. Forgetting an item hides it until you purge.`;

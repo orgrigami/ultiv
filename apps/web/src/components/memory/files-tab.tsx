@@ -2,7 +2,8 @@
  * Files tab: the artifacts the bot made (downloads) and the "already handled"
  * key-value state it uses to not redo work.
  */
-import { DownloadIcon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
+import { FileCard } from "@/components/file-card";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -20,23 +21,6 @@ interface TabProps {
   reload: () => Promise<void>;
 }
 
-const KINDS: Record<string, string> = {
-  "text/markdown": "Markdown",
-  "text/plain": "Text",
-  "text/html": "Web page",
-  "text/csv": "Spreadsheet (CSV)",
-  "application/json": "JSON",
-  "application/pdf": "PDF",
-};
-const fileKind = (mime: string): string =>
-  KINDS[mime] ?? (mime.startsWith("image/") ? "Image" : (mime.split("/")[1] ?? mime).toUpperCase());
-const formatBytes = (n: number): string =>
-  n >= 1_048_576
-    ? `${(n / 1_048_576).toFixed(1)} MB`
-    : n >= 1024
-      ? `${(n / 1024).toFixed(1)} KB`
-      : `${n} B`;
-
 export function FilesTab({ data, profileId, name, reload }: TabProps) {
   return (
     <>
@@ -45,30 +29,7 @@ export function FilesTab({ data, profileId, name, reload }: TabProps) {
         {data.artifacts.length === 0 ? (
           <EmptyState>{t.filesEmpty}</EmptyState>
         ) : (
-          data.artifacts.map((artifact) => (
-            <div
-              key={artifact.id}
-              className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm"
-            >
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate" title={artifact.name}>
-                  {artifact.name}
-                </span>
-                <span className="text-muted-foreground text-xs">
-                  {fileKind(artifact.mime)} · {formatBytes(artifact.bytes)}
-                </span>
-              </span>
-              <a
-                href={api.artifactUrl(artifact.id)}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={t.downloadAria(artifact.name)}
-                className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring/50 inline-flex size-8 shrink-0 items-center justify-center rounded-md outline-none focus-visible:ring-3 pointer-coarse:size-11"
-              >
-                <DownloadIcon className="size-4" />
-              </a>
-            </div>
-          ))
+          data.artifacts.map((artifact) => <FileCard key={artifact.id} file={artifact} />)
         )}
       </div>
       <SectionHeader title="Already handled" className="mt-2" />

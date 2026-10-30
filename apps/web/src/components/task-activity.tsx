@@ -6,7 +6,8 @@
  */
 import { useMemo, useState } from "react";
 import type { TaskInfo } from "@ultiv/contracts";
-import { ArrowDownIcon, PaperclipIcon } from "lucide-react";
+import { ArrowDownIcon } from "lucide-react";
+import { FileCard } from "@/components/file-card";
 import { ApprovalCard } from "@/components/approval-card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { BriefRow } from "@/components/task-sheet/brief-row";
@@ -15,7 +16,7 @@ import { SheetHeader } from "@/components/task-sheet/sheet-header";
 import { Timeline } from "@/components/task-sheet/timeline";
 import { useFollow } from "@/components/task-sheet/use-follow";
 import { useTaskActivity } from "@/components/task-sheet/use-task-activity";
-import { api, type ArtifactRow } from "@/lib/api";
+import type { ArtifactRow } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { timelineOf } from "@/lib/task-steps";
 
@@ -28,16 +29,7 @@ function Files({ files }: { files: readonly ArtifactRow[] }) {
     <section aria-label="Files from this task" className="flex flex-col gap-1.5">
       <h3 className="text-muted-foreground text-xs font-medium">Files</h3>
       {files.map((file) => (
-        <a
-          key={file.id}
-          href={api.artifactUrl(file.id)}
-          target="_blank"
-          rel="noreferrer"
-          className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm outline-none focus-visible:ring-3"
-        >
-          <PaperclipIcon aria-hidden className="text-muted-foreground size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{file.name}</span>
-        </a>
+        <FileCard key={file.id} file={file} />
       ))}
     </section>
   );

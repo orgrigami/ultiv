@@ -153,6 +153,20 @@ const artifact = (await upload.json()) as { id: string; mime: string };
 expect("artifact upload", upload.status === 200 && artifact.mime === "text/markdown");
 const raw = await fetch(`${base}/api/artifacts/${artifact.id}`);
 expect("artifact download", raw.status === 200 && (await raw.text()) === "# ok");
+const dl = await fetch(`${base}/api/artifacts/${artifact.id}?dl=1`);
+expect(
+  "artifact download disposition",
+  dl.headers.get("content-disposition")?.startsWith("attachment") === true &&
+    dl.headers.get("x-content-type-options") === "nosniff",
+);
+const meta = await fetch(`${base}/api/artifacts/${artifact.id}/meta`);
+const metaJson = (await meta.json()) as { name: string; mime: string };
+expect(
+  "artifact meta",
+  meta.status === 200 && metaJson.name === "smoke.md" && metaJson.mime === "text/markdown",
+);
+const missingMeta = await fetch(`${base}/api/artifacts/nope/meta`);
+expect("artifact meta unknown", missingMeta.status === 404);
 
 const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id });
 expect(

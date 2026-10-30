@@ -24,6 +24,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import type { ToolStep } from "@ultiv/contracts";
+import { FileCard } from "@/components/file-card";
 import { useApp } from "@/lib/app-state";
 import type { JevNotice } from "@/lib/jev-text";
 import {
@@ -204,6 +205,9 @@ export const ToolTrace = memo(function ToolTrace({
         />
       </TraceCollapsibleTrigger>
       {human?.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}
+      {human?.artifact !== undefined && (
+        <FileCard file={human.artifact} className="mt-1 mb-1 ml-6 max-w-prose" />
+      )}
       <TraceCollapsibleContent>
         {human?.lines !== undefined ? <Lines lines={human.lines} /> : <Receipts step={step} />}
       </TraceCollapsibleContent>

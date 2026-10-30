@@ -5,6 +5,7 @@
  * of approval-text.ts, which words the approval cards the same way).
  */
 import type { ToolStep } from "@ultiv/contracts";
+import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
 
 export type ToolFamily =
   | "memory"
@@ -37,6 +38,8 @@ export type ToolView = {
   readonly lines?: readonly string[] | undefined;
   /** Where a "look it up" affordance should land (the Memory panel). */
   readonly lookup?: string | undefined;
+  /** A saved file to render as a card (artifact_write on success only). */
+  readonly artifact?: FileRef | undefined;
 };
 
 export type ToolPresentation =
@@ -208,13 +211,31 @@ const taskView = (step: ToolStep): ToolView => {
   };
 };
 
+/** A saved file's ref: `details` when shaped right, else the legacy output line. */
+const artifactFileOf = (step: ToolStep): FileRef | undefined => {
+  if (step.status !== "done") return undefined;
+  const details = recordOf(step.details);
+  const id = flatOf(details.id);
+  if (id === undefined || id === "")
+    return parseWrittenArtifact(rawOf(step.output) ?? "") ?? undefined;
+  const mime = flatOf(details.mime);
+  return {
+    id,
+    name: flatOf(details.name) ?? flatOf(recordOf(step.input).name) ?? id,
+    ...(mime === undefined ? {} : { mime }),
+    ...(typeof details.bytes === "number" ? { bytes: details.bytes } : {}),
+  };
+};
+
 const artifactView = (step: ToolStep, past: string, live: string): ToolView => {
   const input = recordOf(step.input);
+  const file = artifactFileOf(step);
   return {
     family: "artifact",
     done: past,
     live,
     detail: clip(flatOf(input.name) ?? flatOf(input.path), 40),
+    ...(file === undefined ? {} : { artifact: file }),
   };
 };
 

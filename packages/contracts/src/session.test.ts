@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
-import { Session } from "./session.ts";
+import { Session, ToolStepSchema } from "./session.ts";
 
 describe("Session contract", () => {
-  it("is a remote contract, version 15, hosted on the server", () => {
+  it("is a remote contract, version 16, hosted on the server", () => {
     expect(Session.scope).toBe("remote");
-    expect(Session.def.version).toBe(15);
+    expect(Session.def.version).toBe(16);
+  });
+
+  it("carries an optional details channel on tool steps", () => {
+    expect(ToolStepSchema.properties).toMatchObject({ details: expect.anything() });
   });
 
   it("is addressed per session id", () => {

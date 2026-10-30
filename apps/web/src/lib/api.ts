@@ -305,7 +305,10 @@ export const api = {
     ),
   artifacts: (profile: string): Promise<ArtifactRow[]> =>
     getJson<ArtifactRow[]>(`/api/artifacts?profile=${encodeURIComponent(profile)}`),
-  artifactUrl: (id: string): string => `${base()}/api/artifacts/${encodeURIComponent(id)}`,
+  artifactMeta: (id: string): Promise<ArtifactRow> =>
+    getJson<ArtifactRow>(`/api/artifacts/${encodeURIComponent(id)}/meta`),
+  artifactUrl: (id: string, download?: boolean): string =>
+    `${base()}/api/artifacts/${encodeURIComponent(id)}${download === true ? "?dl=1" : ""}`,
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
   roomSay: (id: string, to: string, text: string): Promise<{ ok: boolean }> =>

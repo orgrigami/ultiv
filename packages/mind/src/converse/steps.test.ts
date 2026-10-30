@@ -95,4 +95,49 @@ describe("projectTranscript", () => {
     );
     expect(steps[0]).toMatchObject({ kind: "output", text: "partial", streaming: true });
   });
+
+  it("carries a tool result's details onto the step only when present", () => {
+    const call = {
+      role: "assistant",
+      content: [
+        { type: "toolCall", id: "c1", name: "artifact_write", arguments: { name: "r.md" } },
+      ],
+      timestamp: 10,
+    };
+    const withDetails = projectTranscript(
+      [
+        entry(1, [call]),
+        entry(2, [
+          {
+            role: "toolResult",
+            toolCallId: "c1",
+            content: "saved",
+            isError: false,
+            durationMs: 5,
+            details: { id: "a1", name: "r.md", mime: "text/markdown", bytes: 2 },
+          },
+        ]),
+      ],
+      undefined,
+      false,
+    );
+    const done = withDetails[0];
+    expect(done?.kind).toBe("tool");
+    expect(done !== undefined && done.kind === "tool" && done.step).toMatchObject({
+      status: "done",
+      details: { id: "a1", name: "r.md", mime: "text/markdown", bytes: 2 },
+    });
+    const withoutDetails = projectTranscript(
+      [
+        entry(1, [call]),
+        entry(2, [
+          { role: "toolResult", toolCallId: "c1", content: "saved", isError: false, durationMs: 5 },
+        ]),
+      ],
+      undefined,
+      false,
+    );
+    const tool = withoutDetails[0];
+    expect(tool?.kind === "tool" && "details" in tool.step).toBe(false);
+  });
 });
