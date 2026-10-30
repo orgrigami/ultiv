@@ -47,6 +47,18 @@ const MAX_ID_CHARS = 64;
 const MAX_READ_CHARS = 100_000;
 const MAX_WRITE_CHARS = 1_000_000;
 
+/** Upload cap for app-served files; the store itself does not enforce it. */
+export const MAX_UPLOAD_BYTES = 10_000_000;
+/** Image mimes models see natively; mirrors the MCP result converter's set. */
+export const VISION_MIMES: ReadonlySet<string> = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+]);
+/** Base64 length cap for one image handed to a model (same budget MCP results use). */
+export const MAX_IMAGE_BASE64 = 3_000_000;
+
 const validId = (id: string): boolean =>
   id.length > 0 && id.length <= MAX_ID_CHARS && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
 
@@ -85,25 +97,50 @@ export interface ArtifactWrite {
   readonly profile?: string | null;
 }
 
-/** Store one artifact (UTF-8 text); returns its metadata. */
-export const writeArtifact = (dir: string, input: ArtifactWrite): ArtifactInfo => {
+interface ArtifactScope {
+  readonly conversationId?: string | null;
+  readonly owner?: string | null;
+  readonly profile?: string | null;
+}
+
+/** The one sidecar writer: raw bytes in, metadata out. */
+const store = (
+  dir: string,
+  name: string,
+  mime: string | undefined,
+  data: Uint8Array,
+  scope: ArtifactScope,
+): ArtifactInfo => {
   const id = randomUUID();
   mkdirSync(dir, { recursive: true });
-  const bytes = Buffer.byteLength(input.content, "utf8");
   const info: ArtifactInfo = {
     id,
-    name: input.name.trim() === "" ? id : input.name.trim().slice(0, 200),
-    mime: input.mime ?? mimeOfName(input.name),
-    bytes,
+    name: name.trim() === "" ? id : name.trim().slice(0, 200),
+    mime: mime ?? mimeOfName(name),
+    bytes: data.byteLength,
     createdAt: Date.now(),
-    conversationId: input.conversationId ?? null,
-    owner: input.owner ?? null,
-    profile: input.profile ?? null,
+    conversationId: scope.conversationId ?? null,
+    owner: scope.owner ?? null,
+    profile: scope.profile ?? null,
   };
-  writeFileSync(blobOf(dir, id), input.content, "utf8");
+  writeFileSync(blobOf(dir, id), data);
   writeFileSync(sidecarOf(dir, id), JSON.stringify(info));
   return info;
 };
+
+/** Store one artifact (UTF-8 text); returns its metadata. */
+export const writeArtifact = (dir: string, input: ArtifactWrite): ArtifactInfo =>
+  store(dir, input.name, input.mime, Buffer.from(input.content, "utf8"), input);
+
+export interface ArtifactBinaryWrite extends ArtifactScope {
+  readonly name: string;
+  readonly mime?: string;
+  readonly data: Uint8Array;
+}
+
+/** Store one artifact's raw bytes (binary-safe: images, PDFs, anything); returns its metadata. */
+export const writeArtifactBytes = (dir: string, input: ArtifactBinaryWrite): ArtifactInfo =>
+  store(dir, input.name, input.mime, input.data, input);
 
 /** Legacy sidecars predate `conversationId` and profile scoping; normalize on every read. */
 const normalize = (raw: ArtifactInfo): ArtifactInfo => ({
@@ -131,6 +168,18 @@ export const artifactFile = (dir: string, id: string): string | undefined => {
   if (!validId(id)) return undefined;
   const blob = blobOf(dir, id);
   return existsSync(blob) ? blob : undefined;
+};
+
+/** Read one artifact's raw bytes (binary-safe); undefined when absent. Callers cap. */
+export const readArtifactBytes = (
+  dir: string,
+  id: string,
+): { info: ArtifactInfo; data: Buffer } | undefined => {
+  if (!validId(id)) return undefined;
+  const sidecar = sidecarOf(dir, id);
+  if (!existsSync(sidecar)) return undefined;
+  const info = normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo);
+  return { info, data: readFileSync(blobOf(dir, id)) };
 };
 
 export const readArtifactInfo = (dir: string, id: string): ArtifactInfo | undefined => {
@@ -260,13 +309,46 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
     },
   });
 
+/** An image artifact as a viewable image block, or a note when it exceeds the model budget. */
+const imageRead = (dir: string, info: ArtifactInfo) => {
+  const data = readArtifactBytes(dir, info.id);
+  const base64 = data === undefined ? "" : data.data.toString("base64");
+  if (data === undefined || base64.length > MAX_IMAGE_BASE64) {
+    return {
+      output: [
+        {
+          type: "text" as const,
+          text: `# ${info.name}\n\n[image ${info.mime} not shown: over the size cap]`,
+        },
+      ],
+    };
+  }
+  return {
+    output: [
+      { type: "text" as const, text: `# ${info.name}\n\n(image file, shown below)` },
+      { type: "image" as const, data: base64, mimeType: info.mime },
+    ],
+  };
+};
+
 const artifactReadTool = (dirOf: (conversationId: string) => string): Tool =>
   defineTool({
     name: "artifact_read",
-    description: "Read a workspace artifact's content by id (UTF-8, capped).",
+    description:
+      "Read a workspace artifact by id: text files return their UTF-8 content (capped); " +
+      "images attach to your context as viewable images.",
     parameters: Type.Object({ id: Type.String({ description: "The artifact id." }) }),
     execute: (args, api) => {
-      const found = readArtifact(dirOf(String(api.conversationId)), args.id);
+      const dir = dirOf(String(api.conversationId));
+      const info = readArtifactInfo(dir, args.id);
+      if (info === undefined) {
+        return Promise.resolve({
+          output: [{ type: "text" as const, text: `unknown artifact: ${args.id}` }],
+          isError: true as const,
+        });
+      }
+      if (VISION_MIMES.has(info.mime)) return Promise.resolve(imageRead(dir, info));
+      const found = readArtifact(dir, args.id);
       if (found === undefined) {
         return Promise.resolve({
           output: [{ type: "text" as const, text: `unknown artifact: ${args.id}` }],

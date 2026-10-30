@@ -12,8 +12,10 @@ import {
   listArtifacts,
   mimeOfName,
   readArtifact,
+  readArtifactBytes,
   searchArtifacts,
   writeArtifact,
+  writeArtifactBytes,
 } from "./artifacts.ts";
 
 const dirs: string[] = [];
@@ -159,5 +161,44 @@ describe("artifact_write tool", () => {
     );
     expect(result.isError).toBe(true);
     expect(result.details).toBeUndefined();
+  });
+});
+
+describe("binary artifacts", () => {
+  it("round-trips raw bytes through writeArtifactBytes and readArtifactBytes", () => {
+    const dir = tempDir();
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe]);
+    const info = writeArtifactBytes(dir, { name: "shot.png", data: png, conversationId: "c1" });
+    expect(info.mime).toBe("image/png");
+    expect(info.bytes).toBe(png.byteLength);
+    const back = readArtifactBytes(dir, info.id);
+    expect(back?.data).toBeInstanceOf(Buffer);
+    expect(back !== undefined && Buffer.compare(back.data, Buffer.from(png)) === 0).toBe(true);
+    expect(back?.info.name).toBe("shot.png");
+  });
+
+  it("artifact_read shows a viewable image under the cap and a note over it", async () => {
+    const root = tempDir();
+    const capability = artifactsPlugin({ root }).capabilities[1];
+    if (capability?.kind !== "tool") throw new Error("missing artifact_read tool");
+    const api = { conversationId: "conv-9" } as never;
+    const info = writeArtifactBytes(root, {
+      name: "pic.png",
+      data: new Uint8Array([1, 2, 3, 4]),
+    });
+    const ok = await capability.tool.execute({ id: info.id }, api, {} as never);
+    const image = (ok.output as readonly unknown[]).find(
+      (block) => (block as { type?: string }).type === "image",
+    );
+    expect(image).toMatchObject({ mimeType: "image/png" });
+    const big = writeArtifactBytes(root, {
+      name: "big.png",
+      data: new Uint8Array(2_400_000).fill(7),
+    });
+    const note = await capability.tool.execute({ id: big.id }, api, {} as never);
+    const text = (note.output as readonly { text?: string }[])
+      .map((block) => block.text ?? "")
+      .join("");
+    expect(text).toContain("not shown");
   });
 });
