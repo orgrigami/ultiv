@@ -3,6 +3,7 @@
  * machinery notes, grouped so consecutive tool steps read as one sequence.
  */
 import { memo, useState } from "react";
+import { AttachmentChips } from "@/components/attachment-chips";
 import { useApp } from "@/lib/app-state";
 import { formatDivider, formatFull } from "@/lib/format";
 import { readNote } from "@/lib/note-text";
@@ -250,6 +251,9 @@ function renderGroup(
   ) : group.entry.kind === "input" ? (
     <li key={group.key} className={roleStyles.user} title={formatFull(group.entry.at)}>
       {group.entry.text}
+      {group.entry.attachments !== undefined && group.entry.attachments.length > 0 && (
+        <AttachmentChips attachments={group.entry.attachments} />
+      )}
     </li>
   ) : group.entry.kind === "output" ? (
     <li

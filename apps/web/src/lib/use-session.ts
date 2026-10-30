@@ -25,7 +25,7 @@ export function useSession(sessionId: string): {
   /** Messages waiting for the running turn, oldest first. */
   queued: QueuedInput[];
   /** Send; while the bot works, `whenBusy` picks steer (default), followUp, or redirect. */
-  input: (text: string, whenBusy?: SendMode) => Promise<void>;
+  input: (text: string, whenBusy?: SendMode, attachments?: string[]) => Promise<void>;
   /** Take back a queued message. */
   withdraw: (id: string) => Promise<void>;
   decide: (
@@ -108,8 +108,12 @@ export function useSession(sessionId: string): {
   }, [ref]);
 
   const input = useCallback(
-    async (text: string, whenBusy?: SendMode): Promise<void> => {
-      await linked().input({ text, ...(whenBusy !== undefined ? { whenBusy } : {}) });
+    async (text: string, whenBusy?: SendMode, attachments?: string[]): Promise<void> => {
+      await linked().input({
+        text,
+        ...(whenBusy !== undefined ? { whenBusy } : {}),
+        ...(attachments !== undefined && attachments.length > 0 ? { attachments } : {}),
+      });
     },
     [linked],
   );

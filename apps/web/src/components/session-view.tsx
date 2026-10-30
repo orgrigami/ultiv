@@ -27,6 +27,9 @@ import { describeTool } from "@/lib/approval-text";
 import type { JevNotice } from "@/lib/jev-text";
 import { turnActivity } from "@/lib/queue-text";
 import { aboveComposer, useChatScroll } from "@/lib/use-chat-scroll";
+import { api } from "@/lib/api";
+import { prepareForUpload, uploadNameOf } from "@/lib/image";
+import { useStagedAttachments, type Staged } from "@/components/composer-attachments";
 
 /**
  * The polite live-region text: a finished reply or a gate waiting on the
@@ -50,20 +53,39 @@ function useAnnouncement(
 }
 
 /** The draft and sending it. A failed send keeps the draft and offers a retry. */
-function useSend(onInput: (text: string, whenBusy?: SendMode) => Promise<void>) {
+function useSend(
+  onInput: (text: string, whenBusy?: SendMode, attachments?: string[]) => Promise<void>,
+  clearStaged: (keys: ReadonlySet<string>) => void,
+  sessionId: string | undefined,
+) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendFailed, setSendFailed] = useState(false);
-  // While the bot works a send joins its turn (or waits for it): busy does not block.
-  const run = async (whenBusy?: SendMode): Promise<void> => {
+  // While the bot works a send uploads the staged files first, then admits the input.
+  const run = async (whenBusy?: SendMode, files?: readonly Staged[]): Promise<void> => {
     const text = draft.trim();
-    if (text === "" || sending) return;
+    const batch = files ?? [];
+    if ((text === "" && batch.length === 0) || sending) return;
     setSending(true);
     setSendFailed(false);
     try {
-      await onInput(text, whenBusy);
-      // Clear only what was sent; anything typed meanwhile stays.
+      // Upload first (raw bytes, session-scoped), then send the artifact ids.
+      let attachments: string[] | undefined;
+      if (batch.length > 0) {
+        attachments = await Promise.all(
+          batch.map(async (item) => {
+            const blob = await prepareForUpload(item.file);
+            const row = await api.artifactUpload(blob, uploadNameOf(item.file, blob), sessionId);
+            return row.id;
+          }),
+        );
+      }
+      await onInput(text, whenBusy, attachments);
+      // Clear only what was sent; anything typed or staged meanwhile stays.
       setDraft((current) => (current.trim() === text ? "" : current));
+      if (batch.length > 0) {
+        clearStaged(new Set(batch.map((item) => item.key)));
+      }
     } catch {
       setSendFailed(true);
     } finally {
@@ -107,6 +129,7 @@ const taskWho = (botName: string | undefined, task: TaskRow): string => {
 
 export function SessionView({
   bot,
+  sessionId,
   onBack,
   link,
   transcript,
@@ -132,6 +155,8 @@ export function SessionView({
   jevNotices,
 }: {
   bot?: ChatBot | undefined;
+  /** The chat's session id; uploads scope into its profile's workspace. */
+  sessionId: string;
   /** Shown as the header's round back button when set. */
   onBack?: (() => void) | undefined;
   link: LinkState;
@@ -147,7 +172,7 @@ export function SessionView({
   approvalMode: ProfileApprovalMode;
   /** Messages waiting for the running turn, shown as pending bubbles at the end of the transcript. */
   queued?: readonly QueuedInput[];
-  onInput: (text: string, whenBusy?: SendMode) => Promise<void>;
+  onInput: (text: string, whenBusy?: SendMode, attachments?: string[]) => Promise<void>;
   onWithdraw?: (id: string) => Promise<void>;
   onDecide: Decide;
   onConfigure: (model: string | null, effort: ThinkingLevel | null) => Promise<void>;
@@ -171,7 +196,12 @@ export function SessionView({
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
 }) {
   const busy = phase === "working";
-  const { draft, setDraft, sending, sendFailed, run } = useSend(onInput);
+  const staged = useStagedAttachments();
+  const { draft, setDraft, sending, sendFailed, run } = useSend(
+    onInput,
+    staged.clearKeys,
+    sessionId,
+  );
   // The bot's Memory panel, opened from the switcher or a memory chip.
   const [memory, setMemory] = useState<{ open: boolean; query: string }>({
     open: false,
@@ -310,8 +340,16 @@ export function SessionView({
             sendFailed={sendFailed}
             draft={draft}
             onDraft={setDraft}
-            onSend={(whenBusy) => void run(whenBusy)}
+            onSend={(whenBusy) => void run(whenBusy, staged.staged)}
             onStop={() => control(onInterrupt)}
+            staged={staged.staged}
+            onAttach={(files) => staged.add(files)}
+            onRemoveStaged={(key) => staged.remove(key)}
+            vision={
+              model === null
+                ? undefined
+                : models.find((candidate) => candidate.id === model)?.input.includes("image")
+            }
           />
         </footer>
       </section>

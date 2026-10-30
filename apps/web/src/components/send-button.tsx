@@ -13,9 +13,14 @@ import { Button } from "./ui/button.tsx";
 
 const LONG_PRESS_MS = 500;
 
-/** Whether Send is usable: busy no longer blocks it, only the link, an in-flight send, or an empty draft. */
-export function canSend(live: boolean, sending: boolean, draft: string): boolean {
-  return live && !sending && draft.trim() !== "";
+/** Whether Send is usable: busy no longer blocks it — only the link, an in-flight send, or an empty message (no draft, no attachments). */
+export function canSend(
+  live: boolean,
+  sending: boolean,
+  draft: string,
+  hasAttachments = false,
+): boolean {
+  return live && !sending && (draft.trim() !== "" || hasAttachments);
 }
 
 export function SendButton({

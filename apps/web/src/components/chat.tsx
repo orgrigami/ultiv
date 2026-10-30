@@ -84,6 +84,7 @@ export function Chat({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <SessionView
+        sessionId={sessionId}
         tasks={<TasksPill chatTasks={chatTasks} />}
         taskInfo={chatTasks.tasks}
         taskApprovals={taskApprovals}

@@ -308,6 +308,20 @@ export const api = {
     getJson<ArtifactRow>(`/api/artifacts/${encodeURIComponent(id)}/meta`),
   artifactUrl: (id: string, download?: boolean): string =>
     `${base()}/api/artifacts/${encodeURIComponent(id)}${download === true ? "?dl=1" : ""}`,
+  /** POST /api/artifacts with the raw bytes; the server 413s over its 10 MB cap. */
+  artifactUpload: async (file: Blob, name: string, sessionId?: string): Promise<ArtifactRow> => {
+    const query = new URLSearchParams({
+      name,
+      mime: file.type === "" ? "application/octet-stream" : file.type,
+    });
+    if (sessionId !== undefined) query.set("sessionId", sessionId);
+    const response = await fetch(`${base()}/api/artifacts?${query.toString()}`, {
+      method: "POST",
+      body: file,
+    });
+    if (!response.ok) throw await failure(response, "POST", "/api/artifacts");
+    return (await response.json()) as ArtifactRow;
+  },
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
   roomSay: (id: string, to: string, text: string): Promise<{ ok: boolean }> =>
