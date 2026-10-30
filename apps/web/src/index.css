@@ -54,9 +54,9 @@
   --radius-4xl: calc(var(--radius) * 3);
 }
 
-/* The station: an observatory night. Deep blue-black ground, warm ivory ink,
-   four elevation tiers, and one reserved red light for what demands the owner.
-   Everything below is oklch so tiers and tints keep their lightness discipline. */
+/* The theme: a dark ground with warm ink, four elevation tiers, and one
+   reserved red light for what demands the owner. Values are oklch so tiers
+   and tints keep their lightness discipline. */
 :root {
   --background: oklch(0.972 0.004 90);
   --foreground: oklch(0.235 0.018 275);
@@ -132,56 +132,6 @@
   --sidebar-ring: oklch(0.8 0.1 75);
 }
 
-/* Star-catalog spectral tints: every bot is a catalogued object with a class
-   (O B A F G K M) hashed from its id; avatars and presence marks read it. */
-.spec-o {
-  --spec: oklch(0.82 0.05 250);
-}
-.spec-b {
-  --spec: oklch(0.76 0.09 255);
-}
-.spec-a {
-  --spec: oklch(0.9 0.02 260);
-}
-.spec-f {
-  --spec: oklch(0.88 0.045 95);
-}
-.spec-g {
-  --spec: oklch(0.82 0.1 85);
-}
-.spec-k {
-  --spec: oklch(0.76 0.13 60);
-}
-.spec-m {
-  --spec: oklch(0.68 0.15 30);
-}
-:root:not(.dark) {
-  .spec-o {
-    --spec: oklch(0.55 0.09 255);
-  }
-  .spec-b {
-    --spec: oklch(0.5 0.12 258);
-  }
-  .spec-a {
-    --spec: oklch(0.45 0.02 260);
-  }
-  .spec-f {
-    --spec: oklch(0.55 0.08 90);
-  }
-  .spec-g {
-    --spec: oklch(0.58 0.11 80);
-  }
-  .spec-k {
-    --spec: oklch(0.55 0.14 55);
-  }
-  .spec-m {
-    --spec: oklch(0.5 0.16 28);
-  }
-}
-.spec {
-  --spec-soft: color-mix(in oklch, var(--spec) 16%, transparent);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -246,15 +196,13 @@
   }
 }
 
-/* The instrument voice: mono overlines, readouts, and tabular accounting. */
-.overline-plate {
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
+/* Small muted labels for section and field headers. */
+.section-label {
+  font-size: 0.6875rem;
   font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--muted-foreground);
 }
+/* Readouts: mono with tabular figures, for measured values. */
 .readout {
   font-family: var(--font-mono);
   font-size: 0.6875rem;
@@ -263,21 +211,6 @@
 }
 .tnum {
   font-variant-numeric: tabular-nums;
-}
-
-/* A plate rule: hairline with one graduation tick, the section seam. */
-.plate-rule {
-  position: relative;
-  border-top: 1px solid var(--border);
-}
-.plate-rule::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: 0;
-  top: -3px;
-  width: 1px;
-  height: 5px;
-  background: color-mix(in oklch, var(--foreground) 28%, transparent);
 }
 
 /* Toasts ride the theme's raised tier, not sonner's own palette. */

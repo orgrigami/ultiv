@@ -70,8 +70,8 @@ function Step({ item, live, index }: { item: TimelineItem; live: boolean; index:
       <div
         className={cn("py-2 text-sm break-words", item.kind === "note" && "text-muted-foreground")}
       >
-        {item.kind === "note" && <span className="overline-plate me-2">Update</span>}
-        {item.kind === "input" && <span className="overline-plate me-2">You</span>}
+        {item.kind === "note" && <span className="section-label me-2">Update</span>}
+        {item.kind === "input" && <span className="section-label me-2">You</span>}
         {item.kind === "message" ? (
           <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <LazyMarkdown text={item.text} />

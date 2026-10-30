@@ -160,7 +160,7 @@ function DelimitedPreview({ file }: { file: FileRef }) {
                 {head.map((cell, index) => (
                   <th
                     key={index}
-                    className="overline-plate border-border border-b px-2.5 py-1.5 whitespace-nowrap"
+                    className="section-label border-border border-b px-2.5 py-1.5 whitespace-nowrap"
                   >
                     {cell === "" ? `col ${index + 1}` : cell}
                   </th>

@@ -14,7 +14,7 @@ export function Page({
         <header className="flex flex-col gap-1.5">
           <h1 className="font-heading text-[1.375rem] font-semibold tracking-tight">{title}</h1>
           {lead !== undefined && <p className="text-muted-foreground text-sm">{lead}</p>}
-          <div className="plate-rule" />
+          <div className="border-t" />
         </header>
         {children}
       </div>

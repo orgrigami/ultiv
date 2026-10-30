@@ -160,7 +160,7 @@ function ReferenceFiles({
   const [openPath, setOpenPath] = useState<string | null>(null);
   return (
     <div className="mt-2">
-      <p className="overline-plate mb-1">Reference files</p>
+      <p className="section-label mb-1">Reference files</p>
       <ul className="flex flex-col">
         {files.map((path) => (
           <ReferenceFile

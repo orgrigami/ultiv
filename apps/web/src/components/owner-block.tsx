@@ -1,6 +1,6 @@
 /**
- * The rail's foundation: the owner's plate at the bottom of the console.
- * Who runs this station, the theme control (system, light, dark), and the
+ * The rail's foundation: the owner's block at the bottom of the nav.
+ * The owner's name, the theme control (system, light, dark), and the
  * way into full crew management. The theme choice persists per device.
  */
 import { Menu } from "@base-ui/react/menu";
@@ -17,7 +17,7 @@ const CHOICES: readonly { value: ThemeChoice; label: string; icon: typeof SunIco
   { value: "dark", label: "Dark", icon: MoonIcon },
 ];
 
-/** The owner's plate: identity, theme, and crew management, one quiet block. */
+/** The owner's block: identity, theme, and crew management, one quiet block. */
 export function OwnerBlock({ className }: { className?: string }) {
   const navigate = useNavigate();
   const [choice, setChoice] = useState<ThemeChoice>(themeChoice());
@@ -27,10 +27,7 @@ export function OwnerBlock({ className }: { className?: string }) {
         <span className="bg-secondary text-secondary-foreground ring-sidebar-border inline-flex size-8 shrink-0 items-center justify-center rounded-full ring-1">
           <UserIcon className="size-4" />
         </span>
-        <span className="flex min-w-0 flex-1 flex-col leading-tight">
-          <span className="truncate text-sm font-medium">Owner</span>
-          <span className="overline-plate">station keeper</span>
-        </span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium leading-tight">Owner</span>
         <OwnerMenu onCrew={() => void navigate({ to: "/bots" })} />
       </div>
       <div className="border-sidebar-border/70 mt-2.5 flex items-center gap-0.5 rounded-lg border p-0.5">
@@ -61,7 +58,7 @@ export function OwnerBlock({ className }: { className?: string }) {
 function OwnerMenu({ onCrew }: { onCrew: () => void }) {
   return (
     <Menu.Root>
-      <Menu.Trigger render={<Button variant="ghost" size="icon-sm" aria-label="Station options" />}>
+      <Menu.Trigger render={<Button variant="ghost" size="icon-sm" aria-label="Account menu" />}>
         <svg viewBox="0 0 16 16" className="size-4" aria-hidden>
           <circle cx="8" cy="3" r="1.25" fill="currentColor" />
           <circle cx="8" cy="8" r="1.25" fill="currentColor" />

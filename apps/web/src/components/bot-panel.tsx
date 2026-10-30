@@ -72,7 +72,7 @@ export function BotPanel({
             {current !== undefined && (
               <div className="flex items-center gap-3 px-2 pt-2 pb-1" aria-current="true">
                 <span className="relative">
-                  <BotAvatar id={current.id} name={current.name} size="xl" />
+                  <BotAvatar name={current.name} size="xl" />
                   {attention.has(current.id) && (
                     <Mark
                       kind="attention"
@@ -117,7 +117,7 @@ export function BotPanel({
                       onClick={() => pick(bot.id)}
                     >
                       <span className="relative">
-                        <BotAvatar id={bot.id} name={bot.name} />
+                        <BotAvatar name={bot.name} />
                         {needsYou && (
                           <Mark
                             kind="attention"

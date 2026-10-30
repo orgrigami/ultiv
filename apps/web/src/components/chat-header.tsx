@@ -46,7 +46,7 @@ function SessionDetails({
   return (
     <div className="flex flex-col gap-3 text-sm">
       <label className="flex flex-col gap-1">
-        <span className="overline-plate">Model</span>
+        <span className="section-label">Model</span>
         <Select
           className="w-full"
           value={model ?? ""}
@@ -59,7 +59,7 @@ function SessionDetails({
         </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="overline-plate">Effort</span>
+        <span className="section-label">Effort</span>
         <Select
           className="w-full"
           value={effort ?? ""}
@@ -79,7 +79,7 @@ function SessionDetails({
         </Select>
       </label>
       <label className="flex flex-col gap-1">
-        <span className="overline-plate">Approvals</span>
+        <span className="section-label">Approvals</span>
         <Select
           className="w-full"
           value={approvalMode}

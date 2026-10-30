@@ -165,7 +165,7 @@ function DecisionCard({
       </button>
       {details && (
         <div className="flex flex-col gap-2">
-          <p className="overline-plate">{name}</p>
+          <p className="section-label">{name}</p>
           <InputRecord input={input} />
           <DevDetails className="-ml-1">
             <CodeBlock size="sm">

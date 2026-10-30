@@ -1,5 +1,5 @@
 /**
- * States as marks: the station reads state through a small vocabulary of
+ * States as marks: the UI reads state through a small vocabulary of
  * drawn marks, one consistent stroke, never emoji, never glow. A mark is 1em
  * at its row scale and carries its tone through the theme state colors:
  * ink when quiet, live amber when working, signal red when the owner is

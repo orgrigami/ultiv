@@ -1,8 +1,8 @@
 /**
  * Owner-facing words for the transcript's tool calls: what a call did, what
  * it is doing right now, and the one detail worth showing. The mind's tool
- * names and payloads stay untouched; this is a presentation lens (the sibling
- * of approval-text.ts, which words the approval cards the same way).
+ * names and payloads stay untouched; this is a presentation lens (approval-text.ts
+ * words the approval cards the same way).
  */
 import type { ToolStep } from "@ultiv/contracts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
@@ -47,7 +47,7 @@ export type SearchHit = {
 export type RecordField = {
   readonly k: string;
   readonly v: string;
-  /** Values that are code, paths or ids render in the instrument voice. */
+  /** Values that are code, paths or ids render in mono. */
   readonly mono?: boolean | undefined;
 };
 
@@ -146,7 +146,7 @@ const hostOf = (url: string | undefined): string | undefined => {
   }
 };
 
-/** Resolves a sibling profile id to its name when the app knows it. */
+/** Resolves another bot's profile id to its name when the app knows it. */
 export type NameOf = (profileId: string) => string | undefined;
 
 /** The output as JSON when it parses; undefined otherwise. */
@@ -183,24 +183,24 @@ function humanizeKey(key: string): string {
 }
 
 /** Curated fields per tool: the rows that matter, in reading order, with
- * labels in the station's voice. Unlisted keys follow, label humanized. */
+ * plain labels. Unlisted keys follow, label humanized. */
 const FIELDS: Record<string, readonly (readonly [string, string, boolean?])[]> = {
   schedule_set: [
     ["name", "Name"],
-    ["schedule", "Fires", true],
+    ["schedule", "Schedule", true],
     ["once", "At", true],
-    ["prompt", "Does what"],
+    ["prompt", "Prompt"],
   ],
   schedule_remove: [["name", "Name"]],
   sensor_set: [
-    ["kind", "Watch"],
+    ["kind", "Kind"],
     ["url", "Source", true],
     ["name", "Name"],
   ],
   sensor_remove: [["name", "Name"]],
   webhook_create: [
     ["name", "Name"],
-    ["description", "Wakes it for"],
+    ["description", "Description"],
   ],
   webhook_remove: [["name", "Name"]],
   task_message: [
@@ -214,11 +214,11 @@ const FIELDS: Record<string, readonly (readonly [string, string, boolean?])[]> =
     ["text", "Note"],
   ],
   memory_forget: [
-    ["query", "Lets go of"],
+    ["query", "Search"],
     ["id", "Memory", true],
   ],
   memory_history: [
-    ["query", "Traces"],
+    ["query", "Search"],
     ["id", "Memory", true],
   ],
   memory_related: [
@@ -251,9 +251,9 @@ const FIELDS: Record<string, readonly (readonly [string, string, boolean?])[]> =
   skill_evolve: [["name", "Skill"]],
   vault_contacts: [["query", "Looking for"]],
   bot_info: [
-    ["bot", "Sibling", true],
-    ["name", "Sibling", true],
-    ["id", "Sibling", true],
+    ["bot", "Bot", true],
+    ["name", "Bot", true],
+    ["id", "Bot", true],
   ],
   connector_load: [
     ["connector", "Connector"],
@@ -326,7 +326,7 @@ const MEMORY_WRITE_TITLES: Record<string, string> = {
   add: "Remembered",
   refine: "Updated a memory",
   supersede: "Corrected an older note",
-  noop: "Already knew this",
+  noop: "No change",
 };
 
 const writeView = (step: ToolStep): ToolView => {
@@ -387,7 +387,7 @@ const coreView = (step: ToolStep): ToolView => {
 const messageView = (step: ToolStep, nameOf: NameOf | undefined): ToolView => {
   const input = recordOf(step.input);
   const to = flatOf(input.to);
-  const name = to === undefined ? "a sibling bot" : (nameOf?.(to) ?? to);
+  const name = to === undefined ? "another bot" : (nameOf?.(to) ?? to);
   const topic = flatOf(input.topic);
   return {
     family: "social",
@@ -397,7 +397,7 @@ const messageView = (step: ToolStep, nameOf: NameOf | undefined): ToolView => {
         : input.kind === "notify"
           ? `Notified ${name}`
           : `Asked ${name}`,
-    live: "Writing to a sibling…",
+    live: "Sending a message…",
     body: clip(rawOf(input.body), 4000),
     tags: topic === undefined ? undefined : [`room: ${topic}`],
   };
@@ -547,7 +547,7 @@ const requestView = (step: ToolStep): ToolView => {
   };
 };
 
-/** The main bot minting a sibling: the name is the one detail worth showing. */
+/** The main bot creating a bot: the name is the one detail worth showing. */
 const botCreateView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
   const name = flatOf(input.name);
@@ -579,7 +579,7 @@ const botCreateView = (step: ToolStep): ToolView => {
 
 /** Simple verb tables: exact tool name → [past, live-ing, family]. */
 const VERBED: Record<string, [string, string, ToolFamily]> = {
-  memory_forget: ["Let a memory go", "Letting a memory go…", "memory"],
+  memory_forget: ["Forgot a memory", "Forgetting a memory…", "memory"],
   memory_history: ["Traced a memory's history", "Tracing a memory…", "memory"],
   memory_related: ["Looked up related memories", "Looking up related memories…", "memory"],
   task_message: ["Steered a task", "Steering a task…", "task"],
@@ -606,7 +606,7 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   connector_enable: ["Switched a connector on", "Switching a connector on…", "connectors"],
   connector_disable: ["Switched a connector off", "Switching a connector off…", "connectors"],
   state_get: ["Read its working notes", "Reading its notes…", "generic"],
-  state_set: ["Jotted a working note", "Jotting a note…", "generic"],
+  state_set: ["Saved a note", "Saving a note…", "generic"],
   state_list: ["Listed its working notes", "Listing its notes…", "generic"],
   state_delete: ["Removed a working note", "Removing a note…", "generic"],
   bash_host: ["Ran a script on the host", "Running a host script…", "code"],
@@ -619,8 +619,8 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   skill_evolve: ["Started improving a skill", "Improving a skill…", "skill"],
   vault_list: ["Checked the vault", "Checking the vault…", "credentials"],
   vault_contacts: ["Looked up a contact", "Looking up a contact…", "credentials"],
-  bots_list: ["Listed the crew", "Listing the crew…", "social"],
-  bot_info: ["Read a sibling's profile", "Reading a profile…", "social"],
+  bots_list: ["Listed bots", "Listing bots…", "social"],
+  bot_info: ["Read a bot's profile", "Reading a profile…", "social"],
   connector_list: ["Listed connectors", "Listing connectors…", "connectors"],
   connector_load: ["Loaded connector tools", "Loading connector tools…", "connectors"],
   connector_reconnect: ["Reconnected a connector", "Reconnecting a connector…", "connectors"],

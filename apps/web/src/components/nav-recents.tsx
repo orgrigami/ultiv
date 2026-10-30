@@ -82,7 +82,7 @@ export function NavRecents({ profileId }: { profileId: string | undefined }) {
   if (recents.length === 0) return null;
   return (
     <div className="mt-3 flex flex-col gap-0.5">
-      <div className="overline-plate flex min-h-7 items-center px-3">
+      <div className="section-label flex min-h-7 items-center px-3">
         Recents · {bot?.name ?? "chat"}
       </div>
       {recents.map((session) => (

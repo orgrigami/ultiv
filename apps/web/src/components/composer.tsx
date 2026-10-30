@@ -48,7 +48,7 @@ export function Composer({
 }) {
   const round = "shrink-0 rounded-full";
   const placeholder = !live
-    ? "Waiting for link…"
+    ? "Waiting for the server…"
     : botName !== undefined && botName !== ""
       ? `Ask ${botName}`
       : "Ask anything";

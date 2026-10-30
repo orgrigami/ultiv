@@ -1,7 +1,7 @@
 /**
  * Tool calls as the transcript tells them: a human line while a call runs
- * and after it lands, the call's index in the run (the course overlay over
- * the prose terrain), bespoke bodies for the calls that have them, and raw
+ * and after it lands, the call's index in the run,
+ * bespoke bodies for the calls that have them, and raw
  * receipts one click away. Every tool renders in owner words; a tool no lens
  * knows takes a humanized title and raw receipts as its body.
  */

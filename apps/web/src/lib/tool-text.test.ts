@@ -34,8 +34,8 @@ describe("presentationOf", () => {
       ["skill_evolve", "Started improving a skill"],
       ["vault_list", "Checked the vault"],
       ["vault_contacts", "Looked up a contact"],
-      ["bots_list", "Listed the crew"],
-      ["bot_info", "Read a sibling's profile"],
+      ["bots_list", "Listed bots"],
+      ["bot_info", "Read a bot's profile"],
       ["connector_load", "Loaded connector tools"],
       ["connector_reconnect", "Reconnected a connector"],
       ["history_search", "Searched past chats"],
@@ -130,7 +130,7 @@ describe("presentationOf", () => {
     const noop = presentationOf(step({ name: "memory_write", output: "remembered (noop): x" }));
     if (supersede.kind !== "human" || noop.kind !== "human") return fail();
     expect(supersede.view.done).toBe("Corrected an older note");
-    expect(noop.view.done).toBe("Already knew this");
+    expect(noop.view.done).toBe("No change");
   });
 
   it("admits a refused write instead of claiming success", () => {
@@ -166,7 +166,7 @@ describe("presentationOf", () => {
     expect(view.view.done).toBe("No memories matched");
   });
 
-  it("names the sibling a message went to, falling back to the raw id", () => {
+  it("names the bot a message went to, falling back to the raw id", () => {
     const asked = presentationOf(
       step({
         name: "message",

@@ -24,7 +24,7 @@ import {
   TraceTitle,
 } from "@/components/ui/trace";
 
-// The prose is the terrain: the bot speaks on the open ground, the owner
+// The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
 const roleStyles = {
   user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words",

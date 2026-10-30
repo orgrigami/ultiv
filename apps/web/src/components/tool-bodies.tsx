@@ -66,7 +66,7 @@ function CodePlate({
   );
 }
 
-/** The query plate above a hit list: what was asked, in the small voice. */
+/** The query line above a hit list: what was asked. */
 function QueryPlate({ query }: { query: string }) {
   if (query === "") return null;
   return <p className="readout text-muted-foreground mb-1.5">“{query}”</p>;
@@ -199,7 +199,7 @@ function RecordBody({
               key={field.k}
               className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 py-1 sm:grid-cols-[9rem_minmax(0,1fr)]"
             >
-              <dt className="overline-plate truncate pt-1">{field.k}</dt>
+              <dt className="section-label truncate pt-1">{field.k}</dt>
               <dd className={cn("min-w-0 break-words text-sm", field.mono && "font-mono text-xs")}>
                 {field.v}
               </dd>
@@ -218,7 +218,7 @@ function InputField({ k, v }: { k: string; v: unknown }) {
     typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
   return (
     <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 py-1 sm:grid-cols-[9rem_minmax(0,1fr)]">
-      <dt className="overline-plate truncate pt-1">{k}</dt>
+      <dt className="section-label truncate pt-1">{k}</dt>
       <dd
         className={cn(
           "min-w-0 break-words text-sm",
@@ -285,8 +285,8 @@ function BulletRow({ item }: { item: string }) {
   );
 }
 
-/** Plain output in its own shape: header lines become plate labels, bullet
- * groups become lists, and anything else stays one copyable plate. */
+/** Plain output in its own shape: header lines become labels, bullet
+ * groups become lists, and anything else stays one copyable block. */
 function StructuredText({ text }: { text: string }) {
   const rows: React.ReactNode[] = [];
   let items: string[] = [];
@@ -315,7 +315,7 @@ function StructuredText({ text }: { text: string }) {
     }
     flush();
     rows.push(
-      <p key={`h${rows.length}`} className="overline-plate pt-1">
+      <p key={`h${rows.length}`} className="section-label pt-1">
         {t.replace(/:$/, "")}
       </p>,
     );
@@ -325,7 +325,7 @@ function StructuredText({ text }: { text: string }) {
 }
 
 /** The output as its best self: pretty JSON when it parses, its own list
- * shape when it has one, one copyable plate otherwise. */
+ * shape when it has one, one copyable block otherwise. */
 function OutputPlate({ output }: { output: string }) {
   const trimmed = output.trimStart();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {

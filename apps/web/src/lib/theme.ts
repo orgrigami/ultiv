@@ -1,5 +1,5 @@
 /**
- * Theme control: the station runs dark by default, following the OS, with an
+ * Theme control: dark by default, following the OS, with an
  * explicit light/dark pin the owner can set once and is remembered per device.
  * Applied before the first render so there is no flash.
  */

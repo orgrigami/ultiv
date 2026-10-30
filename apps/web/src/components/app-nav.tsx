@@ -1,10 +1,9 @@
 /**
- * The station console. From sm: up, a fixed rail: the wordmark with the
- * station link state, the crew roster under its plate (the bots ARE the
- * navigation; switching = clicking a crew member), labeled system links,
- * the current bot's recents, and the owner's plate at the foundation.
- * On phones, a bottom tab bar (Crew, Routines, raised Chat, Tools, More).
- * Both mark the current section with aria-current.
+ * The app nav. From sm: up, a fixed rail: the wordmark with its connection
+ * state, the crew roster (the bots ARE the navigation; switching = clicking
+ * a crew member), labeled system links, the current bot's recents, and the
+ * owner's block at the bottom. On phones, a bottom tab bar (Crew, Routines,
+ * raised Chat, Tools, More). Both mark the current section with aria-current.
  */
 import { Popover } from "@base-ui/react/popover";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
@@ -52,7 +51,7 @@ function useSection(): Section | null {
 }
 
 /**
- * The bot the console is "about": the /c/ session's bot when one is open,
+ * The bot the current view is about: the /c/ session's bot when one is open,
  * then ?bot=, then the last bot, then the main bot.
  */
 function useActiveBotId(): string | undefined {
@@ -100,7 +99,7 @@ function SystemLink({
   );
 }
 
-/** New chat: creates a session for the bot the console is about. */
+/** New chat: creates a session for the bot the current view is about. */
 function NewChatRow({ botId, current }: { botId: string | undefined; current: boolean }) {
   const { sessions } = useApp();
   const navigate = useNavigate();
@@ -142,14 +141,12 @@ function NewChatRow({ botId, current }: { botId: string | undefined; current: bo
 
 /** One crew member on the rail: avatar, name, and their live state. */
 function CrewRow({
-  id,
   name,
   active,
   needsYou,
   working,
   onPick,
 }: {
-  id: string;
   name: string;
   active: boolean;
   needsYou: boolean;
@@ -168,7 +165,7 @@ function CrewRow({
           : "text-muted-foreground hover:text-sidebar-foreground",
       )}
     >
-      <BotAvatar id={id} name={name} size="sm" />
+      <BotAvatar name={name} size="sm" />
       <span
         className={cn("min-w-0 flex-1 truncate text-sm", active ? "font-medium" : "font-normal")}
       >
@@ -183,7 +180,7 @@ function CrewRow({
   );
 }
 
-/** The wordmark plate: the station's name and its link state. */
+/** The wordmark row: the app name and its connection state. */
 function Wordmark() {
   const { sessions } = useApp();
   const phase = sessions.phase;
@@ -192,26 +189,26 @@ function Wordmark() {
       <span className="text-[0.9375rem] font-semibold tracking-tight">ultiv</span>
       <span
         className="readout text-muted-foreground flex items-center gap-1.5"
-        title={phase === "live" ? "Connected to the station" : "Reconnecting to the station"}
+        title={phase === "live" ? "Connected" : "Reconnecting"}
       >
         <Mark
           kind={phase === "live" ? "done" : phase === "connecting" ? "pending" : "error"}
           tone={phase === "live" ? "ok" : phase === "connecting" ? "muted" : "signal"}
           className="size-3"
         />
-        {phase === "live" ? "live" : phase === "connecting" ? "linking" : "lost"}
+        {phase === "live" ? "connected" : phase === "connecting" ? "connecting" : "disconnected"}
       </span>
     </div>
   );
 }
 
-/** The crew plate header: the overline plus the shared bot-panel trigger. */
+/** The crew section header: the label plus the shared bot-panel trigger. */
 function CrewPlate({ botId, onMemory }: { botId: string | undefined; onMemory: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <div className="flex items-center justify-between gap-1 pr-1 pl-3">
-        <span className="overline-plate">Crew</span>
+        <span className="section-label">Crew</span>
         <Popover.Trigger
           aria-label="Crew overview"
           className="text-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent/60 flex size-7 items-center justify-center rounded-md outline-none"
@@ -236,7 +233,7 @@ export function SideNav() {
 
   return (
     <nav
-      aria-label="Station"
+      aria-label="Primary"
       className="bg-sidebar text-sidebar-foreground border-sidebar-border hidden w-64 shrink-0 flex-col overflow-y-auto border-r sm:flex"
     >
       <div className="flex flex-col gap-0.5 p-3 pb-0">
@@ -254,7 +251,6 @@ export function SideNav() {
           {roster.map((bot) => (
             <CrewRow
               key={bot.id}
-              id={bot.id}
               name={bot.name}
               active={bot.id === botId}
               needsYou={attention.has(bot.id)}
@@ -265,7 +261,7 @@ export function SideNav() {
             />
           ))}
         </div>
-        <div className="plate-rule mt-3" />
+        <div className="border-border mt-3 border-t" />
         <div className="mt-2 flex flex-col">
           <NewChatRow botId={botId} current={section === "chat"} />
           <SystemLink
