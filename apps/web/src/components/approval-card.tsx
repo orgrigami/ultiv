@@ -10,6 +10,8 @@ import { ChevronRightIcon, EllipsisIcon, ShieldAlertIcon, ShieldCheckIcon } from
 import { useState } from "react";
 import type { ModelInfo } from "@ultiv/contracts";
 import { BotCreateCard } from "@/components/bot-create-card";
+import { InputRecord } from "@/components/tool-bodies";
+import { DevDetails } from "@/components/ui/dev-details";
 import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
@@ -162,11 +164,17 @@ function DecisionCard({
         Details
       </button>
       {details && (
-        <CodeBlock size="sm">
-          <CodeBlockContent wrap className="max-h-48 overflow-y-auto">
-            {`${name}\n${JSON.stringify(input, null, 2)}`}
-          </CodeBlockContent>
-        </CodeBlock>
+        <div className="flex flex-col gap-2">
+          <p className="overline-plate">{name}</p>
+          <InputRecord input={input} />
+          <DevDetails className="-ml-1">
+            <CodeBlock size="sm">
+              <CodeBlockContent wrap className="max-h-48 overflow-y-auto">
+                {JSON.stringify(input, null, 2)}
+              </CodeBlockContent>
+            </CodeBlock>
+          </DevDetails>
+        </div>
       )}
       {error !== null && (
         <p className="text-destructive text-xs" role="alert">

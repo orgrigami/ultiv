@@ -213,14 +213,74 @@ function RecordBody({
   );
 }
 
-/** Raw input/output receipts, for calls whose payload no lens knows. */
-export function Receipts({ input, output }: { input: string; output?: string | undefined }) {
+/** One input field: scalars in owner words, structures as mono JSON. */
+function InputField({ k, v }: { k: string; v: unknown }) {
+  const text =
+    typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
+  return (
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 py-1 sm:grid-cols-[9rem_minmax(0,1fr)]">
+      <dt className="overline-plate truncate pt-1">{k}</dt>
+      <dd
+        className={cn(
+          "min-w-0 break-words text-sm",
+          text === null && "font-mono text-xs whitespace-pre-wrap",
+        )}
+      >
+        {text ?? JSON.stringify(v, null, 2)}
+      </dd>
+    </div>
+  );
+}
+
+/** The call's input as readable rows, for calls whose payload no lens knows. */
+export function InputRecord({ input }: { input: unknown }) {
+  const fields =
+    typeof input === "object" && input !== null
+      ? Object.entries(input).filter(([, v]) => v !== null && v !== undefined)
+      : [];
+  if (fields.length === 0) return null;
+  return (
+    <dl className="divide-border/60 flex min-w-0 max-w-prose flex-col divide-y">
+      {fields.map(([k, v]) => (
+        <InputField key={k} k={k} v={v} />
+      ))}
+    </dl>
+  );
+}
+
+/** The output as its best plate: pretty JSON when it parses, text otherwise. */
+function OutputPlate({ output }: { output: string }) {
+  const trimmed = output.trimStart();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return (
+        <CodePlate
+          title="output"
+          code={JSON.stringify(JSON.parse(output), null, 2)}
+          lang="json"
+          wrap
+          copy
+        />
+      );
+    } catch {
+      // fall through to the text plate
+    }
+  }
+  return <CodePlate title="output" code={output} lang="" wrap copy />;
+}
+
+/** The fallback body for calls no lens shapes: input as rows, output as a plate. */
+export function Receipts({ input, output }: { input: unknown; output?: string | undefined }) {
+  const hasInput =
+    input !== null &&
+    input !== undefined &&
+    (typeof input !== "object" || Object.keys(input as object).length > 0);
+  const hasOutput = output !== undefined && output !== "";
+  if (!hasInput && !hasOutput) return null;
   return (
     <div className={cn(BOX, "flex flex-col gap-2")}>
-      <CodePlate title="input" code={input} lang="json" wrap copy maxH="max-h-64" />
-      {output !== undefined && output !== "" && (
-        <CodePlate title="output" code={output} lang="" wrap copy maxH="max-h-64" />
-      )}
+      {hasInput && <InputRecord input={input} />}
+      {hasOutput && <OutputPlate output={output} />}
     </div>
   );
 }

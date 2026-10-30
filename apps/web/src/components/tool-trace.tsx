@@ -216,7 +216,7 @@ export const ToolTrace = memo(function ToolTrace({
           {body === "lines" && <Lines lines={human?.lines ?? []} />}
           {body === undefined && (
             <Receipts
-              input={JSON.stringify(step.input, null, 2)}
+              input={step.input}
               {...(step.output !== null && step.output !== "" ? { output: step.output } : {})}
             />
           )}
