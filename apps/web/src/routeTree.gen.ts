@@ -24,6 +24,7 @@ import { Route as CSessionIdRouteImport } from './routes/c.$sessionId'
 import { Route as CrewIndexRouteImport } from './routes/crew.index'
 import { Route as CrewBotIdRouteImport } from './routes/crew.$botId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
+import { Route as CrewDeptDepartmentIdRouteImport } from './routes/crew.dept.$departmentId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -100,6 +101,11 @@ const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   path: '/sessions/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CrewDeptDepartmentIdRoute = CrewDeptDepartmentIdRouteImport.update({
+  id: '/crew/dept/$departmentId',
+  path: '/crew/dept/$departmentId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/crew/': typeof CrewIndexRoute
+  '/crew/dept/$departmentId': typeof CrewDeptDepartmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/crew': typeof CrewIndexRoute
+  '/crew/dept/$departmentId': typeof CrewDeptDepartmentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
   '/crew/': typeof CrewIndexRoute
+  '/crew/dept/$departmentId': typeof CrewDeptDepartmentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/crew/$botId'
     | '/sessions/$sessionId'
     | '/crew/'
+    | '/crew/dept/$departmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/crew/$botId'
     | '/sessions/$sessionId'
     | '/crew'
+    | '/crew/dept/$departmentId'
   id:
     | '__root__'
     | '/'
@@ -205,6 +216,7 @@ export interface FileRouteTypes {
     | '/crew/$botId'
     | '/sessions/$sessionId'
     | '/crew/'
+    | '/crew/dept/$departmentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +235,7 @@ export interface RootRouteChildren {
   CrewBotIdRoute: typeof CrewBotIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   CrewIndexRoute: typeof CrewIndexRoute
+  CrewDeptDepartmentIdRoute: typeof CrewDeptDepartmentIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/crew/dept/$departmentId': {
+      id: '/crew/dept/$departmentId'
+      path: '/crew/dept/$departmentId'
+      fullPath: '/crew/dept/$departmentId'
+      preLoaderRoute: typeof CrewDeptDepartmentIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -351,6 +371,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrewBotIdRoute: CrewBotIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
   CrewIndexRoute: CrewIndexRoute,
+  CrewDeptDepartmentIdRoute: CrewDeptDepartmentIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

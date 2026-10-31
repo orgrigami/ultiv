@@ -8,7 +8,8 @@ import { Popover } from "@base-ui/react/popover";
 import { useNavigate } from "@tanstack/react-router";
 import { BrainIcon, PlusIcon, UserRoundCogIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { NewBotDialog } from "@/components/bot-dialog";
+import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NewBotDialog } from "@/components/new-bot-dialog";
 import { CrewList } from "@/components/crew-list";
 import { useApp } from "@/lib/app-state";
 import { useNow } from "@/lib/use-now";
@@ -50,8 +51,11 @@ export function BotPanel({
   const { sessions, mainId, refreshAll } = useApp();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [creatingDepartment, setCreatingDepartment] = useState(false);
   const now = useNow(30_000, true);
   const current = sessions.profiles.find((bot) => bot.id === currentId);
+  // "New bot" from a department bot's pill starts in that department.
+  const currentDepartment = current?.departmentId ?? null;
 
   const pick = (id: string): void => {
     onClose();
@@ -63,7 +67,17 @@ export function BotPanel({
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="center" sideOffset={8} className="z-50">
           <Popover.Popup className="bg-popover/95 text-popover-foreground flex max-h-[min(28rem,70dvh)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-y-auto rounded-xl border p-1.5 shadow-lg backdrop-blur-xl outline-none">
-            <CrewList variant="menu" activeId={currentId} onPick={pick} now={now} />
+            <CrewList
+              variant="menu"
+              activeId={currentId}
+              onPick={pick}
+              onOpenDepartment={(id) => {
+                onClose();
+                void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: id } });
+              }}
+              onNewDepartment={() => setCreatingDepartment(true)}
+              now={now}
+            />
             <div className="bg-border my-1 h-px" />
             {current !== undefined && onMemory !== undefined && (
               <UtilityRow
@@ -93,7 +107,16 @@ export function BotPanel({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
+      <NewDepartmentDialog
+        open={creatingDepartment}
+        onOpenChange={setCreatingDepartment}
+        onCreated={(id) => {
+          onClose();
+          void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: id } });
+        }}
+      />
       <NewBotDialog
+        departmentId={currentDepartment}
         open={creating}
         onOpenChange={setCreating}
         onCreated={async (id) => {

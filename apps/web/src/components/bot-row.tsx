@@ -130,9 +130,17 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
                 Edit role, personality and model
               </Menu.Item>
               {!isMain && (
-                <Menu.Item className={item} onClick={() => void act(() => api.setMain(bot.id))}>
+                <Menu.Item
+                  className={item}
+                  disabled={Boolean(bot.departmentId)}
+                  onClick={() => void act(() => api.setMain(bot.id))}
+                >
                   Make main bot
-                  <span className="text-muted-foreground text-xs">Opens first when you start.</span>
+                  <span className="text-muted-foreground text-xs">
+                    {bot.departmentId
+                      ? "The main bot lives in the org: move it to the org first."
+                      : "Opens first when you start."}
+                  </span>
                 </Menu.Item>
               )}
               {!isMain && (

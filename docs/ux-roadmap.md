@@ -186,3 +186,17 @@ card, Waiting row and Stop until the fresh state arrives.
 **Quiet wordmark** (2026-10-31): DONE — the "connected" dot and word beside
 the wordmark are gone; it shows a muted dot while connecting and a warning
 "disconnected" only when the link is down, nothing when all is well.
+
+**Departments you can see and reach** (2026-11-01): DONE — with no
+department the app looks as before. Once there is one, the sidebar and the
+bot pill list the org first with its bots, then each department as a
+collapsible group (remembered per browser; opening a bot in a collapsed group
+opens it) with a gear to its page, and "New department" at the end. A
+department page (`/crew/dept/<id>`) holds its bots (New bot here, Move a bot
+here), Instructions, VM size, host-access switch, people and the shared
+folder note, shared-memory proposals, templates, activity across
+departments, and Remove (warns, offers Export first and Move them all to the
+org; bots are never deleted with it). New bot asks "Which department?"; a
+profile's Manage starts with "Move to…" (the main bot stays in the org); the
+pill and the profile show a bot's home. The Crew page has New department and
+an "Across departments" list from the reach audit.

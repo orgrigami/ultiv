@@ -14,7 +14,6 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { describeAllowEntry } from "@/lib/approval-text";
-import { useApp } from "@/lib/app-state";
 import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
 import { deadlineFieldProblem, deadlineValue, formProblem } from "@/lib/deadline-fields";
 
@@ -391,11 +390,12 @@ export function BotDialog({
   );
 }
 
-/** Create a bot from the form; resolves to its id. */
-export const createBot = async (form: BotForm): Promise<string> =>
+/** Create a bot from the form (in a department, or the org); resolves to its id. */
+export const createBot = async (form: BotForm, departmentId?: string | null): Promise<string> =>
   (
     await api.createProfile({
       name: form.name.trim(),
+      ...(departmentId ? { departmentId } : {}),
       ...(form.description !== "" ? { description: form.description } : {}),
       ...(form.persona !== "" ? { persona: form.persona } : {}),
       ...modelPayload(form),
@@ -410,31 +410,6 @@ export const createBot = async (form: BotForm): Promise<string> =>
         : {}),
     })
   ).id;
-
-/** "New bot" without a trigger of its own (the bot switcher drives it). */
-export function NewBotDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onCreated: (id: string) => Promise<void>;
-}) {
-  const { sessions } = useApp();
-  return (
-    <BotDialog
-      title="New bot"
-      initial={emptyForm}
-      models={sessions.models}
-      open={open}
-      onOpenChange={onOpenChange}
-      confirm={async (form) => {
-        await onCreated(await createBot(form));
-      }}
-    />
-  );
-}
 
 export function modelPayload(form: BotForm) {
   return form.modelId === ""

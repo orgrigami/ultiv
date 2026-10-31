@@ -10,6 +10,7 @@ import { useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { BotPanel } from "@/components/bot-panel";
+import { useHomeWord } from "@/components/department/bot-home";
 import { useApp } from "@/lib/app-state";
 
 export function BotSwitcher({
@@ -24,7 +25,10 @@ export function BotSwitcher({
   /** Opens this bot's Memory panel (absent when there is no bot). */
   onMemory?: (() => void) | undefined;
 }) {
-  const { attention, busy } = useApp();
+  const { attention, busy, sessions } = useApp();
+  const bot = sessions.profiles.find((one) => one.id === currentId);
+  // With departments, the pill says where this bot lives.
+  const home = useHomeWord(bot?.departmentId, bot !== undefined);
   const [open, setOpen] = useState(false);
   // Another bot's gate may need the owner; this chat's own card handles its own.
   const waiting = [...attention].some((id) => id !== currentId);
@@ -43,6 +47,9 @@ export function BotSwitcher({
           />
           <span className="flex min-w-0 flex-col text-left leading-tight">
             <span className="truncate text-sm font-medium">{name}</span>
+            {home !== null && (
+              <span className="text-muted-foreground truncate text-[11px]">{home}</span>
+            )}
           </span>
           <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
           {waiting && (

@@ -30,6 +30,7 @@ import { ApprovalModeChoice } from "@/components/approval-mode-control";
 import { HostAccessSwitch } from "@/components/org-admin";
 import { APPROVAL_MODE_HELP, AutoApproveField, EditBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";
+import { BotHomeField, HomeLabel } from "@/components/department/bot-home";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MemoryContent } from "@/components/memory/memory-panel";
 import { NavCard } from "@/components/nav-card";
@@ -192,6 +193,7 @@ function Profile({
           <p className="text-muted-foreground max-w-sm text-sm">
             {bot.description !== "" ? bot.description : "No role yet"}
           </p>
+          <HomeLabel bot={bot} />
           <div className="mt-1 flex gap-2">
             <Button
               className="rounded-full px-4"
@@ -377,10 +379,16 @@ function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts 
       </dl>
       <SectionHeader title="Manage" />
       <div className="bg-card divide-border flex flex-col divide-y rounded-2xl border">
+        <BotHomeField bot={bot} isMain={isMain} />
         {!isMain && !archived && (
           <ManageRow
             title="Make main bot"
-            detail="Opens first when you start."
+            detail={
+              bot.departmentId
+                ? "The main bot lives in the org: move this bot to the org first."
+                : "Opens first when you start."
+            }
+            disabled={Boolean(bot.departmentId)}
             onClick={() => void act(() => api.setMain(bot.id))}
           />
         )}
