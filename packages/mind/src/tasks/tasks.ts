@@ -18,7 +18,14 @@ import { Context, Effect, Layer } from "effect";
 import { External, ownerErrorText, readEnv } from "@spriessen/core";
 import type { TaskInfo, TaskList } from "@spriessen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
-import { findTask, readTasks, taskConversationKey, updateTask, writeTasks } from "./store.ts";
+import {
+  findTask,
+  onTaskChange,
+  readTasks,
+  taskConversationKey,
+  updateTask,
+  writeTasks,
+} from "./store.ts";
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";
 import { recentSteps } from "./steps.ts";
 import { owed, wakeParent } from "./wake.ts";
@@ -88,6 +95,8 @@ export interface TasksService {
   readonly notify: (id: string, text: string) => Effect.Effect<NotifyOutcome, External>;
   /** Hear each task settle (done or failed). Returns the unsubscribe. */
   readonly listen: (fn: (task: TaskInfo) => void) => () => void;
+  /** Fires after any task row changes (the poll-free signal for surfaces). */
+  readonly onUpdate: (fn: () => void) => () => void;
   /** The task a conversation belongs to, if it is a task's own conversation. */
   readonly taskOf: (conversationId: string) => Effect.Effect<TaskInfo | undefined, External>;
   /** True when the conversation belongs to a background task: tasks cannot spawn sub-tasks. */
@@ -394,6 +403,7 @@ export const tasksService = (converse: ConverseService): TasksService => {
       rt.listeners.add(fn);
       return () => void rt.listeners.delete(fn);
     },
+    onUpdate: onTaskChange,
     taskOf: (conversationId) => taskOfConversation(converse, conversationId),
     isTaskConversation: (conversationId) =>
       Effect.map(taskOfConversation(converse, conversationId), (task) => task !== undefined),

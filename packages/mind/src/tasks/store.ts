@@ -29,10 +29,38 @@ export const writeTasks = (
   converse: ConverseService,
   tasks: TaskInfo[],
 ): Effect.Effect<void, External> =>
-  converse.docs.commit(async (tx) => {
-    const draft = await tx.doc(TasksDoc);
-    draft.tasks = tasks;
-  });
+  Effect.andThen(
+    converse.docs.commit(async (tx) => {
+      const draft = await tx.doc(TasksDoc);
+      draft.tasks = tasks;
+    }),
+    Effect.sync(fireChanged),
+  );
+
+/** Row-change listeners (see onTaskChange); fired after any task write lands. */
+const changeListeners = new Set<() => void>();
+
+/**
+ * Fires after any task row changes (spawn, status, steer marks, progress
+ * lines). The registry doc is the only task state, so this is the one
+ * signal surfaces need to stay current without polling.
+ */
+export const onTaskChange = (fn: () => void): (() => void) => {
+  changeListeners.add(fn);
+  return () => {
+    changeListeners.delete(fn);
+  };
+};
+
+const fireChanged = (): void => {
+  for (const fn of changeListeners) {
+    try {
+      fn();
+    } catch {
+      // A listener must never break the write that notified it.
+    }
+  }
+};
 
 /** Read-modify-write of one row inside a single commit (no lost updates between rows). */
 export const updateTask = (
@@ -40,10 +68,13 @@ export const updateTask = (
   id: string,
   change: (task: TaskInfo) => TaskInfo,
 ): Effect.Effect<void, External> =>
-  converse.docs.commit(async (tx) => {
-    const draft = await tx.doc(TasksDoc);
-    draft.tasks = draft.tasks.map((task) => (task.id === id ? change(normalize(task)) : task));
-  });
+  Effect.andThen(
+    converse.docs.commit(async (tx) => {
+      const draft = await tx.doc(TasksDoc);
+      draft.tasks = draft.tasks.map((task) => (task.id === id ? change(normalize(task)) : task));
+    }),
+    Effect.sync(fireChanged),
+  );
 
 export const findTask = (
   converse: ConverseService,

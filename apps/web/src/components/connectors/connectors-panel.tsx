@@ -1,7 +1,7 @@
 /**
  * The Connectors screen: every MCP server the owner added, its live status,
- * and an add form. The list refreshes on its own (fast while something is
- * connecting) and whenever the tab regains focus — e.g. back from sign-in.
+ * and an add form. The list refreshes on pushed connector signals and
+ * whenever the tab regains focus — e.g. back from sign-in.
  */
 import { CopyIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -18,6 +18,7 @@ import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { api } from "@/lib/api";
 import { writeClipboard } from "@/lib/clipboard";
+import { onLive } from "@/lib/live.ts";
 import { emptyConnectorForm } from "@/lib/connector-text";
 import { ConnectorCard } from "./connector-card";
 import { ConnectorFormView } from "./connector-form";
@@ -43,30 +44,16 @@ function useConnectors() {
     }
     setVaultItems(usableItems(await api.vault().catch(() => [])));
   }, []);
-  // After Connect, poll fast for a while: the sign-in finishes in another tab.
-  const [watchUntil, setWatchUntil] = useState(0);
-  const busy =
-    (list?.servers.some((server) => server.state === "connecting") ?? false) ||
-    watchUntil > Date.now();
   useEffect(() => {
     void load();
-    const timer = setInterval(
-      () => {
-        if (document.visibilityState === "visible") void load();
-      },
-      busy ? 2_000 : 10_000,
-    );
-    const onFocus = (): void => void load();
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
-    };
-  }, [load, busy]);
-  const watch = useCallback(() => setWatchUntil(Date.now() + 120_000), []);
-  return { list, loadFailed, vaultItems, load, watch };
+    // Pushed connector signals replace the poll; the 120 s watch after a
+    // Connect covers an OAuth sign-in finishing in another tab, where only
+    // focus events reach us.
+    return onLive((kind) => {
+      if (kind === "connectors" || kind === "vault" || kind === "sync") void load();
+    });
+  }, [load]);
+  return { list, loadFailed, vaultItems, load };
 }
 
 /** Open the provider's sign-in page in a new tab (opened first, so popups aren't blocked). */
@@ -116,7 +103,7 @@ function CallbackNote({ url }: { url: string }) {
 }
 
 export function ConnectorsPanel({ profiles }: { profiles: ProfileInfo[] }) {
-  const { list, loadFailed, vaultItems, load, watch } = useConnectors();
+  const { list, loadFailed, vaultItems, load } = useConnectors();
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const act = async (run: () => Promise<unknown>): Promise<void> => {
@@ -176,7 +163,6 @@ export function ConnectorsPanel({ profiles }: { profiles: ProfileInfo[] }) {
           vaultItems={vaultItems}
           act={act}
           connect={(target) => {
-            watch();
             void act(() => openSignIn(target));
           }}
         />

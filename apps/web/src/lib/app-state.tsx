@@ -16,6 +16,7 @@ import {
   type NeedsYouExtra,
 } from "./needs-you.ts";
 import { notifyError, pollFailed, pollRecovered } from "./notify.ts";
+import { onLive } from "./live.ts";
 import { useSessions } from "./use-sessions";
 
 export interface AppState {
@@ -60,8 +61,11 @@ function useApprovals(): [readonly PendingApprovalRow[], () => Promise<void>] {
   }, []);
   useEffect(() => {
     void load();
-    const timer = setInterval(() => void load(), 5_000);
-    return () => clearInterval(timer);
+    // Pushed signals replace the poll: an approval change (or a reconnect)
+    // refetches now; window focus still covers a sleeping tab.
+    return onLive((kind) => {
+      if (kind === "approvals" || kind === "needs-you" || kind === "sync") void load();
+    });
   }, [load]);
   return [approvals, load];
 }
@@ -81,11 +85,10 @@ function useTasks(): readonly TaskRow[] {
       }
     };
     void load();
-    const timer = setInterval(() => void load(), 5_000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
+    // Pushed signals replace the poll: a task change refetches now.
+    return onLive((kind) => {
+      if (kind === "tasks" || kind === "sync") void load();
+    });
   }, []);
   return tasks;
 }
@@ -102,9 +105,10 @@ function useNeedsExtra(): [NeedsYouExtra | null, () => Promise<void>] {
   }, []);
   useEffect(() => {
     void reload();
-    const onFocus = (): void => void reload();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    // The tidy counts and escalations refresh with the Needs you signals too.
+    return onLive((kind) => {
+      if (kind === "needs-you" || kind === "sync") void reload();
+    });
   }, [reload]);
   return [extra, reload];
 }

@@ -9,6 +9,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { MindService } from "@spriessen/mind";
 import { isPathEscape } from "@spriessen/ext";
 import type { CronScheduler } from "./cron.ts";
+import { liveKindsFor, liveHub } from "./live.ts";
 import { authorize, contentTypeAllowed } from "./auth/guard.ts";
 import { handleAuthRoutes } from "./auth/routes.ts";
 import type { AuthStore } from "./auth/store.ts";
@@ -101,6 +102,9 @@ export const createRestHandler = (deps: RestDeps) => {
         readBody,
       };
       await route(args);
+      // A mutation is a signal: tell the live sockets which slices changed
+      // (the client refetches; the frames never carry data).
+      for (const kind of liveKindsFor(req.method ?? "GET", url.pathname)) liveHub.emit(kind);
     })().catch((error) =>
       isPathEscape(error)
         ? json(400, { error: error.message })

@@ -7,9 +7,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TaskRow } from "@spriessen/contracts";
 import { api } from "@/lib/api";
+import { onLive } from "@/lib/live.ts";
 import { pollFailed, pollRecovered } from "@/lib/notify";
-
-const POLL_MS = 3_000;
 
 export interface ChatTasks {
   readonly tasks: readonly TaskRow[];
@@ -35,11 +34,14 @@ export function useTasks(conversationId: string | null): ChatTasks {
   useEffect(() => {
     setTasks([]);
     void refresh();
-    const timer = setInterval(() => void refresh(), POLL_MS);
+    // Pushed signals replace the poll; focus still covers a sleeping tab.
+    const off = onLive((kind) => {
+      if (kind === "tasks" || kind === "sync") void refresh();
+    });
     const onFocus = (): void => void refresh();
     window.addEventListener("focus", onFocus);
     return () => {
-      clearInterval(timer);
+      off();
       window.removeEventListener("focus", onFocus);
     };
   }, [refresh]);

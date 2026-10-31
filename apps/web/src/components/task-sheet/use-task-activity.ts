@@ -1,13 +1,13 @@
 /**
  * One task's activity while its sheet is open: steps, files and any approval
- * waiting on it. Polls (REST has no push); cheap because the endpoint returns
- * a size-capped tail. Settled tasks stop polling once loaded.
+ * waiting on it. Live signals drive the refresh (a task row change or a
+ * publication in the task's conversation), and window focus covers a
+ * sleeping tab. Settled tasks load once and stop.
  */
 import { useCallback, useEffect, useState } from "react";
 import type { TaskInfo } from "@spriessen/contracts";
 import { api, type ArtifactRow, type TaskActivity } from "@/lib/api";
-
-const POLL_MS = 2_500;
+import { onLive } from "@/lib/live.ts";
 
 export function useTaskActivity(task: TaskInfo, open: boolean) {
   const [activity, setActivity] = useState<TaskActivity | null>(null);
@@ -29,9 +29,10 @@ export function useTaskActivity(task: TaskInfo, open: boolean) {
   useEffect(() => {
     if (!open) return;
     void load();
-    if (!running) return;
-    const timer = setInterval(() => void load(), POLL_MS);
-    return () => clearInterval(timer);
+    // Pushed signals replace the poll; focus still covers a sleeping tab.
+    return onLive((kind) => {
+      if (running && (kind === "tasks" || kind === "approvals" || kind === "sync")) void load();
+    });
   }, [open, load, running]);
 
   const decide = async (approved: boolean, always?: boolean, takeover?: boolean) => {

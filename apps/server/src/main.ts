@@ -25,6 +25,8 @@ import { can } from "./rest/can.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
+import { LIVE_PATH, liveConnections, liveHub } from "./live.ts";
+import { watchRunningTasks } from "./live-tasks.ts";
 import { AuthStore } from "./auth/store.ts";
 import { createRestHandler } from "./rest.ts";
 import { serveSession } from "./session.ts";
@@ -84,6 +86,20 @@ export async function buildStack(options?: {
   }
   // The attention last-mile: dead-letters and disabled jobs must ARRIVE.
   wireEscalationPager(mind);
+  // The live socket: task and approval changes are pushed as signals (the
+  // same seams the web-push notifier listens on).
+  const liveStops = [
+    mind.tasks.listen(() => {
+      liveHub.emit("tasks");
+      liveHub.emit("needs-you");
+    }),
+    mind.approvals.listen(() => {
+      liveHub.emit("approvals");
+      liveHub.emit("needs-you");
+    }),
+    mind.mcp?.subscribe(() => liveHub.emit("connectors")),
+    watchRunningTasks(mind, () => liveHub.emit("tasks")).stop,
+  ];
   // Web Push to the owner's devices (inert until VAPID keys are in .env).
   const push = startPush(mind);
   let refreshSchedules: () => Promise<void> = async () => undefined;
@@ -123,6 +139,9 @@ export async function buildStack(options?: {
   // noServer: the http server's one upgrade handler routes by path (the
   // chord links here, the live event socket in slice 10).
   const wss = new WebSocketServer({ noServer: true });
+  // The live event socket: coarse change signals only (docs/LIVE.md).
+  const liveWss = liveConnections();
+  liveWss.on("connection", (client) => liveHub.add(client));
   acceptWebSockets(wss, host, {
     principal: async (request) => {
       // The upgrade IS the credential check: no valid session, no link.
@@ -141,12 +160,17 @@ export async function buildStack(options?: {
       socket.destroy();
       return;
     }
-    // Every upgrade is a chord link today; the live socket (slice 10) will
-    // claim its own path here.
+    const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    if (path === LIVE_PATH) {
+      liveWss.handleUpgrade(req, socket, head, (client) => liveWss.emit("connection", client, req));
+      return;
+    }
+    // Everything else is a chord link.
     wss.handleUpgrade(req, socket, head, (client) => wss.emit("connection", client, req));
   });
 
   const close = async () => {
+    for (const stop of liveStops) stop?.();
     push.stop();
     memoryTidy.stop();
     scheduler.stop();
@@ -157,6 +181,7 @@ export async function buildStack(options?: {
     // Drop connected links first: wss.close() waits for clients otherwise, so
     // one live browser tab would block shutdown (and node --watch restarts) forever.
     for (const client of wss.clients) client.terminate();
+    for (const client of liveWss.clients) client.terminate();
     await Promise.allSettled([
       new Promise<void>((resolve) => wss.close(() => resolve())),
       new Promise<void>((resolve) => http.close(() => resolve())),
