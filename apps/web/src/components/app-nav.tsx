@@ -24,6 +24,7 @@ import { Mark } from "@/components/state-mark";
 import { useApp } from "@/lib/app-state";
 import { pastChats, type ChatRow } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
+import { linkBadge } from "@/lib/link-state";
 import { badgeText, SECTION_LABEL, SECTIONS, sectionOf, type Section } from "@/lib/nav";
 import { useQuickSwitch } from "@/lib/quick-switch-context";
 import { cn } from "@/lib/utils";
@@ -145,24 +146,24 @@ function RailLink({ section, current }: { section: Section; current: boolean }) 
   );
 }
 
-/** The wordmark row: the app name and its connection state. */
+/** The wordmark row: the app name, plus the link state only when it isn't up. */
 function Wordmark() {
   const { sessions } = useApp();
-  const phase = sessions.phase;
+  const badge = linkBadge(sessions.phase);
   return (
     <div className="flex items-center gap-2 px-3 pt-1 pb-2">
       <BrandLockup />
-      <span
-        className="readout text-muted-foreground flex items-center gap-1.5"
-        title={phase === "live" ? "Connected" : "Reconnecting"}
-      >
-        <Mark
-          kind={phase === "live" ? "done" : phase === "connecting" ? "pending" : "error"}
-          tone={phase === "live" ? "ok" : phase === "connecting" ? "muted" : "signal"}
-          className="size-3"
-        />
-        {phase === "live" ? "connected" : phase === "connecting" ? "connecting" : "disconnected"}
-      </span>
+      {badge !== null && (
+        <span
+          className="readout text-muted-foreground flex items-center gap-1.5"
+          title={badge.title}
+          role="status"
+          aria-label={badge.title}
+        >
+          <Mark kind={badge.kind} tone={badge.tone} className="size-3" />
+          {badge.label}
+        </span>
+      )}
     </div>
   );
 }

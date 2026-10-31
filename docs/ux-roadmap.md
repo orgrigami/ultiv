@@ -182,3 +182,7 @@ a message the owner sends instead of tapping resolves the card as declined
 and the bot reads that message as the answer; and an open chat reconnects by
 itself after the link drops (0.5 s doubling to 10 s), clearing the stale
 card, Waiting row and Stop until the fresh state arrives.
+
+**Quiet wordmark** (2026-10-31): DONE — the "connected" dot and word beside
+the wordmark are gone; it shows a muted dot while connecting and a warning
+"disconnected" only when the link is down, nothing when all is well.
