@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   ModelInfo,
   PendingApproval,
@@ -29,6 +29,8 @@ import { aboveComposer, useChatScroll } from "@/lib/use-chat-scroll";
 import { api } from "@/lib/api";
 import { useOpenWork } from "@/lib/work-pane";
 import { NeedsPill } from "@/components/needs-pill";
+import { ChecklistStrip } from "@/components/checklist-strip";
+import { currentPlan } from "@/lib/checklist-strip";
 import { useDocumentTitle } from "@/components/page";
 import { prepareForUpload, uploadNameOf } from "@/lib/image";
 import { useStagedAttachments, type Staged } from "@/components/composer-attachments";
@@ -233,6 +235,8 @@ export function SessionView({
   };
 
   const announcement = useAnnouncement(bot?.name, transcript, pending);
+  // The latest plan, for the strip above the composer.
+  const plan = useMemo(() => currentPlan(transcript), [transcript]);
   useDocumentTitle(bot?.name);
 
   // Frameless: the chat is the page. The transcript fills it and scrolls
@@ -342,6 +346,7 @@ export function SessionView({
         >
           {tasks}
           <NeedsPill sessionId={sessionId} botId={bot?.id} />
+          <ChecklistStrip key={sessionId} list={plan} />
           {lastError !== null && <ErrorNote message={lastError} />}
           {controlError !== null && <ErrorNote message={`Couldn't apply that: ${controlError}`} />}
           <Composer

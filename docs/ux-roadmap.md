@@ -201,3 +201,10 @@ profile's Manage starts with "Move to…" (the main bot stays in the org); the
 pill and the profile show a bot's home. The Crew page has New department and
 an "Across departments" list from the reach audit, and Cmd/Ctrl-K finds
 departments and "New department".
+
+**The plan, always in reach** (2026-11-01): DONE — while a bot works
+through a plan, a slim strip above the composer reads "Tasks 2/4 · <the step
+in progress>"; tap it for the full list in place (it pushes the chat up,
+never covers it). A plan that finishes says "All done" for a few seconds and
+folds away; one already finished when the chat opens is not shown. The plan
+card in the transcript stays. The strip redraws only when the plan changes.

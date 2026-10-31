@@ -14,7 +14,7 @@ const SPOKEN: Record<ChecklistItem["status"], string> = {
   pending: "to do",
 };
 
-function Box({ status }: { status: ChecklistItem["status"] }) {
+export function ChecklistBox({ status }: { status: ChecklistItem["status"] }) {
   if (status === "done") {
     return (
       <span className="bg-ok text-background mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[5px]">
@@ -70,7 +70,7 @@ export function ChecklistCard({
         {list.items.map((item, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: the plan's steps are positional
           <li key={index} className="flex items-start gap-2.5 text-sm leading-snug">
-            <Box status={item.status} />
+            <ChecklistBox status={item.status} />
             <span
               className={cn(
                 "min-w-0 break-words",
