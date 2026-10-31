@@ -1,8 +1,9 @@
 /**
- * "Needs you": the short list of things only the owner can settle. Four
- * kinds, in this order: approvals waiting now, tasks that failed in the last
- * day, routines that escalated in the last week, and memory tidy suggestions
- * (one row per bot). Pure, so the screen and the badge count agree and the
+ * "Needs you": the short list of things only the owner can settle. Five
+ * kinds, in this order: approvals waiting now, work the engine parked after
+ * too many restarts in a row (with a Retry button), tasks that failed in the
+ * last day, routines that escalated in the last week, and memory tidy
+ * suggestions (one row per bot). Pure, so the screen and the badge count agree and the
  * rules are testable. Failed tasks and escalations can be dismissed; the
  * others leave the list when they are settled.
  */
@@ -20,9 +21,20 @@ export interface NeedsYouExtra {
   tidy: { profile: string; open: number }[];
   escalations: AuditEvent[];
   chats: Record<string, string>;
+  /** Engine tasks parked by the restart limit (older servers leave it out). */
+  parked?: ParkedRow[];
 }
 
-export type NeedsKind = "approval" | "failed-task" | "escalation" | "tidy";
+/** A parked engine task: cut off by restarts too many times in a row; Retry runs it again. */
+export interface ParkedRow {
+  taskId: string;
+  kind: string;
+  profile: string;
+  conversationId: string;
+  sessionId: string | null;
+}
+
+export type NeedsKind = "approval" | "parked" | "failed-task" | "escalation" | "tidy";
 
 /** Where a row leads: a chat (by session or by bot) or a Crew profile tab. */
 export type NeedsTarget =
@@ -43,9 +55,17 @@ export interface NeedsItem {
   dismissable: boolean;
   /** The waiting call itself, so the approval can be settled right here. */
   approval?: PendingApprovalRow | undefined;
+  /** A parked task's id, for its Retry button. */
+  retryTaskId?: string | undefined;
 }
 
-const RANK: Record<NeedsKind, number> = { approval: 0, "failed-task": 1, escalation: 2, tidy: 3 };
+const RANK: Record<NeedsKind, number> = {
+  approval: 0,
+  parked: 1,
+  "failed-task": 2,
+  escalation: 3,
+  tidy: 4,
+};
 
 export function needsYouItems(input: {
   approvals: readonly PendingApprovalRow[];
@@ -82,6 +102,26 @@ export function needsYouItems(input: {
           : { kind: "bot-chat", botId: row.profile },
       dismissable: false,
       approval: row,
+    });
+  }
+
+  for (const row of input.extra?.parked ?? []) {
+    const name = bots.get(row.profile);
+    if (name === undefined) continue;
+    items.push({
+      id: `parked:${row.taskId}`,
+      kind: "parked",
+      botId: row.profile,
+      botName: name,
+      title: `${name} stopped: a restart cut this work off too many times`,
+      detail: "It will not run again by itself. Retry runs it from where it stopped.",
+      at: null,
+      target:
+        row.sessionId !== null
+          ? { kind: "session", sessionId: row.sessionId }
+          : { kind: "bot-chat", botId: row.profile },
+      dismissable: false,
+      retryTaskId: row.taskId,
     });
   }
 

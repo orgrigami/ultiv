@@ -32,7 +32,8 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { External } from "@spreissen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
-import { controlOps } from "./control.ts";
+import { controlOps, type ParkedTask } from "./control.ts";
+export type { ParkedTask } from "./control.ts";
 import { selectionOps } from "./selection.ts";
 import { PiRegistry } from "./pi-registry.ts";
 import { MindModels, ModelCatalog } from "../providers/models.ts";
@@ -90,6 +91,10 @@ export interface ConverseService {
    * stay queued. Resolves once the conversation is idle.
    */
   readonly abortRun: (conversation: Conversation) => Effect.Effect<"idle" | "aborted", External>;
+  /** Tasks the engine parked after too many restarts in a row, across all conversations. */
+  readonly parked: () => Effect.Effect<readonly ParkedTask[], External>;
+  /** Run one parked task again; "not_parked" when it is not parked (any more). */
+  readonly retryParked: (taskId: string) => Effect.Effect<"retried" | "not_parked", External>;
 
   /** Take back one queued submission before a boundary places it. */
   readonly withdraw: (

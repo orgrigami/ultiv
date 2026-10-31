@@ -413,6 +413,9 @@ export const api = {
     getJson<PendingApprovalRow[]>("/api/approvals"),
   /** The Needs you inputs no poll carries: tidy counts, escalations, approval chats. */
   needsYou: (): Promise<NeedsYouExtra> => getJson<NeedsYouExtra>("/api/needs-you"),
+  /** Run a parked engine task again (Needs you's Retry). */
+  retryParked: (taskId: string): Promise<{ outcome: string }> =>
+    send<{ outcome: string }>(`/api/needs-you/parked/${encodeURIComponent(taskId)}/retry`, "POST"),
   serverCheck: (): Promise<ServerCheck> => getJson<ServerCheck>("/api/server/check"),
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>

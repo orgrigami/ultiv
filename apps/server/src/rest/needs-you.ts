@@ -4,7 +4,10 @@
  * escalations, plus which chat each pending approval sits in (the approvals
  * list leaves that out). Read once per screen visit (and on focus), never
  * polled; the approvals and failed tasks themselves come from the existing
- * 5s polls.
+ * 5s polls. Also the engine's parked tasks (cut off by restarts too many
+ * times in a row) for the caller's own bots, and
+ * POST /api/needs-you/parked/:taskId/retry to run one again; another
+ * owner's task gets the same 404 an unknown one does.
  */
 import { Effect } from "effect";
 import type { AuditEvent, MemoryProposal } from "@spreissen/contracts";
@@ -17,8 +20,19 @@ import { sessionOfConversation } from "../push/events.ts";
 export const ESCALATION_WINDOW_MS = 7 * 24 * 3_600_000;
 const ESCALATION_LIMIT = 20;
 
+/** A parked engine task the caller can retry. */
+export interface ParkedRow {
+  taskId: string;
+  kind: string;
+  profile: string;
+  conversationId: string;
+  /** The app session (chat) it belongs to, when there is one. */
+  sessionId: string | null;
+}
+
 export interface NeedsYouExtra {
   tidy: { profile: string; open: number }[];
+  parked: ParkedRow[];
   escalations: AuditEvent[];
   /** Pending approval conversation id -> the app session (chat) it shows in. */
   chats: Record<string, string>;
@@ -30,7 +44,7 @@ export function needsYouExtra(input: {
   audit: readonly AuditEvent[];
   profiles: ReadonlySet<string>;
   now: number;
-}): Omit<NeedsYouExtra, "chats"> {
+}): Omit<NeedsYouExtra, "chats" | "parked"> {
   const tidy = [...input.proposals]
     .map(([profile, proposals]) => ({
       profile,
@@ -50,7 +64,44 @@ export function needsYouExtra(input: {
   return { tidy, escalations };
 }
 
+/** The caller's own parked tasks: a task whose conversation maps to none of their bots is not theirs. */
+async function ownParked(args: RouteArgs): Promise<ParkedRow[]> {
+  const rows: ParkedRow[] = [];
+  for (const task of await Effect.runPromise(args.mind.converse.parked())) {
+    const scope = args.mind.profiles.scopeOf(task.conversationId);
+    if (scope?.owner !== args.owner) continue;
+    const sessionId = await sessionOfConversation(
+      args.mind,
+      args.owner,
+      scope.profileId,
+      task.conversationId,
+    ).catch(() => undefined);
+    rows.push({
+      taskId: task.taskId,
+      kind: task.kind,
+      profile: scope.profileId,
+      conversationId: task.conversationId,
+      sessionId: sessionId ?? null,
+    });
+  }
+  return rows;
+}
+
+const RETRY_PATH = /^\/api\/needs-you\/parked\/([^/]+)\/retry$/;
+
 export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
+  const retry = args.path.match(RETRY_PATH);
+  if (retry !== null && args.req.method === "POST") {
+    const taskId = decodeURIComponent(retry[1] ?? "");
+    const mine = (await ownParked(args)).some((row) => row.taskId === taskId);
+    if (!mine) {
+      args.json(404, { error: "unknown parked task" });
+      return true;
+    }
+    const outcome = await Effect.runPromise(args.mind.converse.retryParked(taskId));
+    args.json(outcome === "retried" ? 200 : 404, { outcome });
+    return true;
+  }
   if (args.path !== "/api/needs-you" || args.req.method !== "GET") return false;
   const profiles = (await args.mind.profiles.list(args.owner)).filter(
     (profile) => profile.archivedAt === null,
@@ -84,6 +135,7 @@ export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
       now: Date.now(),
     }),
     chats,
+    parked: await ownParked(args),
   };
   args.json(200, body);
   return true;

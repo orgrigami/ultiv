@@ -82,6 +82,43 @@ describe("needsYouItems", () => {
     expect(items[3]?.title).toBe("2 memory suggestions for Bot a");
   });
 
+  it("lists a parked task right after approvals, with its Retry id and chat", () => {
+    const items = needsYouItems({
+      ...base,
+      approvals: [approval()],
+      tasks: [task()],
+      extra: {
+        tidy: [],
+        escalations: [],
+        chats: {},
+        parked: [
+          {
+            taskId: "41",
+            kind: "pi.generation",
+            profile: "a",
+            conversationId: "c",
+            sessionId: "s1",
+          },
+          // An archived or unknown bot's task stays out of the list.
+          {
+            taskId: "42",
+            kind: "pi.generation",
+            profile: "gone",
+            conversationId: "d",
+            sessionId: null,
+          },
+        ],
+      },
+    });
+    expect(items.map((item) => item.kind)).toEqual(["approval", "parked", "failed-task"]);
+    expect(items[1]).toMatchObject({
+      id: "parked:41",
+      retryTaskId: "41",
+      dismissable: false,
+      target: { kind: "session", sessionId: "s1" },
+    });
+  });
+
   it("sends each kind to the screen that settles it", () => {
     const items = needsYouItems({
       ...base,
