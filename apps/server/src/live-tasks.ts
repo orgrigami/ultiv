@@ -48,7 +48,7 @@ export const watchRunningTasks = (mind: MindService, signal: () => void): TaskWa
     const rows = await Effect.runPromise(mind.tasks.list());
     const running = new Set(rows.filter((row) => row.status === "running").map((row) => row.id));
     for (const id of running) if (!watching.has(id)) void attach(id);
-    for (const id of [...watching.keys()]) if (!running.has(id)) detach(id);
+    for (const id of watching.keys()) if (!running.has(id)) detach(id);
   };
 
   const off = mind.tasks.onUpdate(() => void reconcile());
@@ -56,7 +56,7 @@ export const watchRunningTasks = (mind: MindService, signal: () => void): TaskWa
   return {
     stop: () => {
       off();
-      for (const id of [...watching.keys()]) detach(id);
+      for (const id of watching.keys()) detach(id);
     },
   };
 };

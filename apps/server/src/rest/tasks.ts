@@ -1,7 +1,6 @@
 /** Task routes: spawn/status/list/remove/activity over the mind's tasks faculty. */
 import type { LiveState } from "@earendil-works/pi-durable";
 import {
-  AGENT_OWNER,
   MAX_RUNNING_TASKS,
   runningCapMessage,
   taskConversationKey,
