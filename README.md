@@ -23,10 +23,11 @@ Put at least one provider key in `.env` (for example `ANTHROPIC_API_KEY` or `KEN
 vp run dev        # API on :8787, web on :5173
 ```
 
-Open http://localhost:5173 and create your first bot. If `vp` isn't on your PATH afterwards, add `~/.vite-plus/bin`.
+Open http://localhost:5173 and create your first bot. **Settings** shows a quick server check: which keys are set or missing (names only, never values), the models in use, whether the microVM sandbox can run, and a notice if the server is reachable from your network. If `vp` isn't on your PATH afterwards, add `~/.vite-plus/bin`.
 
 ## What it does
 
+- **One place for everything.** The phone tab bar and the desktop rail both show Chat, Needs you, Crew and Settings. Needs you lists pending approvals, failed tasks, routines that gave up and memory tidy suggestions, and each one opens where you can act on it. Crew lists your bots; each bot has a profile with Overview, Memory, Routines, Access, Files and Activity tabs. New chat and past chats are in the chat's … menu.
 - **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
 - **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
 - **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and asks first, unless the bot is in fully automatic mode.
@@ -115,11 +116,11 @@ Use `bash_host` only when a task really needs your actual machine. In manual and
 
 ## Approval modes
 
-Each bot has an approval mode. You set it in the bot's edit dialog or under Approvals in the chat header's details, and it applies to all of that bot's chats.
+Each bot has an approval mode. The chip next to the bot's name in the chat header shows it (Manual, Jev or YOLO) and switches it; you can also set it on the bot's Access tab in Crew or in its edit dialog. It applies to all of that bot's chats. Switching to YOLO asks you to confirm first and lists what still asks you.
 
 - **Manual, ask me** (the default). Every gated call waits for your card, unless you've used "Always allow" for that tool.
 - **Jev decides.** Jev judges each gated call, looking at the tool's description, the bot's description, your latest message in the chat and the bot's last five tool calls, with secrets redacted. It runs the calls it's confident about, refuses the ones it's confident are wrong, and hands the rest to you as a normal card. A call that's too complex to judge (command substitution, more than three chained commands, more than ten targets at once) goes back to the bot with a note to split it. A destructive call your latest message didn't ask for goes back with a note to explain why or ask you first, and one you did ask for needs a higher score to run without you. If the same call is sent back a third time, you get the card. Each decision shows as a short line under the tool call in the chat. If Jev isn't set up or doesn't answer within 8 seconds, you get the card. Jev never decides `bash_host`.
-- **Fully automatic.** Gated calls run without asking, `bash_host` included.
+- **YOLO (fully automatic).** Gated calls run without asking, `bash_host` included.
 
 In every mode, these always come to you as a card: a credential's first use on a new host, a connector's first use, connector changes, and `secret_request`.
 

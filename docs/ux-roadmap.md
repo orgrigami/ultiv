@@ -124,3 +124,21 @@ Yolo never covers the floors: a credential's first use, an MCP connector's
 first use, connector changes and `secret_request`; it does run `bash_host`.
 Jev routes through the Decide faculty, never decides the floors or
 `bash_host`, and hands the owner anything Jev won't answer.
+
+**Milestone 1 — One shell** (2026-10-31, from the redesign proposal): DONE —
+one nav on every width (Chat · Needs you · Crew · Settings; History and New
+chat move into the chat's "…" menu and Crew; `/bots` redirects to `/crew`).
+Crew replaces the three bot lists; each bot has a profile at `/crew/$botId`
+with Overview, Memory, Routines, Access, Files and a read-only Activity tab
+(pattern 1 and 10 leftovers: the memory panel now lives in profile tabs).
+Needs you lists approvals, failed tasks (24 h), routine escalations (7 d) and
+tidy proposals from the existing polls plus `GET /api/needs-you` (no new
+polling). Settings carries the first-run server check (`GET
+/api/server/check`, key names only), push, the approval-mode explainer and the
+theme. The approval-mode chip sits next to the bot pill with a YOLO confirm.
+Visuals: one palette (neutral ramp, one accent, semantic colors, AA in both
+themes), a four-step type scale, one icon stroke and the placement rules, all
+as tokens in `index.css`; the 44 px tap-target audit (pattern 12 leftover)
+passes on the new screens at 390.
+Remaining: the shared card grammar (proposal section 3), push instead of poll,
+sign-in, and the per-bot notification switch.
