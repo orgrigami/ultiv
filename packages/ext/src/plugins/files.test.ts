@@ -1,9 +1,10 @@
 import { afterAll, describe, expect, it } from "vite-plus/test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DurableFs } from "../fs/durable-fs.ts";
 import { bashPlugin, localShellBackend } from "./bash.ts";
+import { writeArtifactBytes } from "./artifacts.ts";
 import { filesPlugin, treePath } from "./files.ts";
 import { createScopeHolder } from "./vault.ts";
 
@@ -96,6 +97,7 @@ describe("file tools: the bot's own files", () => {
     ["file_search", { query: "x" }],
     ["file_edit", { new_text: "x" }],
     ["file_delete", {}],
+    ["extract_document_text", {}],
   ];
   const pathKey = (name: string) => (name === "file_search" ? "folder" : "path");
 
@@ -169,6 +171,33 @@ describe("file tools: the bot's own files", () => {
     await call("file_delete", { path: "seen.txt" });
     expect((await run("ls seen.txt")).structuredOutput).toMatchObject({ exitCode: 1 });
     expect((await call("file_read", { path: "seen.txt" })).isError).toBe(true);
+  });
+});
+
+describe("extract_document_text", () => {
+  const fixture = (name: string) =>
+    readFileSync(new URL(`../docs/fixtures/${name}`, import.meta.url));
+  it("is a read, and reads a PDF by path and a shared DOCX by artifact id", async () => {
+    expect(tool("extract_document_text").gated).toBeUndefined();
+    await treeOf("owner-a").mkdir("/in", { recursive: true });
+    await treeOf("owner-a").writeFile("/in/plan.pdf", fixture("sample.pdf"));
+    const pdf = await call("extract_document_text", { path: "in/plan.pdf" });
+    expect(pdf.text).toContain("# in/plan.pdf (pdf)\nQuarterly plan for the test team.");
+    const shared = writeArtifactBytes(join(root, "owner-a", "bot-1"), {
+      name: "plan.docx",
+      data: fixture("sample.docx"),
+      owner: "owner-a",
+      profile: "bot-1",
+    });
+    const docx = await call("extract_document_text", { artifact_id: shared.id });
+    expect(docx.text).toContain("café and 3 < 4 & more.");
+    // Another owner's bot can't read it by id.
+    expect((await call("extract_document_text", { artifact_id: shared.id }, "conv-b")).text).toBe(
+      `unknown artifact: ${shared.id}`,
+    );
+    expect(
+      (await call("extract_document_text", { path: "x", artifact_id: shared.id })).isError,
+    ).toBe(true);
   });
 });
 

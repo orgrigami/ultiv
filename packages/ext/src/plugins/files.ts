@@ -14,7 +14,8 @@ import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";
 import { bumpWorkspace } from "../fs/workspace-epoch.ts";
-import { artifactsDir } from "./artifacts.ts";
+import { extractDocumentText } from "../docs/extract.ts";
+import { artifactsDir, readArtifactBytes } from "./artifacts.ts";
 import type { ScopeHolder } from "./vault.ts";
 
 const MAX_PATH_CHARS = 512;
@@ -284,6 +285,63 @@ const deleteTool = (root: string, holder: ScopeHolder): Tool =>
     },
   });
 
+const extractTool = (root: string, holder: ScopeHolder): Tool =>
+  defineTool({
+    name: "extract_document_text",
+    description:
+      "Get the text of a PDF or Word (.docx) file: one of your files by path, or a file the " +
+      "owner shared by its artifact id. Scanned pages have no text (there is no OCR). Long " +
+      "documents come in parts: pass start_char to read on.",
+    parameters: Type.Object({
+      path: Type.Optional(
+        Type.String({ description: 'A path inside your files, e.g. "in/report.pdf".' }),
+      ),
+      artifact_id: Type.Optional(
+        Type.String({ description: "An artifact id from artifact_list." }),
+      ),
+      start_char: Type.Optional(
+        Type.Integer({ minimum: 0, description: "Where to read on from." }),
+      ),
+    }),
+    execute: async (args, api) => {
+      const conversationId = String(api.conversationId);
+      if ((args.path === undefined) === (args.artifact_id === undefined))
+        return fail("give exactly one of path or artifact_id");
+      let bytes: Uint8Array;
+      let name: string;
+      if (args.path !== undefined) {
+        const found = await locate(root, holder, conversationId, args.path);
+        if (isResult(found)) return found;
+        if (!(await found.area.fs.exists(found.path)))
+          return fail(`no file at ${show(found.path)}`);
+        if (!(await found.area.fs.stat(found.path)).isFile)
+          return fail(`${show(found.path)} is a folder`);
+        bytes = await found.area.fs.readFileBuffer(found.path);
+        name = show(found.path);
+      } else {
+        const area = safeAreaOf(root, holder, conversationId);
+        if (typeof area === "string") return fail(`refused: ${area}`);
+        const artifact = readArtifactBytes(area.dir, args.artifact_id ?? "");
+        if (artifact === undefined) return fail(`unknown artifact: ${args.artifact_id ?? ""}`);
+        bytes = artifact.data;
+        name = artifact.info.name;
+      }
+      const extracted = extractDocumentText(bytes);
+      if (!extracted.ok) return fail(`${name}: ${extracted.reason}`);
+      const start = Math.min(args.start_char ?? 0, extracted.text.length);
+      const part = extracted.text.slice(start, start + MAX_READ_CHARS);
+      const end = start + part.length;
+      const more =
+        end < extracted.text.length
+          ? `\n[characters ${start}-${end} of ${extracted.text.length}; read on with start_char ${end}]`
+          : "";
+      return {
+        output: [{ type: "text" as const, text: `# ${name} (${extracted.kind})\n${part}${more}` }],
+        structuredOutput: { name, kind: extracted.kind, chars: extracted.text.length, start, end },
+      };
+    },
+  });
+
 /** The bot's own files by path; reads open, changes gated. */
 export const filesPlugin = (options: FilesOptions): Plugin => {
   const root = options.root ?? artifactsDir();
@@ -299,6 +357,7 @@ export const filesPlugin = (options: FilesOptions): Plugin => {
       toolCapability(searchTool(root, holder)),
       toolCapability(editTool(root, holder)),
       toolCapability(deleteTool(root, holder)),
+      toolCapability(extractTool(root, holder)),
     ],
   });
 };

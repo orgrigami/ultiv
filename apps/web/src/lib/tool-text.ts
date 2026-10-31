@@ -603,6 +603,7 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   file_search: ["Searched its files", "Searching its files…", "artifact"],
   file_edit: ["Changed a file", "Changing a file…", "artifact"],
   file_delete: ["Deleted a file", "Deleting a file…", "artifact"],
+  extract_document_text: ["Read a document", "Reading a document…", "artifact"],
   secret_request: ["Asked you for a key", "Asking you for a key…", "credentials"],
   ask_user_question: ["Asked you a question", "Waiting for your answer…", "generic"],
   connector_add: ["Added a connector", "Adding a connector…", "connectors"],

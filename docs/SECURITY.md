@@ -37,6 +37,11 @@ through `resolveInside(root, ...parts)` from `@spreissen/core`
   to no bot. Reads are open; edit and delete are gated, so Manual, Jev and
   YOLO apply as for any gated tool. After an edit or delete, bash reloads
   the tree before its next script (`fs/workspace-epoch.ts`).
+- `extract_document_text` (same file) reads a PDF or .docx from that tree, or
+  a shared artifact by id from the bot's own artifact folder only, so another
+  owner's ids come back unknown. The readers (`packages/ext/src/docs/extract.ts`)
+  are dependency-free and capped: 25 MB in, 50 MB inflated, 2M characters
+  out, 100k per call. No OCR; encrypted PDFs are refused.
 
 Tests: `packages/core/src/safe-path.test.ts`,
 `packages/ext/src/path-confinement.test.ts`,
