@@ -264,6 +264,13 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+/* Icons: lucide only, one stroke weight. Sizes: 16 px inline (size-4),
+   20 px in rail rows (size-5), 24 px in the phone tab bar (size-6). Every
+   icon-only control sits in a 44 px target on touch screens. */
+svg.lucide {
+  stroke-width: 1.75;
+}
+
 /* Chat messages read at the chat size, over prose's own scale. */
 .prose.chat-prose {
   font-size: var(--text-chat);

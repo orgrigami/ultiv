@@ -97,7 +97,7 @@ function RailLink({ section, current }: { section: Section; current: boolean }) 
         current && "bg-sidebar-accent text-sidebar-foreground font-medium",
       )}
     >
-      <Icon className="size-[1.125rem] shrink-0" />
+      <Icon className="size-5 shrink-0" />
       <span className="flex-1">{SECTION_LABEL[section]}</span>
       <CountBadge count={count} />
     </Link>
@@ -175,7 +175,7 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
       )}
     >
       <span className="relative">
-        <Icon className="size-[1.375rem] shrink-0" />
+        <Icon className="size-6 shrink-0" />
         <CountBadge count={count} className="ring-background absolute -top-1.5 -right-2.5 ring-2" />
       </span>
       {SECTION_LABEL[section]}
