@@ -15,6 +15,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Page } from "@/components/page";
 import { PushToggle } from "@/components/push-toggle";
+import { OrgSection } from "@/components/org-admin";
 import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ function SettingsPage() {
   return (
     <Page title="Settings" lead="This server and this device. Each bot's own settings are in Crew.">
       <ServerSection check={check} error={error} reload={load} />
+      <OrgSection />
       <PushToggle />
       <ApprovalsSection />
       <section aria-label="Apps and logins" className="flex flex-col gap-2">

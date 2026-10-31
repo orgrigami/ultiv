@@ -6,11 +6,13 @@
  * last and only on the page.
  */
 import { ChevronRightIcon, StarIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ModelInfo, ProfileInfo } from "@spriessen/contracts";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/lib/app-state";
+import { api, type OrgView } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -157,8 +159,101 @@ export function CrewList({
   className?: string;
 }) {
   const { sessions, mainId, attention, busy } = useApp();
+  const [org, setOrg] = useState<OrgView | null>(null);
+  useEffect(() => {
+    // Departments exist or not: the crew groups by home only when they do
+    // (an org of org bots alone looks exactly as it did before phase 3).
+    let live = true;
+    api
+      .org()
+      .then((view) => {
+        if (live) setOrg(view);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [sessions.profiles.length]);
   const bots = orderCrew(sessions.profiles, mainId, variant === "page");
   const latest = variant === "menu" ? lastActiveOf(sessions.sessions) : new Map<string, number>();
+  const departments =
+    org !== null && org.departments.length > 0 && variant === "page" ? org.departments : [];
+  const grouped = (departmentId: string | null): typeof bots =>
+    bots.filter((bot) => (bot.departmentId ?? null) === departmentId);
+  if (departments.length > 0) {
+    return (
+      <div className={cn("flex flex-col gap-4", className)}>
+        {[...departments]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((department) => {
+            const rows = grouped(department.id);
+            if (rows.length === 0) return null;
+            return (
+              <section
+                key={department.id}
+                aria-label={department.name}
+                className="flex flex-col gap-1.5"
+              >
+                <h3 className="text-meta text-muted-foreground px-1 font-medium">
+                  {department.name}
+                </h3>
+                <ul
+                  aria-label={`Crew — ${department.name}`}
+                  className="divide-border bg-card divide-y rounded-xl border p-1"
+                >
+                  {rows.map((bot) => (
+                    <CrewRow
+                      key={bot.id}
+                      bot={bot}
+                      variant={variant}
+                      active={bot.id === activeId}
+                      main={bot.id === mainId}
+                      needsYou={attention.has(bot.id)}
+                      working={busy.has(bot.id)}
+                      at={latest.get(bot.id)}
+                      now={now}
+                      models={sessions.models}
+                      onPick={onPick}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        {(() => {
+          const rows = grouped(null);
+          if (rows.length === 0) return null;
+          return (
+            <section aria-label="Org bots" className="flex flex-col gap-1.5">
+              <h3 className="text-meta text-muted-foreground px-1 font-medium">
+                {org?.org?.name ?? "Org"}
+              </h3>
+              <ul
+                aria-label="Crew — org"
+                className="divide-border bg-card divide-y rounded-xl border p-1"
+              >
+                {rows.map((bot) => (
+                  <CrewRow
+                    key={bot.id}
+                    bot={bot}
+                    variant={variant}
+                    active={bot.id === activeId}
+                    main={bot.id === mainId}
+                    needsYou={attention.has(bot.id)}
+                    working={busy.has(bot.id)}
+                    at={latest.get(bot.id)}
+                    now={now}
+                    models={sessions.models}
+                    onPick={onPick}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })()}
+      </div>
+    );
+  }
   return (
     <ul
       aria-label="Crew"

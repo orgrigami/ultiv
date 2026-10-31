@@ -27,6 +27,7 @@ import {
 import { useEffect, useState } from "react";
 import type { AuditEvent, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
 import { ApprovalModeChoice } from "@/components/approval-mode-control";
+import { HostAccessSwitch } from "@/components/org-admin";
 import { APPROVAL_MODE_HELP, AutoApproveField, EditBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -483,6 +484,8 @@ function AccessTab({ bot }: { bot: ProfileInfo }) {
         onChange={setMode}
       />
       <AutoApproveField bot={bot} refresh={refreshAll} />
+      <SectionHeader title="This computer" />
+      <HostAccessSwitch bot={bot} />
       <SectionHeader
         title="Tools"
         action={
