@@ -94,7 +94,7 @@ function ProfilePage() {
       <div
         role="tablist"
         aria-label="Profile sections"
-        className="-mx-3 flex gap-1 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0"
+        className="tab-strip -mx-3 flex snap-x scroll-px-3 gap-1 overflow-x-auto pr-8 pb-1 pl-3 sm:mx-0 sm:px-0"
       >
         {PROFILE_TABS.map((entry) => (
           <Link
@@ -104,8 +104,14 @@ function ProfilePage() {
             search={entry.id === "overview" ? {} : { tab: entry.id }}
             role="tab"
             aria-selected={active === entry.id}
+            // Keep the open tab in view when the strip scrolls on a phone.
+            ref={(node) => {
+              if (node !== null && active === entry.id) {
+                node.scrollIntoView({ block: "nearest", inline: "nearest" });
+              }
+            }}
             className={cn(
-              "focus-visible:ring-ring/50 flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm outline-none focus-visible:ring-3 sm:min-h-9",
+              "focus-visible:ring-ring/50 flex min-h-11 shrink-0 snap-start items-center rounded-lg px-3 text-sm outline-none focus-visible:ring-3 sm:min-h-9",
               active === entry.id
                 ? "bg-secondary text-secondary-foreground font-medium"
                 : "text-muted-foreground hover:text-foreground",

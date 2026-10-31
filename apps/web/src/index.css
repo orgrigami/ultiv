@@ -264,6 +264,20 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+/* Placement rhythm: a 4 px grid. Screens use 12 px gutters on phones and
+   24 px from sm (px-3 sm:px-6), cards 12-16 px inside, 8 px between list
+   items, and every tap target is at least 44 px on touch (pointer-coarse
+   min-h-11). Floating chrome clears the safe areas with env(). */
+
+/* A sideways tab strip fades at its right edge on phones, so the tabs past
+   the edge read as more to scroll to. */
+@media (max-width: 639px) {
+  .tab-strip {
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+  }
+}
+
 /* Icons: lucide only, one stroke weight. Sizes: 16 px inline (size-4),
    20 px in rail rows (size-5), 24 px in the phone tab bar (size-6). Every
    icon-only control sits in a 44 px target on touch screens. */
