@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { AuditEvent } from "@ultiv/contracts";
+import type { AuditEvent } from "@spreissen/contracts";
 import { jevNotice, jevNotices } from "./jev-text";
 
 const event = (ok: boolean | null, error: string, callId = "c1"): AuditEvent => ({

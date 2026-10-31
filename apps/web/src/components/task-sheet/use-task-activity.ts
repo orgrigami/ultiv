@@ -4,7 +4,7 @@
  * a size-capped tail. Settled tasks stop polling once loaded.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { api, type ArtifactRow, type TaskActivity } from "@/lib/api";
 
 const POLL_MS = 2_500;

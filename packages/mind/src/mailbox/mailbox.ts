@@ -13,7 +13,7 @@
  * text a conversation sees).
  */
 import { randomUUID } from "node:crypto";
-import type { MailboxEntry, MailboxEnvelope, MailboxList, RoomInfo } from "@ultiv/contracts";
+import type { MailboxEntry, MailboxEnvelope, MailboxList, RoomInfo } from "@spreissen/contracts";
 import {
   armDeadline,
   cancelEntry,

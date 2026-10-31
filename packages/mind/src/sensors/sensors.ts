@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { SensorInfo, SensorList } from "@ultiv/contracts";
+import type { SensorInfo, SensorList } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 /** Seen-uid ring size per sensor — uids older than this can re-fire (harmless: long past). */

@@ -8,7 +8,7 @@
  * approves the call, outside content stays data.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { fetchBytes } from "./fetch.ts";
 import { parseSkillDoc, type SkillDoc } from "./frontmatter.ts";

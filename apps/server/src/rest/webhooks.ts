@@ -1,5 +1,5 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
-import { listWebhooks, removeWebhook } from "@ultiv/mind";
+import { listWebhooks, removeWebhook } from "@spreissen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
 import type { RouteArgs } from "./types.ts";
 

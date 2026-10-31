@@ -3,7 +3,7 @@
  * full title (the pane wraps it), a status pill, the elapsed time and Stop
  * (light inline confirm).
  */
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { TaskStatusIcon } from "@/components/task-status-icon";
 import { taskElapsed, taskStatusWord } from "@/lib/task-text";
 import { useNow } from "@/lib/use-now";

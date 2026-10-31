@@ -5,7 +5,7 @@
  * the supervision "say" injects into the bot's endpoint conversation.
  */
 import { Effect } from "effect";
-import type { MailboxEntry, RoomInfo } from "@ultiv/contracts";
+import type { MailboxEntry, RoomInfo } from "@spreissen/contracts";
 import { errorOf, queryOr, type RouteArgs } from "./types.ts";
 
 /** One merged, speaker-labelled line of the room chat. */

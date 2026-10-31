@@ -12,7 +12,7 @@
  * (superseded/archived) appears only when asked for or when the query asks
  * in either language, grouped under the current successor.
  */
-import type { CoreLine, MemoryEntity, MemoryFact } from "@ultiv/contracts";
+import type { CoreLine, MemoryEntity, MemoryFact } from "@spreissen/contracts";
 import { cachedIndex } from "./search-index.ts";
 import { normalize, queryTerms } from "./text.ts";
 

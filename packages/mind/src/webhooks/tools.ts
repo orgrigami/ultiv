@@ -7,8 +7,8 @@
  * drifted schema is diagnosable from here without ever seeing the key.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
-import type { WebhookInfo } from "@ultiv/contracts";
+import { defineTool, type Tool } from "@spreissen/ext";
+import type { WebhookInfo } from "@spreissen/contracts";
 import type { WebhooksService } from "./webhooks.ts";
 import type { ReceiptsService } from "../routines/receipts.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

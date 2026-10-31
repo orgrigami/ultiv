@@ -1,5 +1,5 @@
 /** One parsed system message as its card or line (see lib/system-text). */
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import type { SystemMessage } from "@/lib/system-text";
 import { taskTitle } from "@/lib/task-text";
 import { BotCard, NackCard } from "./bot-card";

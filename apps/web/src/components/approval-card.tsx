@@ -8,7 +8,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { ChevronRightIcon, EllipsisIcon, ShieldAlertIcon, ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
-import type { ModelInfo } from "@ultiv/contracts";
+import type { ModelInfo } from "@spreissen/contracts";
 import { BotCreateCard } from "@/components/bot-create-card";
 import { InputRecord } from "@/components/tool-bodies";
 import { DevDetails } from "@/components/ui/dev-details";

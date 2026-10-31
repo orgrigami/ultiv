@@ -1,6 +1,6 @@
 /** Shared REST plumbing: route args and body/query helpers. */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { MindService } from "@ultiv/mind";
+import type { MindService } from "@spreissen/mind";
 import type { CronScheduler } from "../cron.ts";
 import type { PushService } from "../push/index.ts";
 

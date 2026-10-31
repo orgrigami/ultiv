@@ -2,7 +2,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { McpServerInfo, McpServerInput, McpState } from "@ultiv/contracts";
+import type { McpServerInfo, McpServerInput, McpState } from "@spreissen/contracts";
 import { makeVaultStore, type VaultStore } from "../../vault.ts";
 import { makeMcpConfigStore } from "../config.ts";
 import { makeMcpManager, type McpManager } from "../manager.ts";
@@ -50,7 +50,7 @@ export interface Rig {
 
 export const makeRig = (): Rig => {
   process.env.VAULT_KEY ??= "test-vault-key";
-  const root = mkdtempSync(join(tmpdir(), "ultiv-mcp-"));
+  const root = mkdtempSync(join(tmpdir(), "spreissen-mcp-"));
   const vault = makeVaultStore(join(root, "vault"));
   const manager = makeMcpManager({
     config: makeMcpConfigStore(join(root, "mcp")),

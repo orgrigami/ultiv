@@ -9,7 +9,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { SkillProposal } from "@ultiv/contracts";
+import type { SkillProposal } from "@spreissen/contracts";
 
 const PROPOSALS_MAX = 50;
 

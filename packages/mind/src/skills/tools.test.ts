@@ -11,7 +11,7 @@ import { evolveBrief } from "./evolve.ts";
 let root: string | undefined;
 
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "ultiv-skills-tools-"));
+  root = mkdtempSync(join(tmpdir(), "spreissen-skills-tools-"));
   return root;
 };
 

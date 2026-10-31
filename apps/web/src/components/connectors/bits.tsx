@@ -1,7 +1,7 @@
 /** Small pieces the Connectors screen shares: status dot, switches, chips, secret rows. */
 import { PlusIcon, XIcon } from "lucide-react";
 import { useState } from "react";
-import type { McpState, VaultItemInfo } from "@ultiv/contracts";
+import type { McpState, VaultItemInfo } from "@spreissen/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

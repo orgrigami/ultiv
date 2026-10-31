@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
-import type { ModelInfo, ProfileInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileInfo } from "@spreissen/contracts";
 
 const item =
   "data-highlighted:bg-muted flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm outline-none data-disabled:cursor-not-allowed data-disabled:opacity-60 pointer-coarse:min-h-11";

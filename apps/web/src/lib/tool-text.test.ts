@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ToolStep } from "@ultiv/contracts";
+import type { ToolStep } from "@spreissen/contracts";
 import { DURATION_FLOOR_MS, humanizeMs, presentationOf } from "./tool-text.ts";
 
 const step = (over: Partial<ToolStep>): ToolStep => ({
@@ -199,13 +199,13 @@ describe("presentationOf", () => {
   });
 
   it("searches get their query, fetches their host", () => {
-    const search = presentationOf(step({ input: { query: "ultiv monorepo" } }));
+    const search = presentationOf(step({ input: { query: "spreissen monorepo" } }));
     const fetch = presentationOf(
       step({ name: "web_fetch", input: { url: "https://example.com/docs?a=1" } }),
     );
     if (search.kind !== "human" || fetch.kind !== "human") return fail();
     expect(search.view.done).toBe("Searched the web");
-    expect(search.view.detail).toBe("ultiv monorepo");
+    expect(search.view.detail).toBe("spreissen monorepo");
     expect(fetch.view.done).toBe("Read a web page");
     expect(fetch.view.detail).toBe("example.com");
   });

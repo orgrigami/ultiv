@@ -4,7 +4,7 @@
  * names and payloads stay untouched; this is a presentation lens (approval-text.ts
  * words the approval cards the same way).
  */
-import type { ToolStep } from "@ultiv/contracts";
+import type { ToolStep } from "@spreissen/contracts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
 
 export type ToolFamily =

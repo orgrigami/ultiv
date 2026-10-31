@@ -1,5 +1,5 @@
 {
-  "name": "@ultiv/mind",
+  "name": "@spreissen/mind",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -15,11 +15,11 @@
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-codemode": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
+    "@spreissen/about": "workspace:*",
+    "@spreissen/contracts": "workspace:*",
+    "@spreissen/core": "workspace:*",
+    "@spreissen/ext": "workspace:*",
     "@typesafe-ai/sdk": "^0.7.0",
-    "@ultiv/about": "workspace:*",
-    "@ultiv/contracts": "workspace:*",
-    "@ultiv/core": "workspace:*",
-    "@ultiv/ext": "workspace:*",
     "croner": "catalog:",
     "effect": "catalog:",
     "typebox": "catalog:"

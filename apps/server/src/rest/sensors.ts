@@ -1,5 +1,5 @@
 /** Sensor routes: the registry (polling lives in the server's sensor loop). */
-import { listSensors, removeSensor } from "@ultiv/mind";
+import { listSensors, removeSensor } from "@spreissen/mind";
 import type { RouteArgs } from "./types.ts";
 
 export async function sensorRoutes(

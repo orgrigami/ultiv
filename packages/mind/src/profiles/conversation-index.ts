@@ -5,7 +5,7 @@
  */
 import type { AgentChange } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { ProfileInfo, SessionInfo } from "@ultiv/contracts";
+import type { ProfileInfo, SessionInfo } from "@spreissen/contracts";
 import { TasksDoc, taskConversationKey } from "../tasks/tasks.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import {

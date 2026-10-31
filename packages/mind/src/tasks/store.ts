@@ -1,8 +1,8 @@
 /** The task registry doc and its read/write helpers, shared by the faculty's parts. */
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { External } from "@ultiv/core";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { External } from "@spreissen/core";
+import type { TaskInfo } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 /** The registry doc; exported for tests and read-only surfaces. */

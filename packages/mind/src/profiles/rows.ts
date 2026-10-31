@@ -1,8 +1,8 @@
 /** Profile rows: list, read, create, edit, archive, always-allow and remove. */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { NotFound } from "@ultiv/core";
-import type { ProfileInfo } from "@ultiv/contracts";
+import { NotFound } from "@spreissen/core";
+import type { ProfileInfo } from "@spreissen/contracts";
 import {
   NEVER_PATTERN_MATCHED,
   actionTextsOf,

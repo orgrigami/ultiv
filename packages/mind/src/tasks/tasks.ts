@@ -15,8 +15,8 @@
 import { randomUUID } from "node:crypto";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer } from "effect";
-import { External } from "@ultiv/core";
-import type { TaskInfo, TaskList } from "@ultiv/contracts";
+import { External } from "@spreissen/core";
+import type { TaskInfo, TaskList } from "@spreissen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import { findTask, readTasks, taskConversationKey, updateTask, writeTasks } from "./store.ts";
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";
@@ -92,7 +92,7 @@ export interface TasksService {
   readonly attach: (binder: TaskBinder) => Promise<void>;
 }
 
-export class Tasks extends Context.Service<Tasks, TasksService>()("ultiv/mind/Tasks") {}
+export class Tasks extends Context.Service<Tasks, TasksService>()("spreissen/mind/Tasks") {}
 
 const TITLE_CHARS = 40;
 

@@ -5,7 +5,7 @@
  * ever sent.
  */
 import webpush from "web-push";
-import type { MindService } from "@ultiv/mind";
+import type { MindService } from "@spreissen/mind";
 import { onRoutineReply } from "../deliver.ts";
 import { pushDir, vapidConfig, type VapidConfig } from "./config.ts";
 import { pushRoutineReply, wirePushEvents } from "./events.ts";

@@ -4,7 +4,7 @@
  * the sheet can say "Read plato.stanford.edu" and still show the raw call on
  * request; `text` stays as the old one-line form for older clients.
  */
-import type { TranscriptEntry } from "@ultiv/contracts";
+import type { TranscriptEntry } from "@spreissen/contracts";
 
 export interface ActivityTool {
   name: string;

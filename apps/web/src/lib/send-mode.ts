@@ -1,4 +1,4 @@
-import type { SendMode } from "@ultiv/contracts";
+import type { SendMode } from "@spreissen/contracts";
 
 /** One choice in the send button's long-press menu while the bot works. */
 export type SendChoice = { readonly mode: SendMode; readonly label: string; readonly hint: string };

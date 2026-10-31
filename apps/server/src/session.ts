@@ -15,8 +15,8 @@ import {
   TranscriptSchema,
   UsageSummarySchema,
   type ThinkingLevel,
-} from "@ultiv/contracts";
-import { projectTranscript, usageOf, type MindService } from "@ultiv/mind";
+} from "@spreissen/contracts";
+import { projectTranscript, usageOf, type MindService } from "@spreissen/mind";
 import { ownerOf, type Principal } from "./identity.ts";
 import { approveMethod, controlMethods, inputMethod } from "./session-methods.ts";
 import { InFlight, queuedOf, safeChange, sameQueue, type SessionCells } from "./session-turns.ts";

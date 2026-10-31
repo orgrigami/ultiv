@@ -17,7 +17,7 @@ import {
   readArtifactInfo,
   searchArtifacts,
   writeArtifactBytes,
-} from "@ultiv/ext";
+} from "@spreissen/ext";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 /** Every directory the owner's artifacts may live in: their profile dirs + the legacy root. */

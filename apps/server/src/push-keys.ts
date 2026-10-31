@@ -2,7 +2,7 @@
  * One-time VAPID key generation: appends VAPID_PUBLIC_KEY and
  * VAPID_PRIVATE_KEY to the repo's .env when they are absent. Never prints a
  * key, never overwrites one (rotating keys silently orphans every device's
- * subscription). Run: `vpr @ultiv/server#push:keys`.
+ * subscription). Run: `vpr @spreissen/server#push:keys`.
  */
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";

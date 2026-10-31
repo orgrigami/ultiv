@@ -7,7 +7,7 @@
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { Type } from "typebox";
-import type { ProfileInfo, ProfilePolicies, SessionInfo } from "@ultiv/contracts";
+import type { ProfileInfo, ProfilePolicies, SessionInfo } from "@spreissen/contracts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import { normalizeRef } from "../providers/refs.ts";

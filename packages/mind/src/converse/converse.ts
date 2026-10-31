@@ -29,7 +29,7 @@ import {
   type UserInput,
 } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import { External } from "@ultiv/core";
+import { External } from "@spreissen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
 import { controlOps } from "./control.ts";
@@ -145,7 +145,9 @@ export interface ConverseService {
   };
 }
 
-export class Converse extends Context.Service<Converse, ConverseService>()("ultiv/mind/Converse") {}
+export class Converse extends Context.Service<Converse, ConverseService>()(
+  "spreissen/mind/Converse",
+) {}
 
 /** Durable session-key -> conversation mapping (kind preserved: pre-existing SQLite data). */
 const SessionMapDoc = defineDocFamily<

@@ -12,8 +12,8 @@
  *   so `recover` (run on boot) re-sends it along with redelivering pending
  *   messages and re-arming deadlines.
  */
-import { NotFound } from "@ultiv/core";
-import type { MailboxEntry, RoomInfo } from "@ultiv/contracts";
+import { NotFound } from "@spreissen/core";
+import type { MailboxEntry, RoomInfo } from "@spreissen/contracts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

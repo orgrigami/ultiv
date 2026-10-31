@@ -17,7 +17,7 @@
  */
 import type { DecideService } from "../decide/decide.ts";
 import type { GenerateService } from "../generate/generate.ts";
-import type { MemoryFact } from "@ultiv/contracts";
+import type { MemoryFact } from "@spreissen/contracts";
 import { Effect } from "effect";
 import { Type } from "typebox";
 import { factHash } from "./model.ts";

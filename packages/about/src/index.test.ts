@@ -23,7 +23,7 @@ const parse = (markdown: string): { name: string; description: string } | undefi
 
 describe("aboutSkills", () => {
   it("ships the built-in library in display order", () => {
-    expect(aboutSkills().map((skill) => skill.name)).toEqual(["ultiv"]);
+    expect(aboutSkills().map((skill) => skill.name)).toEqual(["spreissen"]);
   });
 
   it("every skill parses and stays within the store's cap", () => {
@@ -37,14 +37,14 @@ describe("aboutSkills", () => {
   });
 
   it("reference files ride along, readable and within caps", () => {
-    const ultiv = aboutSkills().find((skill) => skill.name === "ultiv");
-    expect(ultiv?.files.map((file) => file.path)).toEqual([
+    const spreissen = aboutSkills().find((skill) => skill.name === "spreissen");
+    expect(spreissen?.files.map((file) => file.path)).toEqual([
       "references/mind.md",
       "references/platform.md",
       "references/procedures.md",
       "references/surfaces.md",
     ]);
-    for (const file of ultiv?.files ?? []) {
+    for (const file of spreissen?.files ?? []) {
       expect(file.content.length).toBeGreaterThan(100);
       expect(file.content.length).toBeLessThanOrEqual(100_000);
       expect(file.content.includes("\0")).toBe(false);

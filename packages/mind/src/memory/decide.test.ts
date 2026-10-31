@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { MemoryFact } from "@ultiv/contracts";
+import type { MemoryFact } from "@spreissen/contracts";
 import { decideWrite } from "./decide.ts";
 import { newFact } from "./model.ts";
 

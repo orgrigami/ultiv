@@ -14,7 +14,7 @@ import type {
   RoutineEvent,
   SensorInfo,
   WebhookInfo,
-} from "@ultiv/contracts";
+} from "@spreissen/contracts";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";

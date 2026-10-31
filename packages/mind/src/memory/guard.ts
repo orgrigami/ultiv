@@ -7,7 +7,7 @@
  */
 import type { ConverseService } from "../converse/converse.ts";
 import type { AuditService } from "../audit/audit.ts";
-import type { FactTrust, FactKind } from "@ultiv/contracts";
+import type { FactTrust, FactKind } from "@spreissen/contracts";
 import { Effect } from "effect";
 import { normalize } from "./text.ts";
 

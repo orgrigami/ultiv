@@ -4,7 +4,7 @@
  * re-asking what a past conversation already settled. A read, never gated.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { HistoryService } from "./history.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

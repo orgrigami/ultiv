@@ -13,7 +13,7 @@
 import { Context, Deferred, Duration, Effect, Exit, Layer } from "effect";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import type { ProfileApprovalMode } from "@ultiv/contracts";
+import type { ProfileApprovalMode } from "@spreissen/contracts";
 
 export interface ApprovalRequest {
   readonly callId: string;
@@ -157,7 +157,7 @@ export interface ApprovalsService {
 }
 
 export class Approvals extends Context.Service<Approvals, ApprovalsService>()(
-  "ultiv/mind/Approvals",
+  "spreissen/mind/Approvals",
 ) {}
 
 export const makeApprovals = (

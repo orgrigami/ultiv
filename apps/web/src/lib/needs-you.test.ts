@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { AuditEvent, ProfileInfo, TaskRow } from "@ultiv/contracts";
+import type { AuditEvent, ProfileInfo, TaskRow } from "@spreissen/contracts";
 import type { PendingApprovalRow } from "./api";
 import { NEEDS_YOU_LIMIT, needsElsewhere, needsPillLabel, needsYouItems } from "./needs-you.ts";
 

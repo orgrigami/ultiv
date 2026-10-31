@@ -7,7 +7,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
 import type { Harness, LiveState, SubmissionId } from "@earendil-works/pi-durable";
-import { External } from "@ultiv/core";
+import { External } from "@spreissen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
 

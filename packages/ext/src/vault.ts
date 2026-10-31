@@ -11,8 +11,8 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { InvalidInput, NotFound } from "@ultiv/core";
-import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@ultiv/contracts";
+import { InvalidInput, NotFound } from "@spreissen/core";
+import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@spreissen/contracts";
 
 /** The vault root (relative to the server's cwd, like HARNESS_DB). */
 export const vaultDir = (): string => {

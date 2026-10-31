@@ -11,7 +11,7 @@ import { Config, Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import type { AuditEvent } from "@ultiv/contracts";
+import type { AuditEvent } from "@spreissen/contracts";
 
 export interface AuditService {
   /** Append one event; never throws. */
@@ -26,7 +26,7 @@ export interface AuditService {
   readonly setHooks: (hooks: { readonly onEscalation?: (event: AuditEvent) => void }) => void;
 }
 
-export class Audit extends Context.Service<Audit, AuditService>()("ultiv/mind/Audit") {}
+export class Audit extends Context.Service<Audit, AuditService>()("spreissen/mind/Audit") {}
 
 const MAX_LINE_CHARS = 4_000;
 

@@ -5,8 +5,8 @@
  * source's own event ids dedup fires — each real-world event wakes once.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
-import type { SensorInfo } from "@ultiv/contracts";
+import { defineTool, type Tool } from "@spreissen/ext";
+import type { SensorInfo } from "@spreissen/contracts";
 import type { SensorsService } from "./sensors.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

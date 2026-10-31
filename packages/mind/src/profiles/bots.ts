@@ -4,7 +4,7 @@
  * GROUPS and busy/idle. Never memory, vault, files, chats or tool inputs
  * (the sibling wall).
  */
-import type { ProfileInfo } from "@ultiv/contracts";
+import type { ProfileInfo } from "@spreissen/contracts";
 
 export const ROLE_CHARS = 80;
 

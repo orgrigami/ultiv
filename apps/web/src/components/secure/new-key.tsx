@@ -2,7 +2,7 @@
  * "Paste a new key" inside a form: the value goes straight to the vault as a
  * Key item and the form keeps only the item's id. Never echoed back.
  */
-import type { VaultItemInfo } from "@ultiv/contracts";
+import type { VaultItemInfo } from "@spreissen/contracts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";

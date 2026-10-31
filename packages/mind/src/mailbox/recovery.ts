@@ -4,7 +4,7 @@
  * land before the crash count once), deadlines are re-armed or fired, and a
  * finish signal or NACK the crash swallowed is sent again.
  */
-import type { MailboxEntry } from "@ultiv/contracts";
+import type { MailboxEntry } from "@spreissen/contracts";
 import { armDeadline, deliver, expire, notifySender, type Engine } from "./delivery.ts";
 import { isExternal, readEntries, updatePending } from "./store.ts";
 import { cancelledText, deadText, expiredText, replySignalText } from "./text.ts";

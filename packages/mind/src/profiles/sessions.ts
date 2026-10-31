@@ -1,8 +1,8 @@
 /** Session rows of a profile, and the keys and scopes their conversations map to. */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { InvalidInput, NotFound } from "@ultiv/core";
-import type { SessionInfo } from "@ultiv/contracts";
+import { InvalidInput, NotFound } from "@spreissen/core";
+import type { SessionInfo } from "@spreissen/contracts";
 import { commitSessions, readSessions, scopedKey, titleFor } from "./docs.ts";
 import { requireProfile } from "./main.ts";
 import type { ProfilesContext, ProfilesService } from "./types.ts";

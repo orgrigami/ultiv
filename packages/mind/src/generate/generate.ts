@@ -19,7 +19,7 @@ import type {
   Model,
   Models,
 } from "@earendil-works/pi-ai";
-import { External, InvalidInput, Unavailable } from "@ultiv/core";
+import { External, InvalidInput, Unavailable } from "@spreissen/core";
 import { Value } from "typebox/value";
 import type { Static, TSchema } from "typebox";
 import { MindModels, ModelCatalog } from "../providers/models.ts";
@@ -54,7 +54,9 @@ export interface GenerateService {
   ) => Effect.Effect<Static<S>, GenerateError>;
 }
 
-export class Generate extends Context.Service<Generate, GenerateService>()("ultiv/mind/Generate") {}
+export class Generate extends Context.Service<Generate, GenerateService>()(
+  "spreissen/mind/Generate",
+) {}
 
 const textOf = (message: AssistantMessage): string =>
   message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("");

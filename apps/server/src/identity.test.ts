@@ -1,6 +1,6 @@
 /** The principal seam: reserved owner labels resolve to guest. */
 import { describe, expect, it } from "vite-plus/test";
-import { AGENT_OWNER } from "@ultiv/mind";
+import { AGENT_OWNER } from "@spreissen/mind";
 import { ownerOf, principalFromHeaders, principalFromRequest } from "./identity.ts";
 
 describe("principalFromHeaders", () => {

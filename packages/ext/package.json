@@ -1,5 +1,5 @@
 {
-  "name": "@ultiv/ext",
+  "name": "@spreissen/ext",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@earendil-works/pi-durable": "catalog:",
     "@modelcontextprotocol/client": "catalog:",
-    "@ultiv/contracts": "workspace:*",
-    "@ultiv/core": "workspace:*",
+    "@spreissen/contracts": "workspace:*",
+    "@spreissen/core": "workspace:*",
     "effect": "catalog:",
     "microsandbox": "^0.7.11",
     "typebox": "catalog:"

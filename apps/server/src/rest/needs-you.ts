@@ -7,8 +7,8 @@
  * 5s polls.
  */
 import { Effect } from "effect";
-import type { AuditEvent, MemoryProposal } from "@ultiv/contracts";
-import { ProposalsDoc, profileKey } from "@ultiv/mind";
+import type { AuditEvent, MemoryProposal } from "@spreissen/contracts";
+import { ProposalsDoc, profileKey } from "@spreissen/mind";
 import type { RouteArgs } from "./types.ts";
 import { visibleProposals } from "./memory-v2.ts";
 import { sessionOfConversation } from "../push/events.ts";

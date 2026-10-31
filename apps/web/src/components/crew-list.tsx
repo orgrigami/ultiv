@@ -6,7 +6,7 @@
  * last and only on the page.
  */
 import { ChevronRightIcon, StarIcon } from "lucide-react";
-import type { ModelInfo, ProfileInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileInfo } from "@spreissen/contracts";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { Badge } from "@/components/ui/badge";

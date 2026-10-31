@@ -1,6 +1,6 @@
 /** The Profiles service surface and the shared context its parts build on. */
 import type { AgentChange } from "@earendil-works/pi-durable";
-import type { ProfileCreate, ProfileInfo, SessionInfo } from "@ultiv/contracts";
+import type { ProfileCreate, ProfileInfo, SessionInfo } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { ConversationIndex } from "./conversation-index.ts";

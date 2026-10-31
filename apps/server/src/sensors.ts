@@ -9,7 +9,7 @@
  * never steering a turn in flight.
  */
 import { createHash } from "node:crypto";
-import type { MindService } from "@ultiv/mind";
+import type { MindService } from "@spreissen/mind";
 import {
   recordRoutineFire,
   readSensors,
@@ -17,8 +17,8 @@ import {
   settleRoutineEvent,
   updateSensor,
   type SensorRow,
-} from "@ultiv/mind";
-import { calendarFeedUrl, parseFeed, parseIcs, type IcsEvent } from "@ultiv/ext";
+} from "@spreissen/mind";
+import { calendarFeedUrl, parseFeed, parseIcs, type IcsEvent } from "@spreissen/ext";
 import { deliverToSession } from "./deliver.ts";
 
 const POLL_MS = Number(process.env.SENSOR_POLL_MS ?? 300_000);

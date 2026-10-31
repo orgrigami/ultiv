@@ -5,8 +5,8 @@
  */
 import { Effect } from "effect";
 import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durable";
-import type { ScopeHolder } from "@ultiv/ext";
-import type { TranscriptEntry } from "@ultiv/contracts";
+import type { ScopeHolder } from "@spreissen/ext";
+import type { TranscriptEntry } from "@spreissen/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
 import { mayAutoApprove } from "./auto-approve.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";

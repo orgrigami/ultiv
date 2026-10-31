@@ -7,7 +7,7 @@
  * refresh machinery.
  */
 import { defineExtension, type Extension } from "@earendil-works/pi-durable";
-import type { Tool } from "@ultiv/ext";
+import type { Tool } from "@spreissen/ext";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

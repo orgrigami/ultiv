@@ -4,7 +4,7 @@
  * field that will change, in plain words; secrets are never arguments - a
  * key is either an existing vault item or asked for in a secure field.
  */
-import type { McpServerInput, McpTransport } from "@ultiv/contracts";
+import type { McpServerInput, McpTransport } from "@spreissen/contracts";
 import { presetById } from "./presets.ts";
 
 export const CONNECTOR_CHANGES = [
@@ -58,7 +58,7 @@ export interface AddArgs {
   /** OAuth: extra authorization-redirect parameters (provider quirks). */
   readonly authParams?: readonly { readonly name: string; readonly value: string }[];
   /** OAuth only: the connector's current oauth auth, when updating one. */
-  readonly previousOAuth?: Extract<import("@ultiv/contracts").McpAuth, { kind: "oauth" }>;
+  readonly previousOAuth?: Extract<import("@spreissen/contracts").McpAuth, { kind: "oauth" }>;
   readonly bots?: readonly string[];
 }
 

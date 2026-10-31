@@ -7,9 +7,9 @@
  * `memory_related` can ask for 2.
  */
 import { randomUUID } from "node:crypto";
-import type { MemoryEntity, MemoryFact } from "@ultiv/contracts";
+import type { MemoryEntity, MemoryFact } from "@spreissen/contracts";
 import { Effect } from "effect";
-import { NotFound } from "@ultiv/core";
+import { NotFound } from "@spreissen/core";
 import type { ConverseService } from "../converse/converse.ts";
 import { FactsDoc, GraphDoc, ownerKey, profileKey } from "./model.ts";
 import { normalize } from "./text.ts";

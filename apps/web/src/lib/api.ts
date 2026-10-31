@@ -21,7 +21,7 @@ import type {
   WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
-} from "@ultiv/contracts";
+} from "@spreissen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
 
 /**

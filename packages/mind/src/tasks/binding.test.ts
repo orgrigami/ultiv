@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { runningTasksText, tasksVisibleTo } from "../act/task-live.ts";
 import { openMind, type MindHandle } from "../entity.ts";
 import { TasksDoc, taskConversationKey } from "./tasks.ts";

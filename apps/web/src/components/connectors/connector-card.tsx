@@ -5,7 +5,12 @@
  */
 import { ChevronDownIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import type { McpServerInfo, McpServerInput, ProfileInfo, VaultItemInfo } from "@ultiv/contracts";
+import type {
+  McpServerInfo,
+  McpServerInput,
+  ProfileInfo,
+  VaultItemInfo,
+} from "@spreissen/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

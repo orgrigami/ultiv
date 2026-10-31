@@ -4,7 +4,7 @@
  * reaches the bot, with an × to take back just that one. Once the turn picks a
  * message up it leaves the queue and appears as a normal bubble.
  */
-import type { QueuedInput } from "@ultiv/contracts";
+import type { QueuedInput } from "@spreissen/contracts";
 import { XIcon } from "lucide-react";
 import { Button } from "./ui/button.tsx";
 import { displayText } from "../lib/attachments.ts";

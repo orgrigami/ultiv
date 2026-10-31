@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
-import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spreissen/contracts";
 
 export interface BotForm {
   name: string;

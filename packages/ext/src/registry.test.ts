@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect, Exit } from "effect";
 import { Type } from "typebox";
-import { Duplicate } from "@ultiv/core";
+import { Duplicate } from "@spreissen/core";
 import {
   connectorCapability,
   defineConnector,

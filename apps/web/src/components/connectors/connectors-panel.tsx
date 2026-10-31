@@ -5,7 +5,12 @@
  */
 import { CopyIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { McpServerInfo, McpServerList, ProfileInfo, VaultItemInfo } from "@ultiv/contracts";
+import type {
+  McpServerInfo,
+  McpServerList,
+  ProfileInfo,
+  VaultItemInfo,
+} from "@spreissen/contracts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DevDetails } from "@/components/ui/dev-details";

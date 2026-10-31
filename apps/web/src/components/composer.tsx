@@ -9,7 +9,7 @@
  * pasted or dropped files stage too. On a text-only model a staged image
  * draws a muted note: images ride as file references instead.
  */
-import type { SendMode } from "@ultiv/contracts";
+import type { SendMode } from "@spreissen/contracts";
 import { CornerUpRightIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { canSend, SendButton } from "@/components/send-button";

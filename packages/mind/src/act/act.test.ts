@@ -11,7 +11,7 @@ import {
   localShellBackend,
   type Tool,
   type RegistryService,
-} from "@ultiv/ext";
+} from "@spreissen/ext";
 import { makeApprovals } from "../approvals.ts";
 import { makeAudit } from "../audit/audit.ts";
 import { actService } from "./act.ts";
@@ -73,7 +73,7 @@ describe("Identity plugin", () => {
 });
 
 describe("bash gating", () => {
-  const dir = mkdtempSync(join(tmpdir(), "ultiv-act-bash-"));
+  const dir = mkdtempSync(join(tmpdir(), "spreissen-act-bash-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
   const bashTool = (): Tool => {
     const capability = bashPlugin({ root: dir, backend: (_d, home) => localShellBackend(home) })

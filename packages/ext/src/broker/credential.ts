@@ -4,7 +4,7 @@
  * secret is opened: visibility to the profile, secret class, binding
  * presence, adapter, and which bots may use it.
  */
-import type { CredentialBinding, VaultItemInfo } from "@ultiv/contracts";
+import type { CredentialBinding, VaultItemInfo } from "@spreissen/contracts";
 import type { VaultSecret, VaultStore } from "../vault.ts";
 import type { BindingStore } from "./bindings.ts";
 import type { SecretMaterial } from "./redact.ts";

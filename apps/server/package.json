@@ -1,5 +1,5 @@
 {
-  "name": "@ultiv/server",
+  "name": "@spreissen/server",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -14,9 +14,9 @@
   "dependencies": {
     "@earendil-works/chord": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
-    "@ultiv/contracts": "workspace:*",
-    "@ultiv/ext": "workspace:*",
-    "@ultiv/mind": "workspace:*",
+    "@spreissen/contracts": "workspace:*",
+    "@spreissen/ext": "workspace:*",
+    "@spreissen/mind": "workspace:*",
     "croner": "catalog:",
     "effect": "catalog:",
     "typebox": "catalog:",

@@ -2,7 +2,7 @@
  * Plain words for the Connectors screen, and the form ↔ request mapping.
  * Pure (no React), so the wording and the shapes are unit-tested.
  */
-import type { McpServerInfo, McpServerInput, McpState, McpTransport } from "@ultiv/contracts";
+import type { McpServerInfo, McpServerInput, McpState, McpTransport } from "@spreissen/contracts";
 
 export type ConnectorKind = "web" | "command";
 export type AuthChoice = "none" | "headers" | "oauth";

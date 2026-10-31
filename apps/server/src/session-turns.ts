@@ -21,8 +21,8 @@ import type {
   ThinkingLevel,
   TranscriptEntry,
   UsageSummary,
-} from "@ultiv/contracts";
-import { isStopped, type MindService } from "@ultiv/mind";
+} from "@spreissen/contracts";
+import { isStopped, type MindService } from "@spreissen/mind";
 import type { Principal } from "./identity.ts";
 
 export type SessionCells = {

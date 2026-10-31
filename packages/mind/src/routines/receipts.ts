@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { RoutineEvent, RoutineEventList } from "@ultiv/contracts";
+import type { RoutineEvent, RoutineEventList } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 /** Oldest receipts fall off once the log passes this length. */

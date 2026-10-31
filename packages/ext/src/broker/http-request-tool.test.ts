@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import type { AuditEvent } from "@ultiv/contracts";
+import type { AuditEvent } from "@spreissen/contracts";
 import { createScopeHolder } from "../plugins/vault.ts";
 import { makeVaultStore } from "../vault.ts";
 import { makeBindingStore } from "./bindings.ts";
@@ -28,7 +28,7 @@ let rig: Rig;
 let root: string;
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), "ultiv-broker-"));
+  root = mkdtempSync(join(tmpdir(), "spreissen-broker-"));
   // An echo server: whatever reached it (auth included) comes back in the body.
   const server = await startServer((seen, res) => {
     res.setHeader("content-type", "application/json");

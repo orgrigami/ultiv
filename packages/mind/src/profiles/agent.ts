@@ -1,7 +1,7 @@
 /** The agent a profile's new conversations start with: model default + tool allowlist. */
 import type { AgentChange } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import type { ProfileInfo } from "@ultiv/contracts";
+import type { ProfileInfo } from "@spreissen/contracts";
 import { parseRef } from "../providers/refs.ts";
 
 /** Tools a profile loses whatever its allowlist says: the sandboxed bash without a sandbox. */

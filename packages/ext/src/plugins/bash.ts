@@ -33,7 +33,7 @@ const MAX_OUTPUT_CHARS = 20_000;
 const HOME = "/home";
 const EXEC_TIMEOUT_MS = 180_000;
 const HOST_TIMEOUT_MS = 120_000;
-const CWD_MARKER = "__ULTIV_CWD__";
+const CWD_MARKER = "__SPREISSEN_CWD__";
 
 export interface BashOptions {
   /** Workspace root; default ARTIFACTS_DIR. */
@@ -53,7 +53,7 @@ export interface BashOptions {
 
 /** Appends an exit-code-preserving exec-boundary marker that reports $PWD. */
 const wrapScript = (script: string): string =>
-  `${script}\n__ultiv_rc=$?; echo "${CWD_MARKER}$PWD" 1>&2; exit $__ultiv_rc`;
+  `${script}\n__spreissen_rc=$?; echo "${CWD_MARKER}$PWD" 1>&2; exit $__spreissen_rc`;
 
 const truncate = (text: string): string => {
   if (text.length <= MAX_OUTPUT_CHARS) return text;

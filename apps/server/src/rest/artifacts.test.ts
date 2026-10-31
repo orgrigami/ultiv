@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { writeArtifact } from "@ultiv/ext";
+import { writeArtifact } from "@spreissen/ext";
 import { artifactRoutes } from "./artifacts.ts";
 import type { RouteArgs } from "./types.ts";
 
@@ -72,7 +72,7 @@ const get = async (target: string, owner = "owner") => {
 
 describe("GET /api/artifacts/:id", () => {
   it("serves raw bytes with nosniff and no disposition", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, { name: "notes.md", content: "# hi", owner: null });
     process.env["ARTIFACTS_DIR"] = dir;
     const { handled, raw } = await get(`/api/artifacts/${info.id}`);
@@ -85,7 +85,7 @@ describe("GET /api/artifacts/:id", () => {
   });
 
   it("sets attachment disposition on ?dl=1, with a filename* for unicode names", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, { name: "résumé final.md", content: "bonjour", owner: null });
     process.env["ARTIFACTS_DIR"] = dir;
     const { raw } = await get(`/api/artifacts/${info.id}?dl=1`);
@@ -95,7 +95,7 @@ describe("GET /api/artifacts/:id", () => {
   });
 
   it("sandboxes inline html but downloads it on ?dl=1 instead", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, {
       name: "page.html",
       mime: "text/html",
@@ -114,7 +114,7 @@ describe("GET /api/artifacts/:id", () => {
 
 describe("GET /api/artifacts/:id/meta", () => {
   it("returns the sidecar info", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, { name: "report.md", content: "# r", owner: null });
     process.env["ARTIFACTS_DIR"] = dir;
     const { handled, json } = await get(`/api/artifacts/${info.id}/meta`);
@@ -124,7 +124,7 @@ describe("GET /api/artifacts/:id/meta", () => {
   });
 
   it("404s unknown ids and 403s other owners' artifacts", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, { name: "secret.md", content: "s", owner: "someone" });
     process.env["ARTIFACTS_DIR"] = dir;
     const missing = await get("/api/artifacts/nope/meta");
@@ -144,7 +144,7 @@ describe("POST /api/artifacts", () => {
   };
 
   it("stores raw bytes binary-safe and serves them back byte-identical", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     process.env["ARTIFACTS_DIR"] = dir;
     const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe, 0x01]);
     const uploaded = await post("/api/artifacts?name=shot.png&mime=image%2Fpng", bytes);
@@ -159,7 +159,7 @@ describe("POST /api/artifacts", () => {
   });
 
   it("answers 413 over the upload cap", async () => {
-    dir = mkdtempSync(join(tmpdir(), "ultiv-rest-artifacts-"));
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     process.env["ARTIFACTS_DIR"] = dir;
     const over = await post("/api/artifacts?name=big.bin", Buffer.alloc(10_000_001));
     expect(over.json.status).toBe(413);

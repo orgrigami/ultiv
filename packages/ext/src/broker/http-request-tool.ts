@@ -7,7 +7,7 @@
  * first use on a host wait for an approval card (the usual 120s auto-deny).
  */
 import { Type } from "typebox";
-import type { AuditEvent, VaultItemInfo } from "@ultiv/contracts";
+import type { AuditEvent, VaultItemInfo } from "@spreissen/contracts";
 import type { ScopeHolder } from "../plugins/vault.ts";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";

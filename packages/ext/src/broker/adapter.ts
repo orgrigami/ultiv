@@ -6,7 +6,7 @@
  * it. HTTP is the first adapter; ssh/git/SMTP/IMAP/DB/env adapters implement
  * the same shape later (their bindings add adapter-specific fields).
  */
-import type { CredentialAdapter, CredentialBinding } from "@ultiv/contracts";
+import type { CredentialAdapter, CredentialBinding } from "@spreissen/contracts";
 import type { SecretMaterial } from "./redact.ts";
 
 /** Why a binding refuses a request (model-facing; never mentions the secret). */

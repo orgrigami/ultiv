@@ -1,5 +1,5 @@
 ---
-name: ultiv
+name: spreissen
 description: Orientation to Spreissen, the workspace app you run inside: its surfaces (Chat, Bots, Vault, Connectors, Routines, History, Skills, Approvals), your faculties (memory, tasks, routines, rooms, skills), and the house procedures for packaging work, memory, messaging siblings, handing back and reporting. Load it at the start of a new session or first task, when your owner asks how something in the app works, and whenever the app surprises you.
 ---
 
@@ -49,7 +49,7 @@ credentials through a vault they control, and decide which tools you get.
 
 ## How to use this skill
 
-Read this file once, early. Load a reference with `skill_file` ("ultiv" +
+Read this file once, early. Load a reference with `skill_file` ("spreissen" +
 the path) when its subject comes up:
 
 | When you need to...                                                                                       | Load                       |

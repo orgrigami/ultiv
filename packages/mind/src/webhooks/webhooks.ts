@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { Value } from "typebox/value";
-import type { WebhookInfo, WebhookList, WebhookReject } from "@ultiv/contracts";
+import type { WebhookInfo, WebhookList, WebhookReject } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 /** Payload cap enforced before the ack — oversize is a 413, never a silent drop. */

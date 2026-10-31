@@ -5,7 +5,7 @@
  * the files it made.
  */
 import { useMemo } from "react";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { ArrowDownIcon } from "lucide-react";
 import { FileCard } from "@/components/file-card";
 import { ApprovalCard } from "@/components/approval-card";

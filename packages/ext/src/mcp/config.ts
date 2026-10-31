@@ -13,8 +13,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { InvalidInput } from "@ultiv/core";
-import type { McpServerInput } from "@ultiv/contracts";
+import { InvalidInput } from "@spreissen/core";
+import type { McpServerInput } from "@spreissen/contracts";
 
 /** One saved server: the owner's input plus identity and first-use state. */
 export type McpServerRecord = McpServerInput & {

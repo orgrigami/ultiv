@@ -19,7 +19,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { Context, Effect, Layer, Option } from "effect";
 import { ConfigError } from "effect/Config";
-import { External, Unavailable } from "@ultiv/core";
+import { External, Unavailable } from "@spreissen/core";
 import {
   TYPESAFE_DEFAULT_BASE_URL,
   typesafeApiKey,
@@ -90,7 +90,7 @@ export interface DecideService {
   ) => Effect.Effect<JevAnswer[], DecideError>;
 }
 
-export class Decide extends Context.Service<Decide, DecideService>()("ultiv/mind/Decide") {}
+export class Decide extends Context.Service<Decide, DecideService>()("spreissen/mind/Decide") {}
 
 type Answers = Record<string, NoulResponse | ChoiceResponse | ScoreResponse | undefined>;
 

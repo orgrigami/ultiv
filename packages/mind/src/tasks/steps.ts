@@ -5,7 +5,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { LiveState } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { TranscriptEntry } from "@ultiv/contracts";
+import type { TranscriptEntry } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { projectTranscript } from "../converse/steps.ts";
 import { taskConversationKey } from "./store.ts";

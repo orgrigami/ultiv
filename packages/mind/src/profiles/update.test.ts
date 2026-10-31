@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ProfileInfo } from "@ultiv/contracts";
+import type { ProfileInfo } from "@spreissen/contracts";
 import { defaultPolicies } from "./docs.ts";
 import { patchedProfile, validatePatch } from "./update.ts";
 

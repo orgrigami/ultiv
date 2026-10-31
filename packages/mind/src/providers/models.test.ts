@@ -62,7 +62,7 @@ const optionsIn = (dir: string, overrides: Partial<CatalogOptions> = {}): Catalo
 
 describe("createCatalog", () => {
   it("first boot fetches models.dev, serves configured providers, and caches the body", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-catalog-"));
     const { fetcher, calls } = fakeFetcher(BODY);
     const catalog = await createCatalog(optionsIn(dir, { fetcher }));
     expect(calls).toEqual([undefined]);
@@ -79,7 +79,7 @@ describe("createCatalog", () => {
   });
 
   it("later boots serve the cache offline and revalidate with the ETag", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-catalog-"));
     const first = await createCatalog(optionsIn(dir, { fetcher: fakeFetcher(BODY).fetcher }));
     first.close();
     const offline = await createCatalog(optionsIn(dir, { url: null }));
@@ -94,7 +94,7 @@ describe("createCatalog", () => {
   });
 
   it("a failed refresh keeps what it has and reports the error", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-catalog-"));
     const catalog = await createCatalog(optionsIn(dir, { fetcher: failingFetcher }));
     expect(catalog.status()).toMatchObject({ source: "none", models: 0 });
     expect(catalog.status().error).toMatch(/offline/);
@@ -104,7 +104,7 @@ describe("createCatalog", () => {
   });
 
   it("applies the owner's overlay and resolves the default model", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-catalog-"));
     writeFileSync(
       join(dir, "models.local.json"),
       JSON.stringify({ kenari: { models: { "minimax-m3-1-flash": model("MiniMax") } } }),
@@ -125,7 +125,7 @@ describe("createCatalog", () => {
   });
 
   it("revalidates kenari against the gateway listing, which replaces its models", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-catalog-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-catalog-"));
     const kenariListing = {
       data: [
         {

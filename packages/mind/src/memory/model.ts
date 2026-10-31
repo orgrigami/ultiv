@@ -13,7 +13,7 @@ import type {
   MemoryFact,
   MemoryProposal,
   MemoryRecord,
-} from "@ultiv/contracts";
+} from "@spreissen/contracts";
 
 /**
  * The v1 store (`ultiv.memory`) — kept only for the `ULTIV_MEMORY_V2=off`

@@ -13,7 +13,7 @@ import { useSession } from "@/lib/use-session";
 import { useTasks } from "@/lib/use-tasks";
 import { useJevNotices } from "@/lib/use-jev-notices";
 import { useState } from "react";
-import type { ModelInfo, ProfileApprovalMode, ProfileInfo, TaskRow } from "@ultiv/contracts";
+import type { ModelInfo, ProfileApprovalMode, ProfileInfo, TaskRow } from "@spreissen/contracts";
 import type { TaskApproval } from "@/components/session-view";
 
 /** The chat's bot carries the policies the header popover switches. */

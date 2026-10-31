@@ -6,7 +6,7 @@
  */
 import { Context, Effect, Layer } from "effect";
 import type { PromptSection } from "@earendil-works/pi-durable";
-import { Duplicate } from "@ultiv/core";
+import { Duplicate } from "@spreissen/core";
 import type { Connector } from "./connector.ts";
 import type { Plugin } from "./plugin.ts";
 import type { Tool } from "./tool.ts";
@@ -20,7 +20,9 @@ export interface RegistryService {
   readonly connector: (id: string) => Connector | undefined;
 }
 
-export class Registry extends Context.Service<Registry, RegistryService>()("ultiv/ext/Registry") {}
+export class Registry extends Context.Service<Registry, RegistryService>()(
+  "spreissen/ext/Registry",
+) {}
 
 interface RegistryState {
   plugins: Plugin[];

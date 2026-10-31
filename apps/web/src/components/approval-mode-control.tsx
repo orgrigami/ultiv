@@ -7,7 +7,7 @@
 import { Menu } from "@base-ui/react/menu";
 import { CheckIcon, ShieldAlertIcon, ShieldCheckIcon, ShieldIcon } from "lucide-react";
 import { useState } from "react";
-import type { ProfileApprovalMode } from "@ultiv/contracts";
+import type { ProfileApprovalMode } from "@spreissen/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { APPROVAL_MODES, MODE_CHIP, needsConfirm, YOLO_STILL_ASKS } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";

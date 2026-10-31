@@ -6,8 +6,8 @@
  * future attention); listing is a read.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
-import type { CronJobInfo } from "@ultiv/contracts";
+import { defineTool, type Tool } from "@spreissen/ext";
+import type { CronJobInfo } from "@spreissen/contracts";
 import { isValidJobStart, nextFireTimes, type SchedulesService } from "./schedules.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { remoteInput, startHttpFake, waitFor } from "@ultiv/ext/mcp-testing";
+import { remoteInput, startHttpFake, waitFor } from "@spreissen/ext/mcp-testing";
 import { openMind } from "../entity.ts";
 
 describe("Connectors on a running mind", () => {
   it("adds and removes a server's tools without a restart", async () => {
     const fake = await startHttpFake();
-    const dir = mkdtempSync(join(tmpdir(), "ultiv-mcp-live-"));
+    const dir = mkdtempSync(join(tmpdir(), "spreissen-mcp-live-"));
     const handle = await openMind({ storage: new MemoryStorage(), mcp: { dir } });
     const { mind } = handle;
     const before = mind.describe().tools;
@@ -20,7 +20,7 @@ describe("Connectors on a running mind", () => {
     expect(mind.describe().tools).toContain("fake_echo");
     // A tool appearing on the server shows up live too.
     expect(mind.describe().tools).not.toContain("fake_late");
-    const { addLateTool } = await import("@ultiv/ext/mcp-testing");
+    const { addLateTool } = await import("@spreissen/ext/mcp-testing");
     for (const server of fake.servers) addLateTool(server, "late");
     await expect.poll(() => mind.describe().tools).toContain("fake_late");
     expect(await mind.mcp.remove("harry", added.id)).toBe(true);

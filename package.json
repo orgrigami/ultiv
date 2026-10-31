@@ -1,14 +1,14 @@
 {
-  "name": "ultiv",
+  "name": "spreissen",
   "private": true,
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "export PORT=${CHORD_PORT:-8787}; vpr @ultiv/server#dev & vpr @ultiv/web#dev & wait",
+    "dev": "export PORT=${CHORD_PORT:-8787}; vpr @spreissen/server#dev & vpr @spreissen/web#dev & wait",
     "check": "vp check",
     "build": "vp -C apps/web build",
     "test": "vp test",
-    "smoke": "vp run --filter @ultiv/server smoke"
+    "smoke": "vp run --filter @spreissen/server smoke"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

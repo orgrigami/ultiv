@@ -20,8 +20,8 @@
  * the owner as a card instead, so a bot can never loop on the gate.
  */
 import { Effect } from "effect";
-import type { AuditEvent, ProfileInfo, TranscriptEntry } from "@ultiv/contracts";
-import { FIRST_USE_APPROVAL } from "@ultiv/ext";
+import type { AuditEvent, ProfileInfo, TranscriptEntry } from "@spreissen/contracts";
+import { FIRST_USE_APPROVAL } from "@spreissen/ext";
 import { isMcpFirstUse } from "./mcp/access.ts";
 import { isNeverAutoApproved } from "./mcp/manage.ts";
 import {

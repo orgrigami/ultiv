@@ -1,6 +1,6 @@
 /**
  * Web Push (VAPID) configuration from the environment. The keys are written
- * once into .env by `vpr @ultiv/server#push:keys` and never logged. Without
+ * once into .env by `vpr @spreissen/server#push:keys` and never logged. Without
  * them push is simply off: the routes report `configured: false`.
  */
 export interface VapidConfig {

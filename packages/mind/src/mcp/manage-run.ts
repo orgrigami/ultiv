@@ -4,8 +4,12 @@
  */
 import { Effect } from "effect";
 import { Value } from "typebox/value";
-import { McpServerInputSchema, type McpServerInfo, type McpServerInput } from "@ultiv/contracts";
-import { validateServerInput, type VaultStore } from "@ultiv/ext";
+import {
+  McpServerInputSchema,
+  type McpServerInfo,
+  type McpServerInput,
+} from "@spreissen/contracts";
+import { validateServerInput, type VaultStore } from "@spreissen/ext";
 import type { SecretRequestsService } from "../secrets/requests.ts";
 import type { McpMindDeps } from "./access.ts";
 import type { ChangeCard, Named, SecretSlot } from "./manage.ts";

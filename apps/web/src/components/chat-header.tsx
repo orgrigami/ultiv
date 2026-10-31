@@ -7,7 +7,12 @@
  */
 import { Popover } from "@base-ui/react/popover";
 import { ChevronLeftIcon, EllipsisIcon, SquarePenIcon } from "lucide-react";
-import type { ModelInfo, ProfileApprovalMode, ThinkingLevel, UsageSummary } from "@ultiv/contracts";
+import type {
+  ModelInfo,
+  ProfileApprovalMode,
+  ThinkingLevel,
+  UsageSummary,
+} from "@spreissen/contracts";
 import { linkLabel, type ChatBot, type LinkState } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { ApprovalModeChip } from "@/components/approval-mode-control";

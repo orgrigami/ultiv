@@ -9,7 +9,7 @@
  */
 import { Type } from "typebox";
 import { Effect } from "effect";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { TasksService } from "../tasks/tasks.ts";
 import { AGENT_OWNER } from "../act/task-tools.ts";

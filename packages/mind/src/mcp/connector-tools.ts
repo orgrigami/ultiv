@@ -6,8 +6,8 @@
  */
 import { Type } from "typebox";
 import type { PromptSection, ToolRegistration } from "@earendil-works/pi-durable";
-import { convertResource, fenceUntrusted, type McpServerView } from "@ultiv/ext";
-import { defineTool } from "@ultiv/ext";
+import { convertResource, fenceUntrusted, type McpServerView } from "@spreissen/ext";
+import { defineTool } from "@spreissen/ext";
 import { withAudit } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
 import { accessOf, approvalFor, visibleServers, type McpMindDeps } from "./access.ts";

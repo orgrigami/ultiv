@@ -9,7 +9,9 @@
 import { Context, Effect, Layer } from "effect";
 import { createRegistry, type Registry } from "@earendil-works/pi-durable";
 
-export class PiRegistry extends Context.Service<PiRegistry, Registry>()("ultiv/mind/PiRegistry") {}
+export class PiRegistry extends Context.Service<PiRegistry, Registry>()(
+  "spreissen/mind/PiRegistry",
+) {}
 
 export const piRegistryLayer: Layer.Layer<PiRegistry> = Layer.effect(
   PiRegistry,

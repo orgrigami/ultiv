@@ -11,7 +11,7 @@
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { GenerateService } from "../generate/generate.ts";
-import type { FactKind } from "@ultiv/contracts";
+import type { FactKind } from "@spreissen/contracts";
 import { flags } from "./model.ts";
 import { normalize } from "./text.ts";
 

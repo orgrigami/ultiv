@@ -7,7 +7,7 @@
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { definePlugin, toolCapability, type Plugin, type Tool } from "@ultiv/ext";
+import { definePlugin, toolCapability, type Plugin, type Tool } from "@spreissen/ext";
 import type { DecideService } from "../decide/decide.ts";
 import { askTool } from "./decision-ask.ts";
 

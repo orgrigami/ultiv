@@ -1,8 +1,8 @@
 // Boots the full server stack on an ephemeral port, exercises the REST
 // surface, and closes it cleanly — all offline and ephemeral (MemoryStorage).
-// Run: vpr smoke  (root), or vp run --filter @ultiv/server smoke
+// Run: vpr smoke  (root), or vp run --filter @spreissen/server smoke
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { Session } from "@ultiv/contracts";
+import { Session } from "@spreissen/contracts";
 import { buildStack } from "./main.ts";
 import { smokeMcp } from "./smoke-mcp.ts";
 
@@ -13,8 +13,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.VAULT_KEY = "smoke-vault-key";
-const scratchVault = mkdtempSync(join(tmpdir(), "ultiv-smoke-vault-"));
-const scratchArtifacts = mkdtempSync(join(tmpdir(), "ultiv-smoke-artifacts-"));
+const scratchVault = mkdtempSync(join(tmpdir(), "spreissen-smoke-vault-"));
+const scratchArtifacts = mkdtempSync(join(tmpdir(), "spreissen-smoke-artifacts-"));
 process.env.ARTIFACTS_DIR = scratchArtifacts;
 // Skill stores stay hermetic too.
 process.env.SKILLS_DIR = join(scratchArtifacts, "skills");

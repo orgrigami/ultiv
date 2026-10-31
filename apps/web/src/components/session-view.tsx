@@ -11,7 +11,7 @@ import type {
   TranscriptEntry,
   UsageSummary,
   SendMode,
-} from "@ultiv/contracts";
+} from "@spreissen/contracts";
 import { ArrowDownIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";

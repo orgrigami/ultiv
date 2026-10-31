@@ -5,7 +5,7 @@
  * of the server's secrets and fenced as untrusted data.
  */
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { convertToolResult, type McpServerView, type McpToolView } from "@ultiv/ext";
+import { convertToolResult, type McpServerView, type McpToolView } from "@spreissen/ext";
 import { withAudit } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
 import { accessOf, approvalFor, type McpMindDeps } from "./access.ts";

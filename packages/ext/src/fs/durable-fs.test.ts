@@ -6,7 +6,7 @@ import { DurableFs } from "./durable-fs.ts";
 import { listArtifacts, readArtifact, VFS_INDEX_ID } from "../plugins/artifacts.ts";
 
 const workspace = (): { dir: string; clean: () => void } => {
-  const dir = mkdtempSync(join(tmpdir(), "ultiv-vfs-"));
+  const dir = mkdtempSync(join(tmpdir(), "spreissen-vfs-"));
   return { dir, clean: () => rmSync(dir, { recursive: true, force: true }) };
 };
 

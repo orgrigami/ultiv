@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { CredentialBinding } from "@ultiv/contracts";
+import type { CredentialBinding } from "@spreissen/contracts";
 import { performHttp } from "./http-adapter.ts";
 import { startServer, type TestServer } from "./test-servers.ts";
 

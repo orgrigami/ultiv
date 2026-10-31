@@ -5,7 +5,7 @@
  */
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { defineTool, type BindingStore } from "@ultiv/ext";
+import { defineTool, type BindingStore } from "@spreissen/ext";
 import { withAudit } from "../audit/audit.ts";
 import type { AuditService } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { vapidConfig } from "./config.ts";
 import { isPushEndpoint } from "./endpoint.ts";
 import { approvalPayload, routinePayload, taskPayload } from "./events.ts";
@@ -14,7 +14,7 @@ const KEYS = { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA", auth: "tBHItJI5s
 const FCM = "https://fcm.googleapis.com/fcm/send/abc123";
 const dirs: string[] = [];
 const scratch = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "ultiv-push-"));
+  const dir = mkdtempSync(join(tmpdir(), "spreissen-push-"));
   dirs.push(dir);
   return dir;
 };

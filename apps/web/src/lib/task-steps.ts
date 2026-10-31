@@ -6,7 +6,7 @@
  * humanized name and malformed output never throws.
  */
 import type { TaskActivity } from "@/lib/api";
-import type { ToolStep as ToolStepContract } from "@ultiv/contracts";
+import type { ToolStep as ToolStepContract } from "@spreissen/contracts";
 
 export type ActivityStep = TaskActivity["steps"][number];
 

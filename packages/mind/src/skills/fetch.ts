@@ -7,7 +7,7 @@
  * owner's approval happens before this code runs.
  */
 import { request as httpsRequest } from "node:https";
-import { guardedLookup } from "@ultiv/ext";
+import { guardedLookup } from "@spreissen/ext";
 
 export interface FetchedText {
   readonly url: string;

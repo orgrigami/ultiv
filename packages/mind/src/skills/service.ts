@@ -5,8 +5,8 @@
  * profile's listing. All paths resolve under the root; every mutation keeps
  * the index file authoritative so listings never scan folders.
  */
-import type { SkillDetail, SkillMeta, SkillOrigin, SkillProposal } from "@ultiv/contracts";
-import { aboutSkills } from "@ultiv/about";
+import type { SkillDetail, SkillMeta, SkillOrigin, SkillProposal } from "@spreissen/contracts";
+import { aboutSkills } from "@spreissen/about";
 import { parseSkillDoc } from "./frontmatter.ts";
 import {
   type BuiltinSkill,

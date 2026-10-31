@@ -6,7 +6,7 @@
  * ack-window bug). Owner scoping rides `x-ultiv-user`; routes live in ./rest.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { MindService } from "@ultiv/mind";
+import type { MindService } from "@spreissen/mind";
 import type { CronScheduler } from "./cron.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
@@ -200,6 +200,6 @@ async function route(args: RouteArgs): Promise<void> {
   if (await approvalRoutes(args)) return;
   if (await secretRoutes(args)) return;
   if (await pushRoutes(args)) return;
-  if (path === "/" || path === "/api/health") return json(200, { app: "ultiv", ok: true });
+  if (path === "/" || path === "/api/health") return json(200, { app: "spreissen", ok: true });
   json(404, { error: `no route: ${method} ${path}` });
 }

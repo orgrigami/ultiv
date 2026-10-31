@@ -4,7 +4,7 @@
  * and the quick switcher, so all three agree. DMs, rooms and task threads
  * are bot-to-bot plumbing and stay out.
  */
-import type { ProfileInfo, SessionInfo } from "@ultiv/contracts";
+import type { ProfileInfo, SessionInfo } from "@spreissen/contracts";
 
 export interface ChatRow {
   id: string;

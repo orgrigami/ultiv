@@ -11,7 +11,7 @@ import { readNote } from "@/lib/note-text";
 import { parseSystem } from "@/lib/system-text";
 import { SystemCard } from "@/components/system/system-card";
 import { ToolGroup } from "@/components/tool-trace";
-import type { TaskInfo, ToolStep, TranscriptEntry } from "@ultiv/contracts";
+import type { TaskInfo, ToolStep, TranscriptEntry } from "@spreissen/contracts";
 import { BrainIcon, CircleSlashIcon } from "lucide-react";
 import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";

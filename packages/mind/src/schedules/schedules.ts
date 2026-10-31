@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Cron } from "croner";
 import { Effect } from "effect";
-import type { CronJobInfo, CronJobList } from "@ultiv/contracts";
+import type { CronJobInfo, CronJobList } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

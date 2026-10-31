@@ -6,7 +6,7 @@
  * replace this static section with the dynamic one in `profiles/section.ts`;
  * the baseline text and name live on for unmapped conversations.
  */
-import { sectionCapability, definePlugin, type Plugin } from "@ultiv/ext";
+import { sectionCapability, definePlugin, type Plugin } from "@spreissen/ext";
 import type { PromptSection } from "@earendil-works/pi-durable";
 
 /** The entity substrate's name: the default profile's identity. */

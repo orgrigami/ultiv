@@ -138,7 +138,7 @@ describe("forgetFact (offline, MemoryStorage)", () => {
         null,
       );
     } catch (cause) {
-      notFound = (cause as { _tag?: string })._tag === "ultiv/NotFound";
+      notFound = (cause as { _tag?: string })._tag === "spreissen/NotFound";
     }
     expect(notFound).toBe(true);
     await handle.close();

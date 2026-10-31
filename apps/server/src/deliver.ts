@@ -11,7 +11,7 @@
  * the next boundary; low-priority sources (sensors) queue as follow-ups.
  */
 import { Effect } from "effect";
-import type { MindService } from "@ultiv/mind";
+import type { MindService } from "@spreissen/mind";
 
 export type WhenBusy = "steer" | "followUp" | "reject";
 

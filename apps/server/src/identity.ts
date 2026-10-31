@@ -6,7 +6,7 @@
  * owner-partitioned HERE, in one file, so a real authenticator later only
  * replaces `principalFromHeaders` and the WebSocket callback.
  */
-import { AGENT_OWNER } from "@ultiv/mind";
+import { AGENT_OWNER } from "@spreissen/mind";
 
 export type Principal = { kind: "guest" } | { kind: "user"; id: string } | { kind: "server" };
 
@@ -23,7 +23,7 @@ export const sessionKey = (owner: string, id: string): string => `${owner}:${id}
 
 /**
  * Owner labels the seam never hands out: `agent` is the sentinel bot-spawned
- * task rows are filed under (see @ultiv/mind's AGENT_OWNER), so a caller
+ * task rows are filed under (see @spreissen/mind's AGENT_OWNER), so a caller
  * NAMING itself that would pass every "own rows" check on those rows —
  * including the pending approval inputs task rows carry. A principal that
  * claims a reserved label resolves to guest.

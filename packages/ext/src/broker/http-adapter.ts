@@ -7,7 +7,7 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
-import type { CredentialBinding } from "@ultiv/contracts";
+import type { CredentialBinding } from "@spreissen/contracts";
 import type { BindingCheck, CredentialAdapterImpl } from "./adapter.ts";
 import { bindingCovers, callerHeaders, withAuth, type HopRequest } from "./http-auth.ts";
 import { addressesAllowed, guardedLookup, isLocalhostName } from "./net-guard.ts";

@@ -3,7 +3,7 @@
  * elapsed time and what it is doing now. A running task has its own Stop with
  * a light inline confirm — no dialog for something this small.
  */
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { TaskStatusIcon } from "@/components/task-status-icon";
 import { StopTask } from "@/components/task-sheet/stop-task";
 import { taskElapsed, taskLatest, taskStatusWord, taskTitle } from "@/lib/task-text";

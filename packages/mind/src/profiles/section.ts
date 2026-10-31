@@ -9,7 +9,7 @@
  * system update, so the cached prompt prefix and history stay valid.
  */
 import { defineExtension, type Extension } from "@earendil-works/pi-durable";
-import type { CoreLine, ProfileInfo } from "@ultiv/contracts";
+import type { CoreLine, ProfileInfo } from "@spreissen/contracts";
 import { MODEL_SILENCE, OPERATING_RULES, VOICE } from "../act/identity.ts";
 import { CORE_LIMITS } from "../memory/core.ts";
 import type { MemoryService } from "../memory/memory.ts";

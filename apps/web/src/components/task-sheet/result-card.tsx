@@ -1,6 +1,6 @@
 /** How the task ended: the result as markdown with copy, or the failure in plain words. */
 import { useState } from "react";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { CheckIcon, CircleAlertIcon, CopyIcon } from "lucide-react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Button } from "@/components/ui/button";

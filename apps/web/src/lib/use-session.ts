@@ -7,7 +7,7 @@ import type {
   TranscriptEntry,
   UsageSummary,
   SendMode,
-} from "@ultiv/contracts";
+} from "@spreissen/contracts";
 import { openSession, type SessionRef } from "./chord.ts";
 
 export type LinkPhase = "connecting" | "live" | "lost";

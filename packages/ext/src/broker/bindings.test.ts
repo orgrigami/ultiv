@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { CredentialBindingInput } from "@ultiv/contracts";
+import type { CredentialBindingInput } from "@spreissen/contracts";
 import { makeBindingStore, validateBinding } from "./bindings.ts";
 import { checkHttp } from "./http-adapter.ts";
 import { entryMatches } from "./http-auth.ts";
@@ -75,7 +75,7 @@ describe("credential bindings", () => {
   });
 
   it("enforces methods and hosts, and resets first-use approvals when hosts change", () => {
-    const root = mkdtempSync(join(tmpdir(), "ultiv-bind-"));
+    const root = mkdtempSync(join(tmpdir(), "spreissen-bind-"));
     dirs.push(root);
     const store = makeBindingStore(root);
     const binding = store.put("harry", "item1", input());

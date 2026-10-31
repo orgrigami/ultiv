@@ -3,7 +3,7 @@
  * the 120s auto-deny) and the audit trail. The mind sets them once it is
  * built; until then every card is denied (fail closed).
  */
-import type { AuditEvent } from "@ultiv/contracts";
+import type { AuditEvent } from "@spreissen/contracts";
 
 export interface BrokerApprovalRequest {
   readonly callId: string;

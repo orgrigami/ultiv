@@ -3,7 +3,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { openMind } from "../entity.ts";
 import { mailboxService, shouldSignalReply } from "./mailbox.ts";
-import type { MailboxEntry } from "@ultiv/contracts";
+import type { MailboxEntry } from "@spreissen/contracts";
 
 // Wake coalescing has a real-world window; tests assert synchronously after
 // sends, so collapse it to near-zero here (the knob is read at service build).

@@ -10,7 +10,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { SkillMeta, SkillOrigin } from "@ultiv/contracts";
+import type { SkillMeta, SkillOrigin } from "@spreissen/contracts";
 import {
   MAX_DESCRIPTION_CHARS,
   MAX_SKILL_CHARS,

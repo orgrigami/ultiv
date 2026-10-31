@@ -4,7 +4,7 @@
  * URLs a binding covers (hostnames, `*.` wildcards, `host:port`, https URL
  * prefixes on a path boundary).
  */
-import type { CredentialBinding } from "@ultiv/contracts";
+import type { CredentialBinding } from "@spreissen/contracts";
 import type { SecretMaterial } from "./redact.ts";
 
 /** One outgoing hop before auth: what the adapter will send. */

@@ -7,7 +7,12 @@
  */
 import { Trash2Icon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { CredentialBinding, ProfileInfo, VaultItemInfo, VaultKind } from "@ultiv/contracts";
+import type {
+  CredentialBinding,
+  ProfileInfo,
+  VaultItemInfo,
+  VaultKind,
+} from "@spreissen/contracts";
 import { BindingEditor } from "@/components/binding-editor";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";

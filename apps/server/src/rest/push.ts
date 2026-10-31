@@ -34,7 +34,7 @@ export async function pushRoutes(args: RouteArgs): Promise<boolean> {
     return true;
   }
   if (push.config === null) {
-    json(503, { error: "push is not configured: run vpr @ultiv/server#push:keys" });
+    json(503, { error: "push is not configured: run vpr @spreissen/server#push:keys" });
     return true;
   }
   return subscriptionRoutes(args, method);

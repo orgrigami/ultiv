@@ -6,9 +6,9 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { artifactsDir, destroySandbox, sandboxNameOf } from "@ultiv/ext";
-import { taskConversationKey } from "@ultiv/mind";
-import type { ProfileCreate, ProfileInfo } from "@ultiv/contracts";
+import { artifactsDir, destroySandbox, sandboxNameOf } from "@spreissen/ext";
+import { taskConversationKey } from "@spreissen/mind";
+import type { ProfileCreate, ProfileInfo } from "@spreissen/contracts";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
 import {
@@ -19,7 +19,7 @@ import {
   removeSensorsForSessions,
   sensorsService,
   webhooksService,
-} from "@ultiv/mind";
+} from "@spreissen/mind";
 import { errorOf, type RouteArgs } from "./types.ts";
 
 const ID = "[a-zA-Z0-9][a-zA-Z0-9._-]*";

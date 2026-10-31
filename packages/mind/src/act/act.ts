@@ -5,7 +5,7 @@
  * (identity and anything the app adds).
  */
 import { defineExtension, type Extension } from "@earendil-works/pi-durable";
-import type { RegistryService, Tool } from "@ultiv/ext";
+import type { RegistryService, Tool } from "@spreissen/ext";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { withTaskNudge, type NudgeGate } from "./nudge.ts";

@@ -6,8 +6,8 @@
 import type { Ctx, Host } from "@earendil-works/chord";
 import type { Conversation, UserInput } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { SendMode, ThinkingLevel } from "@ultiv/contracts";
-import { redirectTurn, stopTurn, type MindService } from "@ultiv/mind";
+import type { SendMode, ThinkingLevel } from "@spreissen/contracts";
+import { redirectTurn, stopTurn, type MindService } from "@spreissen/mind";
 import { buildInputContent } from "./input-content.ts";
 import type { Principal } from "./identity.ts";
 import {

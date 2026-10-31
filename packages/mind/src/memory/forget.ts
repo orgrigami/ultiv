@@ -7,8 +7,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { InvalidInput, NotFound } from "@ultiv/core";
-import type { MemoryFact } from "@ultiv/contracts";
+import { InvalidInput, NotFound } from "@spreissen/core";
+import type { MemoryFact } from "@spreissen/contracts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import { EpisodesDoc, FactsDoc, LIMITS, ownerKey, profileKey } from "./model.ts";

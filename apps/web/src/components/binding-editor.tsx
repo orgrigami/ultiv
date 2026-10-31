@@ -5,7 +5,7 @@
  */
 import { TriangleAlertIcon } from "lucide-react";
 import { useState } from "react";
-import type { CredentialBinding, HttpAuthPlacement, ProfileInfo } from "@ultiv/contracts";
+import type { CredentialBinding, HttpAuthPlacement, ProfileInfo } from "@spreissen/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

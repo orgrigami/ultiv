@@ -7,7 +7,7 @@ import { skillsService } from "./service.ts";
 let root: string | undefined;
 
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "ultiv-skills-"));
+  root = mkdtempSync(join(tmpdir(), "spreissen-skills-"));
   return root;
 };
 
@@ -24,9 +24,9 @@ describe("skills service over disk", () => {
     const skills = skillsService({ root: fresh() });
     const list = await skills.list("harry", "p1");
     const builtinNames = list.filter((meta) => meta.origin === "builtin").map((meta) => meta.name);
-    expect(builtinNames).toEqual(["ultiv"]);
+    expect(builtinNames).toEqual(["spreissen"]);
     await expect(
-      skills.write("harry", "p1", { name: "ultiv", body: BODY("ultiv", "d", "b") }),
+      skills.write("harry", "p1", { name: "spreissen", body: BODY("spreissen", "d", "b") }),
     ).rejects.toThrow(/built-in/);
   });
 
@@ -66,16 +66,16 @@ describe("skills service over disk", () => {
 
   it("built-in reference files list and read from the package", async () => {
     const skills = skillsService({ root: fresh() });
-    const ultiv = await skills.read("harry", "p1", "ultiv");
-    expect(ultiv?.meta.files).toEqual([
+    const spreissen = await skills.read("harry", "p1", "spreissen");
+    expect(spreissen?.meta.files).toEqual([
       "references/mind.md",
       "references/platform.md",
       "references/procedures.md",
       "references/surfaces.md",
     ]);
-    const surfaces = await skills.readFile("harry", "p1", "ultiv", "references/surfaces.md");
+    const surfaces = await skills.readFile("harry", "p1", "spreissen", "references/surfaces.md");
     expect(surfaces?.includes("Chat")).toBe(true);
-    expect(await skills.readFile("harry", "p1", "ultiv", "../escape.md")).toBeUndefined();
+    expect(await skills.readFile("harry", "p1", "spreissen", "../escape.md")).toBeUndefined();
   });
 
   it("reference files: written as a full set, listed, pruned, readable", async () => {

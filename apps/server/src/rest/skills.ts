@@ -7,7 +7,7 @@
  * the audit trail under kind "skills".
  */
 import { errorOf, type RouteArgs } from "./types.ts";
-import type { SkillMeta, SkillProposal } from "@ultiv/contracts";
+import type { SkillMeta, SkillProposal } from "@spreissen/contracts";
 
 const OWNER_ACT = "skills" as const;
 

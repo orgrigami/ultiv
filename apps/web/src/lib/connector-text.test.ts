@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { McpServerInfo } from "@ultiv/contracts";
+import type { McpServerInfo } from "@spreissen/contracts";
 import {
   emptyConnectorForm,
   formOfInfo,

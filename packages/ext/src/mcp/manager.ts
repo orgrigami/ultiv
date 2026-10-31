@@ -5,8 +5,8 @@
  * boot; each keeps a plain-words status.
  */
 import { randomUUID } from "node:crypto";
-import { InvalidInput, NotFound } from "@ultiv/core";
-import type { McpServerInfo, McpServerInput } from "@ultiv/contracts";
+import { InvalidInput, NotFound } from "@spreissen/core";
+import type { McpServerInfo, McpServerInput } from "@spreissen/contracts";
 import type {
   CallToolResult,
   ListResourcesResult,

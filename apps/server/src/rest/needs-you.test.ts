@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { AuditEvent, MemoryProposal } from "@ultiv/contracts";
+import type { AuditEvent, MemoryProposal } from "@spreissen/contracts";
 import { ESCALATION_WINDOW_MS, needsYouExtra } from "./needs-you.ts";
 
 const NOW = 1_800_000_000_000;

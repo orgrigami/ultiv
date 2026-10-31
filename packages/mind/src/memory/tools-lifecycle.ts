@@ -5,7 +5,7 @@
  * change type and source for every version.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { MemoryService } from "./memory.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

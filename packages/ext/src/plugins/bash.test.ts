@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { bashPlugin, localShellBackend } from "./bash.ts";
 import { listArtifacts, readArtifact } from "../plugins/artifacts.ts";
 
-const dir = mkdtempSync(join(tmpdir(), "ultiv-bash-"));
+const dir = mkdtempSync(join(tmpdir(), "spreissen-bash-"));
 const api = { conversationId: "conv-1" } as never;
 
 const toolOf = (plugin: ReturnType<typeof bashPlugin>, name: string) => {
@@ -88,7 +88,7 @@ describe("bash tool (durable workspace, shell backend)", () => {
 });
 
 describe("bash_host tool (privileged shell)", () => {
-  const hostDir = mkdtempSync(join(tmpdir(), "ultiv-host-"));
+  const hostDir = mkdtempSync(join(tmpdir(), "spreissen-host-"));
   it("runs on the real host and carries cwd", async () => {
     const plugin = wrap(hostDir);
     const host = toolOf(plugin, "bash_host");

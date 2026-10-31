@@ -2,7 +2,7 @@ import { expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
-import type { MailboxEntry, TaskInfo } from "@ultiv/contracts";
+import type { MailboxEntry, TaskInfo } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { openMind } from "../entity.ts";
 import { TasksDoc, tasksService } from "../tasks/tasks.ts";

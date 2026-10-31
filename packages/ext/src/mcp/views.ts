@@ -2,7 +2,7 @@
  * What the rest of the platform sees of one server: its record, live status
  * and tools with their bot-facing names, plus the REST info shape.
  */
-import type { McpServerInfo, McpServerInput } from "@ultiv/contracts";
+import type { McpServerInfo, McpServerInput } from "@spreissen/contracts";
 import type { McpServerRecord } from "./config.ts";
 import type { ConnectionStatus, McpToolDef } from "./connection.ts";
 import { toolNameOf } from "./names.ts";

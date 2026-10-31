@@ -4,7 +4,7 @@
  * not woken. At most one per task every two minutes, ≤280 characters.
  */
 import { Effect } from "effect";
-import type { External } from "@ultiv/core";
+import type { External } from "@spreissen/core";
 import type { ConverseService } from "../converse/converse.ts";
 import { findTask, updateTask } from "./store.ts";
 

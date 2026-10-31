@@ -5,7 +5,7 @@
  */
 import type { McpServerRecord } from "./config.ts";
 import type { VaultStore } from "../vault.ts";
-import { InvalidInput } from "@ultiv/core";
+import { InvalidInput } from "@spreissen/core";
 import { MIN_SECRET_LENGTH, materialOf } from "../broker/credential.ts";
 import { makeRedactor, materialForms, secretForms } from "../broker/redact.ts";
 

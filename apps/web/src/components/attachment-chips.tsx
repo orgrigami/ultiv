@@ -5,7 +5,7 @@
  * /api/artifacts/:id, never in the transcript state.
  */
 import { useState } from "react";
-import type { AttachmentRef } from "@ultiv/contracts";
+import type { AttachmentRef } from "@spreissen/contracts";
 import { api } from "@/lib/api";
 import { useOpenWork } from "@/lib/work-pane";
 import { FileCard } from "./file-card.tsx";

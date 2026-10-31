@@ -4,7 +4,7 @@
  * fresher copy of the same task), and the stack never grows past a few steps,
  * so Back stays a short, predictable trail rather than a history.
  */
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import type { FileRef } from "./file-meta.ts";
 
 export type WorkItem =

@@ -20,7 +20,7 @@ import {
 
 const dirs: string[] = [];
 const tempDir = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "ultiv-artifacts-"));
+  const dir = mkdtempSync(join(tmpdir(), "spreissen-artifacts-"));
   dirs.push(dir);
   return dir;
 };
@@ -107,7 +107,7 @@ describe("Artifact store", () => {
 
 describe("artifact grants", () => {
   it("copies an artifact (blob + sidecar) between profile stores", () => {
-    const base = mkdtempSync(join(tmpdir(), "ultiv-grants-"));
+    const base = mkdtempSync(join(tmpdir(), "spreissen-grants-"));
     try {
       const fromDir = join(base, "guest", "sender");
       const toDir = join(base, "guest", "recipient");

@@ -2,7 +2,7 @@
  * The counts on a bot's profile tabs and the one-liners on its overview
  * cards. Pure, so the wording is tested; the route fetches the numbers.
  */
-import type { ProfileApprovalMode } from "@ultiv/contracts";
+import type { ProfileApprovalMode } from "@spreissen/contracts";
 import { MODE_CHIP } from "./approval-mode.ts";
 
 /** What the profile knows about one bot. `undefined` = not loaded (or failed). */

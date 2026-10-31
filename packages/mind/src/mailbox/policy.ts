@@ -5,8 +5,8 @@
  * message is admitted; nothing here touches delivery.
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { InvalidInput, NotFound } from "@ultiv/core";
-import type { MailboxEntry, MailboxEnvelope } from "@ultiv/contracts";
+import { InvalidInput, NotFound } from "@spreissen/core";
+import type { MailboxEntry, MailboxEnvelope } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { isExternal, readEntries, run } from "./store.ts";

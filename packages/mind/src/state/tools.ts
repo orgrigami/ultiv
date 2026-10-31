@@ -7,7 +7,7 @@
  * an explicit generation marker written at first action.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { KvService } from "./kv.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

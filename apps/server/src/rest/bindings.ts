@@ -3,7 +3,7 @@
  * may be spent by `http_request` — hosts/URL prefixes, methods, auth
  * placement and which bots. Bindings never carry secret bytes.
  */
-import { CredentialBindingInputSchema, type CredentialBindingInput } from "@ultiv/contracts";
+import { CredentialBindingInputSchema, type CredentialBindingInput } from "@spreissen/contracts";
 import { Value } from "typebox/value";
 import { errorOf, type RouteArgs } from "./types.ts";
 

@@ -5,8 +5,8 @@
  * and always logs loudly. Notifications are coalesced (one per
  * kind+subject per hour) so a flapping routine cannot spam the owner.
  */
-import type { MindService } from "@ultiv/mind";
-import type { AuditEvent } from "@ultiv/contracts";
+import type { MindService } from "@spreissen/mind";
+import type { AuditEvent } from "@spreissen/contracts";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 /** One notification per kind+subject per hour — flapping must not spam. */

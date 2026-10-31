@@ -10,7 +10,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { posix, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { ArtifactInfo } from "@ultiv/contracts";
+import type { ArtifactInfo } from "@spreissen/contracts";
 import { mimeOfName, VFS_INDEX_ID } from "../plugins/artifacts.ts";
 
 /** Minimal fs-shape types, local since just-bash was replaced by microsandbox. */

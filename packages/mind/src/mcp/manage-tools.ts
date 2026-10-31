@@ -7,7 +7,7 @@
  */
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { defineTool } from "@ultiv/ext";
+import { defineTool } from "@spreissen/ext";
 import { withAudit } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
 import { MCP_PRESETS } from "./presets.ts";

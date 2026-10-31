@@ -2,10 +2,10 @@
  * The projection of a durable conversation into renderable steps: committed
  * transcript entries plus the in-flight generation partial (`pi.live`).
  * A pure function of the conversation view — every surface of the mind
- * renders through this. Shape: `@ultiv/contracts` TranscriptEntry.
+ * renders through this. Shape: `@spreissen/contracts` TranscriptEntry.
  */
 import type { EntryRecord, LiveState } from "@earendil-works/pi-durable";
-import type { AttachmentRef, TranscriptEntry } from "@ultiv/contracts";
+import type { AttachmentRef, TranscriptEntry } from "@spreissen/contracts";
 import { TASK_UPDATE_KIND } from "../tasks/notify.ts";
 
 export type Step = TranscriptEntry;

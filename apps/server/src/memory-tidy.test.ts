@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { openMind, ProposalsDoc, ownerKey } from "@ultiv/mind";
-import type { MemoryProposal } from "@ultiv/contracts";
+import { openMind, ProposalsDoc, ownerKey } from "@spreissen/mind";
+import type { MemoryProposal } from "@spreissen/contracts";
 import { ownersWithProfiles, runTidy, tidyStore } from "./memory-tidy.ts";
 
 describe("memory tidy ownership", () => {

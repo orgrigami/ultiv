@@ -11,7 +11,7 @@ import {
   type Plugin,
   type ScopeHolder,
   type VaultStore,
-} from "@ultiv/ext";
+} from "@spreissen/ext";
 import { Approvals } from "../approvals.ts";
 import { Audit } from "../audit/audit.ts";
 

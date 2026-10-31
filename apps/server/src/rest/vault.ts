@@ -3,7 +3,7 @@
  * bytes — anything it touches lands in a durable transcript). Responses are
  * metadata + masks only.
  */
-import type { VaultItemCreate } from "@ultiv/contracts";
+import type { VaultItemCreate } from "@spreissen/contracts";
 import { errorOf, queryOr, type RouteArgs } from "./types.ts";
 
 export async function vaultRoutes(

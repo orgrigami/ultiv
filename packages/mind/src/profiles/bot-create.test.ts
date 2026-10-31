@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
-import type { ProfileCreate, ProfileInfo } from "@ultiv/contracts";
-import { InvalidInput } from "@ultiv/core";
+import type { ProfileCreate, ProfileInfo } from "@spreissen/contracts";
+import { InvalidInput } from "@spreissen/core";
 import type { AuditService } from "../audit/audit.ts";
 import type { ApprovalsService } from "../approvals.ts";
 import type { ProfilesService } from "./profiles.ts";

@@ -4,7 +4,7 @@
  * people who need them (with copy buttons).
  */
 import { CopyIcon, Trash2Icon } from "lucide-react";
-import type { CronJobInfo, SensorInfo } from "@ultiv/contracts";
+import type { CronJobInfo, SensorInfo } from "@spreissen/contracts";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";

@@ -9,7 +9,7 @@
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import { External, NotFound } from "@ultiv/core";
+import { External, NotFound } from "@spreissen/core";
 import type { ActionError, Connector } from "../connector.ts";
 import { defineAction, defineConnector, invoke } from "../connector.ts";
 import { connectorCapability, definePlugin, toolCapability, type Plugin } from "../plugin.ts";
@@ -167,9 +167,10 @@ export const tinyfishConnector: Connector = defineConnector({
 });
 
 const describeError = (error: ActionError | NotFound): string => {
-  if (error._tag === "ultiv/AuthMissing") return `web egress is not configured: set ${error.env}`;
-  if (error._tag === "ultiv/InvalidInput") return `invalid input: ${error.reason}`;
-  if (error._tag === "ultiv/NotFound") return `unknown action: ${error.what}`;
+  if (error._tag === "spreissen/AuthMissing")
+    return `web egress is not configured: set ${error.env}`;
+  if (error._tag === "spreissen/InvalidInput") return `invalid input: ${error.reason}`;
+  if (error._tag === "spreissen/NotFound") return `unknown action: ${error.what}`;
   return `web egress failed (${error.op}): ${String(error.cause).slice(0, 200)}`;
 };
 

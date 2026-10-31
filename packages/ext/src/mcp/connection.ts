@@ -13,7 +13,7 @@ import type {
   ReadResourceResult,
   Tool,
 } from "@modelcontextprotocol/client";
-import type { McpState, McpTransport } from "@ultiv/contracts";
+import type { McpState, McpTransport } from "@spreissen/contracts";
 import type { McpServerRecord } from "./config.ts";
 import { resolveSecrets, type Scrubber } from "./secrets.ts";
 import {
@@ -154,7 +154,7 @@ const connectOnce = async (
   let first: unknown;
   for (const kind of plan) {
     const client = new Client(
-      { name: "ultiv", version: "0.1.0" },
+      { name: "spreissen", version: "0.1.0" },
       { listChanged: { tools: { autoRefresh: false, onChanged: () => onToolsChanged() } } },
     );
     const built = buildTransport(kind, record, got.secrets, { cwd: deps.workDir, oauth });

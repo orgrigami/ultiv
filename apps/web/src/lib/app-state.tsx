@@ -6,7 +6,7 @@
  * never refetch it.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { TaskRow } from "@ultiv/contracts";
+import type { TaskRow } from "@spreissen/contracts";
 import { api, type PendingApprovalRow } from "./api";
 import {
   needsYouItems,

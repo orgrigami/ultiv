@@ -103,10 +103,10 @@ message text.
 
 Under the hood, for orientation: Spreissen is an effect-first pnpm monorepo.
 
-- The kernel (`@ultiv/core`) holds shared errors and the runtime door.
-- The extension platform (`@ultiv/ext`) holds tools, connectors, plugins,
+- The kernel (`@spreissen/core`) holds shared errors and the runtime door.
+- The extension platform (`@spreissen/ext`) holds tools, connectors, plugins,
   the registry and the credential vault.
-- The entity substrate (`@ultiv/mind`) is one runtime hosting every profile.
+- The entity substrate (`@spreissen/mind`) is one runtime hosting every profile.
 - TypeBox contracts are shared by the server (a thin chord host with REST)
   and the web client (React).
 - Storage is durable by default.

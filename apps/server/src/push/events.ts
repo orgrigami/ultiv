@@ -4,8 +4,8 @@
  * URLs a bot fetched. A tap opens the chat the event belongs to.
  */
 import { Effect } from "effect";
-import type { MailboxEntry, TaskInfo } from "@ultiv/contracts";
-import type { MindService } from "@ultiv/mind";
+import type { MailboxEntry, TaskInfo } from "@spreissen/contracts";
+import type { MindService } from "@spreissen/mind";
 import type { DeliverySource } from "../deliver.ts";
 import type { Notifier, PushPayload } from "./notifier.ts";
 

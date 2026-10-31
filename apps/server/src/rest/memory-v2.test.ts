@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { openMind } from "@ultiv/mind";
+import { openMind } from "@spreissen/mind";
 import type { RouteArgs } from "./types.ts";
 import { memoryV2Routes } from "./memory-v2.ts";
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { SessionInfo } from "@ultiv/contracts";
+import type { SessionInfo } from "@spreissen/contracts";
 import { defaultPolicies } from "./docs.ts";
 import { openMind } from "../entity.ts";
 

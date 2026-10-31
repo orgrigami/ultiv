@@ -6,7 +6,7 @@
  * nothing was created.
  */
 import { useState } from "react";
-import type { ModelInfo } from "@ultiv/contracts";
+import type { ModelInfo } from "@spreissen/contracts";
 import type { DecideOutcome } from "@/components/approval-card";
 import { ModelFields } from "@/components/bot-dialog";
 import { Button } from "@/components/ui/button";

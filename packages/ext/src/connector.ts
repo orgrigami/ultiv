@@ -7,7 +7,7 @@
 import { Config, Effect, Option } from "effect";
 import type { Static, TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { AuthMissing, External, InvalidInput, NotFound } from "@ultiv/core";
+import { AuthMissing, External, InvalidInput, NotFound } from "@spreissen/core";
 
 export type ActionError = AuthMissing | External | InvalidInput;
 

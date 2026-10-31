@@ -6,7 +6,7 @@
  * rules are testable. Failed tasks and escalations can be dismissed; the
  * others leave the list when they are settled.
  */
-import type { AuditEvent, ProfileInfo, TaskRow } from "@ultiv/contracts";
+import type { AuditEvent, ProfileInfo, TaskRow } from "@spreissen/contracts";
 import type { PendingApprovalRow } from "./api";
 
 export const FAILED_TASK_WINDOW_MS = 24 * 3_600_000;

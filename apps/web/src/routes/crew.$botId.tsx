@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { AuditEvent, ProfileApprovalMode, ProfileInfo } from "@ultiv/contracts";
+import type { AuditEvent, ProfileApprovalMode, ProfileInfo } from "@spreissen/contracts";
 import { ApprovalModeChoice } from "@/components/approval-mode-control";
 import { APPROVAL_MODE_HELP, AutoApproveField, EditBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ProfileInfo } from "@ultiv/contracts";
+import type { ProfileInfo } from "@spreissen/contracts";
 import { baselineIdentityText, OPERATING_RULES } from "../act/identity.ts";
 import type { ProfilesService } from "./profiles.ts";
 import { profilesExtension } from "./section.ts";

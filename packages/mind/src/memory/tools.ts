@@ -5,7 +5,7 @@
  * never a sibling's.
  */
 import { Type } from "typebox";
-import { defineTool, type Tool } from "@ultiv/ext";
+import { defineTool, type Tool } from "@spreissen/ext";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { MemoryService } from "./memory.ts";

@@ -7,7 +7,7 @@
  * on their own main thread, and the finish signal wakes the sender's endpoint.
  */
 import { Type } from "typebox";
-import { definePlugin, defineTool, toolCapability, type Plugin, type Tool } from "@ultiv/ext";
+import { definePlugin, defineTool, toolCapability, type Plugin, type Tool } from "@spreissen/ext";
 import type { MailboxService } from "./mailbox.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { RoomsService } from "../profiles/rooms.ts";

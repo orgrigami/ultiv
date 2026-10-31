@@ -6,7 +6,7 @@
  */
 import { useRef, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
-import type { SendMode } from "@ultiv/contracts";
+import type { SendMode } from "@spreissen/contracts";
 import { ArrowUpIcon } from "lucide-react";
 import { SEND_CHOICES } from "../lib/send-mode.ts";
 import { Button } from "./ui/button.tsx";

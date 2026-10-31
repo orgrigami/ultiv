@@ -3,7 +3,7 @@
  * providers configured the list runs long, and the native picker's groups
  * keep it scannable (and searchable by typing on desktop).
  */
-import type { ModelInfo } from "@ultiv/contracts";
+import type { ModelInfo } from "@spreissen/contracts";
 
 /** Models grouped by provider, in the server's order (provider name, then label). */
 export function groupByProvider(models: ModelInfo[]): [string, ModelInfo[]][] {

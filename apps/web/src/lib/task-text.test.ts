@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import {
   formatElapsed,
   pillLabel,

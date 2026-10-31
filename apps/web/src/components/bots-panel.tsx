@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ErrorState } from "@/components/ui/empty-state";
 import { useApp } from "@/lib/app-state";
-import type { ModelInfo, ProfileInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileInfo } from "@spreissen/contracts";
 
 export function BotsPanel({
   profiles,

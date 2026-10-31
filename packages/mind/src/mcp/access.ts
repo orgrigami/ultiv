@@ -6,7 +6,7 @@
  * switched on "auto-allow read-only" for that server.
  */
 import { Effect } from "effect";
-import type { McpManager, McpServerView } from "@ultiv/ext";
+import type { McpManager, McpServerView } from "@spreissen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

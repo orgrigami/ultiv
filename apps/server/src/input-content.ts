@@ -10,15 +10,15 @@
 import { join } from "node:path";
 import type { Conversation, InputEntry, UserInput } from "@earendil-works/pi-durable";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import type { ArtifactInfo, AttachmentRef } from "@ultiv/contracts";
+import type { ArtifactInfo, AttachmentRef } from "@spreissen/contracts";
 import {
   artifactsDir,
   MAX_IMAGE_BASE64,
   readArtifactBytes,
   readArtifactInfo,
   VISION_MIMES,
-} from "@ultiv/ext";
-import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND, type MindService } from "@ultiv/mind";
+} from "@spreissen/ext";
+import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND, type MindService } from "@spreissen/mind";
 import { Effect } from "effect";
 
 export interface BuiltInput {

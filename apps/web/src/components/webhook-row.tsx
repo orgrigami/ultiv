@@ -5,7 +5,7 @@
  */
 import { BellIcon, PlugIcon } from "lucide-react";
 import { useState } from "react";
-import type { ProfileInfo, WebhookInfo } from "@ultiv/contracts";
+import type { ProfileInfo, WebhookInfo } from "@spreissen/contracts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DevDetails } from "@/components/ui/dev-details";

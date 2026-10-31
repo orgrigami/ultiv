@@ -3,7 +3,7 @@
  * shapes the rest of the app parses: `[message from …]`, `[reply from …]`
  * and `[nack from … • re: <id>]` (all NACK variants share that prefix).
  */
-import type { MailboxEntry, MailboxEnvelope } from "@ultiv/contracts";
+import type { MailboxEntry, MailboxEnvelope } from "@spreissen/contracts";
 
 export const envelopeText = (
   envelope: MailboxEnvelope,

@@ -5,7 +5,7 @@
  * picked from the vault — never typed into this form.
  */
 import { useState } from "react";
-import type { McpTransport, ProfileInfo, VaultItemInfo } from "@ultiv/contracts";
+import type { McpTransport, ProfileInfo, VaultItemInfo } from "@spreissen/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,7 +15,7 @@ import {
   type AuthChoice,
   type ConnectorForm,
 } from "@/lib/connector-text";
-import type { McpServerInput } from "@ultiv/contracts";
+import type { McpServerInput } from "@spreissen/contracts";
 import { Chip, ParamRows, SecretRows, ToggleRow } from "./bits";
 
 type Patch = (patch: Partial<ConnectorForm>) => void;

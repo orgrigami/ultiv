@@ -7,7 +7,7 @@ import { CharacterEmpty } from "@/components/character-empty";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { ArrowLeftIcon, MessagesSquareIcon, SendIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import type { ProfileInfo, RoomInfo } from "@ultiv/contracts";
+import type { ProfileInfo, RoomInfo } from "@spreissen/contracts";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";

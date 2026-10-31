@@ -5,7 +5,7 @@
  */
 import { CheckIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
-import type { ModelInfo } from "@ultiv/contracts";
+import type { ModelInfo } from "@spreissen/contracts";
 import { catalogSummary } from "@/components/model-options";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

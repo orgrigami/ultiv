@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ModelInfo, ProfileInfo, SessionInfo } from "@ultiv/contracts";
+import type { ModelInfo, ProfileInfo, SessionInfo } from "@spreissen/contracts";
 import { api } from "./api";
 import { notifyError, pollRecovered } from "./notify.ts";
 

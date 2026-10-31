@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { WORK_STACK_LIMIT, workKey, workStack, type WorkItem } from "./work-stack.ts";
 
 const file = (id: string): WorkItem => ({ kind: "file", file: { id, name: `${id}.txt` } });

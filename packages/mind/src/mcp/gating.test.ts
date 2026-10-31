@@ -10,7 +10,7 @@ import {
   waitFor,
   type HttpFake,
   type Rig,
-} from "@ultiv/ext/mcp-testing";
+} from "@spreissen/ext/mcp-testing";
 import { makeApprovals } from "../approvals.ts";
 import { makeAudit } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -36,7 +36,7 @@ const setUp = async (allowlist: string[] | null = null) => {
   rig = makeRig();
   const registry = createRegistry();
   const approvals = makeApprovals();
-  const audit = makeAudit(join(mkdtempSync(join(tmpdir(), "ultiv-audit-")), "audit.jsonl"));
+  const audit = makeAudit(join(mkdtempSync(join(tmpdir(), "spreissen-audit-")), "audit.jsonl"));
   const profiles = {
     scopeOf: () => ({ owner: OWNER, profileId: "p1" }),
     profileOf: () => ({ id: "p1", toolAllowlist: allowlist }),

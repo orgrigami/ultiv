@@ -4,7 +4,7 @@
  * Failed and stopped tasks read differently at a glance.
  */
 import { useId, useState } from "react";
-import type { TaskInfo } from "@ultiv/contracts";
+import type { TaskInfo } from "@spreissen/contracts";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { TaskStatusIcon } from "@/components/task-status-icon";
 import { CodeBlockCopyButton } from "@/components/ui/code-block";

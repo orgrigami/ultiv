@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { makeAudit } from "./audit.ts";
-import type { AuditEvent } from "@ultiv/contracts";
+import type { AuditEvent } from "@spreissen/contracts";
 
 const event = (at: number, name: string): AuditEvent => ({
   at,
@@ -19,7 +19,7 @@ const event = (at: number, name: string): AuditEvent => ({
 
 const dirs: string[] = [];
 const tempFile = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "ultiv-audit-"));
+  const dir = mkdtempSync(join(tmpdir(), "spreissen-audit-"));
   dirs.push(dir);
   return join(dir, "audit.jsonl");
 };

@@ -1,7 +1,7 @@
 // The connectors slice of the smoke run: add a fake Streamable HTTP server
 // through REST on the running stack (no restart), see it connect and list its
 // tools, check owner scoping and plain-words errors, then remove it.
-import { startHttpFake } from "@ultiv/ext/mcp-testing";
+import { startHttpFake } from "@spreissen/ext/mcp-testing";
 
 type Call = (
   method: string,

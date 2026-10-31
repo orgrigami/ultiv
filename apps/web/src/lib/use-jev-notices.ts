@@ -5,7 +5,7 @@
  * decided it. Old decisions stay visible after the mode is switched off.
  */
 import { useEffect, useState } from "react";
-import type { TranscriptEntry } from "@ultiv/contracts";
+import type { TranscriptEntry } from "@spreissen/contracts";
 import { api } from "@/lib/api";
 import { jevNotices, type JevNotice } from "@/lib/jev-text";
 
