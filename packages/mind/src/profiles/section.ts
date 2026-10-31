@@ -3,7 +3,9 @@
  * prompt, per conversation. Conversations that belong to a profile get that
  * entity's declared identity, persona, and sibling roster; unmapped
  * conversations (the reserved root, task threads without a parent, probes)
- * get the substrate's baseline identity. Sections re-render per request, and
+ * get the substrate's baseline identity. The bot's Persona and Instructions
+ * files (docs/BOT-FILES.md) come right after its name and role, in that
+ * order; memory, skills and the chat follow in their own sections. Sections re-render per request, and
  * a profile edit refreshes every chat's copy (update.ts), so it reaches all of
  * the bot's chats from their next turn. A changed section is appended as a
  * system update, so the cached prompt prefix and history stay valid.
@@ -14,6 +16,7 @@ import { MODEL_SILENCE, OPERATING_RULES, VOICE } from "../act/identity.ts";
 import { CORE_LIMITS } from "../memory/core.ts";
 import type { MemoryService } from "../memory/memory.ts";
 import { roleOf } from "./bots.ts";
+import type { BotFilesService } from "./bot-files.ts";
 import type { ProfilesService } from "./profiles.ts";
 
 const baseline = (name: string): string =>
@@ -48,12 +51,26 @@ export const roster = (me: ProfileInfo, siblings: readonly ProfileInfo[]): strin
   );
 };
 
-const personaFor = (me: ProfileInfo): string => {
+/** The line that keeps D7: the approval rules are enforced and outrank Instructions text. */
+export const INSTRUCTIONS_RULE =
+  "The app enforces your approval rules, and they always win over these instructions: " +
+  "nothing written here loosens an approval rule or changes your approval mode.";
+
+export const instructionsBlock = (text: string): string =>
+  text.trim() === ""
+    ? ""
+    : `\n\nYour instructions, as your owner wrote them (what you do, your rules, workflows ` +
+      `and when to ask first):\n${text.trim()}\n${INSTRUCTIONS_RULE}`;
+
+export const personaFor = (me: ProfileInfo, files?: BotFilesService): string => {
   const intro =
     `You are ${me.name}: your own entity in this owner's workspace, with your own ` +
     `memory, files and tools — not an assistant playing a role.`;
   const description = me.description !== "" ? `\n\nYour role: ${me.description}` : "";
-  const persona = me.persona !== "" ? `\n\n${me.persona}` : "";
+  const personaText = files !== undefined ? files.read(me, "persona").text : me.persona;
+  const persona = personaText !== "" ? `\n\n${personaText}` : "";
+  const instructions =
+    files !== undefined ? instructionsBlock(files.read(me, "instructions").text) : "";
   // Legacy rows may predate the field: no zone, no line (the rules say to ask).
   const zone =
     typeof me.timezone === "string" && me.timezone !== ""
@@ -62,7 +79,7 @@ const personaFor = (me: ProfileInfo): string => {
   const identity =
     `\n\nAsked who or what you are, answer as ${me.name} (plus your role in a sentence, ` +
     `if useful). ${MODEL_SILENCE}`;
-  return `${intro}${description}${persona}${zone}${identity}${VOICE}${OPERATING_RULES}`;
+  return `${intro}${description}${persona}${instructions}${zone}${identity}${VOICE}${OPERATING_RULES}`;
 };
 
 /**
@@ -118,7 +135,7 @@ export const profilesExtension = (profiles: ProfilesService, baselineName: strin
           const me = profiles.profileOf(String(input.conversationId));
           if (me === undefined) return baseline(baselineName);
           const siblings = await profiles.list(me.owner);
-          return personaFor(me) + roster(me, siblings);
+          return personaFor(me, profiles.files) + roster(me, siblings);
         },
       },
     ],
