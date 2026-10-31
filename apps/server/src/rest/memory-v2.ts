@@ -15,6 +15,17 @@ const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
 const keyOf = (owner: string, profile: string | undefined): string =>
   profile === undefined || profile === "owner" ? ownerKey(owner) : profileKey(owner, profile);
 
+/** The proposals the owner sees: not rejected, and open ones at most 30 days old. */
+export const visibleProposals = (
+  proposals: readonly MemoryProposal[],
+  now: number,
+): MemoryProposal[] =>
+  proposals.filter(
+    (proposal) =>
+      proposal.status !== "rejected" &&
+      !(proposal.status === "open" && now - proposal.at > 30 * 24 * 3_600_000),
+  );
+
 /** GET /api/memory/v2?profile=<id|owner> — facts, entities, core, proposals. */
 const readStore = async (args: RouteArgs, profile: string | undefined) => {
   const owner = args.owner;
@@ -33,12 +44,7 @@ const readStore = async (args: RouteArgs, profile: string | undefined) => {
       (store) => store?.proposals ?? [],
     ),
   ]);
-  const now = Date.now();
-  const visible = proposals.filter(
-    (proposal) =>
-      proposal.status !== "rejected" &&
-      !(proposal.status === "open" && now - proposal.at > 30 * 24 * 3_600_000),
-  );
+  const visible = visibleProposals(proposals, Date.now());
   return {
     facts,
     entities,
