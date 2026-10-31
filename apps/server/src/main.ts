@@ -107,7 +107,7 @@ export async function buildStack(options?: {
     sensorLoop.stop();
     // Pending webhook windows first: a flush racing the mind's teardown
     // would otherwise write into a closed session.
-    closeWebhookPump();
+    closeWebhookPump(mind);
     // Drop connected links first: wss.close() waits for clients otherwise, so
     // one live browser tab would block shutdown (and node --watch restarts) forever.
     for (const client of wss.clients) client.terminate();

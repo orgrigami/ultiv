@@ -45,6 +45,9 @@ describe("Tasks (offline, MemoryStorage)", () => {
     // Offline there is no provider, so the turn fails loudly — the task says so.
     expect(settled?.status).toBe("failed");
     expect(settled?.error ?? "").not.toBe("");
+    // A sentence for Needs you, never the bare error tag.
+    expect(settled?.error).not.toMatch(/spreissen\//);
+    expect(settled?.error).toMatch(/[.!?…]$/);
     // The parent is woken with the outcome as a new admitted input.
     const transcript = await until(
       () => transcriptOf(handle, String(parent.id)),

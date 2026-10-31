@@ -50,10 +50,18 @@ const pending = new Map<
   }
 >();
 
-/** Shutdown hook: drop pending windows so a flush never races stack close. */
-export const closeWebhookPump = (): void => {
-  for (const { timer } of pending.values()) timer.unref?.();
+/** Minds whose stack is closing: their flushes stop quietly instead of retrying. */
+const closed = new WeakSet<MindService>();
+
+/**
+ * Shutdown hook: cancel pending windows (unref alone still let a timer fire
+ * into a closed mind) and stop this mind's in-flight flushes from retrying,
+ * dead-lettering, or logging the teardown as a failure.
+ */
+export const closeWebhookPump = (mind?: MindService): void => {
+  for (const { timer } of pending.values()) clearTimeout(timer);
   pending.clear();
+  if (mind !== undefined) closed.add(mind);
 };
 
 const enqueueDelivery = (
@@ -99,6 +107,9 @@ const flush = async (
         );
         return;
       } catch (cause) {
+        // The stack closed under this delivery: the receipts stay "accepted"
+        // (a visible incomplete pair), no retry, no dead-letter page.
+        if (closed.has(mind)) return;
         if (attempt === MAX_DELIVERY_ATTEMPTS) {
           const error = String(cause).slice(0, 300);
           await Promise.all(
@@ -122,9 +133,11 @@ const flush = async (
           return;
         }
         await sleep(attempt === 1 ? 1_000 : 4_000);
+        if (closed.has(mind)) return;
       }
     }
   } catch (cause) {
+    if (closed.has(mind)) return;
     // A flush racing stack shutdown has nowhere left to write — the receipts
     // stay "accepted" (a visible incomplete pair), which is the honest record.
     console.error(`webhook flush aborted for session ${sessionId}:`, String(cause).slice(0, 200));

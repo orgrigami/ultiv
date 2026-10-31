@@ -54,3 +54,5 @@ export { recentSteps, stepLine } from "./tasks/steps.ts";
 export { tasksVisibleTo } from "./act/task-live.ts";
 export * from "./profiles/bot-files.ts";
 export * from "./versions/store.ts";
+// The owner-facing error sentence (task errors here, turn banners in the server).
+export { ownerErrorText, scrubSecrets } from "@spreissen/core";

@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer } from "effect";
-import { External, readEnv } from "@spreissen/core";
+import { External, ownerErrorText, readEnv } from "@spreissen/core";
 import type { TaskInfo, TaskList } from "@spreissen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import { findTask, readTasks, taskConversationKey, updateTask, writeTasks } from "./store.ts";
@@ -211,7 +211,10 @@ const runTask = (rt: TaskRuntime, task: TaskInfo, prompt: string): void => {
         ),
       );
     } catch (cause) {
-      const error = String(cause).slice(0, 500);
+      // The owner reads this in Needs you: a sentence, not the bare tag
+      // ("spreissen/External"). The full cause goes to the server log.
+      console.error(`task ${task.id} failed:`, cause);
+      const error = ownerErrorText(cause).slice(0, 500);
       await Effect.runPromise(
         updateTask(converse, task.id, (current) =>
           current.status === "cancelled"

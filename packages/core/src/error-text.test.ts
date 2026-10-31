@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Data } from "effect";
 
-// The kernel errors as `packages/core/src/errors.ts` defines them (the server
-// does not depend on @spreissen/core directly; same tags, same fields).
+// The kernel error shapes as `./errors.ts` defines them (same tags, same fields).
 class NotFound extends Data.TaggedError("spreissen/NotFound")<{ readonly what: string }> {}
 class InvalidInput extends Data.TaggedError("spreissen/InvalidInput")<{
   readonly reason: string;
