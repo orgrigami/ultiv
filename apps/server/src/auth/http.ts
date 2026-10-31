@@ -63,11 +63,10 @@ export const isHttps = (req: IncomingMessage): boolean =>
 
 /** A request body the auth routes cannot use: the caller's mistake (4xx). */
 export class BadBody extends Error {
-  constructor(
-    message: string,
-    readonly status: 400 | 413,
-  ) {
+  readonly status: 400 | 413;
+  constructor(message: string, status: 400 | 413) {
     super(message);
+    this.status = status;
   }
 }
 

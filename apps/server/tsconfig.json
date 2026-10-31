@@ -1,4 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
+  // The server runs under Node's type stripping: no parameter properties,
+  // enums or namespaces, or it fails to boot.
+  "compilerOptions": { "erasableSyntaxOnly": true },
   "include": ["src"]
 }
