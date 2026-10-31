@@ -56,11 +56,32 @@ export class InFlight {
   start(): void {
     this.#count += 1;
   }
+  /** Some input of this session is still being answered. */
+  get active(): boolean {
+    return this.#count > 0;
+  }
   /** One input settled; true when none is left. */
   finish(): boolean {
     this.#count = Math.max(0, this.#count - 1);
     return this.#count === 0;
   }
+}
+
+/**
+ * A run this session did not start (a turn resumed after a restart, slice 8,
+ * or a task's wake) reads "working" while it runs and "idle" once it ends, so
+ * Stop shows and the chat never looks idle while the bot works. Inputs of
+ * this session own the phase while they are in flight.
+ */
+export function adoptedPhase(
+  running: boolean,
+  ownInputs: boolean,
+  phase: Phase,
+): Phase | undefined {
+  if (ownInputs) return undefined;
+  if (running && phase !== "working") return "working";
+  if (!running && phase === "working") return "idle";
+  return undefined;
 }
 
 export type SettleArgs = {

@@ -19,7 +19,14 @@ import {
 import { projectTranscript, usageOf, type MindService } from "@spreissen/mind";
 import { ownerOf, type Principal } from "./identity.ts";
 import { approveMethod, controlMethods, inputMethod } from "./session-methods.ts";
-import { InFlight, queuedOf, safeChange, sameQueue, type SessionCells } from "./session-turns.ts";
+import {
+  adoptedPhase,
+  InFlight,
+  queuedOf,
+  safeChange,
+  sameQueue,
+  type SessionCells,
+} from "./session-turns.ts";
 
 /** The `pi.live` conversation doc from a structural view, typed. */
 function liveOf(view: ConversationView): LiveState | undefined {
@@ -60,6 +67,7 @@ async function hydrate(
   cells: SessionCells,
   ctx: Ctx<Principal>,
   remember: (view: ConversationView) => void,
+  inFlight: InFlight,
 ): Promise<void> {
   const view = await chat.viewState(BACKGROUND_CONTEXT);
   // Let the client's attach settle before the first hydration publish.
@@ -73,6 +81,12 @@ async function hydrate(
     if (usage !== undefined) safeChange(cells.usage, ctx, () => usage);
     const queued = queuedOf(value);
     if (!sameQueue(queued, cells.queued.value)) safeChange(cells.queued, ctx, () => queued);
+    const phase = adoptedPhase(
+      liveOf(value)?.run !== undefined,
+      inFlight.active,
+      cells.phase.value,
+    );
+    if (phase !== undefined) safeChange(cells.phase, ctx, () => phase);
   };
   const unsubscribe = view.subscribe((value) => apply(value));
   if (view.value !== undefined) apply(view.value);
@@ -121,8 +135,9 @@ export function serveSession(host: Host<Principal>, mind: MindService): void {
       const cells = sessionCells(self);
       const conversationId = conversation.then((chat) => String(chat.id));
       let lastView: ConversationView | undefined;
+      const inFlight = new InFlight();
       self.task(async (ctx) =>
-        hydrate(mind, await conversation, cells, ctx, (view) => (lastView = view)),
+        hydrate(mind, await conversation, cells, ctx, (view) => (lastView = view), inFlight),
       );
       // Phase transitions re-project once more, so the streaming flag
       // clears when the turn ends even if no publication followed.
@@ -141,7 +156,7 @@ export function serveSession(host: Host<Principal>, mind: MindService): void {
         conversation,
         conversationId,
         cells,
-        inFlight: new InFlight(),
+        inFlight,
       };
       return {
         variant: "default",

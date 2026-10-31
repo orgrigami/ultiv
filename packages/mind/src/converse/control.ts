@@ -71,9 +71,24 @@ export const controlOps = (
   harness: Harness,
 ): Pick<
   ConverseService,
-  "interrupt" | "withdraw" | "liveOf" | "abortRun" | "parked" | "retryParked" | "retryQueued"
+  | "interrupt"
+  | "withdraw"
+  | "liveOf"
+  | "abortRun"
+  | "parked"
+  | "retryParked"
+  | "retryQueued"
+  | "resume"
 > => ({
   parked: () => asEffect("parked tasks", parkedOf(harness)),
+  resume: () => {
+    try {
+      harness.resume();
+    } catch (cause) {
+      // Only after close (shutdown racing boot): nothing left to run.
+      console.error("harness resume failed:", cause);
+    }
+  },
   retryQueued: (conversation) => asEffect("queue retry", retryQueuedOf(conversation)),
   retryParked: (taskId) =>
     asEffect(

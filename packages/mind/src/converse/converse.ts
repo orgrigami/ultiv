@@ -99,6 +99,12 @@ export interface ConverseService {
   readonly retryQueued: (
     conversation: Conversation,
   ) => Effect.Effect<"started" | "busy" | "empty", External>;
+  /**
+   * Start the engine's scheduler (idempotent). Opening the harness alone
+   * runs nothing, so a turn a restart cut off would sit idle silently; the
+   * entity calls this at boot, after every tool is installed (slice 8).
+   */
+  readonly resume: () => void;
   /** Tasks the engine parked after too many restarts in a row, across all conversations. */
   readonly parked: () => Effect.Effect<readonly ParkedTask[], External>;
   /** Run one parked task again; "not_parked" when it is not parked (any more). */

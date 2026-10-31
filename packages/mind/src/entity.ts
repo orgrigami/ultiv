@@ -312,6 +312,10 @@ const mindLayerRaw = (
       );
       mcpRef = mcp;
       yield* Effect.addFinalizer(() => Effect.promise(mcp.close));
+      // Turns a restart cut off continue now, with every tool installed
+      // (connector tools join as their servers connect). One cut off too many
+      // times in a row is parked instead and shows in Needs you.
+      converse.resume();
       return {
         converse,
         decide,

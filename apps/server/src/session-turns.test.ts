@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { idleIfStalled, InFlight, queuedOf, sameQueue, stopChatTasks } from "./session-turns.ts";
+import {
+  adoptedPhase,
+  idleIfStalled,
+  InFlight,
+  queuedOf,
+  sameQueue,
+  stopChatTasks,
+} from "./session-turns.ts";
 
 const viewWith = (items: unknown[]): ConversationView =>
   ({ entries: [], docs: { "pi.inbox": { items } } }) as unknown as ConversationView;
@@ -44,6 +51,21 @@ describe("InFlight", () => {
     expect(inFlight.finish()).toBe(true);
     // Never negative: a stray finish still reads idle.
     expect(inFlight.finish()).toBe(true);
+  });
+});
+
+describe("adoptedPhase", () => {
+  it("a run nobody in this session started (resumed after a restart) reads working, then idle", () => {
+    expect(adoptedPhase(true, false, "idle")).toBe("working");
+    expect(adoptedPhase(true, false, "error")).toBe("working");
+    expect(adoptedPhase(true, false, "working")).toBeUndefined();
+    expect(adoptedPhase(false, false, "working")).toBe("idle");
+    expect(adoptedPhase(false, false, "error")).toBeUndefined();
+  });
+
+  it("leaves the phase to this session's own inputs while they are in flight", () => {
+    expect(adoptedPhase(true, true, "idle")).toBeUndefined();
+    expect(adoptedPhase(false, true, "working")).toBeUndefined();
   });
 });
 
