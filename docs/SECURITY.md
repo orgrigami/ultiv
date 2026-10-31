@@ -63,12 +63,16 @@ request needs a session, loopback included.
   origin. The rp id and origin come from the request's own Host, so
   localhost and the tailnet HTTPS facet each register their own working
   passkey. The passcode stays as the fallback and cannot be removed.
+  Adding and removing a passkey are audited (`passkey-added`,
+  `passkey-removed`, kind `auth`).
   Forgotten passcodes: the recovery command (see README) resets the passcode
-  and clears every session from the host.
+  and clears every session from the host. Registered passkeys stay: anyone
+  holding one can still sign in after a recovery; remove them in Settings.
 
 Tests: `apps/server/src/auth/auth.test.ts`, `store.test.ts`, and
-`passkeys.test.ts` (wiring; the browser round-trip was verified in Chrome
-with a CDP virtual authenticator: register, sign out, sign in).
+`passkeys.test.ts`: the routes end to end with a software authenticator
+(`soft-authenticator.ts`: register, sign in, a replay refused, removal
+audited).
 
 ## File paths stay inside their folder
 

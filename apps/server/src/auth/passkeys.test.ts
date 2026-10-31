@@ -1,8 +1,8 @@
 /**
- * Passkey route wiring without a real authenticator: registration options
- * need a session, authentication options 404 while none is registered, and
- * a garbage assertion is refused (never a session). The browser round-trip
- * with a virtual authenticator is verified separately, in the browser.
+ * Passkeys over the real routes: registration options need a session,
+ * authentication options 404 while none is registered, a garbage assertion
+ * is refused (never a session), and a software authenticator registers,
+ * signs in, is refused on a replayed assertion, and is removed (audited).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -14,6 +14,7 @@ import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 import { AuthStore } from "./store.ts";
 import { signInForTest } from "./test-auth.ts";
+import { softAuthenticator } from "./soft-authenticator.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-passkeys-"));
 process.env["AUTH_DIR"] = join(scratch, "auth");
@@ -101,5 +102,51 @@ describe("passkey wiring", () => {
     expect((await call("DELETE", "/api/auth/passkeys/nope", undefined, cookie)).json).toEqual({
       ok: false,
     });
+  });
+
+  it("registers, signs in, refuses a replay, and is removed with an audit row", async () => {
+    const host = new URL(base);
+    const device = softAuthenticator(host.hostname, base);
+    const offer = await call("POST", "/api/auth/passkey/register-options", {}, cookie);
+    expect(offer.status).toBe(200);
+    const added = await call(
+      "POST",
+      "/api/auth/passkey/register",
+      { token: offer.json.token, response: device.create(offer.json.options) },
+      cookie,
+    );
+    expect(added.json).toEqual({ ok: true });
+    const listed = await call("GET", "/api/auth/passkeys", undefined, cookie);
+    expect(listed.json.map((row: { id: string }) => row.id)).toEqual([device.id]);
+
+    // Sign in with it: no cookie going in, a session cookie coming out.
+    const ask = await call("POST", "/api/auth/passkey/auth-options", {});
+    expect(ask.status).toBe(200);
+    const assertion = device.get(ask.json.options);
+    const signIn = await fetch(`${base}/api/auth/passkey/auth`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: ask.json.token, response: assertion }),
+    });
+    expect(signIn.status).toBe(200);
+    const session = signIn.headers.get("set-cookie")?.split(";")[0] ?? "";
+    expect((await call("GET", "/api/sessions", undefined, session)).status).toBe(200);
+
+    // The same assertion again (token used, counter stale) gets nothing.
+    const replay = await fetch(`${base}/api/auth/passkey/auth`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: ask.json.token, response: assertion }),
+    });
+    expect(replay.status).toBe(401);
+    expect(replay.headers.get("set-cookie")).toBeNull();
+
+    const removed = await call("DELETE", `/api/auth/passkeys/${device.id}`, undefined, cookie);
+    expect(removed.json).toEqual({ ok: true });
+    const audit = await call("GET", "/api/audit?kind=auth&limit=200", undefined, cookie);
+    const names = (audit.json as { name: string }[]).map((row) => row.name);
+    expect(names).toContain("passkey-added");
+    expect(names).toContain("passkey-removed");
+    expect((await call("POST", "/api/auth/passkey/auth-options", {})).status).toBe(404);
   });
 });

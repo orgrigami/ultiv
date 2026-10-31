@@ -95,13 +95,13 @@ export const handleAuthRoutes = async (
   }
   const passkeyRemove = url.pathname.match(/^\/api\/auth\/passkeys\/([^/]+)$/);
   if (passkeyRemove !== null && method === "DELETE") {
-    return passkeyDelete(req, res, store, decodeURIComponent(passkeyRemove[1] ?? ""));
+    return passkeyDelete(req, res, store, decodeURIComponent(passkeyRemove[1] ?? ""), record);
   }
   sendJson(res, 404, { error: `no auth route: ${method} ${url.pathname}` });
   return true;
 };
 
-/** A real session (not just the bootstrap) — passkey management needs it. */
+/** A signed-in session: passkey management needs one. */
 const signedIn = (req: IncomingMessage, store: AuthStore): boolean => {
   const sessionId = sessionCookieOf(req);
   return sessionId !== undefined && store.session(sessionId) !== undefined;
@@ -204,12 +204,16 @@ const passkeyDelete = async (
   res: ServerResponse,
   store: AuthStore,
   id: string,
+  record: (name: string, ok: boolean, error?: string) => void,
 ): Promise<boolean> => {
   if (!signedIn(req, store)) {
     sendJson(res, 401, { error: "sign in first" });
     return true;
   }
-  sendJson(res, 200, { ok: store.removePasskey(id) });
+  const removed = store.removePasskey(id);
+  // Taking a way in away is as much a sign-in event as adding one.
+  if (removed) record("passkey-removed", true);
+  sendJson(res, 200, { ok: removed });
   return true;
 };
 
