@@ -1,93 +1,101 @@
-import { MessagesSquareIcon, Trash2Icon } from "lucide-react";
-import { Fragment } from "react";
+import { SearchIcon, SquarePenIcon, Trash2Icon } from "lucide-react";
+import { useState } from "react";
+import { useNewChat, useOpenChat } from "@/components/app-nav";
+import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { ListRow } from "@/components/ui/list-row";
-import { Separator } from "@/components/ui/separator";
-import type { useSessions } from "@/lib/use-sessions";
+import { Input } from "@/components/ui/input";
+import { useApp } from "@/lib/app-state";
+import { pastChats } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
 
 /**
- * The extra-session history rows + New session. Main chats never appear here
- * (each bot's main chat IS the home screen). Picking a row, or creating a new
- * session, opens it at /c/$sessionId.
+ * Past chats: every bot's main chat and the chats you started, newest
+ * first, with a filter that matches titles and bot names. A row opens the
+ * chat; extra chats can be deleted (main chats can't, they are the bot's
+ * home).
  */
-export function HistoryList({
-  sessions,
-  onSelect,
-}: {
-  sessions: ReturnType<typeof useSessions>;
-  onSelect: (sessionId: string) => void;
-}) {
-  const ordered = sessions.sessions
-    .filter((session) => session.kind !== "main")
-    .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
-
-  const create = async (): Promise<void> => {
-    const created = await sessions.create(null);
-    if (created !== undefined) onSelect(created.id);
-  };
+export function HistoryList() {
+  const { sessions } = useApp();
+  const open = useOpenChat();
+  const newChat = useNewChat();
+  const [query, setQuery] = useState("");
+  const all = pastChats({ sessions: sessions.sessions, profiles: sessions.profiles });
+  const rows =
+    query === ""
+      ? all
+      : pastChats({ sessions: sessions.sessions, profiles: sessions.profiles, query });
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Disabled buttons swallow hover, so the reason sits on a wrapper. */}
-      <span
-        className="flex flex-col"
-        title={
-          sessions.profiles.length === 0
-            ? "Create a bot first"
-            : sessions.phase !== "live"
-              ? "Waiting for the server"
-              : undefined
-        }
-      >
+      <div className="flex items-center gap-2">
+        <label className="relative min-w-0 flex-1">
+          <span className="sr-only">Filter chats</span>
+          <SearchIcon
+            aria-hidden
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+          />
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find a chat or a bot"
+            className="h-10 rounded-full pl-9"
+          />
+        </label>
         <Button
           variant="outline"
-          size="sm"
-          disabled={sessions.phase !== "live" || sessions.profiles.length === 0}
-          onClick={() => void create()}
+          className="h-10 rounded-full"
+          disabled={!newChat.ready}
+          title={newChat.ready ? undefined : "Waiting for the server"}
+          onClick={() => void newChat.start()}
         >
-          New chat
+          <SquarePenIcon data-icon="inline-start" /> New chat
         </Button>
-      </span>
-      <div className="flex flex-col gap-1">
-        {ordered.length === 0 && (
-          <p className="text-muted-foreground text-sm">No other chats yet.</p>
-        )}
-        {ordered.map((session, index) => (
-          <Fragment key={session.id}>
-            {index > 0 && <Separator className="my-1" />}
-            <div className="flex items-center gap-1">
-              <ListRow
-                className="min-w-0 flex-1"
-                title={session.title === "" ? "Untitled chat" : session.title}
-                meta={<time>{formatWhen(session.lastMessageAt)}</time>}
-                onClick={() => onSelect(session.id)}
-              />
-              <ConfirmDialog
-                title="Delete this chat?"
-                warning="The chat and all its messages are removed. This can't be undone."
-                onConfirm={async () => {
-                  await sessions.remove(session.id);
-                }}
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0"
-                  aria-label={`Delete ${session.title === "" ? "untitled chat" : session.title}`}
-                >
-                  <Trash2Icon />
-                </Button>
-              </ConfirmDialog>
-            </div>
-          </Fragment>
-        ))}
       </div>
-      <p className="text-muted-foreground flex items-center gap-1 text-xs">
-        <MessagesSquareIcon className="size-3.5" /> Each bot has one main chat on the Chat tab.
-        Other chats you start live here.
-      </p>
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground px-1 py-6 text-center text-sm">
+          {all.length === 0 ? "No chats yet. Say hello on the Chat tab." : "No chat matches that."}
+        </p>
+      ) : (
+        <ul aria-label="Past chats" className="bg-card divide-border divide-y rounded-2xl border">
+          {rows.map((row) => (
+            <li key={row.id} className="flex items-center gap-1 pr-1">
+              <button
+                type="button"
+                onClick={() => open(row)}
+                className="hover:bg-muted/60 focus-visible:ring-ring/50 press flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-2xl py-2 pl-3 text-left outline-none focus-visible:ring-3"
+              >
+                <BotAvatar id={row.botId} name={row.botName} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium">{row.title}</span>
+                  <span className="text-muted-foreground truncate text-xs">
+                    {row.main ? "Main chat" : row.botName} · {formatWhen(row.at)}
+                  </span>
+                </span>
+              </button>
+              {!row.main && (
+                <ConfirmDialog
+                  title="Delete this chat?"
+                  warning="The chat and all its messages are removed. This can't be undone."
+                  onConfirm={async () => {
+                    await sessions.remove(row.id);
+                  }}
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    aria-label={`Delete ${row.title}`}
+                  >
+                    <Trash2Icon />
+                  </Button>
+                </ConfirmDialog>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

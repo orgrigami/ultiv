@@ -30,7 +30,15 @@ const sizes = {
 } as const;
 
 /** A round initials avatar on a neutral plate (no images are stored). */
-export function BotAvatar({ name, size = "md" }: { name: string; size?: keyof typeof sizes }) {
+export function BotAvatar({
+  name,
+  size = "md",
+}: {
+  /** The bot's id: the seed for its character (falls back to the name). */
+  id?: string | undefined;
+  name: string;
+  size?: keyof typeof sizes;
+}) {
   return (
     <span
       aria-hidden

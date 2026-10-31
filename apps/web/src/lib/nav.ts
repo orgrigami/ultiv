@@ -1,14 +1,18 @@
 /**
- * The one navigation model, shared by the phone tab bar and the desktop rail:
- * Chat · Needs you · Crew · Settings. Every route maps to one of the four (or
- * none), so both bars mark the same place as current.
+ * The one navigation model, shared by the phone tab bar and the sidebar:
+ * Chat · Past chats · Needs you · Crew · Settings. Every route maps to one of
+ * the five (or none), so both bars mark the same place as current. Nothing
+ * used daily lives in a menu.
  */
-export type Section = "chat" | "needs" | "crew" | "settings";
+export type Section = "chat" | "history" | "needs" | "crew" | "settings";
+
+/** The five, in nav order. */
+export const SECTIONS: readonly Section[] = ["chat", "history", "needs", "crew", "settings"];
 
 /** Path prefixes per section; first match wins. */
 const MATCHES: readonly (readonly [string, Section])[] = [
   ["/c/", "chat"],
-  ["/history", "chat"],
+  ["/history", "history"],
   ["/needs", "needs"],
   ["/crew", "crew"],
   ["/bots", "crew"],
@@ -28,6 +32,7 @@ export function sectionOf(path: string): Section | null {
 
 export const SECTION_LABEL: Record<Section, string> = {
   chat: "Chat",
+  history: "Past chats",
   needs: "Needs you",
   crew: "Crew",
   settings: "Settings",

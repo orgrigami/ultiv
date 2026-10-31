@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 import { isRedirect } from "@tanstack/react-router";
 import { Route as BotsRoute } from "../routes/bots.tsx";
-import { MOVED, badgeText, sectionOf } from "./nav.ts";
+import { MOVED, SECTIONS, SECTION_LABEL, badgeText, sectionOf } from "./nav.ts";
 
 describe("sectionOf", () => {
   it("maps home and chat routes to Chat", () => {
     expect(sectionOf("/")).toBe("chat");
     expect(sectionOf("/c/abc")).toBe("chat");
-    expect(sectionOf("/history")).toBe("chat");
+  });
+  it("gives Past chats its own place in the nav", () => {
+    expect(sectionOf("/history")).toBe("history");
+    expect(SECTIONS).toEqual(["chat", "history", "needs", "crew", "settings"]);
+    expect(SECTION_LABEL.history).toBe("Past chats");
   });
   it("keeps the old bot and routine pages under Crew", () => {
     expect(sectionOf("/crew")).toBe("crew");

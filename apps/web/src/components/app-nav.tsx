@@ -1,22 +1,28 @@
 /**
- * The app nav: one model at every width, Chat · Needs you · Crew · Settings.
- * From sm: up it is a fixed rail (the wordmark with its connection state,
- * the four destinations, and the crew roster under Crew so switching bots
- * is one click). On phones it is a bottom tab bar with the same four. Both
- * mark the current section with aria-current and show the Needs you count.
+ * The app nav: one model at every width, Chat · Past chats · Needs you ·
+ * Crew · Settings. From sm: up it is a sidebar: the wordmark with its
+ * connection state, New chat, the five destinations, the crew roster under
+ * Crew (switching bots is one click) and Recents, the newest chats, so an old
+ * chat is one click away. On phones it is a bottom tab bar with the same
+ * five. Both mark the current section with aria-current and show the Needs
+ * you count.
  */
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellDotIcon,
+  HistoryIcon,
   MessageCircleIcon,
   SettingsIcon,
+  SquarePenIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
 import { CrewList } from "@/components/crew-list";
 import { Mark } from "@/components/state-mark";
 import { useApp } from "@/lib/app-state";
-import { badgeText, SECTION_LABEL, sectionOf, type Section } from "@/lib/nav";
+import { pastChats, type ChatRow } from "@/lib/chats";
+import { formatWhen } from "@/lib/format";
+import { badgeText, SECTION_LABEL, SECTIONS, sectionOf, type Section } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 export type { Section } from "@/lib/nav";
@@ -48,6 +54,7 @@ export function useActiveBotId(): string | undefined {
 
 const ICONS: Record<Section, LucideIcon> = {
   chat: MessageCircleIcon,
+  history: HistoryIcon,
   needs: BellDotIcon,
   crew: UsersIcon,
   settings: SettingsIcon,
@@ -57,11 +64,38 @@ const ICONS: Record<Section, LucideIcon> = {
 function linkOf(
   section: Section,
   lastBot: string | undefined,
-): { to: "/" | "/needs" | "/crew" | "/settings"; search: Record<string, string> } {
+): {
+  to: "/" | "/history" | "/needs" | "/crew" | "/settings";
+  search: Record<string, string>;
+} {
   if (section === "chat") return { to: "/", search: lastBot !== undefined ? { bot: lastBot } : {} };
-  return {
-    to: section === "needs" ? "/needs" : section === "crew" ? "/crew" : "/settings",
-    search: {},
+  return { to: `/${section}`, search: {} };
+}
+
+/** Starts a chat with the bot on screen and opens it; the sidebar and N share it. */
+export function useNewChat(): { ready: boolean; start: () => Promise<void> } {
+  const { sessions } = useApp();
+  const botId = useActiveBotId();
+  const navigate = useNavigate();
+  const ready = sessions.phase === "live" && sessions.profiles.length > 0;
+  const start = async (): Promise<void> => {
+    if (!ready) return;
+    const created = await sessions.create(null, botId);
+    if (created !== undefined) {
+      void navigate({ to: "/c/$sessionId", params: { sessionId: created.id } });
+    }
+  };
+  return { ready, start };
+}
+
+/** Where a chat row goes: a main chat is the bot's Chat tab, the rest live at /c/. */
+export function useOpenChat(): (row: ChatRow) => void {
+  const { mainId } = useApp();
+  const navigate = useNavigate();
+  return (row) => {
+    if (row.main)
+      void navigate({ to: "/", search: row.botId === mainId ? {} : { bot: row.botId } });
+    else void navigate({ to: "/c/$sessionId", params: { sessionId: row.id } });
   };
 }
 
@@ -93,7 +127,7 @@ function RailLink({ section, current }: { section: Section; current: boolean }) 
       aria-current={current ? "page" : undefined}
       aria-label={count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : undefined}
       className={cn(
-        "focus-visible:ring-ring/40 hover:bg-sidebar-accent/60 text-muted-foreground hover:text-sidebar-foreground flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm outline-none focus-visible:ring-2",
+        "focus-visible:ring-ring/40 hover:bg-sidebar-accent/60 text-muted-foreground hover:text-sidebar-foreground press flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm outline-none focus-visible:ring-2",
         current && "bg-sidebar-accent text-sidebar-foreground font-medium",
       )}
     >
@@ -126,11 +160,52 @@ function Wordmark() {
   );
 }
 
+/** The newest chats, one click each; "All past chats" for the rest. */
+function Recents() {
+  const { sessions } = useApp();
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  const open = useOpenChat();
+  const rows = pastChats({ sessions: sessions.sessions, profiles: sessions.profiles, limit: 8 });
+  if (rows.length === 0) return null;
+  return (
+    <section aria-label="Recent chats" className="mt-4 flex flex-col gap-0.5">
+      <h2 className="section-label px-3 pb-1">Recent</h2>
+      {rows.map((row) => {
+        const current = !row.main && path === `/c/${row.id}`;
+        return (
+          <button
+            key={row.id}
+            type="button"
+            onClick={() => open(row)}
+            aria-current={current ? "page" : undefined}
+            className={cn(
+              "hover:bg-sidebar-accent/60 focus-visible:ring-ring/40 press flex min-h-11 w-full cursor-pointer flex-col justify-center rounded-xl px-3 py-1.5 text-left outline-none focus-visible:ring-2",
+              current && "bg-sidebar-accent",
+            )}
+          >
+            <span className="truncate text-sm">{row.title}</span>
+            <span className="text-muted-foreground truncate text-xs">
+              {row.main ? formatWhen(row.at) : `${row.botName} · ${formatWhen(row.at)}`}
+            </span>
+          </button>
+        );
+      })}
+      <Link
+        to="/history"
+        className="text-muted-foreground hover:text-sidebar-foreground focus-visible:ring-ring/40 flex min-h-9 items-center rounded-xl px-3 text-xs outline-none focus-visible:ring-2"
+      >
+        All past chats
+      </Link>
+    </section>
+  );
+}
+
 export function SideNav() {
   const botId = useActiveBotId();
   const { mainId } = useApp();
   const section = useSection();
   const navigate = useNavigate();
+  const newChat = useNewChat();
   return (
     <nav
       aria-label="Primary"
@@ -138,7 +213,18 @@ export function SideNav() {
     >
       <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3">
         <Wordmark />
+        <button
+          type="button"
+          disabled={!newChat.ready}
+          onClick={() => void newChat.start()}
+          className="bg-sidebar-accent hover:bg-sidebar-accent/80 focus-visible:ring-ring/40 press mb-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <SquarePenIcon className="size-5 shrink-0" />
+          <span className="flex-1 text-left">New chat</span>
+          <kbd className="text-muted-foreground readout">N</kbd>
+        </button>
         <RailLink section="chat" current={section === "chat"} />
+        <RailLink section="history" current={section === "history"} />
         <RailLink section="needs" current={section === "needs"} />
         <RailLink section="crew" current={section === "crew"} />
         <CrewList
@@ -147,6 +233,7 @@ export function SideNav() {
           className="mt-0.5 ml-3 border-l pl-2"
           onPick={(id) => void navigate({ to: "/", search: id === mainId ? {} : { bot: id } })}
         />
+        <Recents />
       </div>
       <div className="border-sidebar-border border-t p-3">
         <RailLink section="settings" current={section === "settings"} />
@@ -170,7 +257,7 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
         count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : SECTION_LABEL[section]
       }
       className={cn(
-        "focus-visible:ring-ring/50 flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-lg text-xs outline-none focus-visible:ring-3",
+        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[0.6875rem] leading-none whitespace-nowrap outline-none focus-visible:ring-3",
         current ? "text-foreground font-medium" : "text-muted-foreground",
       )}
     >
@@ -190,7 +277,7 @@ export function TabBar() {
       aria-label="Sections"
       className="bg-background/65 border-border/60 fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom))] border-t px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
     >
-      {(["chat", "needs", "crew", "settings"] as const).map((entry) => (
+      {SECTIONS.map((entry) => (
         <TabLink key={entry} section={entry} current={section === entry} />
       ))}
     </nav>

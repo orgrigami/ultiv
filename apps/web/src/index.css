@@ -294,6 +294,21 @@ svg.lucide {
   font-variant-numeric: tabular-nums;
 }
 
+/* Press feedback: a tap sinks the control to 98% for a beat. */
+.press {
+  transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .press,
+  .press:active:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+}
+
 /* Toasts ride the theme's raised tier, not sonner's own palette. */
 [data-sonner-toaster] {
   --normal-bg: var(--popover);
