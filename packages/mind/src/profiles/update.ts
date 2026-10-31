@@ -11,6 +11,7 @@ import {
   MAX_EXACT_SCRIPT_CHARS,
   validAutoApproveEntry,
 } from "../auto-approve.ts";
+import { DEADLINE_BOUNDS } from "../converse/deadlines.ts";
 import { validTimezone } from "./docs.ts";
 
 /** Field limits, shared with create. */
@@ -23,6 +24,26 @@ export const PROFILE_LIMITS = {
 } as const;
 
 const APPROVAL_MODES: readonly ProfileApprovalMode[] = ["manual", "jev", "yolo"];
+
+/** A per-bot deadline: null or absent (the default), else a whole number within bounds. */
+const checkDeadline = (
+  field: string,
+  value: unknown,
+  bounds: { readonly min: number; readonly max: number },
+  unit: string,
+): void => {
+  if (value === undefined || value === null) return;
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < bounds.min ||
+    value > bounds.max
+  ) {
+    throw new InvalidInput({
+      reason: `${field} must be a whole number of ${unit} from ${bounds.min} to ${bounds.max}, or null for the default`,
+    });
+  }
+};
 
 /** Reject a patch with an unknown timezone, model (not in the live catalog), or approval mode. */
 export const validatePatch = (
@@ -40,6 +61,18 @@ export const validatePatch = (
   if (mode !== undefined && !APPROVAL_MODES.includes(mode)) {
     throw new InvalidInput({ reason: `unknown approval mode: ${String(mode)}` });
   }
+  checkDeadline(
+    "firstTokenDeadlineSec",
+    patch.policies?.firstTokenDeadlineSec,
+    DEADLINE_BOUNDS.firstTokenSec,
+    "seconds",
+  );
+  checkDeadline(
+    "turnDeadlineMin",
+    patch.policies?.turnDeadlineMin,
+    DEADLINE_BOUNDS.turnMin,
+    "minutes",
+  );
   // autoApprove entries compile into RegExp on every gated call (the hook is
   // synchronous), so the stored list is bounded and each entry is shape- and
   // wildcard-checked: a pathological glob must not stall the gate.

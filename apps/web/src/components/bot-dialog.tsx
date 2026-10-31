@@ -28,7 +28,19 @@ export interface BotForm {
   approvalMode: ProfileApprovalMode;
   /** Whether the bot gets the sandboxed bash tool. */
   sandbox: boolean;
+  /** Turn deadlines (edit only): "" = the default (60 s / 15 min). */
+  firstTokenSec?: string;
+  turnMin?: string;
 }
+
+/** A deadline field for the patch: "" clears it back to the default (null). */
+export const deadlineValue = (text: string | undefined): number | null => {
+  if (text === undefined || text.trim() === "") return null;
+  const value = Number(text.trim());
+  // JSON would turn NaN into null (the default), so refuse it here instead.
+  if (!Number.isFinite(value)) throw new Error("Deadlines must be whole numbers, or empty.");
+  return value;
+};
 
 export const emptyForm: BotForm = {
   name: "",
@@ -333,6 +345,35 @@ export function BotDialog({
                 : "No sandboxed bash for this bot. The privileged bash_host stays, always approved by you."}
             </span>
           </label>
+          {form.firstTokenSec !== undefined && (
+            <div className="flex flex-col gap-1 text-sm">
+              <span>Deadlines</span>
+              <div className="flex gap-2">
+                <label className="flex flex-1 flex-col gap-1 text-xs">
+                  First reply (seconds)
+                  <Input
+                    inputMode="numeric"
+                    placeholder="60"
+                    value={form.firstTokenSec}
+                    onChange={(event) => setForm({ ...form, firstTokenSec: event.target.value })}
+                  />
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-xs">
+                  Whole turn (minutes)
+                  <Input
+                    inputMode="numeric"
+                    placeholder="15"
+                    value={form.turnMin ?? ""}
+                    onChange={(event) => setForm({ ...form, turnMin: event.target.value })}
+                  />
+                </label>
+              </div>
+              <span className="text-muted-foreground text-xs">
+                A model call that sends nothing, or a turn that runs longer, is stopped with a note
+                in the chat. Leave empty for the default. Approval waits don't count.
+              </span>
+            </div>
+          )}
           {extra}
           {error !== null && <p className="text-destructive text-sm">{error}</p>}
           <SaveRow busy={busy} unnamed={form.name.trim() === ""} />
@@ -428,6 +469,8 @@ export function EditBotDialog({
         approvalMode: bot.policies.approvalMode,
         // Bots created before the toggle existed read as sandboxed.
         sandbox: bot.policies.sandbox !== false,
+        firstTokenSec: String(bot.policies.firstTokenDeadlineSec ?? ""),
+        turnMin: String(bot.policies.turnDeadlineMin ?? ""),
       }}
       confirm={async (form) => {
         // Throws on failure, so the form stays open with the reason.
@@ -438,7 +481,12 @@ export function EditBotDialog({
           persona: form.persona,
           ...modelPayload(form),
           // Per-key merge server-side: only these keys change.
-          policies: { approvalMode: form.approvalMode, sandbox: form.sandbox },
+          policies: {
+            approvalMode: form.approvalMode,
+            sandbox: form.sandbox,
+            firstTokenDeadlineSec: deadlineValue(form.firstTokenSec),
+            turnDeadlineMin: deadlineValue(form.turnMin),
+          },
         });
         await refresh();
       }}

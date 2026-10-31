@@ -49,6 +49,18 @@ export const ProfilePoliciesSchema = Type.Object({
   dailyTurnBudget: Type.Union([Type.Number(), Type.Null()]),
   /** This profile may distill into the owner-level memory store (the memory keeper). */
   memoryKeeper: Type.Boolean(),
+  /**
+   * Seconds a model request may take to stream its first token (text,
+   * reasoning or a tool call) before the turn is stopped with a note in the
+   * chat. Null or absent = the default, 60 s. Raise it for slow reasoning models.
+   */
+  firstTokenDeadlineSec: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  /**
+   * Minutes one turn may run, from its first model request to its answer,
+   * before it is stopped with a note in the chat (approval waits do not
+   * count). Null or absent = the default, 15 min.
+   */
+  turnDeadlineMin: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 });
 
 export type ProfilePolicies = Static<typeof ProfilePoliciesSchema>;

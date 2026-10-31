@@ -47,6 +47,7 @@ import { temporalPlugin } from "./act/temporal.ts";
 import { Audit, auditLayer, type AuditService } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
 import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
+import { deadlinesExtension, limitsOf, turnDeadlines } from "./converse/deadlines.ts";
 import { Tasks, MAX_RUNNING_TASKS, tasksLayer, type TasksService } from "./tasks/tasks.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
@@ -292,6 +293,16 @@ const mindLayerRaw = (
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
         ...routines,
       });
+      // Turn deadlines (D4, per bot): every model request starts the watch.
+      const deadlines = turnDeadlines({
+        converse,
+        limitsFor: (conversationId) => limitsOf(profiles.profileOf(conversationId)?.policies),
+        paused: (conversationId) => approvals.pendingFor(conversationId).length > 0,
+        onHit: (conversationId, hit) =>
+          console.warn(`turn deadline (${hit.kind}) stopped conversation ${conversationId}`),
+      });
+      piRegistry.install(deadlinesExtension(deadlines));
+      yield* Effect.addFinalizer(() => Effect.sync(deadlines.stop));
       // Connectors install after everything else so their names never shadow ours.
       const mcp = startMcp(
         piRegistry,

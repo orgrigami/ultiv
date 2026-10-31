@@ -7,6 +7,7 @@
 import type { EntryRecord, LiveState } from "@earendil-works/pi-durable";
 import type { AttachmentRef, TranscriptEntry } from "@spreissen/contracts";
 import { TASK_UPDATE_KIND } from "../tasks/notify.ts";
+import { TURN_NOTICE_KIND } from "./deadlines.ts";
 
 export type Step = TranscriptEntry;
 
@@ -91,6 +92,13 @@ function committedSteps(entries: readonly EntryRecord[], results: Map<string, To
       const at = typeof data.at === "number" ? data.at : Date.now();
       const text = `[task ${String(data.taskId)} update] ${String(data.text ?? "")}`;
       out.push({ id: entry.id * 100, kind: "note", at, text });
+      continue;
+    }
+    if (entry.kind === TURN_NOTICE_KIND) {
+      // A turn deadline stopped the run: the reason, as a note in the chat.
+      const data = (entry.data ?? {}) as { text?: unknown; at?: unknown };
+      const at = typeof data.at === "number" ? data.at : Date.now();
+      out.push({ id: entry.id * 100, kind: "note", at, text: String(data.text ?? "") });
       continue;
     }
     for (const message of (entry.model ?? []) as readonly unknown[]) {
