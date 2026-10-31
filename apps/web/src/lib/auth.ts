@@ -16,6 +16,9 @@ export interface AuthStatus {
 /** Any API 401 raises this window event (see api.ts). */
 export const UNAUTHORIZED_EVENT = "spriessen:unauthorized";
 
+/** Every state change names JSON; the server refuses typeless posts. */
+const JSON_TYPE = { "content-type": "application/json" };
+
 export const authStatus = async (): Promise<AuthStatus> => {
   const response = await fetch("/api/auth/status");
   if (!response.ok) throw new Error(`status ${response.status}`);
@@ -43,7 +46,7 @@ export const signIn = (passcode: string): Promise<{ ok: boolean; error: string |
   post("/api/auth/sign-in", { passcode });
 
 export const signOut = (): Promise<void> =>
-  fetch("/api/auth/sign-out", { method: "POST" }).then(() => undefined);
+  fetch("/api/auth/sign-out", { method: "POST", headers: JSON_TYPE }).then(() => undefined);
 
 /** Passkey list row (Settings). */
 export interface PasskeyRow {
@@ -72,7 +75,7 @@ interface OptionsReply {
 }
 
 const options = async (path: string): Promise<OptionsReply> => {
-  const response = await fetch(path, { method: "POST" });
+  const response = await fetch(path, { method: "POST", headers: JSON_TYPE });
   if (!response.ok)
     throw new Error(
       ((await response.json().catch(() => null)) as { error?: string })?.error ?? "not available",

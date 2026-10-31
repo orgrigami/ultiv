@@ -85,7 +85,10 @@ describe("websocket auth", () => {
   it("reconnects after sign-out and a fresh sign-in", async () => {
     expect(await wsProbe(cookie)).toBe("open");
     // Sign this session out; the old cookie is dead for sockets too.
-    await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { cookie } });
+    await fetch(`${base}/api/auth/sign-out`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+    });
     expect(await wsProbe(cookie)).toBe("refused");
     const again = await fetch(`${base}/api/auth/sign-in`, {
       method: "POST",

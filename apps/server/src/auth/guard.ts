@@ -7,9 +7,11 @@
  * rest of the API and every socket stay closed until that step signs in.
  *
  * Cross-site defence stays layered: SameSite=Strict keeps the cookie off
- * cross-site requests, and every state-changing /api route must speak JSON
- * (raw-byte uploads excepted), so a form or no-prefetch fetch cannot ride a
- * session even if same-site. CORS is unchanged by this file.
+ * cross-site requests, and every state-changing /api request must carry a
+ * content type a page can only send after a CORS preflight (which the
+ * wildcard CORS answer fails for credentialed requests), so a form or a
+ * no-preflight fetch from another same-site origin (another localhost port)
+ * cannot ride a session. CORS is unchanged by this file.
  */
 import type { IncomingMessage } from "node:http";
 import type { AuthStore } from "./store.ts";
@@ -33,28 +35,27 @@ export const isPublicRoute = (method: string, path: string): boolean => {
 };
 
 /**
- * State-changing /api requests must not arrive as a cross-site form: the
- * form content types are what a top-level form (or a no-cors fetch) can
- * send, so they are refused outright; JSON and bodyless posts pass, and so
- * do raw-byte uploads (the composer and the smoke run post bytes with
- * whatever type the browser picks). SameSite=Strict is the first fence;
- * this is the second.
+ * The content types (and the missing one) a page may send cross-origin
+ * WITHOUT a preflight: a form post, or a fetch with a plain-text or typeless
+ * body. Those are the only state-changing requests that reach the server
+ * with the cookie and no CORS check, so a POST, PUT or PATCH under /api must
+ * name something else: application/json for every route, and
+ * application/octet-stream (or the file's own type) for raw-byte uploads.
+ * DELETE and the other methods are always preflighted. SameSite=Strict is
+ * the first fence; this is the second.
  */
-const FORM_TYPES = new Set([
+const NO_PREFLIGHT_TYPES = new Set([
+  "",
   "application/x-www-form-urlencoded",
   "multipart/form-data",
   "text/plain",
 ]);
 
 export const contentTypeAllowed = (method: string, path: string, req: IncomingMessage): boolean => {
-  if (method === "GET" || method === "HEAD" || method === "OPTIONS" || method === "DELETE") {
-    return true;
-  }
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH") return true;
   if (!path.startsWith("/api/")) return true;
-  // Raw-byte uploads (and their metadata reads) are the exception.
-  if (path === "/api/artifacts" || path.startsWith("/api/artifacts/")) return true;
   const type = (req.headers["content-type"] ?? "").toString().split(";")[0]?.trim().toLowerCase();
-  return !(type !== undefined && type !== "" && FORM_TYPES.has(type));
+  return !NO_PREFLIGHT_TYPES.has(type ?? "");
 };
 
 /** The one access decision for a request. */

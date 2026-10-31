@@ -39,7 +39,8 @@ const call = async (
   const response = await fetch(`${base}${path}`, {
     method,
     headers: {
-      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      // State changes always name JSON (the cross-site fence refuses typeless posts).
+      ...(body !== undefined || method !== "GET" ? { "content-type": "application/json" } : {}),
       ...headers,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -160,7 +161,7 @@ describe("passcode sign-in", () => {
     expect(Array.isArray(list.json)).toBe(true);
   });
 
-  it("refuses form-style bodies on state-changing routes, allows bodyless posts", async () => {
+  it("refuses form-style and typeless bodies on state-changing routes", async () => {
     const signedIn = await call("POST", "/api/auth/sign-in", { passcode: PASSCODE });
     const plain = await fetch(`${base}/api/sessions`, {
       method: "POST",
@@ -177,9 +178,20 @@ describe("passcode sign-in", () => {
       body: "a=1",
     });
     expect(form.status).toBe(415);
-    // A bodyless post (reset main, set main) passes the fence.
-    const bodyless = await call("POST", "/api/sessions", undefined, cookieHeader(signedIn));
-    expect(bodyless.status).not.toBe(415);
+    // A typeless post (no body, or an untyped Blob) needs no preflight
+    // either, so it is refused too; the same post naming JSON passes.
+    const typeless = await fetch(`${base}/api/sessions`, {
+      method: "POST",
+      headers: cookieHeader(signedIn),
+    });
+    expect(typeless.status).toBe(415);
+    const signOut = await fetch(`${base}/api/auth/sign-out`, {
+      method: "POST",
+      headers: cookieHeader(signedIn),
+    });
+    expect(signOut.status).toBe(415);
+    const named = await call("POST", "/api/sessions", undefined, cookieHeader(signedIn));
+    expect(named.status).not.toBe(415);
   });
 
   it("ends the session on sign-out", async () => {

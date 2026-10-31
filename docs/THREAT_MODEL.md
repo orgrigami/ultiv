@@ -85,10 +85,12 @@ the map of trust.
   session row to `guest`. Identity now comes from the signed-in session only;
   this entry is kept so the history of the gap is explicit.
 - **CORS stays `*`** (an owner decision, unchanged in this phase): any origin
-  can READ unauthenticated answers (health, sign-in status) and send
-  credentialed requests that the browser will strip cookies from (wildcard
-  origin cannot be used with credentials). SameSite=Strict plus the
-  JSON-content-type rule on state changes are the CSRF defence. A stricter
+  can READ unauthenticated answers (health, sign-in status). A page cannot
+  read a credentialed answer (the wildcard does not allow credentials), but
+  a "simple" request (a form, or a fetch with no type or `text/plain`) is
+  still SENT, and a same-site page (another localhost port) sends it with
+  the cookie. SameSite=Strict plus refusing every untyped or form-typed
+  state change (see SECURITY.md) are the CSRF defence. A stricter
   same-origin policy would tighten this; not planned.
 - **The loopback bootstrap**: before a passcode exists, a loopback request
   can set it (and nothing else). A second local user or process on the

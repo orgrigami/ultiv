@@ -84,7 +84,10 @@ export const createRestHandler = (deps: RestDeps) => {
         const access = authorize(req, deps.auth);
         if (access.kind === "refuse") return json(access.status, access.body);
         if (!contentTypeAllowed(req.method ?? "GET", url.pathname, req)) {
-          return json(415, { error: "send JSON (content-type: application/json)" });
+          return json(415, {
+            error:
+              "send a JSON content type (application/json; raw uploads: application/octet-stream)",
+          });
         }
         if (await handleAuthRoutes(req, res, deps.auth, deps.mind.audit)) return;
       }

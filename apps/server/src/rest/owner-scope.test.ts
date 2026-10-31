@@ -174,10 +174,20 @@ describe("the signed-in account reaches its own records", () => {
     const upload = await fetch(`${base}/api/artifacts?name=a.md&sessionId=${ids.session}`, {
       method: "POST",
       body: "# a",
-      headers: { cookie },
+      headers: { cookie, "content-type": "application/octet-stream" },
     });
     const art = (await upload.json()) as { id: string };
     expect(upload.status).toBe(200);
+    // A typeless or text/plain upload is what another origin can send
+    // without a preflight: refused before it lands.
+    for (const type of [undefined, "text/plain", "multipart/form-data; boundary=x"]) {
+      const sneaky = await fetch(`${base}/api/artifacts?name=b.md&sessionId=${ids.session}`, {
+        method: "POST",
+        body: new Uint8Array([35, 32, 98]),
+        headers: { cookie, ...(type !== undefined ? { "content-type": type } : {}) },
+      });
+      expect(sneaky.status, String(type)).toBe(415);
+    }
     expect((await call("GET", "/api/artifacts/nope/meta")).json).toEqual(
       (await call("GET", "/api/artifacts/missing-id/meta")).json,
     );

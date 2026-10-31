@@ -80,9 +80,10 @@ async function getJson<T>(path: string): Promise<T> {
 async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
   const response = await fetch(`${base()}${path}`, {
     method,
-    ...(body !== undefined
-      ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
-      : {}),
+    // Always JSON, body or not: the server refuses typeless state changes
+    // (what another origin could send without a preflight).
+    headers: { "content-type": "application/json" },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
@@ -335,8 +336,11 @@ export const api = {
       mime: file.type === "" ? "application/octet-stream" : file.type,
     });
     if (sessionId !== undefined) query.set("sessionId", sessionId);
+    // The real type rides the query; the body is always raw bytes, typed so
+    // the request is never one another origin could send without a preflight.
     const response = await fetch(`${base()}/api/artifacts?${query.toString()}`, {
       method: "POST",
+      headers: { "content-type": "application/octet-stream" },
       body: file,
     });
     if (!response.ok) throw await failure(response, "POST", "/api/artifacts");

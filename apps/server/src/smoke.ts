@@ -75,7 +75,8 @@ const call = async (
   const response = await fetch(`${base}${path}`, {
     method,
     headers: {
-      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      // State changes always name JSON (typeless posts are refused).
+      ...(body !== undefined || method !== "GET" ? { "content-type": "application/json" } : {}),
       cookie,
       ...headers,
     },
@@ -176,7 +177,7 @@ expect(
 const upload = await fetch(`${base}/api/artifacts?name=smoke.md`, {
   method: "POST",
   body: "# ok",
-  headers: { cookie },
+  headers: { cookie, "content-type": "application/octet-stream" },
 });
 const artifact = (await upload.json()) as { id: string; mime: string };
 expect("artifact upload", upload.status === 200 && artifact.mime === "text/markdown");
@@ -202,7 +203,7 @@ const binaryBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe, 0x
 const binaryUpload = await fetch(`${base}/api/artifacts?name=smoke.png&mime=image%2Fpng`, {
   method: "POST",
   body: binaryBytes,
-  headers: { cookie },
+  headers: { cookie, "content-type": "application/octet-stream" },
 });
 const binary = (await binaryUpload.json()) as { id: string };
 expect("binary artifact upload", binaryUpload.status === 200);
@@ -218,7 +219,7 @@ expect(
 const overCap = await fetch(`${base}/api/artifacts?name=big.bin`, {
   method: "POST",
   body: new Uint8Array(10_000_001),
-  headers: { cookie },
+  headers: { cookie, "content-type": "application/octet-stream" },
 });
 expect("upload cap 413", overCap.status === 413);
 
@@ -434,7 +435,7 @@ expect(
 const scopedUpload = await fetch(`${base}/api/artifacts?name=note.md&sessionId=${scoped.json.id}`, {
   method: "POST",
   body: "# scoped",
-  headers: { cookie },
+  headers: { cookie, "content-type": "application/octet-stream" },
 });
 const scopedArtifact = (await scopedUpload.json()) as { profile: string; owner: string };
 expect(

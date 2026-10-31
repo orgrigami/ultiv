@@ -35,10 +35,16 @@ request needs a session, loopback included.
   Sessions expire after 30 idle days (sliding: use refreshes), live in
   `AUTH_DIR/sessions.json`, and are capped at 100 (the oldest falls out).
 - As a second fence against cross-site requests (CORS stays `*` by
-  decision): state-changing `/api` requests never arrive as a cross-site
-  form — the form content types (`application/x-www-form-urlencoded`,
-  `multipart/form-data`, `text/plain`) are refused with 415. JSON and
-  bodyless posts pass; raw-byte artifact uploads are exempt.
+  decision): a `POST`, `PUT` or `PATCH` under `/api` must name a content
+  type a page can only send after a CORS preflight, which the wildcard
+  answer fails for requests that carry the cookie. So a missing type and
+  the form types (`application/x-www-form-urlencoded`,
+  `multipart/form-data`, `text/plain`) get 415, bodyless posts included;
+  routes take `application/json`, and raw-byte artifact uploads send
+  `application/octet-stream` with the real type in the `mime` query. This
+  matters for same-site origins SameSite=Strict does not stop (another app
+  on a different localhost port). `contentTypeAllowed` in
+  `apps/server/src/auth/guard.ts`.
 - Routes that answer without a session: `GET /api/health`, the webhook
   ingress `POST /hooks/:id` (its token is the auth), and `/api/auth/*`
   (status, sign-in, sign-out, setup, change). The first-time setup

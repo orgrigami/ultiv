@@ -28,7 +28,8 @@ const call = async (method: string, path: string, body?: unknown, withCookie?: s
   const response = await fetch(`${base}${path}`, {
     method,
     headers: {
-      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      // State changes always name JSON (the cross-site fence refuses typeless posts).
+      ...(body !== undefined || method !== "GET" ? { "content-type": "application/json" } : {}),
       ...(withCookie !== undefined ? { cookie: withCookie } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
@@ -53,7 +54,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await new Promise<void>((resolve) =>
-    fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { cookie } }).then(() =>
+    fetch(`${base}/api/auth/sign-out`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+    }).then(() =>
       resolve(),
     ),
   );
