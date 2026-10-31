@@ -68,7 +68,7 @@ async function failure(response: Response, method: string, path: string): Promis
   return new ApiError(response.status, method, path, detail);
 }
 
-async function getJson<T>(path: string): Promise<T> {
+export async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${base()}${path}`);
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
@@ -77,7 +77,7 @@ async function getJson<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
+export async function send<T>(path: string, method: string, body?: unknown): Promise<T> {
   const response = await fetch(`${base()}${path}`, {
     method,
     // Always JSON, body or not: the server refuses typeless state changes
@@ -138,56 +138,6 @@ export interface PendingApprovalRow {
   name: string;
   input: unknown;
   reason: string | null;
-}
-
-/** GET /api/org — the org row, its departments and members. */
-export interface OrgInfo {
-  id: string;
-  name: string;
-  owner: string;
-  createdAt: number;
-  vm: { cpus: number; memoryMiB: number };
-  hostAccess: boolean;
-}
-
-export interface DepartmentInfo {
-  id: string;
-  name: string;
-  createdAt: number;
-  vm: { cpus: number; memoryMiB: number };
-  hostAccess: boolean;
-  instructions: string;
-}
-
-export interface OrgView {
-  org: OrgInfo | null;
-  departments: DepartmentInfo[];
-  members: { accountId: string; role: string; departmentId: string | null }[];
-  grants: unknown[];
-  templates: unknown[];
-}
-
-/** GET /api/org/host-access — the effective switch per bot, blocker named. */
-export interface HostAccessMatrix {
-  org: { hostAccess: boolean } | null;
-  bots: {
-    profileId: string;
-    departmentId: string | null;
-    own: boolean;
-    allowed: boolean;
-    blockedBy: "org" | "department" | "bot" | null;
-  }[];
-}
-
-export interface OrgPatch {
-  name?: string;
-  hostAccess?: boolean;
-}
-
-export interface DepartmentPatchInput {
-  name?: string;
-  hostAccess?: boolean;
-  instructions?: string;
 }
 
 /** GET /api/server/check — which keys are set (never their values) and how the server runs. */
@@ -298,6 +248,8 @@ export const api = {
     persona?: string;
     model?: { id: string; effort?: string } | null;
     policies?: Partial<ProfilePolicies>;
+    /** Its home; omitted = an org bot. */
+    departmentId?: string | null;
   }): Promise<ProfileInfo> => send<ProfileInfo>("/api/profiles", "POST", input),
   updateProfile: (
     id: string,
@@ -484,16 +436,6 @@ export const api = {
   retryParked: (taskId: string): Promise<{ outcome: string }> =>
     send<{ outcome: string }>(`/api/needs-you/parked/${encodeURIComponent(taskId)}/retry`, "POST"),
   serverCheck: (): Promise<ServerCheck> => getJson<ServerCheck>("/api/server/check"),
-  // The org: one per install, flat departments, members (phase 3).
-  org: (): Promise<OrgView> => getJson<OrgView>("/api/org"),
-  hostAccess: (): Promise<HostAccessMatrix> => getJson<HostAccessMatrix>("/api/org/host-access"),
-  patchOrg: (patch: OrgPatch): Promise<OrgInfo> => send<OrgInfo>("/api/org", "PATCH", patch),
-  createDepartment: (input: { name: string; hostAccess?: boolean }): Promise<DepartmentInfo> =>
-    send<DepartmentInfo>("/api/org/departments", "POST", input),
-  patchDepartment: (id: string, patch: DepartmentPatchInput): Promise<DepartmentInfo> =>
-    send<DepartmentInfo>(`/api/org/departments/${encodeURIComponent(id)}`, "PATCH", patch),
-  removeDepartment: (id: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(`/api/org/departments/${encodeURIComponent(id)}`, "DELETE"),
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),

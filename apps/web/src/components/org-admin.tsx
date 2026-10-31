@@ -1,20 +1,25 @@
 /**
  * Org admin UI (phase 3): the organization section on Settings (org
- * host-access toggle, departments with theirs, new department) and the
+ * host-access toggle, each department linking to its page, new department) and the
  * per-bot host-access switch on a bot's Access tab, each showing the
  * effective value and, when blocked, which level blocks it (F4). Only the
  * org owner may change a switch; the server refuses everyone else (F3).
  */
+import { Link } from "@tanstack/react-router";
+import { Building2Icon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
-import { api, type DepartmentInfo, type HostAccessMatrix, type OrgView } from "@/lib/api";
+import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
+import { orgApi, type DepartmentInfo, type HostAccessMatrix } from "@/lib/org-api";
+import { vmLabel } from "@/lib/org-view";
+import { useOrg } from "@/lib/use-org";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 
 const card = "bg-card divide-border flex flex-col divide-y rounded-xl border";
@@ -30,127 +35,89 @@ export const blockedLine = (blockedBy: HostAccessMatrix["bots"][number]["blocked
         : "";
 
 export function OrgSection() {
-  const [view, setView] = useState<OrgView | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
+  const { view, error, reload } = useOrg();
   const [busy, setBusy] = useState(false);
-  const load = useCallback(async (): Promise<void> => {
-    try {
-      setView(await api.org());
-      setError(null);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  if (error !== null) return <ErrorState message={error} onRetry={() => void load()} />;
+  const [problem, setProblem] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  if (error !== null && view === null)
+    return <ErrorState message={error} onRetry={() => void reload()} />;
   if (view === null) return <SkeletonRows label="Organization" rows={2} />;
   const org = view.org;
   if (org === null) return null;
-  const setOrgFlag = async (hostAccess: boolean): Promise<void> => {
+  const change = async (run: () => Promise<unknown>): Promise<void> => {
     setBusy(true);
+    setProblem(null);
     try {
-      await api.patchOrg({ hostAccess });
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-  const setDeptFlag = async (id: string, hostAccess: boolean): Promise<void> => {
-    setBusy(true);
-    try {
-      await api.patchDepartment(id, { hostAccess });
-      await load();
-    } finally {
-      setBusy(false);
-    }
-  };
-  const addDepartment = async (): Promise<void> => {
-    if (name.trim() === "") return;
-    setBusy(true);
-    try {
-      await api.createDepartment({ name: name.trim() });
-      setName("");
-      await load();
+      await run();
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }
   };
   return (
     <section aria-label="Organization">
-      <SectionHeader title="Organization" />
-      <div className="flex flex-col gap-3">
-        <div className={card}>
-          <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
-            <Checkbox
-              className="mt-0.5"
-              checked={org.hostAccess}
-              disabled={busy}
-              onCheckedChange={(checked) => void setOrgFlag(checked === true)}
-            />
-            <span className="text-ui">
-              Host access for the org
-              <span className="text-meta text-muted-foreground block">
-                {org.hostAccess
-                  ? "On. Bots can run things on this computer when every level below is on too."
-                  : "Off. No bot can run things on this computer."}
-              </span>
-            </span>
-          </label>
-          {view.departments.map((department) => (
-            <DepartmentRow
-              key={department.id}
-              department={department}
-              busy={busy}
-              onFlag={(checked) => void setDeptFlag(department.id, checked)}
-            />
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            value={name}
-            placeholder="New department"
-            className="max-w-56"
-            onChange={(event) => setName(event.target.value)}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy || name.trim() === ""}
-            onClick={() => void addDepartment()}
-          >
-            Add
+      <SectionHeader
+        title="Organization"
+        action={
+          <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+            <PlusIcon /> New department
           </Button>
-        </div>
+        }
+      />
+      <div className={card}>
+        <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
+          <Checkbox
+            className="mt-0.5"
+            checked={org.hostAccess}
+            disabled={busy}
+            onCheckedChange={(checked) =>
+              void change(() => orgApi.patchOrg({ hostAccess: checked === true }))
+            }
+          />
+          <span className="text-ui">
+            Host access for the org
+            <span className="text-meta text-muted-foreground block">
+              {org.hostAccess
+                ? "On. Bots can run things on this computer when every level below is on too."
+                : "Off. No bot can run things on this computer."}
+            </span>
+          </span>
+        </label>
+        {view.departments.map((department) => (
+          <DepartmentRow key={department.id} department={department} />
+        ))}
       </div>
+      {problem !== null && (
+        <p role="alert" className="text-destructive mt-2 text-sm">
+          {problem}
+        </p>
+      )}
+      <p className="text-meta text-muted-foreground mt-2">
+        A department groups bots under shared Instructions, a VM size and its own host-access
+        switch. Open one to change it.
+      </p>
+      <NewDepartmentDialog open={creating} onOpenChange={setCreating} />
     </section>
   );
 }
 
-function DepartmentRow(props: {
-  department: DepartmentInfo;
-  busy: boolean;
-  onFlag: (checked: boolean) => void;
-}) {
+function DepartmentRow({ department }: { department: DepartmentInfo }) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
-      <Checkbox
-        className="mt-0.5"
-        checked={props.department.hostAccess}
-        disabled={props.busy}
-        onCheckedChange={(checked) => props.onFlag(checked === true)}
-      />
-      <span className="text-ui">
-        {props.department.name}
+    <Link
+      to="/crew/dept/$departmentId"
+      params={{ departmentId: department.id }}
+      className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 items-center gap-3 px-3 py-2.5 outline-none focus-visible:ring-2"
+    >
+      <Building2Icon className="text-muted-foreground size-4 shrink-0" />
+      <span className="text-ui min-w-0 flex-1">
+        <span className="block truncate">{department.name}</span>
         <span className="text-meta text-muted-foreground block">
-          {props.department.hostAccess
-            ? "On for this department."
-            : "Off. This department's bots stay off this computer."}
+          {vmLabel(department.vm)} · host access {department.hostAccess ? "on" : "off"}
         </span>
       </span>
-    </label>
+      <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+    </Link>
   );
 }
 
@@ -161,7 +128,7 @@ export function HostAccessSwitch({ bot }: { bot: ProfileInfo }) {
   const [busy, setBusy] = useState(false);
   const load = useCallback(async (): Promise<void> => {
     try {
-      setMatrix(await api.hostAccess());
+      setMatrix(await orgApi.hostAccess());
     } catch {
       setMatrix(null);
     }
