@@ -29,11 +29,12 @@ Open http://localhost:5173 and create your first bot. If `vp` isn't on your PATH
 
 - **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
 - **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
-- **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and always asks first.
+- **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and asks first, unless the bot is in fully automatic mode.
 - **A vault for credentials.** Items are sealed with AES-256-GCM, and bots only see names and masked hints. When a bot needs to use a secret, the credential broker makes the HTTP request itself, only to the hosts, methods and paths that secret is bound to. Responses are scrubbed before the bot sees them.
 - **Routines.** Bots can wake on cron schedules, on webhooks they set up themselves, or on sensors (RSS, a calendar ICS feed, watched URLs). Schedules respect time zones. Webhooks are validated against a schema, retried, and dead-lettered if they keep failing.
 - **Background tasks.** A bot can hand long work to a sub-agent and keep chatting. The task runs in its own conversation and reports back when it's done. If the server restarts, tasks pick up where they left off.
-- **Approvals.** Tools with side effects wait on an approval card. "Always allow" is per tool and never covers the dangerous ones. You get a push notification when a bot is waiting on you.
+- **Approvals.** Tools with side effects wait on an approval card. Each bot can instead let Jev judge its calls or run them without asking; see [Approval modes](#approval-modes). "Always allow" saves a rule for that tool, and it never covers the calls that always ask. You get a push notification when a bot is waiting on you.
+- **Images and files in chat.** The + menu in the composer attaches images or any other file, and you can paste or drag them in too: up to 8 per message, 10 MB each. They're saved to the bot's file store when you send. Big photos are scaled down first. The model sees images directly only if it accepts image input; otherwise the bot gets a pointer to the file, and the composer warns you. Bots can also look at image files in their store with `artifact_read`.
 - **MCP connectors.** Add HTTP, SSE or stdio MCP servers from the UI, or let a bot add one (that also goes through an approval card). OAuth and headers pulled from the vault are supported, and there are a few presets.
 - **Installable on your phone.** The web app is a PWA with Web Push for finished tasks, pending approvals and routine replies. The service worker only caches the offline shell.
 
@@ -89,7 +90,7 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @ultiv/server#push:keys`                                                |
 
-`.env.example` lists the rest, with a comment on each.
+`.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `ULTIV_MAX_RUNNING_TASKS` (background tasks one bot can run at once, default 3), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `ULTIV_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
 
 Back up `VAULT_KEY` somewhere other than this machine. If you lose it or change it, every saved vault item becomes unreadable, and there's no key rotation yet.
 
@@ -101,22 +102,32 @@ Push notifications need HTTPS. `tailscale serve` gives you that. On an iPhone, p
 
 ## The two shells
 
-| Tool        | Where it runs                        | What it can reach                                              | Approval                               |
-| ----------- | ------------------------------------ | -------------------------------------------------------------- | -------------------------------------- |
-| `bash`      | a microsandbox microVM per workspace | full Linux: coreutils, pipes, python3, pip, network, `apt-get` | asks per call (can be auto-approved)   |
-| `bash_host` | **your computer, directly**          | your whole real filesystem                                     | asks per call, **never auto-approved** |
+| Tool        | Where it runs                        | What it can reach                                              | Approval                                                              |
+| ----------- | ------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `bash`      | a microsandbox microVM per workspace | full Linux: coreutils, pipes, python3, pip, network, `apt-get` | asks per call (can be auto-approved)                                  |
+| `bash_host` | **your computer, directly**          | your whole real filesystem                                     | asks per call, **except in fully automatic mode, where it just runs** |
 
 Both keep the working directory between calls. Anything a `bash` script writes under `/home` becomes an artifact: it shows up in `artifact_list`, the web UI serves it, and it survives restarts. Deletions sync too. The file store is the source of truth. Each call copies it into the VM and copies changes back out, so if the VM crashes you don't lose anything that was already synced.
 
 The microVM needs an Apple Silicon Mac, or Linux with KVM. Without virtualization, the `bash` tool reports an error and the rest of the app works fine.
 
-Use `bash_host` only when a task really needs your actual machine. It's left out of "always allow" on purpose, because the approval is the safety check.
+Use `bash_host` only when a task really needs your actual machine. In manual and Jev mode it always asks: Jev never decides it, and "Always allow" on its card doesn't save a rule, because the approval is the safety check. Fully automatic mode runs it without asking, so only use that mode for a bot you'd trust with a shell on your computer.
+
+## Approval modes
+
+Each bot has an approval mode. You set it in the bot's edit dialog or under Approvals in the chat header's details, and it applies to all of that bot's chats.
+
+- **Manual, ask me** (the default). Every gated call waits for your card, unless you've used "Always allow" for that tool.
+- **Jev decides.** Jev judges each gated call, looking at the tool's description, the bot's description, your latest message in the chat and the bot's last five tool calls, with secrets redacted. It runs the calls it's confident about, refuses the ones it's confident are wrong, and hands the rest to you as a normal card. A call that's too complex to judge (command substitution, more than three chained commands, more than ten targets at once) goes back to the bot with a note to split it. A destructive call your latest message didn't ask for goes back with a note to explain why or ask you first, and one you did ask for needs a higher score to run without you. If the same call is sent back a third time, you get the card. Each decision shows as a short line under the tool call in the chat. If Jev isn't set up or doesn't answer within 8 seconds, you get the card. Jev never decides `bash_host`.
+- **Fully automatic.** Gated calls run without asking, `bash_host` included.
+
+In every mode, these always come to you as a card: a credential's first use on a new host, a connector's first use, connector changes, and `secret_request`.
 
 ## Security
 
 - **There's no login yet.** The server takes the user from the `x-ultiv-user` header, and requests without it count as `guest`. Data is partitioned by owner, and the identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Ultiv on a machine and network you control.
 - **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
-- **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval. Some can never be blanket-allowed: deleting artifacts, changing connectors, using a credential on a new host for the first time, and `bash_host`.
+- **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval, or follow the bot's [approval mode](#approval-modes). Some always ask, whatever the mode or the allow list says: using a credential on a new host for the first time, a connector's first use, changing connectors, and `secret_request`. `bash_host` can't be saved as an "Always allow" rule and Jev never decides it, but fully automatic mode runs it.
 - **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
 - **`.env` stays on the server.** It's never printed or sent to the client.
 
@@ -129,6 +140,7 @@ packages/core       tagged errors and the bridge between promises and Effect
 packages/ext        tools, plugins, registry, vault, credential broker, shells
 packages/mind       the bots themselves: models, converse, decide, act, generate, tasks, profiles, routines, memory
 packages/contracts  TypeBox chord contracts shared by server and web
+packages/about      the built-in skills every bot gets: Ultiv's own docs, as Agent Skills
 ```
 
 It's a pnpm monorepo written with Effect. Each profile is one bot running in a shared runtime. Sessions replicate over chord; the registries (sessions, models, artifacts, webhooks, cron, audit) are plain REST.
@@ -140,16 +152,17 @@ Use `vp` for everything, not `npm`, `pnpm`, `node`, `tsc` or `vitest` directly:
 ```sh
 vp install                                  # dependencies
 vp check --fix                              # format and lint
-vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all six have to pass)
+vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all seven have to pass)
 vp test                                     # unit tests (offline: no models.dev, no providers)
 vp -C apps/web build                        # production web build
 vp run smoke                                # starts the whole stack offline on a random port and hits the REST API
 ```
 
-Before a change goes in, I run `vp check`, the six typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
+Before a change goes in, I run `vp check`, the seven typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
 
 ## More docs
 
 - `AGENTS.md`: developer guide (layout, `vp` rules, the checks above, conventions, pitfalls)
 - `docs/ROUTINES.md`: how cron, webhooks and sensors stay durable and get delivered
 - `docs/MEMORY.md`: how memory works (tiers, recall, guard, tidy)
+- `docs/SKILLS.md`: how skills are stored, loaded, installed and improved

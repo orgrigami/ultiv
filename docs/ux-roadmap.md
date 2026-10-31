@@ -97,7 +97,7 @@ and Meta's Muse against our web app. Effort: S small, M medium, L large.
 Basics to fold in continuously (8): dark mode, Cmd-K palette, streaming with
 stable keys, a11y labels, empty/loading states.
 
-**Desktop full width** (Harry's add, 2026-10-26): the home is a three-column
+**Desktop full width** (the owner's add, 2026-10-26): the home is a three-column
 desktop layout — persistent Bots sidebar (lg+), capped chat center, History
 rail (xl+); header Bots/History dialog buttons appear only in the middle
 breakpoints; mobile keeps the bottom tab bar. Verified at 1440 / 800 / 390.
@@ -120,5 +120,7 @@ jev | yolo) is live on both surfaces — the Edit-bot dialog gains an
 "Approval mode" select (Manual — ask me / Jev decides / Fully automatic,
 with a one-line hint), and the chat header details popover gains an
 "Approvals" select that PATCHes just the mode key and refreshes app state.
-Yolo never covers credential/connector first use; jev routes through the
-Decide faculty and hands the owner anything Jev won't answer.
+Yolo never covers the floors: a credential's first use, an MCP connector's
+first use, connector changes and `secret_request`; it does run `bash_host`.
+Jev routes through the Decide faculty, never decides the floors or
+`bash_host`, and hands the owner anything Jev won't answer.

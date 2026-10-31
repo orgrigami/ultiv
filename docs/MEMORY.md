@@ -134,12 +134,12 @@ owner's accept** — accept/reject is `POST /api/memory/v2/proposals/:id/accept|
   their text
 
 The web Memory panel (per bot, "What X remembers") renders core lines, facts
-and tidy suggestions at 390 px (screenshots in `docs/screenshots/`).
+and tidy suggestions at 390 px.
 
 ## Migration and rollback
 
 The v1 → v2 migration is REMOVED (2026-10-28, owner-approved end of the
-soak): every live store had already migrated and verified, and Harry
+soak): every live store had already migrated and verified, and the owner
 confirmed there is nothing left to migrate. Writes are v2-only; the old
 `POST /api/memory/v1/cleanup` sweep is gone with it. The v1
 `ultiv.memory` doc family stays exported only for the rollback surfaces.

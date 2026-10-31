@@ -2,8 +2,8 @@
 
 The entity substrate: **one runtime, and each profile (bot) is its own entity**
 with its own persona, memory, artifacts, vault scope, tool allowlist and
-audit trail. The default profile is **Ultius** (the package keeps its working
-name, `mind`). AI is native infrastructure here, not a feature bolted on:
+audit trail. A fresh install has no profiles; the first bot created becomes
+the main bot (the package keeps its working name, `mind`). AI is native infrastructure here, not a feature bolted on:
 chat is only one of an entity's forms, and every LLM/decision call goes
 through this package.
 
@@ -41,7 +41,7 @@ conversation→profile index):
   parent bot steers a running task with `task_message` (arrives as
   `[from parent]`); a long task posts rare progress lines to its owner with
   `notify_owner` (one per 2 min, 280 chars); at most
-  `ULTIV_MAX_RUNNING_TASKS` (3) run per chat. The web shows them as the task
+  `ULTIV_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
   pill above the composer. `tasks.listen` hears each task settle.
 - `mailbox` — bot-to-bot messages through contextual rooms. Each request has
   a deadline, `MAILBOX_DEADLINE_MS` (default 15 minutes); an unanswered one

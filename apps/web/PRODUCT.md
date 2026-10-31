@@ -8,7 +8,7 @@ web
 
 ## Users
 
-A single owner (developer-grade power user) operating a crew of persistent AI entities ("bots": Ultius by default, plus self-created ones like Rook). Primary scene: long dark-room sessions at a desk over a tailnet, delegating and monitoring autonomous work; secondary scene: the phone (PWA, push-tapped) checking on what the crew did. Unauthenticated guests exist only as a degraded fallback and never drive design.
+A single owner (developer-grade power user) operating a crew of persistent AI entities ("bots": none on a fresh install, then owner-created ones like Rook). Primary scene: long dark-room sessions at a desk over a tailnet, delegating and monitoring autonomous work; secondary scene: the phone (PWA, push-tapped) checking on what the crew did. Unauthenticated guests exist only as a degraded fallback and never drive design.
 
 Derived from the repo (owner-scoped everything, single-header IdP seam, tailnet serving) and the owner's 2026-10-30 redesign brief; the init interview was waived by explicit directive in that brief, so this record is brief+evidence derived and confirmed by use.
 
@@ -18,7 +18,7 @@ ultiv is one runtime hosting many AI entities: each bot has its own persona, per
 
 ## Positioning
 
-Entity-first AI workspace: one runtime, one entity per profile. The owner's relationship is with named, persistent personas (Ultius, Rook) that remember, hold credentials, and work unattended — not with ephemeral chat sessions. A neighboring chat product cannot truthfully copy the per-entity memory/artifact/vault/audit substrate or the inter-bot mailbox with budgets and escalation.
+Entity-first AI workspace: one runtime, one entity per profile. The owner's relationship is with named, persistent personas (e.g. Rook) that remember, hold credentials, and work unattended — not with ephemeral chat sessions. A neighboring chat product cannot truthfully copy the per-entity memory/artifact/vault/audit substrate or the inter-bot mailbox with budgets and escalation.
 
 ## Operating Context
 
@@ -30,7 +30,7 @@ Chat with steering (default) and redirect (stop at safe point); per-session mode
 
 ## Brand Commitments
 
-Product name "ultiv". Entity names are product content, not chrome: Ultius (default), Jev (decision faculty), Rook (owner-created). The incumbent pure-neutral-gray visual world is explicitly replaced as of 2026-10-30 by the owner's redesign brief; no other visual assets or identity marks are binding.
+Product name "ultiv". Entity names are product content, not chrome: Jev (decision faculty) and the owner's bots (e.g. Rook); a fresh install has none. The incumbent pure-neutral-gray visual world is explicitly replaced as of 2026-10-30 by the owner's redesign brief; no other visual assets or identity marks are binding.
 
 ## Evidence on Hand
 
