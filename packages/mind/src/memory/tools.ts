@@ -11,7 +11,7 @@ import type { ConverseService } from "../converse/converse.ts";
 import type { MemoryService } from "./memory.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { CORE_LIMITS } from "./core.ts";
-import { flags } from "./model.ts";
+import { departmentKey, flags } from "./model.ts";
 import { forgetTool, historyTool, relatedTool } from "./tools-lifecycle.ts";
 import {
   appearsInOwnerInput,
@@ -59,7 +59,36 @@ const WriteParams = Type.Object({
   validFrom: Type.Optional(
     Type.Number({ description: "World-time (WIB ms) the fact became true; defaults to now." }),
   ),
+  share: Type.Optional(
+    Type.Boolean({
+      description:
+        "Also propose this fact for your department's shared store (bots of your department " +
+        "would recall it after a department admin accepts). Your own copy is unaffected.",
+    }),
+  ),
 });
+
+/** After a profile write with `share`, propose the fact for the department store. */
+const maybeShare = async (
+  memory: MemoryService,
+  guardDeps: {
+    readonly departmentOf?: (profileId: string) => Promise<string | null>;
+  },
+  scope: { readonly owner: string; readonly profileId: string },
+  args: { readonly share?: boolean; readonly text: string },
+  factId: string,
+): Promise<void> => {
+  if (args.share !== true || guardDeps.departmentOf === undefined) return;
+  const departmentId = await guardDeps.departmentOf(scope.profileId);
+  if (departmentId === null) return;
+  await memory.proposeShare({
+    owner: scope.owner,
+    profileId: scope.profileId,
+    departmentId,
+    factId,
+    summary: args.text.slice(0, 200),
+  });
+};
 
 const writeTool = (
   memory: MemoryService,
@@ -68,6 +97,7 @@ const writeTool = (
     readonly converse: ConverseService;
     readonly audit?: AuditService;
     readonly untrustedTool?: (name: string) => boolean;
+    readonly departmentOf?: (profileId: string) => Promise<string | null>;
   },
 ): Tool =>
   defineTool({
@@ -169,9 +199,11 @@ const writeTool = (
             })
           : null;
         if (result !== null) {
+          await maybeShare(memory, guardDeps, scope, args, result.id);
           return structured(result.id, requestedScope, result.op, result.replaced);
         }
         const record = await memory.write(writeInput);
+        await maybeShare(memory, guardDeps, scope, args, record.id);
         return structured(record.id, record.scope);
       };
       return run().catch((cause: unknown) =>
@@ -180,7 +212,12 @@ const writeTool = (
     },
   });
 
-const recallTool = (memory: MemoryService, profiles: ProfilesService): Tool =>
+const recallTool = (
+  memory: MemoryService,
+  profiles: ProfilesService,
+  /** The bot's department id, for the shared store in the pool (slice 9). */
+  departmentOf?: (profileId: string) => Promise<string | null>,
+): Tool =>
   defineTool({
     name: "memory_recall",
     description:
@@ -214,23 +251,28 @@ const recallTool = (memory: MemoryService, profiles: ProfilesService): Tool =>
         scope: Type.String(),
       }),
     ),
-    execute: (args, api) => {
+    execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
-        return Promise.resolve({
+        return {
           output: [
             { type: "text" as const, text: "no memory: this conversation belongs to no profile." },
           ],
           structuredOutput: [],
-        });
+        };
       }
       const query = [args.about, args.query].filter((part) => part !== undefined).join(" ");
+      // A department bot recalls its department's accepted shared facts too.
+      const departmentId = departmentOf === undefined ? null : await departmentOf(scope.profileId);
       return memory
         .recallV2(scope.owner, scope.profileId, {
           ...(query !== "" ? { query } : {}),
           ...(args.includeHistory !== undefined ? { includeHistory: args.includeHistory } : {}),
           ...(args.limit !== undefined ? { limit: args.limit } : {}),
           ...(args.budgetTokens !== undefined ? { budgetTokens: args.budgetTokens } : {}),
+          ...(departmentId !== null
+            ? { extraStores: [departmentKey(scope.owner, departmentId)] }
+            : {}),
         })
         .then((result) => ({
           output: [
@@ -258,10 +300,11 @@ export const memoryTools = (
     readonly converse: ConverseService;
     readonly audit?: AuditService;
     readonly untrustedTool?: (name: string) => boolean;
+    readonly departmentOf?: (profileId: string) => Promise<string | null>;
   },
 ): readonly Tool[] => [
   writeTool(memory, profiles, guardDeps),
-  recallTool(memory, profiles),
+  recallTool(memory, profiles, guardDeps.departmentOf),
   coreTool(memory, profiles, guardDeps),
   forgetTool(memory, profiles),
   historyTool(memory, profiles),

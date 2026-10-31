@@ -5,7 +5,8 @@
  */
 import { Effect } from "effect";
 import type { MemoryProposal } from "@spriessen/contracts";
-import { FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
+import { departmentKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
+import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 import { runTidy } from "../memory-tidy.ts";
 
@@ -120,7 +121,33 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
     return false;
   }
   const profile = args.url.searchParams.get("profile") ?? undefined;
+  const department = args.url.searchParams.get("department") ?? undefined;
+  // A department's shared store: its admins (and the org level) read it and
+  // decide its proposals; members and viewers read as missing.
+  if (department !== undefined) {
+    if (!(await may(args, "change", { type: "department", departmentId: department }))) {
+      json(404, { error: "unknown department" });
+      return true;
+    }
+  }
   try {
+    if (path === "/api/memory/v2" && method === "GET" && department !== undefined) {
+      const key = departmentKey(args.owner, department);
+      const [facts, proposals] = await Promise.all([
+        run(args.mind.converse.docs.snapshotKeyed(FactsDoc, key)).then((d) => d?.facts ?? []),
+        run(args.mind.converse.docs.snapshotKeyed(ProposalsDoc, key)).then(
+          (d) => d?.proposals ?? [],
+        ),
+      ]);
+      json(200, {
+        facts: facts.filter((fact) => fact.status === "current"),
+        proposals: visibleProposals(proposals, Date.now()),
+        core: [],
+        entities: [],
+        openCount: proposals.filter((p) => p.status === "open").length,
+      });
+      return true;
+    }
     if (path === "/api/memory/v2" && method === "GET") {
       json(200, await readStore(args, profile));
       return true;
@@ -229,6 +256,21 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
       return true;
     }
     const proposalMatch = path.match(/^\/api\/memory\/v2\/proposals\/([^/]+)\/(accept|reject)$/);
+    if (proposalMatch !== null && method === "POST" && department !== undefined) {
+      const [, id, verdict] = proposalMatch;
+      const outcome = await args.mind.memory.decideShare({
+        owner: args.owner,
+        departmentId: department,
+        proposalId: id ?? "",
+        accept: verdict === "accept",
+      });
+      if (outcome === "unknown") {
+        json(404, { error: `proposal ${id} not found` });
+        return true;
+      }
+      json(200, { id, status: outcome });
+      return true;
+    }
     if (proposalMatch !== null && method === "POST") {
       const [, id, verdict] = proposalMatch;
       const key = keyOf(args.owner, profile);

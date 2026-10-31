@@ -261,3 +261,20 @@ export const departmentInstructionsOf =
     const state = await readOrgState(converse);
     return state.departments.find((row) => row.id === profile.departmentId)?.instructions ?? "";
   };
+
+/** The department a bot belongs to (null for an org bot); by profile row. */
+export const departmentOfProfileRow =
+  (converse: ConverseService) =>
+  async (profile: { readonly departmentId?: string | null }): Promise<string | null> =>
+    typeof profile.departmentId === "string" && profile.departmentId !== ""
+      ? profile.departmentId
+      : null;
+
+/** The department a bot belongs to (null for an org bot); by profile id. */
+export const departmentOfProfile =
+  (converse: ConverseService) =>
+  async (profileId: string): Promise<string | null> => {
+    const profiles = await Effect.runPromise(readProfiles(converse));
+    const row = profiles.find((candidate) => candidate.id === profileId);
+    return row === undefined ? null : departmentOfProfileRow(converse)(row);
+  };

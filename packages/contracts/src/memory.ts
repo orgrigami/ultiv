@@ -10,7 +10,12 @@ import { Type, type Static } from "typebox";
  */
 export const MemoryRecordSchema = Type.Object({
   id: Type.String(),
-  scope: Type.Union([Type.Literal("profile"), Type.Literal("owner")]),
+  scope: Type.Union([
+    Type.Literal("profile"),
+    Type.Literal("owner"),
+    /** Lives in a department's shared store (accepted from a share proposal). */
+    Type.Literal("department"),
+  ]),
   /** The profile a profile-scope record belongs to; null for owner scope. */
   profile: Type.Union([Type.String(), Type.Null()]),
   text: Type.String(),
@@ -81,7 +86,12 @@ export type FactTriple = Static<typeof FactTripleSchema>;
  */
 export const MemoryFactSchema = Type.Object({
   id: Type.String(),
-  scope: Type.Union([Type.Literal("profile"), Type.Literal("owner")]),
+  scope: Type.Union([
+    Type.Literal("profile"),
+    Type.Literal("owner"),
+    /** Lives in a department's shared store (accepted from a share proposal). */
+    Type.Literal("department"),
+  ]),
   profile: Type.Union([Type.String(), Type.Null()]),
   /** Stored in the language it was said in; never translated. */
   text: Type.String({ maxLength: 1_000 }),
@@ -169,6 +179,8 @@ export const MemoryProposalSchema = Type.Object({
     Type.Literal("core-fix"),
     Type.Literal("archive"),
     Type.Literal("backfill"),
+    /** A bot proposes one of its own facts for the department store. */
+    Type.Literal("share"),
   ]),
   at: Type.Number(),
   factIds: Type.Array(Type.String()),

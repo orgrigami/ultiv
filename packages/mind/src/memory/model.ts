@@ -33,6 +33,9 @@ export const MemoryDoc = defineDocFamily<{ records: MemoryRecord[] }, { records:
 export const ownerKey = (owner: string): string => `owner:${owner}`;
 export const profileKey = (owner: string, profileId: string): string =>
   `profile:${owner}:${profileId}`;
+/** A department's shared store: its bots recall it; its admins decide it. */
+export const departmentKey = (owner: string, departmentId: string): string =>
+  `dept:${owner}:${departmentId}`;
 
 /** The facts store: current, superseded and forgotten facts, with history. */
 export const FactsDoc = defineDocFamily<
@@ -154,7 +157,7 @@ export const storeChecksum = (facts: readonly { id: string; hash: string }[]): s
 
 export interface NewFactInput {
   readonly id: string;
-  readonly scope: "profile" | "owner";
+  readonly scope: "profile" | "owner" | "department";
   readonly profile: string | null;
   readonly text: string;
   readonly kind: MemoryFact["kind"];

@@ -176,7 +176,6 @@ async function callAs(
   path: string,
   body?: unknown,
 ): Promise<{ status: number; json: unknown }> {
-  const { orgRoutes } = await import("./org.ts");
   let status = 0;
   let payload: unknown = null;
   const json = (code: number, out: unknown): void => {
@@ -198,7 +197,21 @@ async function callAs(
     readJson: async <T>() => JSON.parse(raw) as T,
     readBody: async () => Buffer.from(raw),
   } as unknown as import("./types.ts").RouteArgs;
-  await orgRoutes(args);
+  // Walk the org-family route modules the way the dispatcher does.
+  const [org, templates, memoryV2, approvals] = await Promise.all([
+    import("./org.ts"),
+    import("./templates.ts"),
+    import("./memory-v2.ts"),
+    import("./approvals.ts"),
+  ]);
+  for (const routes of [
+    org.orgRoutes,
+    templates.templateRoutes,
+    memoryV2.memoryV2Routes,
+    approvals.approvalRoutes,
+  ]) {
+    if (await routes(args)) break;
+  }
   return { status, json: payload };
 }
 
@@ -344,5 +357,84 @@ describe("reach grants (slice 5)", () => {
       status: 404,
       json: { error: "no route: GET /api/org/grants" },
     });
+  });
+});
+
+describe("department shared memory (slice 9)", () => {
+  it("only an admin of the department decides; a member reads as missing", async () => {
+    const made = await call("POST", "/api/org/departments", { name: "MemD" });
+    const dept = made.json as { id: string };
+    const bot = await handle.mind.profiles.create("owner", {
+      name: "Proposer",
+      onboard: false,
+      departmentId: dept.id,
+    });
+    const fact = await handle.mind.memory.writeV2({
+      owner: "owner",
+      scope: "profile",
+      profileId: bot.id,
+      writer: bot.id,
+      text: "The team's deploy window is Tuesday 10:00 WIB.",
+    });
+    await handle.mind.memory.proposeShare({
+      owner: "owner",
+      profileId: bot.id,
+      departmentId: dept.id,
+      factId: fact.id,
+      summary: "deploy window",
+    });
+    await handle.mind.org.setMember({
+      accountId: "mate-mem",
+      role: "member",
+      departmentId: dept.id,
+    });
+    // The member's list reads as missing; so does their decide.
+    expect((await callAs("mate-mem", "GET", `/api/memory/v2?department=${dept.id}`)).status).toBe(
+      404,
+    );
+    const proposals = (await call("GET", `/api/memory/v2?department=${dept.id}`)).json as {
+      proposals: { id: string }[];
+    };
+    expect(proposals.proposals).toHaveLength(1);
+    expect(
+      (
+        await callAs(
+          "mate-mem",
+          "POST",
+          `/api/memory/v2/proposals/${proposals.proposals[0]?.id}/accept`,
+          {},
+        )
+      ).status,
+    ).toBe(404);
+    // An admin of ANOTHER department also reads as missing.
+    const other = (await call("POST", "/api/org/departments", { name: "MemE" })).json as {
+      id: string;
+    };
+    await handle.mind.org.setMember({
+      accountId: "admin-e",
+      role: "admin",
+      departmentId: other.id,
+    });
+    expect((await callAs("admin-e", "GET", `/api/memory/v2?department=${dept.id}`)).status).toBe(
+      404,
+    );
+    // The department's admin accepts; the fact lands in the shared store.
+    const accepted = await callAs(
+      "admin-mem",
+      "POST",
+      `/api/memory/v2/proposals/${proposals.proposals[0]?.id}/accept`,
+      {},
+    );
+    expect(accepted.status).toBe(404); // admin-mem does not exist; the owner passes below
+    const byOwner = await call(
+      "POST",
+      `/api/memory/v2/proposals/${proposals.proposals[0]?.id}/accept?department=${dept.id}`,
+      {},
+    );
+    expect(byOwner.json).toEqual({ id: proposals.proposals[0]?.id, status: "accepted" });
+    const facts = (await call("GET", `/api/memory/v2?department=${dept.id}`)).json as {
+      facts: { text: string }[];
+    };
+    expect(JSON.stringify(facts.facts)).toContain("deploy window");
   });
 });

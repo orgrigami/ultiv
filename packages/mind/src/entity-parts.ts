@@ -70,6 +70,8 @@ interface Faculties {
   readonly departmentInstructions?: (profile: {
     readonly departmentId?: string | null;
   }) => Promise<string>;
+  /** The bot's department id, for shared memory (slice 9). */
+  readonly departmentOf?: (profileId: string) => Promise<string | null>;
   /** The skills faculty: built-in and self-written procedures, per profile. */
   readonly skills?: SkillsService;
 }
@@ -127,6 +129,7 @@ export const installFaculties = (
         converse: f.converse,
         ...(f.audit !== undefined ? { audit: f.audit } : {}),
         ...(f.untrustedTool !== undefined ? { untrustedTool: f.untrustedTool } : {}),
+        ...(f.departmentOf !== undefined ? { departmentOf: f.departmentOf } : {}),
       }),
     }),
   );

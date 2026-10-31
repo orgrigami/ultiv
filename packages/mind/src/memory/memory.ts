@@ -19,6 +19,7 @@ import type {
   FactTrust,
   MemoryEntity,
   MemoryFact,
+  MemoryProposal,
   MemoryRecord,
 } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
@@ -50,6 +51,7 @@ import {
   ownerKey,
   profileKey,
 } from "./model.ts";
+import { shareOps } from "./share.ts";
 import { recall, type RecallResult } from "./recall.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
@@ -100,8 +102,31 @@ export interface MemoryService {
       readonly includeHistory?: boolean;
       readonly limit?: number;
       readonly budgetTokens?: number;
+      /** Additional store keys in the pool (a department's shared store). */
+      readonly extraStores?: readonly string[];
     },
   ) => Promise<RecallResult>;
+  /**
+   * A department bot proposes one of its own profile facts for the
+   * department's shared store (slice 9). Nothing is shared until a
+   * department admin accepts; rejection discards the proposal.
+   */
+  readonly proposeShare: (input: {
+    readonly owner: string;
+    readonly profileId: string;
+    readonly departmentId: string;
+    readonly factId: string;
+    readonly summary: string;
+  }) => Promise<MemoryProposal>;
+  /** A department store's facts (the shared view its admins read). */
+  readonly departmentFacts: (owner: string, departmentId: string) => Promise<readonly MemoryFact[]>;
+  /** Accept or reject a share proposal; ONLY a department admin may (REST checks). */
+  readonly decideShare: (input: {
+    readonly owner: string;
+    readonly departmentId: string;
+    readonly proposalId: string;
+    readonly accept: boolean;
+  }) => Promise<"accepted" | "rejected" | "unknown">;
   /**
    * v2 consolidating write: extract → resolve → decide → apply in one
    * transaction (supersede/refine keep history). The tool surface; `write`
@@ -408,6 +433,15 @@ export const memoryService = (deps: {
       // sibling's. ONE ranking over the combined pool, so the limit and the
       // token budget hold across the merge and owner facts compete on score
       // instead of being appended after the profile's (they crowded out).
+      // A department bot's shared store joins the pool through extraStores.
+      const extra = opts.extraStores ?? [];
+      const sharedFacts = (
+        await Promise.all(
+          extra.map((key) =>
+            run(converse.docs.snapshotKeyed(FactsDoc, key)).then((store) => store?.facts ?? []),
+          ),
+        )
+      ).flat();
       const [own, ownerStore, ownEntities, ownerEntities] = await Promise.all([
         service.readFacts(owner, profileId),
         service.readFacts(owner, null),
@@ -419,7 +453,7 @@ export const memoryService = (deps: {
         ),
       ]);
       const result = recall({
-        facts: [...own, ...ownerStore],
+        facts: [...own, ...ownerStore, ...sharedFacts],
         entities: [...ownEntities, ...ownerEntities],
         ...(opts.query !== undefined ? { query: opts.query } : {}),
         ...(opts.includeHistory !== undefined ? { includeHistory: opts.includeHistory } : {}),
@@ -468,6 +502,8 @@ export const memoryService = (deps: {
         }),
       );
     },
+    // Shared department memory (slice 9): propose, read, decide.
+    ...shareOps(converse),
   };
   return service;
 };
