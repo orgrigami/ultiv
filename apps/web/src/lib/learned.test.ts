@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { BotFileVersion } from "./bot-files.ts";
-import { learnedOf, undoStateOf } from "./learned.ts";
+import { learnedOf, undoActionOf, undoStateOf } from "./learned.ts";
 
 const v = (n: number, reason = "Updated"): BotFileVersion => ({
   n,
@@ -24,6 +24,11 @@ describe("learned steps", () => {
     expect(learnedOf({ skill: "a", version: 1 })).toBeUndefined();
     expect(learnedOf("learned")).toBeUndefined();
     expect(learnedOf(undefined)).toBeUndefined();
+  });
+
+  it("undoing a skill the save created removes it; later saves revert", () => {
+    expect(undoActionOf(1)).toBe("remove");
+    expect(undoActionOf(4)).toBe("revert");
   });
 
   it("offers undo only while the learned version is the newest", () => {

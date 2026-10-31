@@ -60,7 +60,7 @@ a turn taught it without asking: a procedure it just worked out, or the
 owner correcting how it does a thing. There's no approval card; the owner
 sees "learned: <lesson>" in the chat with a one-tap Undo (only while that
 version is still the newest; otherwise the bot's Skills page restores any
-version). Each save is a version by `learning`, with the turn
+version). Undoing a skill the save created removes it; its history stays. Each save is a version by `learning`, with the turn
 (`conversation#call`) and `learned: <lesson>` as its reason. The prompt
 section carries the learning rule while learning is on.
 

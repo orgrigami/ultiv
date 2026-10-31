@@ -23,6 +23,14 @@ export const learnedOf = (details: unknown): LearnedRef | undefined => {
   return { profile, skill, version, lesson: typeof lesson === "string" ? lesson : "" };
 };
 
+/**
+ * How undo rolls a learned save back: a skill the save created has no
+ * earlier version, so undo removes it (its history stays); otherwise it
+ * restores the version before.
+ */
+export const undoActionOf = (version: number): "remove" | "revert" =>
+  version === 1 ? "remove" : "revert";
+
 export type UndoState = "undo" | "undone" | "changed";
 
 /** Whether this learned version can still be undone, against the skill's history. */
