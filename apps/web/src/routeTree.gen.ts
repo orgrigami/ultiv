@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BotsRouteImport } from './routes/bots'
 import { Route as ConnectorsRouteImport } from './routes/connectors'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as NeedsRouteImport } from './routes/needs'
 import { Route as RoomsRouteImport } from './routes/rooms'
 import { Route as RoutinesRouteImport } from './routes/routines'
 import { Route as SkillsRouteImport } from './routes/skills'
@@ -41,6 +42,11 @@ const ConnectorsRoute = ConnectorsRouteImport.update({
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NeedsRoute = NeedsRouteImport.update({
+  id: '/needs',
+  path: '/needs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomsRoute = RoomsRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/bots': typeof BotsRoute
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
+  '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/bots': typeof BotsRoute
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
+  '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/bots': typeof BotsRoute
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
+  '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/skills': typeof SkillsRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/bots'
     | '/connectors'
     | '/history'
+    | '/needs'
     | '/rooms'
     | '/routines'
     | '/skills'
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/bots'
     | '/connectors'
     | '/history'
+    | '/needs'
     | '/rooms'
     | '/routines'
     | '/skills'
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/bots'
     | '/connectors'
     | '/history'
+    | '/needs'
     | '/rooms'
     | '/routines'
     | '/skills'
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   BotsRoute: typeof BotsRoute
   ConnectorsRoute: typeof ConnectorsRoute
   HistoryRoute: typeof HistoryRoute
+  NeedsRoute: typeof NeedsRoute
   RoomsRoute: typeof RoomsRoute
   RoutinesRoute: typeof RoutinesRoute
   SkillsRoute: typeof SkillsRoute
@@ -227,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/needs': {
+      id: '/needs'
+      path: '/needs'
+      fullPath: '/needs'
+      preLoaderRoute: typeof NeedsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rooms': {
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   BotsRoute: BotsRoute,
   ConnectorsRoute: ConnectorsRoute,
   HistoryRoute: HistoryRoute,
+  NeedsRoute: NeedsRoute,
   RoomsRoute: RoomsRoute,
   RoutinesRoute: RoutinesRoute,
   SkillsRoute: SkillsRoute,

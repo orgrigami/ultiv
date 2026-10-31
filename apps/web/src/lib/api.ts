@@ -22,6 +22,7 @@ import type {
   VaultItemInfo,
   WebhookInfo,
 } from "@ultiv/contracts";
+import type { NeedsYouExtra } from "./needs-you.ts";
 
 /**
  * The registries are plain REST on the server's HTTP handler (CRUD over
@@ -402,6 +403,8 @@ export const api = {
     getJson<ArtifactRow[]>(`/api/artifacts?conversationId=${encodeURIComponent(conversationId)}`),
   pendingApprovals: (): Promise<PendingApprovalRow[]> =>
     getJson<PendingApprovalRow[]>("/api/approvals"),
+  /** The Needs you inputs no poll carries: tidy counts, escalations, approval chats. */
+  needsYou: (): Promise<NeedsYouExtra> => getJson<NeedsYouExtra>("/api/needs-you"),
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),
