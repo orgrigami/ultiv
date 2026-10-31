@@ -3,7 +3,7 @@
  * webhooks (also the `/hooks/:id` ingress), cron jobs, profiles, mailbox,
  * vault, connectors (MCP), approvals, memory and the audit tail. Plain REST on purpose — CRUD
  * over chord's replicated-object wire desyncs on attach (chord 1.4.0
- * ack-window bug). Owner scoping rides `x-ultiv-user`; routes live in ./rest.
+ * ack-window bug). Owner scoping rides `x-spreissen-user`; routes live in ./rest.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { MindService } from "@spreissen/mind";
@@ -52,7 +52,7 @@ export const createRestHandler = (deps: RestDeps) => {
     "content-type": "application/json",
     "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "access-control-allow-headers": "content-type, x-ultiv-user",
+    "access-control-allow-headers": "content-type, x-spreissen-user, x-ultiv-user",
   };
   return (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? "/", "http://localhost");

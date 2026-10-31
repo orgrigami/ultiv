@@ -7,7 +7,7 @@ import { openMind } from "./entity.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> => Effect.runPromise(effect);
 
-// 1) Converse: the default model (ULTIV_MODEL) through the durable harness (turn = submit -> wait -> commit).
+// 1) Converse: the default model (SPREISSEN_MODEL) through the durable harness (turn = submit -> wait -> commit).
 const handle = await openMind({ storage: new MemoryStorage() });
 const mind = handle.mind;
 const started = Date.now();

@@ -5,15 +5,30 @@ import { ownerOf, principalFromHeaders, principalFromRequest } from "./identity.
 
 describe("principalFromHeaders", () => {
   it("a named principal keeps its id", () => {
-    expect(principalFromHeaders((n) => (n === "x-ultiv-user" ? "harry" : undefined))).toEqual({
+    expect(principalFromHeaders((n) => (n === "x-spreissen-user" ? "owner-a" : undefined))).toEqual(
+      {
+        kind: "user",
+        id: "owner-a",
+      },
+    );
+  });
+
+  it("still accepts the pre-rename x-ultiv-user header", () => {
+    expect(principalFromHeaders((n) => (n === "x-ultiv-user" ? "owner-b" : undefined))).toEqual({
       kind: "user",
-      id: "harry",
+      id: "owner-b",
     });
+    expect(principalFromRequest({ headers: { "x-ultiv-user": "owner-b" } })).toEqual({
+      kind: "user",
+      id: "owner-b",
+    });
+    const both = { "x-spreissen-user": "owner-a", "x-ultiv-user": "owner-b" };
+    expect(principalFromRequest({ headers: both })).toEqual({ kind: "user", id: "owner-a" });
   });
 
   it("empty or missing means guest", () => {
     expect(principalFromHeaders(() => undefined)).toEqual({ kind: "guest" });
-    expect(principalFromHeaders((n) => (n === "x-ultiv-user" ? "  " : undefined))).toEqual({
+    expect(principalFromHeaders((n) => (n === "x-spreissen-user" ? "  " : undefined))).toEqual({
       kind: "guest",
     });
   });
@@ -22,9 +37,9 @@ describe("principalFromHeaders", () => {
     // `agent` is the sentinel bot-spawned task rows are filed under; a
     // caller claiming it would pass every "own rows" check on those rows.
     expect(AGENT_OWNER).toBe("agent");
-    const principal = principalFromHeaders((n) => (n === "x-ultiv-user" ? "agent" : undefined));
+    const principal = principalFromHeaders((n) => (n === "x-spreissen-user" ? "agent" : undefined));
     expect(ownerOf(principal)).toBe("guest");
-    const fromRequest = principalFromRequest({ headers: { "x-ultiv-user": "agent" } });
+    const fromRequest = principalFromRequest({ headers: { "x-spreissen-user": "agent" } });
     expect(ownerOf(fromRequest)).toBe("guest");
   });
 });

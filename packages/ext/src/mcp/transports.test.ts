@@ -64,7 +64,7 @@ describe("MCP transports", () => {
   });
 
   it("runs stdio with a scrubbed env, redacts its vault secret, and restarts after a crash", async () => {
-    process.env.ULTIV_HOST_SECRET = "host-only-value";
+    process.env.SPREISSEN_HOST_SECRET = "host-only-value";
     rig = makeRig();
     const item = rig.vault.create(OWNER, {
       kind: "key",
@@ -94,7 +94,7 @@ describe("MCP transports", () => {
     expect(textOf(await rig.manager.call(OWNER, added.id, "echo", { text: "back" }, CALL))).toBe(
       "echo: back",
     );
-    delete process.env.ULTIV_HOST_SECRET;
+    delete process.env.SPREISSEN_HOST_SECRET;
   });
 
   it("explains a missing command in plain words", async () => {

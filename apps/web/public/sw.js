@@ -6,7 +6,9 @@
  * response, no WebSocket, no page HTML, no authenticated data. Navigations
  * go to the network and fall back to the offline page only when it fails.
  */
-const SHELL_CACHE = "ultiv-shell-v2";
+// Renamed with the product; activate deletes every other cache, including
+// the old "ultiv-shell-v2".
+const SHELL_CACHE = "spreissen-shell-v1";
 const SHELL_FILES = ["/offline.html", "/icons/icon-192.png"];
 const NEVER = ["/api/", "/chord", "/hooks/"];
 

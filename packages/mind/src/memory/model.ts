@@ -2,10 +2,11 @@
  * Memory v2 data model: the doc families (one per tier), the fact
  * constructor, the hash that powers exact dedupe, the retention limits and
  * the environment flags. Storage stays pi-durable docs — no new database.
- * Rollback: `ULTIV_MEMORY_V2=off` sends every caller back to the v1 seam.
+ * Rollback: `SPREISSEN_MEMORY_V2=off` sends every caller back to the v1 seam.
  */
 import { createHash } from "node:crypto";
 import { defineDocFamily } from "@earendil-works/pi-durable";
+import { readEnv } from "@spreissen/core";
 import type {
   CoreLine,
   MemoryEntity,
@@ -16,7 +17,7 @@ import type {
 } from "@spreissen/contracts";
 
 /**
- * The v1 store (`ultiv.memory`) — kept only for the `ULTIV_MEMORY_V2=off`
+ * The v1 store (`ultiv.memory`) — kept only for the `SPREISSEN_MEMORY_V2=off`
  * rollback surfaces. The mirror is gone (2026-10-28) and nothing migrates
  * into it; removing the doc family is a separate, owner-approved commit.
  */
@@ -126,8 +127,8 @@ export const LIMITS = {
 } as const;
 
 export const flags = {
-  /** ULTIV_MEMORY_V2=off brings the v1 code path back, unchanged. */
-  v2: (): boolean => process.env.ULTIV_MEMORY_V2 !== "off",
+  /** SPREISSEN_MEMORY_V2=off brings the v1 code path back, unchanged. */
+  v2: (): boolean => readEnv("MEMORY_V2") !== "off",
   /** Model extraction; off = deterministic fallback only. */
   extract: (): boolean => process.env.MEMORY_EXTRACT !== "off",
   /** Embeddings are off by default; prefer a local Ollama model if ever on. */

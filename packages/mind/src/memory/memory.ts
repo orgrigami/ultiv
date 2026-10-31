@@ -6,7 +6,7 @@
  * memory. Reads: an entity sees its own memory plus the owner store — never
  * a sibling's. Cross-thread recall resolves through here, never transcripts.
  *
- * v2 rides behind `ULTIV_MEMORY_V2` (default on): writes land in
+ * v2 rides behind `SPREISSEN_MEMORY_V2` (default on): writes land in
  * `ultiv.mem.facts`. The v1 mirror and the v1 migration are GONE (the soak
  * ended 2026-10-28 with nothing left to migrate); the v1 `ultiv.memory`
  * doc family and helpers stay exported for the rollback surfaces.

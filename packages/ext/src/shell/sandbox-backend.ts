@@ -10,6 +10,7 @@
  */
 import { createHash } from "node:crypto";
 import type { Sandbox } from "microsandbox";
+import { readEnv } from "@spreissen/core";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
 export interface SandboxBackendOptions {
@@ -31,9 +32,14 @@ const VM_MEMORY_MIB = 512;
  */
 const DEFAULT_IMAGE = "ultiv-sandbox:latest";
 
-/** The image for new VMs: `ULTIV_SANDBOX_IMAGE` when set, else the built-in tag. */
+/**
+ * The image for new VMs: `SPREISSEN_SANDBOX_IMAGE` (or the deprecated
+ * `ULTIV_SANDBOX_IMAGE`) when set, else the built-in tag. The built-in tag and
+ * the VM names keep the old `ultiv-` prefix on purpose: they name an image
+ * already loaded on the owner's machine and VMs that hold workspace state.
+ */
 export const sandboxImage = (): string => {
-  const raw = process.env.ULTIV_SANDBOX_IMAGE?.trim();
+  const raw = readEnv("SANDBOX_IMAGE")?.trim();
   return raw !== undefined && raw !== "" ? raw : DEFAULT_IMAGE;
 };
 

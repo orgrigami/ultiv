@@ -6,8 +6,9 @@
  * (`ANTHROPIC_API_KEY`, `KENARI_API_KEY`, …), see `providers/wire.ts`.
  */
 import { Config } from "effect";
+import { ENV_PREFIX, LEGACY_ENV_PREFIX, warnLegacyEnv } from "@spreissen/core";
 
-/** Single grep-able fallbacks (ULTIV_MODEL is the source of truth for the default model). */
+/** Single grep-able fallbacks (SPREISSEN_MODEL is the source of truth for the default model). */
 export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
 export const JEV_FALLBACK_MODEL = "jev-latest";
 export const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai";
@@ -15,10 +16,26 @@ export const MODELS_DEV_DEFAULT_URL = "https://models.dev/api.json";
 export const KENARI_MODELS_DEFAULT_URL = "https://kenari.id/v1/models";
 export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
 
+/**
+ * A product key: `SPREISSEN_<name>`, else the deprecated `ULTIV_<name>`
+ * (warned once per process, see `readEnv` in @spreissen/core).
+ */
+export const productString = (name: string): Config.Config<string> =>
+  Config.String(`${ENV_PREFIX}${name}`).pipe(
+    Config.orElse(() =>
+      Config.String(`${LEGACY_ENV_PREFIX}${name}`).pipe(
+        Config.map((value) => {
+          warnLegacyEnv(name);
+          return value;
+        }),
+      ),
+    ),
+  );
+
 /** The default model as `provider/model`. */
-export const defaultModel = Config.option(Config.String("ULTIV_MODEL"));
+export const defaultModel = Config.option(productString("MODEL"));
 /** Comma list of provider ids to use; unset = every provider whose key is set. */
-export const modelProviders = Config.option(Config.String("ULTIV_PROVIDERS"));
+export const modelProviders = Config.option(productString("PROVIDERS"));
 /** Where the catalog comes from; `off` never touches the network (offline runs, smoke). */
 export const modelsDevUrl = Config.String("MODELS_DEV_URL").pipe(
   Config.withDefault(MODELS_DEV_DEFAULT_URL),

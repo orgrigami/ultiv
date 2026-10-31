@@ -2,7 +2,7 @@
  * Identity: the principal seam. Chord stamps every link (and every REST
  * request, via the header) with a principal; the registry, conversations and
  * tasks scope themselves under its owner label. There is no IdP yet —
- * `x-ultiv-user` IS the identity — but every key and registry row is
+ * `x-spreissen-user` IS the identity — but every key and registry row is
  * owner-partitioned HERE, in one file, so a real authenticator later only
  * replaces `principalFromHeaders` and the WebSocket callback.
  */
@@ -10,7 +10,9 @@ import { AGENT_OWNER } from "@spreissen/mind";
 
 export type Principal = { kind: "guest" } | { kind: "user"; id: string } | { kind: "server" };
 
-export const USER_HEADER = "x-ultiv-user";
+export const USER_HEADER = "x-spreissen-user";
+/** The pre-rename header, still accepted when the new one is absent. */
+export const LEGACY_USER_HEADER = "x-ultiv-user";
 
 /**
  * The registry label a principal's data lives under.
@@ -35,14 +37,15 @@ const principalFor = (id: string): Principal =>
 
 /** Resolve a principal from header-style access; empty/missing means guest. */
 export const principalFromHeaders = (get: (name: string) => string | undefined): Principal =>
-  principalFor((get(USER_HEADER) ?? "").trim());
+  principalFor((get(USER_HEADER) ?? get(LEGACY_USER_HEADER) ?? "").trim());
 
 /** The principal of an incoming HTTP request (REST and WebSocket upgrades alike). */
 export const principalFromRequest = (request: { readonly headers: unknown }): Principal => {
   const headers = request.headers as { get?: (name: string) => unknown } | Record<string, unknown>;
-  const raw =
+  const read = (name: string): unknown =>
     typeof (headers as { get?: unknown }).get === "function"
-      ? (headers as { get: (name: string) => unknown }).get(USER_HEADER)
-      : (headers as Record<string, unknown>)[USER_HEADER];
+      ? (headers as { get: (name: string) => unknown }).get(name)
+      : (headers as Record<string, unknown>)[name];
+  const raw = read(USER_HEADER) ?? read(LEGACY_USER_HEADER);
   return principalFor(typeof raw === "string" ? raw.trim() : "");
 };

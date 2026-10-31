@@ -23,7 +23,7 @@ function liveOf(view: unknown): LiveState | undefined {
  * `agent` sentinel — a principal cannot BE the agent, and the identity seam
  * refuses the label anyway), agent-spawned rows whose BOT is its own (the
  * row's `bot.owner` is the principal the spawn bound), and nothing else.
- * Owner identity rides the client-supplied `x-ultiv-user` header, so "some
+ * Owner identity rides the client-supplied `x-spreissen-user` header, so "some
  * other named principal" is not a boundary; agent rows without a bot
  * binding stay hidden (fail safe), and any foreign task 404s without
  * disclosing that it exists.

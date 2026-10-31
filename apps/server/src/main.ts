@@ -93,7 +93,7 @@ export async function buildStack(options?: {
 
   const http = createServer(createRestHandler({ mind, scheduler, push }));
   const wss = new WebSocketServer({ server: http });
-  // The upgrade request IS the credential for now: x-ultiv-user scopes the
+  // The upgrade request IS the credential for now: x-spreissen-user scopes the
   // link's principal (see identity.ts for the seam a real IdP replaces).
   acceptWebSockets(wss, host, { principal: async (request) => principalFromRequest(request) });
 

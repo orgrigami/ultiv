@@ -6,13 +6,13 @@ import { httpConnector } from "./plugins/http.ts";
 
 // Effect 4's default env provider snapshots process.env at first use, so test
 // keys are set at module load — never mid-test.
-process.env.ULTIV_TEST_TOKEN = "abcd";
+process.env.SPREISSEN_TEST_TOKEN = "abcd";
 
 const secretFetcher = defineConnector({
   id: "secret",
   name: "Secret",
   description: "Env-auth test connector.",
-  auth: { kind: "env", env: "ULTIV_TEST_TOKEN", displayName: "Test" },
+  auth: { kind: "env", env: "SPREISSEN_TEST_TOKEN", displayName: "Test" },
   actions: [
     defineAction({
       name: "peek",
@@ -28,7 +28,7 @@ const absentFetcher = defineConnector({
   id: "absent",
   name: "Absent",
   description: "Connector whose key is never set.",
-  auth: { kind: "env", env: "ULTIV_TEST_ABSENT", displayName: "Absent" },
+  auth: { kind: "env", env: "SPREISSEN_TEST_ABSENT", displayName: "Absent" },
   actions: [],
 });
 

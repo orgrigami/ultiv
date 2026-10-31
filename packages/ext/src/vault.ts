@@ -26,6 +26,8 @@ export const vaultConfigured = (): boolean => {
   return key !== undefined && key !== "";
 };
 
+// The salt keeps its pre-rename spelling: changing it would make every stored
+// secret unreadable.
 const kekOf = (): Buffer => scryptSync(process.env.VAULT_KEY ?? "", "ultiv-vault/v1", 32);
 
 /** Sealed secret payload: the value under a per-item DEK, the DEK under the KEK. */

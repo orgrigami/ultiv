@@ -29,8 +29,8 @@ process.env.MODELS_DEV_URL = "off";
 process.env.MODELS_DEV_CACHE = join(scratchArtifacts, "models-dev.json");
 process.env.MODELS_OVERLAY = join(scratchArtifacts, "models.local.json");
 process.env.KENARI_MODELS_CACHE = join(scratchArtifacts, "kenari-models.json");
-process.env.ULTIV_PROVIDERS = "smoke-local";
-process.env.ULTIV_MODEL = "kenari/deepseek-v4-1-flash";
+process.env.SPREISSEN_PROVIDERS = "smoke-local";
+process.env.SPREISSEN_MODEL = "kenari/deepseek-v4-1-flash";
 writeFileSync(
   process.env.MODELS_OVERLAY,
   JSON.stringify({
@@ -107,12 +107,14 @@ expect(
 
 // Fresh install: the workspace starts EMPTY — no default Ultius bot exists,
 // and there is no main bot until the first one is spawned.
-const freshProfiles = await call("GET", "/api/profiles", undefined, { "x-ultiv-user": "smoker" });
+const freshProfiles = await call("GET", "/api/profiles", undefined, {
+  "x-spreissen-user": "smoker",
+});
 expect(
   "fresh install has no default bot",
   freshProfiles.status === 200 && freshProfiles.json.length === 0,
 );
-const freshMain = await call("GET", "/api/main", undefined, { "x-ultiv-user": "smoker" });
+const freshMain = await call("GET", "/api/main", undefined, { "x-spreissen-user": "smoker" });
 expect("fresh install has no main bot", freshMain.json.profileId === null);
 
 // A bare session needs a bot to attach to: refused with the remedy.
@@ -121,7 +123,7 @@ const bareSession = await call(
   "/api/sessions",
   { title: "s" },
   {
-    "x-ultiv-user": "smoker",
+    "x-spreissen-user": "smoker",
   },
 );
 expect(
@@ -133,7 +135,7 @@ const bootBot = await call(
   "/api/profiles",
   // onboard: false — no seeded main chat, so owner-scoping counts stay exact.
   { name: "Boot", onboard: false },
-  { "x-ultiv-user": "smoker" },
+  { "x-spreissen-user": "smoker" },
 );
 expect("profile create", bootBot.status === 200);
 
@@ -141,11 +143,13 @@ const created = await call(
   "POST",
   "/api/sessions",
   { title: "s", profileId: bootBot.json.id },
-  { "x-ultiv-user": "smoker" },
+  { "x-spreissen-user": "smoker" },
 );
 expect("session create", created.status === 200 && created.json.owner === "smoker");
-const mine = await call("GET", "/api/sessions", undefined, { "x-ultiv-user": "smoker" });
-const others = await call("GET", "/api/sessions", undefined, { "x-ultiv-user": "someone-else" });
+const mine = await call("GET", "/api/sessions", undefined, { "x-spreissen-user": "smoker" });
+const others = await call("GET", "/api/sessions", undefined, {
+  "x-spreissen-user": "someone-else",
+});
 expect("owner scoping", mine.json.length === 1 && others.json.length === 0);
 
 const upload = await fetch(`${base}/api/artifacts?name=smoke.md`, { method: "POST", body: "# ok" });
@@ -249,7 +253,7 @@ const receipts = await call(
   "GET",
   `/api/routines/events?routine=${schemaHook.json.id}`,
   undefined,
-  { "x-ultiv-user": "smoker" },
+  { "x-spreissen-user": "smoker" },
 );
 expect(
   "routine receipts recorded",
@@ -262,7 +266,7 @@ expect(
 const badCron = await call("POST", "/api/cron", { sessionId: "s", schedule: "nope", prompt: "x" });
 expect("cron rejects bad schedule", badCron.status === 400);
 // Sensors: the registry answers even with no calendar configured (offline).
-const sensorsList = await call("GET", "/api/sensors", undefined, { "x-ultiv-user": "smoker" });
+const sensorsList = await call("GET", "/api/sensors", undefined, { "x-spreissen-user": "smoker" });
 expect("sensor registry listed", sensorsList.status === 200 && Array.isArray(sensorsList.json));
 const cron = await call("POST", "/api/cron", {
   sessionId: created.json.id,
@@ -284,7 +288,7 @@ const audit = await call("GET", "/api/audit");
 expect("audit tail", audit.status === 200 && Array.isArray(audit.json));
 
 // Profiles: the workspace now contains exactly the bots that were spawned.
-const headers = { "x-ultiv-user": "smoker" };
+const headers = { "x-spreissen-user": "smoker" };
 const profilesListed = await call("GET", "/api/profiles", undefined, headers);
 expect(
   "profile list shows only spawned bots",

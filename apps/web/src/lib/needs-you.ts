@@ -6,6 +6,7 @@
  * rules are testable. Failed tasks and escalations can be dismissed; the
  * others leave the list when they are settled.
  */
+import { adoptLegacyKey } from "./stored-key.ts";
 import type { AuditEvent, ProfileInfo, TaskRow } from "@spreissen/contracts";
 import type { PendingApprovalRow } from "./api";
 
@@ -148,9 +149,11 @@ export function needsYouItems(input: {
     .slice(0, NEEDS_YOU_LIMIT);
 }
 
-const DISMISSED_KEY = "ultiv.needs-you.dismissed";
+const DISMISSED_KEY = "spreissen.needs-you.dismissed";
+const LEGACY_DISMISSED_KEY = "ultiv.needs-you.dismissed";
 
 export function readDismissed(): Set<string> {
+  adoptLegacyKey(DISMISSED_KEY, LEGACY_DISMISSED_KEY);
   try {
     const raw = localStorage.getItem(DISMISSED_KEY);
     const parsed: unknown = raw === null ? [] : JSON.parse(raw);

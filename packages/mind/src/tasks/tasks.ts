@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer } from "effect";
-import { External } from "@spreissen/core";
+import { External, readEnv } from "@spreissen/core";
 import type { TaskInfo, TaskList } from "@spreissen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import { findTask, readTasks, taskConversationKey, updateTask, writeTasks } from "./store.ts";
@@ -96,8 +96,8 @@ export class Tasks extends Context.Service<Tasks, TasksService>()("spreissen/min
 
 const TITLE_CHARS = 40;
 
-/** Running tasks one bot may have at once (env ULTIV_MAX_RUNNING_TASKS overrides). */
-export const MAX_RUNNING_TASKS = Math.max(1, Number(process.env.ULTIV_MAX_RUNNING_TASKS) || 3);
+/** Running tasks one bot may have at once (env SPREISSEN_MAX_RUNNING_TASKS overrides). */
+export const MAX_RUNNING_TASKS = Math.max(1, Number(readEnv("MAX_RUNNING_TASKS")) || 3);
 
 /** The refusal a spawn over the cap gets, naming what is running. */
 export const runningCapMessage = (running: readonly TaskInfo[]): string =>

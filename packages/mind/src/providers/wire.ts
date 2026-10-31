@@ -170,7 +170,7 @@ const keylessAuth = (name: string): ApiKeyAuth => ({
 
 export interface WireOptions {
   readonly env: EnvLookup;
-  /** Provider ids to consider (ULTIV_PROVIDERS); null = every provider with a key set. */
+  /** Provider ids to consider (SPREISSEN_PROVIDERS); null = every provider with a key set. */
   readonly allow: ReadonlySet<string> | null;
 }
 

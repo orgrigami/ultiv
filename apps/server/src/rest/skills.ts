@@ -3,7 +3,7 @@
  * overview (built-in library plus each bot's namespace), one skill's detail
  * with its parked proposals, owner edits (origin "owner"), enable/disable,
  * revert, delete, and the accept/reject verdicts on evolution proposals.
- * Owner-scoped via `x-ultiv-user` like every route; every mutation lands in
+ * Owner-scoped via `x-spreissen-user` like every route; every mutation lands in
  * the audit trail under kind "skills".
  */
 import { errorOf, type RouteArgs } from "./types.ts";

@@ -66,7 +66,7 @@ export interface ModelCatalogService {
   readonly list: () => readonly ModelSpec[];
   /** One model by ref (legacy bare ids resolve too). */
   readonly find: (ref: string) => ModelSpec | undefined;
-  /** The model new conversations start on: ULTIV_MODEL, else a sane available one. */
+  /** The model new conversations start on: SPREISSEN_MODEL, else a sane available one. */
   readonly defaultRef: () => string;
   /** Revalidate against models.dev now (`force`) or when the cache is stale. */
   readonly refresh: (force?: boolean) => Promise<CatalogStatus>;
@@ -93,7 +93,7 @@ export interface CatalogOptions {
   readonly kenariTtlMs: number;
   readonly env: EnvLookup;
   readonly allow: ReadonlySet<string> | null;
-  /** ULTIV_MODEL, when set. */
+  /** SPREISSEN_MODEL, when set. */
   readonly preferred: string | null;
   readonly concurrency: number;
   readonly fetcher?: Fetcher;
@@ -132,7 +132,7 @@ const installInto = (raw: MutableModels, catalog: Catalog, wire: WireOptions): I
   };
 };
 
-/** ULTIV_MODEL; else the fallback when listed (or nothing is); else the first listed model. */
+/** SPREISSEN_MODEL; else the fallback when listed (or nothing is); else the first listed model. */
 const defaultRefOf = (installed: Installed, preferred: string | null): string => {
   if (preferred !== null) return normalizeRef(preferred);
   const { specs, byRef } = installed;
@@ -252,7 +252,7 @@ export const createCatalog = async (
   };
 };
 
-/** ULTIV_PROVIDERS as a set; unset or blank means every configured provider. */
+/** SPREISSEN_PROVIDERS as a set; unset or blank means every configured provider. */
 const allowlistOf = (raw: Option.Option<string>): ReadonlySet<string> | null => {
   if (Option.isNone(raw)) return null;
   const ids = raw.value

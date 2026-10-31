@@ -7,7 +7,7 @@
 #   vp -C packages/ext exec msb load -i var/ultiv-sandbox.tar -t ultiv-sandbox:latest
 #
 # Baseline: node 24, python 3 + pip, jq, tar, curl, git, ca-certificates on
-# Debian slim (apt-get for everything else). ULTIV_SANDBOX_IMAGE points the
+# Debian slim (apt-get for everything else). SPREISSEN_SANDBOX_IMAGE points the
 # backend at any other OCI reference instead.
 FROM node:24-slim
 

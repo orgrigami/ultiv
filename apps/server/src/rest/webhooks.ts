@@ -52,7 +52,11 @@ export async function webhookRoutes(
     return true;
   }
   if (path.startsWith("/hooks/") && method === "POST") {
-    const token = args.url.searchParams.get("token") ?? req.headers["x-ultiv-token"] ?? "";
+    const token =
+      args.url.searchParams.get("token") ??
+      req.headers["x-spreissen-token"] ??
+      req.headers["x-ultiv-token"] ??
+      "";
     const body = (await args.readBody(req)).toString("utf8");
     const reply = await handleWebhookIngress(mind, segment("/hooks/"), String(token), body);
     json(reply.status, reply.json);
