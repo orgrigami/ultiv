@@ -4,7 +4,11 @@
  * creates the org "Personal" owned by the signed-in account, stamps every
  * existing bot as an org bot (`departmentId: null`) with host access on
  * (today's behaviour — F1), and creates no department rows. Later runs
- * change nothing. Dry-run mode reports what would change without writing.
+ * change nothing: once the org exists the bot rows are the owner's to
+ * change (a moved bot or a switch turned off must survive a restart, since
+ * this runs at every boot). The bots are stamped before the org row is
+ * written, so a run cut short between the two simply stamps again next
+ * boot. Dry-run mode reports what would change without writing.
  *
  * Rollback: rolling the code back leaves an `ultiv.org` document and
  * `departmentId`/`hostAccess` fields older code ignores; bots keep their
@@ -45,12 +49,22 @@ export const migrateOrg = async (
   const existing = await run(readProfiles(converse));
   const needsStamp = (profile: ProfileInfo): boolean =>
     profile.departmentId !== null || profile.hostAccess !== true;
+  const firstRun = state.org === null;
   const report: OrgMigrationReport = {
-    createdOrg: state.org === null,
-    botsStamped: existing.filter(needsStamp).length,
+    createdOrg: firstRun,
+    botsStamped: firstRun ? existing.filter(needsStamp).length : 0,
     departments: 0,
   };
   if (options.dryRun === true) return report;
+  if (report.botsStamped > 0) {
+    await run(
+      commitProfiles(converse, (rows) =>
+        rows.map((row) =>
+          needsStamp(row) ? { ...row, departmentId: null, hostAccess: true } : row,
+        ),
+      ),
+    );
+  }
   if (report.createdOrg) {
     await run(
       converse.docs.commit(async (tx) => {
@@ -74,15 +88,6 @@ export const migrateOrg = async (
           ];
         }
       }),
-    );
-  }
-  if (report.botsStamped > 0) {
-    await run(
-      commitProfiles(converse, (rows) =>
-        rows.map((row) =>
-          needsStamp(row) ? { ...row, departmentId: null, hostAccess: true } : row,
-        ),
-      ),
     );
   }
   return report;

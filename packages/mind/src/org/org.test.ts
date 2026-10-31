@@ -125,6 +125,25 @@ describe("the workspace-to-org migration", () => {
     await handle.close();
   });
 
+  it("a restart keeps a moved bot and a switch turned off (it runs at every boot)", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const converse = handle.mind.converse;
+    await commitProfiles(converse, () => [preOrg({ id: "bot-a" })]);
+    await migrateOrg(converse, { owner: "owner" });
+    const dept = await handle.mind.org.createDepartment({ name: "Dept X" }, "owner");
+    await handle.mind.profiles.update("owner", "bot-a", { departmentId: dept.id });
+    // A bot made after the migration starts with its switch off.
+    const fresh = await handle.mind.profiles.create("owner", { name: "Wren", onboard: false });
+    const report = await migrateOrg(converse, { owner: "owner" });
+    expect(report.botsStamped).toBe(0);
+    const rows = await handle.mind.profiles.list("owner");
+    expect(rows.map((row) => [row.id, row.departmentId, row.hostAccess])).toEqual([
+      ["bot-a", dept.id, true],
+      [fresh.id, null, false],
+    ]);
+    await handle.close();
+  });
+
   it("stamps only what is missing on a partially stamped workspace", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const converse = handle.mind.converse;
