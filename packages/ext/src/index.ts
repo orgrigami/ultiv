@@ -11,6 +11,8 @@ export * from "./plugins/calendar.ts";
 export * from "./plugins/feeds.ts";
 export * from "./plugins/email.ts";
 export * from "./plugins/bash.ts";
+export * from "./plugins/files.ts";
+export * from "./fs/workspace-epoch.ts";
 export * from "./shell/backend.ts";
 export * from "./shell/sandbox-backend.ts";
 export * from "./fs/durable-fs.ts";

@@ -118,6 +118,28 @@ describe("jev gate: floors and bash_host", () => {
   });
 });
 
+describe("the file tools follow the approval mode", () => {
+  const edit = call("file_edit", { path: "notes/a.md", new_text: "x" });
+  const remove = call("file_delete", { path: "notes/a.md" });
+  it("Manual: a card for each change", async () => {
+    const r = rig({ mode: "manual", probability: 0.99 });
+    expect(await r.outcome(edit)).toBe("card");
+    expect(await r.outcome(remove)).toBe("card");
+    expect(r.asked).toEqual([]);
+  });
+  it("Jev: decided by Jev, approve high and deny low", async () => {
+    expect(await rig({ mode: "jev", probability: 0.95 }).outcome(edit)).toBe(true);
+    expect(await rig({ mode: "jev", probability: 0.05 }).outcome(edit)).toBe(false);
+    const low = rig({ mode: "jev", probability: 0.05 });
+    expect(await low.outcome(remove)).not.toBe(true);
+  });
+  it("YOLO: runs without a card", async () => {
+    const r = rig({ mode: "yolo" });
+    expect(await r.outcome(edit)).toBe(true);
+    expect(await r.outcome(remove)).toBe(true);
+  });
+});
+
 describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
   it("a bare name approves every call of the tool, whatever Jev would say", async () => {
     const r = rig({ mode: "jev", autoApprove: ["bash"], probability: 0.01 });

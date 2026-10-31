@@ -17,6 +17,7 @@ import { openRuntime, Duplicate, External, Unavailable, type Runtime } from "@sp
 import {
   artifactsPlugin,
   bashPlugin,
+  filesPlugin,
   calendarConfigured,
   calendarPlugin,
   createScopeHolder,
@@ -392,6 +393,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         temporalPlugin(),
         artifactsPlugin({ holder }),
         bashPlugin({ holder }),
+        filesPlugin({ holder }),
         ...(calendarConfigured() ? [calendarPlugin()] : []),
         ...(emailConfigured() ? [emailPlugin()] : []),
         ...(vaultStore !== null ? [vaultPlugin(vaultStore, holder)] : []),

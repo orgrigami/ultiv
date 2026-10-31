@@ -29,8 +29,19 @@ through `resolveInside(root, ...parts)` from `@spreissen/core`
 - Not covered because they take no caller-supplied path: the audit log, push
   subscriptions, `.env` handling and the smoke script.
 
+- The path tools `file_read`, `file_search`, `file_edit` and `file_delete`
+  (`packages/ext/src/plugins/files.ts`) take a path relative to the bot's own
+  area (`{ARTIFACTS_DIR}/{owner}/{bot}`, the tree bash sees under `/home`).
+  They refuse absolute paths, `..`, `.` or empty parts, backslashes, NUL,
+  any symlink on the way, a bot folder that links out, and a chat that maps
+  to no bot. Reads are open; edit and delete are gated, so Manual, Jev and
+  YOLO apply as for any gated tool. After an edit or delete, bash reloads
+  the tree before its next script (`fs/workspace-epoch.ts`).
+
 Tests: `packages/core/src/safe-path.test.ts`,
 `packages/ext/src/path-confinement.test.ts`,
+`packages/ext/src/plugins/files.test.ts` (each tool against `../`, absolute
+paths and links, plus the wrong owner),
 `packages/mind/src/skills/confinement.test.ts`, and the
 "artifact routes stay inside the artifacts folder" block in
 `apps/server/src/rest/artifacts.test.ts`.

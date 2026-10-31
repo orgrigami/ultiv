@@ -39,6 +39,14 @@ const KNOWN: Record<string, Known> = {
     risk: "Higher risk: the email leaves this app and can't be unsent.",
   },
   artifact_delete: { action: "delete a file", risk: "Higher risk: the file is removed for good." },
+  file_edit: {
+    action: "change one of its files",
+    risk: "Changes a file in its own folder. bash and the Files tab see the new text.",
+  },
+  file_delete: {
+    action: "delete one of its files",
+    risk: "Higher risk: the file is removed for good.",
+  },
   webhook_create: {
     action: "create a webhook",
     risk: "Opens a URL that can start this bot. You can remove it under Routines.",

@@ -25,6 +25,7 @@ import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";
+import { workspaceEpoch } from "../fs/workspace-epoch.ts";
 import { scopeDir, type ScopeHolder } from "./vault.ts";
 import { artifactsDir } from "./artifacts.ts";
 import { localShellBackend, type ShellBackend, type ShellExecResult } from "../shell/backend.ts";
@@ -106,8 +107,10 @@ const execFailure = (what: string, cause: unknown) => ({
 // ---- mode 1: the durable workspace in a microVM -------------------------
 
 interface SandboxSession {
-  readonly durable: DurableFs;
+  durable: DurableFs;
   readonly backend: ShellBackend;
+  /** workspaceEpoch(dir) when the VM was last loaded; file_edit/file_delete bump it. */
+  epoch: number;
   /** sha256 per workspace-relative path, the sync loop's diff basis. */
   hashes: Map<string, string>;
   cwd: string;
@@ -123,17 +126,35 @@ const openSession = async (
   conversationId: string,
   backend: ShellBackend,
 ): Promise<SandboxSession> => {
-  const durable = new DurableFs({ dir, conversationId });
+  const session: SandboxSession = {
+    durable: new DurableFs({ dir, conversationId }),
+    backend,
+    epoch: workspaceEpoch(dir),
+    hashes: new Map(),
+    cwd: HOME,
+  };
+  await load(session, dir, conversationId);
+  return session;
+};
+
+/** Re-read the tree from disk and reset the VM to it (also after another tool changed it). */
+const load = async (
+  session: SandboxSession,
+  dir: string,
+  conversationId: string,
+): Promise<void> => {
+  session.epoch = workspaceEpoch(dir);
+  session.durable = new DurableFs({ dir, conversationId });
   const files = [];
   const hashes = new Map<string, string>();
-  for (const path of durable.allFilePaths()) {
-    const bytes = await durable.readFileBuffer(path);
+  for (const path of session.durable.allFilePaths()) {
+    const bytes = await session.durable.readFileBuffer(path);
     const rel = path.slice(1); // "/a/b" -> "a/b"
     files.push({ path: rel, bytes });
     hashes.set(rel, sha256(bytes));
   }
-  await backend.prepare(files);
-  return { durable, backend, hashes, cwd: HOME };
+  await session.backend.prepare(files);
+  session.hashes = hashes;
 };
 
 /** VM → artifact store: upsert changed files, delete removed ones. */
@@ -200,6 +221,7 @@ const sandboxTool = (
       let session: SandboxSession;
       try {
         session = await open(dir, conversationId);
+        if (session.epoch !== workspaceEpoch(dir)) await load(session, dir, conversationId);
       } catch (cause) {
         sessions.delete(dir);
         return execFailure("bash", cause);
