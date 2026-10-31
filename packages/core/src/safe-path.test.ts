@@ -80,4 +80,14 @@ describe("isSafeSegment", () => {
     for (const bad of ["", ".", "..", "a/b", "a\\b", "a\0b"])
       expect(isSafeSegment(bad)).toBe(false);
   });
+
+  it("accepts a child whose name merely starts with two dots", () => {
+    const base = mkdtempSync(join(tmpdir(), "spreissen-dots-"));
+    try {
+      expect(resolveInside(base, "..notes")).toMatch(/\.\.notes$/);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+    expect(new PathEscapeError("x").attempted).toBe("x");
+  });
 });

@@ -8,13 +8,17 @@
  * even when its name looks harmless).
  */
 import { lstatSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 /** Thrown when a path would leave its root. The message never echoes file contents. */
 export class PathEscapeError extends Error {
   readonly code = "EPATHESCAPE";
-  constructor(readonly attempted: string) {
+  readonly attempted: string;
+  // Plain field + assignment, not a parameter property: the server runs this
+  // file under Node's type stripping, which only accepts erasable syntax.
+  constructor(attempted: string) {
     super(`refused: path "${attempted.slice(0, 120)}" is outside the allowed folder`);
+    this.attempted = attempted;
     this.name = "PathEscapeError";
   }
 }
@@ -36,7 +40,7 @@ export const isSafeSegment = (segment: string): boolean =>
 /** True when `target` is `root` or below it (both already absolute and normalised). */
 export const isWithin = (root: string, target: string): boolean => {
   const rel = relative(root, target);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 };
 
 const exists = (path: string): boolean => {
