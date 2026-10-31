@@ -6,7 +6,7 @@
  */
 import { randomBytes, scryptSync, timingSafeEqual, type BinaryLike } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   LOCK_BASE_MS,
   LOCK_MAX_MS,
@@ -83,16 +83,35 @@ const readJson = <T>(path: string, fallback: T): T => {
 };
 
 const writeJson = (path: string, value: unknown): void => {
-  mkdirSync(authDir(), { recursive: true, mode: 0o700 });
-  const temp = join(
-    authDir(),
-    `.${path.split("/").pop() ?? "file"}.${randomBytes(4).toString("hex")}`,
-  );
+  // The temp file sits beside its target (the store's own dir, fixed at
+  // construction), so the rename is atomic and never lands elsewhere.
+  const dir = dirname(path);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const temp = join(dir, `.${path.split("/").pop() ?? "file"}.${randomBytes(4).toString("hex")}`);
   writeFileSync(temp, JSON.stringify(value), { mode: 0o600 });
   renameSync(temp, path);
 };
 
 export type AttemptOutcome = "ok" | "wrong" | "locked";
+
+/** Stands in for a hash that could not be read: verifies nothing, ever. */
+const UNREADABLE_HASH = "unreadable";
+
+/**
+ * auth.json, failing CLOSED: a file that exists but cannot be parsed keeps
+ * a passcode "set" that no attempt can match, so a damaged file never
+ * reopens the first-passcode step. The recovery command writes a fresh one.
+ */
+const loadAuthFile = (path: string): AuthFile => {
+  if (!existsSync(path)) return emptyAuth();
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<AuthFile>;
+    return { ...emptyAuth(), ...parsed };
+  } catch {
+    console.warn("auth: auth.json is unreadable; sign-in stays closed until recover:access");
+    return { ...emptyAuth(), passcodeHash: UNREADABLE_HASH };
+  }
+};
 
 const mtimeOf = (path: string): number => {
   try {
@@ -116,7 +135,7 @@ export class AuthStore {
     const sessions = mtimeOf(this.sessionsPath);
     if (auth === this.seen.auth && sessions === this.seen.sessions) return;
     this.seen = { auth, sessions };
-    this.file = { ...emptyAuth(), ...readJson<Partial<AuthFile>>(this.authPath, {}) };
+    this.file = loadAuthFile(this.authPath);
     this.sessions = new Map();
     const rows = readJson<Record<string, SessionRow>>(this.sessionsPath, {});
     const cutoff = Date.now() - SESSION_TTL_MS;

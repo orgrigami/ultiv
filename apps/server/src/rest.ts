@@ -12,6 +12,7 @@ import type { CronScheduler } from "./cron.ts";
 import { liveKindsFor, liveHub } from "./live.ts";
 import { authorize, contentTypeAllowed } from "./auth/guard.ts";
 import { handleAuthRoutes } from "./auth/routes.ts";
+import { BadBody } from "./auth/http.ts";
 import type { AuthStore } from "./auth/store.ts";
 import { OWNER_ID } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
@@ -111,7 +112,9 @@ export const createRestHandler = (deps: RestDeps) => {
     })().catch((error) =>
       isPathEscape(error)
         ? json(400, { error: error.message })
-        : json(500, { error: String(error).slice(0, 300) }),
+        : error instanceof BadBody
+          ? json(error.status, { error: error.message })
+          : json(500, { error: String(error).slice(0, 300) }),
     );
   };
 };

@@ -271,3 +271,19 @@ describe("passcode sign-in", () => {
     expect(locked.json.error).toContain("too many attempts");
   });
 });
+
+describe("a body the auth routes cannot use", () => {
+  const raw = (body: string) =>
+    fetch(`${base}/api/auth/sign-in`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+
+  it("is the caller's mistake (4xx), never a server error", async () => {
+    expect((await raw("{not json")).status).toBe(400);
+    expect((await raw("[]")).status).toBe(400);
+    expect((await raw("null")).status).toBe(400);
+    expect((await raw(JSON.stringify({ passcode: "x".repeat(70_000) }))).status).toBe(413);
+  });
+});

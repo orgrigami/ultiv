@@ -61,16 +61,36 @@ export const isHttps = (req: IncomingMessage): boolean =>
   (req.socket as { encrypted?: boolean }).encrypted === true ||
   req.headers["x-forwarded-proto"] === "https";
 
+/** A request body the auth routes cannot use: the caller's mistake (4xx). */
+export class BadBody extends Error {
+  constructor(
+    message: string,
+    readonly status: 400 | 413,
+  ) {
+    super(message);
+  }
+}
+
 export const readJsonBody = async <T>(req: IncomingMessage): Promise<T> => {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     size += (chunk as Buffer).length;
-    if (size > AUTH_BODY_LIMIT) throw new Error("body too large");
+    if (size > AUTH_BODY_LIMIT) throw new BadBody("body too large", 413);
     chunks.push(chunk as Buffer);
   }
   const raw = Buffer.concat(chunks).toString("utf8");
-  return (raw === "" ? {} : JSON.parse(raw)) as T;
+  if (raw === "") return {} as T;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new BadBody("the body is not valid JSON", 400);
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new BadBody("send a JSON object", 400);
+  }
+  return parsed as T;
 };
 
 export const sessionCookieOf = (req: IncomingMessage): string | undefined =>

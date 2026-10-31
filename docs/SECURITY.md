@@ -25,7 +25,11 @@ request needs a session, loopback included.
 - The passcode is stored only as a slow hash: scrypt (N=16384, r=8, p=1)
   with a random salt, in `AUTH_DIR/auth.json` (default `var/auth`, 0600).
   Nothing else about it is stored; a wrong passcode never names which part
-  was wrong.
+  was wrong. Writes go to a temp file beside it, then a rename. A damaged
+  `auth.json` fails closed: the passcode counts as set and nothing matches
+  it, so it never reopens the first-passcode step; the recovery command
+  writes a fresh one. A malformed or oversized body on the auth routes is
+  answered 400 / 413, never 500.
 - Sign-in is throttled: the first wrong attempts answer at once; from the
   fifth, each attempt locks for a doubling wait capped at 15 minutes. The
   right passcode during a lock is refused like any other (`429`, with
