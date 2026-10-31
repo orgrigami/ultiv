@@ -155,6 +155,13 @@ export const QueuedInputSchema = Type.Object({
 export type QueuedInput = Static<typeof QueuedInputSchema>;
 
 /** What withdrawing a queued message found: removed, already in the turn, already answered, or unknown. */
+/** `retryQueued`: started the next run with the queue, a run is still working, or nothing is queued. */
+export const RetryQueuedStatusSchema = Type.Union([
+  Type.Literal("started"),
+  Type.Literal("busy"),
+  Type.Literal("empty"),
+]);
+
 export const WithdrawStatusSchema = Type.Union([
   Type.Literal("aborted"),
   Type.Literal("already_placed"),
@@ -205,6 +212,11 @@ export const Session = remote("ultiv.session", {
           Type.Object({ id: Type.String() }),
           Type.Object({ status: WithdrawStatusSchema }),
         ),
+        /**
+         * After a failed or cut-off turn, queued messages stay queued and are
+         * never sent by themselves (D3): Retry sends them, oldest first.
+         */
+        retryQueued: method(Type.Object({}), Type.Object({ status: RetryQueuedStatusSchema })),
         /**
          * Stop the running turn: withdraw queued inputs, abort, go idle. With
          * `tasks`, also stop this chat's running background tasks (quietly:

@@ -7,7 +7,14 @@
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
-import type { Harness, LiveState, SubmissionId, TaskId } from "@earendil-works/pi-durable";
+import type {
+  Conversation,
+  Harness,
+  InboxState,
+  LiveState,
+  SubmissionId,
+  TaskId,
+} from "@earendil-works/pi-durable";
 import { External } from "@spreissen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
@@ -22,6 +29,27 @@ export type ParkedTask = {
   /** The registered task name (`pi.generation` for a chat turn). */
   readonly kind: string;
   readonly conversationId: string;
+};
+
+/**
+ * The entry `retryQueued` writes. It carries no model content (an empty
+ * `model`), so the model sees nothing new; being a queued write is what makes
+ * the engine place the inbox at the next boundary.
+ */
+export const QUEUE_RETRY_KIND = "ultiv.queue-retry";
+
+const retryQueuedOf = async (conversation: Conversation): Promise<"started" | "busy" | "empty"> => {
+  const view = await conversation.viewState(BACKGROUND_CONTEXT);
+  const docs = view.value?.docs;
+  view.dispose();
+  if ((docs?.["pi.live"] as LiveState | undefined)?.run !== undefined) return "busy";
+  const items = (docs?.["pi.inbox"] as InboxState | undefined)?.items ?? [];
+  if (!items.some((item) => item.mode !== "write")) return "empty";
+  await conversation.submit(
+    { type: "write", entry: { kind: QUEUE_RETRY_KIND, data: { at: Date.now() }, model: [] } },
+    BACKGROUND_CONTEXT,
+  );
+  return "started";
 };
 
 const parkedOf = async (harness: Harness): Promise<readonly ParkedTask[]> => {
@@ -43,9 +71,10 @@ export const controlOps = (
   harness: Harness,
 ): Pick<
   ConverseService,
-  "interrupt" | "withdraw" | "liveOf" | "abortRun" | "parked" | "retryParked"
+  "interrupt" | "withdraw" | "liveOf" | "abortRun" | "parked" | "retryParked" | "retryQueued"
 > => ({
   parked: () => asEffect("parked tasks", parkedOf(harness)),
+  retryQueued: (conversation) => asEffect("queue retry", retryQueuedOf(conversation)),
   retryParked: (taskId) =>
     asEffect(
       "parked retry",

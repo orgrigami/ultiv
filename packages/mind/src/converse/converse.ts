@@ -91,6 +91,14 @@ export interface ConverseService {
    * stay queued. Resolves once the conversation is idle.
    */
   readonly abortRun: (conversation: Conversation) => Effect.Effect<"idle" | "aborted", External>;
+  /**
+   * After a failed run, queued messages stay queued (never auto-sent, D3):
+   * this starts the next run with them (the queue's Retry). "busy" while a
+   * run works; "empty" when nothing is queued.
+   */
+  readonly retryQueued: (
+    conversation: Conversation,
+  ) => Effect.Effect<"started" | "busy" | "empty", External>;
   /** Tasks the engine parked after too many restarts in a row, across all conversations. */
   readonly parked: () => Effect.Effect<readonly ParkedTask[], External>;
   /** Run one parked task again; "not_parked" when it is not parked (any more). */

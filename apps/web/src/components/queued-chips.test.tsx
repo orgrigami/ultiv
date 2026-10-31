@@ -3,7 +3,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueuedChips } from "./queued-chips.tsx";
 import { canSend } from "./send-button.tsx";
-import { queueLabel, turnActivity } from "../lib/queue-text.ts";
+import { queueLabel, STALLED_LABEL, turnActivity } from "../lib/queue-text.ts";
 
 const QUEUED = [
   { id: "7", text: "also check the weather", mode: "steer" as const },
@@ -77,6 +77,36 @@ describe("QueuedChips", () => {
       <QueuedChips queued={[]} approvalPending={false} onWithdraw={() => {}} />,
     );
     expect(empty).toBe("");
+  });
+
+  it("after a failed turn: says not sent and offers Retry, which is the only way they send (D3)", () => {
+    const onRetry = vi.fn();
+    const busy = renderToStaticMarkup(
+      <QueuedChips
+        queued={QUEUED}
+        approvalPending={false}
+        onWithdraw={() => {}}
+        onRetry={onRetry}
+      />,
+    );
+    expect(busy).not.toContain("Retry");
+    const tree = QueuedChips({
+      queued: QUEUED,
+      approvalPending: false,
+      onWithdraw: () => {},
+      stalled: true,
+      onRetry,
+    });
+    const html = renderToStaticMarkup(<>{tree}</>);
+    expect(html).toContain(STALLED_LABEL);
+    expect(html).not.toContain("Will send");
+    const retry = elements(tree).filter(
+      (el) => el.props["aria-label"] === "Retry: send the 2 queued messages",
+    );
+    expect(retry).toHaveLength(1);
+    expect(onRetry).not.toHaveBeenCalled();
+    (retry[0]!.props.onClick as () => void)();
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it("the x withdraws that message", () => {

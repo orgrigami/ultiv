@@ -146,6 +146,7 @@ export function SessionView({
   queued = [],
   onInput,
   onWithdraw,
+  onRetryQueued,
   onDecide,
   onConfigure,
   onApprovalMode,
@@ -176,6 +177,8 @@ export function SessionView({
   queued?: readonly QueuedInput[];
   onInput: (text: string, whenBusy?: SendMode, attachments?: string[]) => Promise<void>;
   onWithdraw?: (id: string) => Promise<void>;
+  /** Sends what a failed or cut-off turn left queued (D3). */
+  onRetryQueued?: () => Promise<void>;
   onDecide: Decide;
   onConfigure: (model: string | null, effort: ThinkingLevel | null) => Promise<void>;
   onApprovalMode: (mode: ProfileApprovalMode) => Promise<void>;
@@ -298,6 +301,10 @@ export function SessionView({
                   approvalPending={pending !== null}
                   activity={turnActivity(transcript)}
                   onWithdraw={(id) => control(() => onWithdraw(id))}
+                  stalled={!busy}
+                  {...(onRetryQueued !== undefined
+                    ? { onRetry: () => control(onRetryQueued) }
+                    : {})}
                 />
               )}
             </ul>

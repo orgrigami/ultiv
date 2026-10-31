@@ -105,6 +105,7 @@ export function Chat({
         queued={session.queued}
         onInput={session.input}
         onWithdraw={session.withdraw}
+        onRetryQueued={session.retryQueued}
         onDecide={session.decide}
         onConfigure={session.configure}
         onApprovalMode={changeApprovalMode}

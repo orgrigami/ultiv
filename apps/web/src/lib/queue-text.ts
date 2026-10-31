@@ -12,12 +12,17 @@ export function turnActivity(transcript: readonly TranscriptEntry[]): TurnActivi
   return last?.kind === "output" ? "writing" : "working";
 }
 
+/** Under queued messages once no turn is running: they never send by themselves (D3). */
+export const STALLED_LABEL = "Not sent: the last turn did not finish";
+
 /** What a queued message says about when it reaches the bot — always true. */
 export function queueLabel(
   mode: WhenBusy,
   approvalPending: boolean,
   activity: TurnActivity = "working",
+  stalled = false,
 ): string {
+  if (stalled) return STALLED_LABEL;
   if (approvalPending) return "Waiting for your approval first";
   if (mode !== "steer") return "Will send after it finishes";
   return activity === "writing"

@@ -28,6 +28,8 @@ export function useSession(sessionId: string): {
   input: (text: string, whenBusy?: SendMode, attachments?: string[]) => Promise<void>;
   /** Take back a queued message. */
   withdraw: (id: string) => Promise<void>;
+  /** Send the queue a failed or cut-off turn left behind (never sent by itself). */
+  retryQueued: () => Promise<void>;
   decide: (
     callId: string,
     approved: boolean,
@@ -125,6 +127,10 @@ export function useSession(sessionId: string): {
     [linked],
   );
 
+  const retryQueued = useCallback(async (): Promise<void> => {
+    await linked().retryQueued({});
+  }, [linked]);
+
   const decide = useCallback(
     async (
       callId: string,
@@ -172,6 +178,7 @@ export function useSession(sessionId: string): {
     queued,
     input,
     withdraw,
+    retryQueued,
     decide,
     configure,
     interrupt,

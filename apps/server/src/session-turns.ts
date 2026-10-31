@@ -75,6 +75,24 @@ export type SettleArgs = {
   readonly text: string;
 };
 
+/**
+ * How long after a stop with other inputs still in flight the session checks
+ * whether anything is still running. Redirect admits its own run right after
+ * its abort, well inside this beat; a deadline hit (D4) leaves the queued
+ * messages with no run, and the session must not read "working" forever.
+ */
+export const STALL_CHECK_MS = 1_500;
+
+/** After the beat: no run means the queue is stalled, so the phase goes idle (its Retry shows). */
+export async function idleIfStalled(
+  runActive: () => Promise<boolean>,
+  goIdle: () => void,
+  delayMs = STALL_CHECK_MS,
+): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  if (!(await runActive().catch(() => true))) goIdle();
+}
+
 /** Settles an admitted submission in the background; the transcript projection picks up the turn. */
 export function settle(args: SettleArgs): void {
   const { host, mind, conversation, submission, cells, inFlight } = args;
@@ -92,6 +110,12 @@ export function settle(args: SettleArgs): void {
       const last = inFlight.finish();
       if (isStopped(error)) {
         if (last) safeChange(cells.phase, ctx, () => "idle");
+        else
+          await idleIfStalled(
+            async () =>
+              (await Effect.runPromise(mind.converse.liveOf(conversation)))?.run !== undefined,
+            () => safeChange(cells.phase, ctx, () => "idle"),
+          );
         return;
       }
       console.error("agent turn failed:", error);

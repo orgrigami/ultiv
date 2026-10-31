@@ -3,9 +3,12 @@
  * the order they were sent: a softly greyed "pending" bubble that says when it
  * reaches the bot, with an × to take back just that one. Once the turn picks a
  * message up it leaves the queue and appears as a normal bubble.
+ *
+ * `stalled`: no turn is running (the last one failed or was cut off). Queued
+ * messages are never sent by themselves then (D3); a Retry chip sends them.
  */
 import type { QueuedInput } from "@spreissen/contracts";
-import { XIcon } from "lucide-react";
+import { RotateCcwIcon, XIcon } from "lucide-react";
 import { Button } from "./ui/button.tsx";
 import { displayText } from "../lib/attachments.ts";
 import { queueLabel, type TurnActivity } from "../lib/queue-text.ts";
@@ -15,11 +18,15 @@ export function QueuedChips({
   approvalPending,
   activity = "working",
   onWithdraw,
+  stalled = false,
+  onRetry,
 }: {
   queued: readonly QueuedInput[];
   approvalPending: boolean;
   activity?: TurnActivity;
   onWithdraw: (id: string) => void;
+  stalled?: boolean;
+  onRetry?: () => void;
 }) {
   if (queued.length === 0) return null;
   return (
@@ -47,10 +54,29 @@ export function QueuedChips({
             </Button>
           </span>
           <span className="text-muted-foreground px-1 text-xs">
-            {queueLabel(item.mode, approvalPending, activity)}
+            {queueLabel(item.mode, approvalPending, activity, stalled)}
           </span>
         </li>
       ))}
+      {stalled && onRetry !== undefined && (
+        <li className="flex self-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            aria-label={
+              queued.length === 1
+                ? "Retry: send the queued message"
+                : `Retry: send the ${queued.length} queued messages`
+            }
+            onClick={onRetry}
+          >
+            <RotateCcwIcon />
+            Retry
+          </Button>
+        </li>
+      )}
     </>
   );
 }

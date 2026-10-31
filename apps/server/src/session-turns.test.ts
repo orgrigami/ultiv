@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { ConversationView } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { InFlight, queuedOf, sameQueue, stopChatTasks } from "./session-turns.ts";
+import { idleIfStalled, InFlight, queuedOf, sameQueue, stopChatTasks } from "./session-turns.ts";
 
 const viewWith = (items: unknown[]): ConversationView =>
   ({ entries: [], docs: { "pi.inbox": { items } } }) as unknown as ConversationView;
@@ -44,6 +44,33 @@ describe("InFlight", () => {
     expect(inFlight.finish()).toBe(true);
     // Never negative: a stray finish still reads idle.
     expect(inFlight.finish()).toBe(true);
+  });
+});
+
+describe("idleIfStalled", () => {
+  it("a stop that leaves messages queued with no run reads idle, never working forever", async () => {
+    let idle = 0;
+    await idleIfStalled(
+      async () => false,
+      () => idle++,
+      1,
+    );
+    expect(idle).toBe(1);
+  });
+
+  it("keeps working when a run follows (Redirect) or the check fails", async () => {
+    let idle = 0;
+    await idleIfStalled(
+      async () => true,
+      () => idle++,
+      1,
+    );
+    await idleIfStalled(
+      () => Promise.reject(new Error("gone")),
+      () => idle++,
+      1,
+    );
+    expect(idle).toBe(0);
   });
 });
 

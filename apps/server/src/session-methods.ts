@@ -31,7 +31,7 @@ export type MethodScope = {
 
 type C = Ctx<Principal>;
 
-/** withdraw, configure and interrupt (Stop). */
+/** withdraw, retryQueued, configure and interrupt (Stop). */
 export function controlMethods({ mind, conversation, conversationId, cells }: MethodScope) {
   return {
     withdraw: async ({ id }: { id: string }, ctx: C) => {
@@ -40,6 +40,16 @@ export function controlMethods({ mind, conversation, conversationId, cells }: Me
       // Whatever the engine says, the chip goes: a withdrawn message left
       // the inbox, and one already placed is part of the turn now.
       safeChange(cells.queued, ctx, (queued) => queued.filter((item) => item.id !== id));
+      return { status };
+    },
+    retryQueued: async (_input: object, ctx: C) => {
+      const status = await Effect.runPromise(mind.converse.retryQueued(await conversation));
+      // The queued inputs' own settles are still waiting; they read idle
+      // (or error) again when the run ends.
+      if (status === "started") {
+        safeChange(cells.lastError, ctx, () => null);
+        safeChange(cells.phase, ctx, () => "working");
+      }
       return { status };
     },
     configure: async (
