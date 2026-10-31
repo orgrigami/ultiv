@@ -43,6 +43,8 @@ const GROUP_WORDS: Record<string, string> = {
   bash: "scripts",
   codemode: "scripts",
   vault: "vault lookups",
+  checklist: "planning",
+  graph: "diagrams",
 };
 
 /** Tool GROUP names from an allowlist (null = every tool). Never inputs. */

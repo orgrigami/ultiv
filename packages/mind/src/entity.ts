@@ -54,6 +54,7 @@ import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
+import { checklistTools } from "./checklist/tools.ts";
 import { botCreateTools } from "./profiles/bot-create.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
@@ -290,6 +291,7 @@ const mindLayerRaw = (
         ...botsTools({ profiles, audit, activity: taskActivity(tasks) }),
         ...botCreateTools({ profiles, approvals, audit }),
         ...questionTools({ profiles, approvals, audit }),
+        ...checklistTools({ converse, profiles, audit }),
       ];
       const rooms = roomsService({ converse });
       const skills = skillsService();
