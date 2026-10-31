@@ -1,0 +1,29 @@
+/*
+ * Diagrams (Pele) read their colours from these variables, so a drawing takes
+ * the app's tokens and follows light and dark without being redrawn. The
+ * font stays Pele's own setting, the one it measured the text with.
+ */
+.diagram {
+  --pele-bg: transparent;
+  --pele-fg: var(--foreground);
+  --pele-muted: var(--muted-foreground);
+  --pele-line: color-mix(in oklch, var(--foreground) 70%, transparent);
+  --pele-surface: var(--card);
+  --pele-surface-alt: var(--muted);
+  --pele-border: color-mix(in oklch, var(--foreground) 35%, transparent);
+  --pele-accent: var(--accent-tone);
+  --pele-radius: 6px;
+  --pele-series-1: var(--chart-1);
+  --pele-series-2: var(--chart-2);
+  --pele-series-3: var(--chart-3);
+  --pele-series-4: var(--chart-4);
+  --pele-series-5: var(--chart-5);
+  --pele-series-6: var(--success);
+  --pele-series-7: var(--signal);
+  --pele-series-8: var(--muted-foreground);
+}
+
+.diagram svg {
+  display: block;
+  margin-inline: auto;
+}

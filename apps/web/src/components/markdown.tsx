@@ -1,12 +1,14 @@
 /**
  * Chat markdown (GFM). Fenced code renders as a CodeBlock with a copy button,
  * highlighted by shiki once its language has loaded (plain text until then,
- * and for languages we don't ship). A link to an artifact renders as a file
+ * and for languages we don't ship). A ```mermaid fence draws as a diagram
+ * (plain code when it can't be drawn). A link to an artifact renders as a file
  * card — the bot's way of handing the owner a file mid-reply.
  */
 import { isValidElement, memo } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Diagram } from "@/components/diagram";
 import { FileCard } from "@/components/file-card";
 import {
   CodeBlock,
@@ -47,7 +49,11 @@ const components: Components = {
     const props = child.props as { className?: string; children?: unknown };
     const language = /language-(\S+)/.exec(props.className ?? "")?.[1] ?? "";
     const code = typeof props.children === "string" ? props.children : String(props.children ?? "");
-    return <FencedCode code={code.replace(/\n$/, "")} language={language} />;
+    const text = code.replace(/\n$/, "");
+    if (language === "mermaid") {
+      return <Diagram source={text} fallback={<FencedCode code={text} language={language} />} />;
+    }
+    return <FencedCode code={text} language={language} />;
   },
   a: ({ href, children }) => {
     const file = artifactLinkOf(href ?? "");
