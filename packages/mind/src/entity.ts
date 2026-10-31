@@ -56,7 +56,7 @@ import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { checklistTools } from "./checklist/tools.ts";
-import { botCreateTools } from "./profiles/bot-create.ts";
+import { adminTools, type MindAdmin, type MindAuthz } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
@@ -174,18 +174,8 @@ export interface MindOptions {
   readonly schedules?: { readonly onChanged?: () => Promise<void> };
   /** MCP connector options (config dir, timeouts, boot). */
   readonly mcp?: McpOptions;
-  /**
-   * Authorization seam from the host app. `hostAccess` decides the host
-   * capability (`bash_host` and other tools that run on the server's own
-   * machine) per conversation scope; absent, the owner's bots keep today's
-   * behaviour (always allowed). Phases 3 and 4 add the switches.
-   */
-  readonly authz?: {
-    readonly hostAccess?: (scope: {
-      readonly owner: string;
-      readonly profileId: string | null;
-    }) => boolean | Promise<boolean>;
-  };
+  /** Authorization seam from the host app: host access and the admin tools (admin/index.ts). */
+  readonly authz?: MindAuthz;
 }
 
 /** Everything that can fail while booting the mind. */
@@ -211,6 +201,8 @@ interface MindWiring {
   readonly onSchedulesChanged?: () => Promise<void>;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
+  /** Who may manage bots and departments, and the full bot purge (the admin tools). */
+  readonly admin?: MindAdmin;
 }
 
 const mindLayerRaw = (
@@ -290,7 +282,13 @@ const mindLayerRaw = (
         .catch((cause) => console.error("bot files migration failed:", cause));
       botTools = [
         ...botsTools({ profiles, audit, activity: taskActivity(tasks) }),
-        ...botCreateTools({ profiles, approvals, audit }),
+        ...adminTools({
+          profiles,
+          approvals,
+          audit,
+          converse,
+          ...(wiring.admin !== undefined ? { admin: wiring.admin } : {}),
+        }),
         ...questionTools({ profiles, approvals, audit }),
         ...checklistTools({ converse, profiles, audit }),
       ];
@@ -420,6 +418,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     ...(options.schedules?.onChanged !== undefined
       ? { onSchedulesChanged: options.schedules.onChanged }
       : {}),
+    ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {
           hostAccess: async (conversationId: string): Promise<boolean> => {

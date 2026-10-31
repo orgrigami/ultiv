@@ -23,7 +23,8 @@ export type Action = "view" | "change" | "remove" | "decide";
  * `member` are org-level state; `department` is one department's own state;
  * `department-summary` its read-only digest; `approval` deciding a pending
  * card; `shared-folder` and `vm` are the open-reach surfaces (every bot may
- * reach any home's).
+ * reach any home's). `bot-admin` is a bot managing bots and departments
+ * on its account's behalf (the main bot's admin tools).
  */
 export type Resource =
   | {
@@ -53,6 +54,12 @@ export type Resource =
       readonly owner: string;
       readonly id: string;
       readonly home?: HomeRef;
+    }
+  | {
+      /** `caller` (a bot) managing bots and departments; `main` is its account's main bot. */
+      readonly type: "bot-admin";
+      readonly caller: string;
+      readonly main: string | null;
     }
   | { readonly type: "shared-folder"; readonly home: HomeRef }
   | { readonly type: "vm"; readonly home: HomeRef };
@@ -177,6 +184,10 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
       // Chat privacy: private to whoever started it, whatever the roles. The
       // org owner and org admins see summaries, never chat contents.
       return actor === resource.owner;
+    case "bot-admin":
+      // The main bot alone manages bots and departments, and only for an
+      // account at org level; every other bot gets the same refusal.
+      return level !== null && resource.caller !== "" && resource.caller === resource.main;
     case "shared-folder":
     case "vm":
       // Open reach: every bot reaches every home. The audit rows land with

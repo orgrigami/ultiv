@@ -23,6 +23,16 @@ describe("can", () => {
     expect(can("someone-else", "change", { type: "host" })).toBe(false);
   });
 
+  it("only the main bot manages bots and departments, and only for the account", () => {
+    const admin = (caller: string, main: string | null) =>
+      ({ type: "bot-admin", caller, main }) as const;
+    expect(can("owner", "change", admin("bot-main", "bot-main"))).toBe(true);
+    expect(can("owner", "change", admin("bot-other", "bot-main"))).toBe(false);
+    expect(can("owner", "change", admin("", null))).toBe(false);
+    expect(can("guest", "change", admin("bot-main", "bot-main"))).toBe(false);
+    expect(can("agent", "change", admin("bot-main", "bot-main"))).toBe(false);
+  });
+
   it("reserved and empty labels never act", () => {
     expect(can("agent", "view", { type: "chat", owner: "agent", id: "t1" })).toBe(false);
     expect(can("", "view", { type: "account" })).toBe(false);

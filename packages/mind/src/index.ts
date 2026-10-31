@@ -50,6 +50,7 @@ export * from "./org/service.ts";
 export * from "./org/migrate.ts";
 export * from "./org/reach.ts";
 export * from "./org/home-rules.ts";
+export * from "./admin/index.ts";
 export { skillsDir } from "./skills/store.ts";
 export * from "./generate/generate.ts";
 export * from "./providers/gate.ts";

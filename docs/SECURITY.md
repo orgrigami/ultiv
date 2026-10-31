@@ -177,6 +177,20 @@ every change writes a `permission` audit row and approves nothing already
 queued (F6); `GET /api/org/host-access` returns the matrix with the blocking
 level for the UI (F4).
 
+**The main bot's admin tools** (`packages/mind/src/admin/`, plus
+`bot_create`): `departments_list`, `department_create`, `department_update`,
+`department_delete`, `bot_details`, `bot_update`, `bot_move`, `bot_pause`,
+`bot_delete`. Main bot only, decided by `can()` (the `bot-admin` resource,
+wired through `authz.mayAdminister`); every other bot gets one refusal,
+word for word, before any card. `bot_create`, `bot_update`,
+`department_update`, `bot_delete` and `department_delete` park an owner
+card; a department delete warns first (refused with the bots' names while
+it has any). Each change writes a `permission` audit row. No admin tool
+takes a host-access switch or an approval mode from the model: new bots and
+departments start with host access off and only the owner turns it on. The
+home rules below hold for them as for REST. Tested by
+`packages/mind/src/admin/admin-tools.test.ts` and `apps/server/src/rest/can.test.ts`.
+
 **Migration** (`migrateOrg`, repeatable, dry run
 `vpr @spriessen/server#org:dry-run`): the workspace becomes the org
 "Personal" owned by the account; every existing bot is an org bot with host

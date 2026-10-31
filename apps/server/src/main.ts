@@ -28,6 +28,7 @@ import {
 import { migrateStorage } from "./auth/migrate-storage.ts";
 import { OWNER_ID } from "./identity.ts";
 import { can } from "./rest/can.ts";
+import { purgeBot } from "./rest/bot-purge.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
@@ -65,6 +66,16 @@ export async function buildStack(options?: {
         if (profile === undefined) return false;
         return effectiveHostAccess(view.org, view.departments, profile).allowed;
       },
+      // The main bot's admin tools ask the one permission check; host-access
+      // switches are not among them (the owner's alone, rest/can.ts).
+      mayAdminister: async (scope) =>
+        can(
+          scope.owner,
+          "change",
+          { type: "bot-admin", caller: scope.profileId, main: scope.mainId },
+          await handle.mind.org.view(),
+        ),
+      purgeBot: (owner, id) => purgeBot(handle.mind, owner, id),
     },
     // Schedules created by tools re-arm the in-process scheduler; the closure
     // is late-bound — `startScheduler` runs right after the mind opens.

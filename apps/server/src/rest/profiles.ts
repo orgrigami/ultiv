@@ -3,21 +3,16 @@
  * purge cascade, memory, and the export/import bundle. Profiles are REST +
  * doc (never chord objects — chord 1.4.0 replicated CRUD desyncs on attach).
  */
-import { rmSync } from "node:fs";
-import { join } from "node:path";
 import { Effect } from "effect";
-import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spriessen/ext";
 import { taskConversationKey } from "@spriessen/mind";
 import type { ProfileCreate, ProfileInfo } from "@spriessen/contracts";
 import { auditOrgFields, orgFieldsRefusal } from "./profile-org.ts";
-import { removeCronJobsForSessions } from "../cron.ts";
-import { removeWebhooksForSessions } from "../webhooks.ts";
+import { purgeBot } from "./bot-purge.ts";
 import {
   createCronJob,
   listCronJobs,
   listSensors,
   listWebhooks,
-  removeSensorsForSessions,
   sensorsService,
   webhooksService,
 } from "@spriessen/mind";
@@ -146,7 +141,7 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
       json(409, { error: "the last bot cannot be removed" });
       return true;
     }
-    json(200, await purgeProfile(args, id));
+    json(200, await purgeBot(mind, args.owner, id));
     return true;
   }
   if (rest === "/archive" && method === "POST") {
@@ -287,52 +282,6 @@ async function applyAgentPreference(
     );
     if (cid !== undefined) await configure(cid);
   }
-}
-
-/** The purge cascade: every store a profile touches. */
-async function purgeProfile(args: RouteArgs, id: string): Promise<unknown> {
-  const { mind } = args;
-  const sessions = await mind.profiles.remove(args.owner, id);
-  const sessionIds = sessions.map((row) => row.id);
-  const [mailbox, memory, vault, cron, webhooks, sensors, rooms] = await Promise.all([
-    mind.mailbox.purgeProfile(args.owner, id),
-    mind.memory.removeProfile(args.owner, id),
-    Promise.resolve(mind.vault?.removeProfile(args.owner, id) ?? 0),
-    removeCronJobsForSessions(mind.converse, sessionIds),
-    removeWebhooksForSessions(mind, sessionIds),
-    removeSensorsForSessions(mind.converse, sessionIds),
-    mind.rooms.purgeProfile(args.owner, id),
-  ]);
-  let artifacts = 0;
-  try {
-    const dir = resolveInside(artifactsDir(), args.owner, id);
-    rmSync(dir, { recursive: true, force: true });
-    artifacts = sessions.length;
-  } catch {
-    artifacts = -1;
-  }
-  // The bash tool's microVM goes with the bot: same name derivation, best
-  // effort (a missing VM or a stuck runtime never fails the purge).
-  const sandbox = await Promise.race([
-    destroySandbox(sandboxNameOf(join(artifactsDir(), args.owner, id)))
-      .then(() => true)
-      .catch(() => false),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), 8_000)),
-  ]);
-  return {
-    ok: true,
-    sessions: sessionIds.length,
-    mailbox,
-    memory,
-    vault,
-    cron,
-    webhooks,
-    sensors,
-    rooms,
-    artifacts,
-    sandbox,
-    note: "transcripts stay in harness storage (retention); registry rows and files are gone",
-  };
 }
 
 interface ExportBundle {
