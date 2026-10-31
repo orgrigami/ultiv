@@ -58,6 +58,12 @@ export interface OrgService {
   readonly view: () => Promise<OrgView>;
   /** Create the org once (the migration); repeat calls change nothing. */
   readonly ensureOrg: (owner: string, name: string, hostAccess: boolean) => Promise<OrgInfo>;
+  /** Patch the org row (name, VM settings, host-access flag). */
+  readonly updateOrg: (patch: {
+    readonly name?: string;
+    readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
+    readonly hostAccess?: boolean;
+  }) => Promise<OrgInfo>;
   readonly createDepartment: (input: DepartmentCreate, by: string) => Promise<DepartmentInfo>;
   readonly updateDepartment: (id: string, patch: DepartmentPatch) => Promise<DepartmentInfo>;
   /** Refuses while the department still has bots (move or delete them first). */
@@ -121,6 +127,22 @@ export const orgService = (converse: ConverseService): OrgService => {
         draft.members = [...draft.members, member];
       });
       return org;
+    },
+    updateOrg: async (patch) => {
+      let updated: OrgInfo | undefined;
+      await commitOrg(converse, (draft) => {
+        if (draft.org === null) return;
+        updated = {
+          ...draft.org,
+          vm: { ...draft.org.vm },
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
+          ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
+        };
+        draft.org = updated;
+      });
+      if (updated === undefined) throw new NotFound({ what: "org" });
+      return updated;
     },
     createDepartment: async (input, _by) => {
       const state = await readOrgState(converse);

@@ -58,6 +58,7 @@ export const rowOps = (
         createdAt: Date.now(),
         archivedAt: null,
         departmentId: input.departmentId ?? null,
+        hostAccess: input.hostAccess ?? false,
       };
       return run(commitProfiles(converse, (profiles) => [...profiles, profile])).then(async () => {
         // The first bot in a fresh workspace claims main automatically — there

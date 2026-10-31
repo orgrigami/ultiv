@@ -41,6 +41,7 @@ export type Resource =
   | { readonly type: "account" }
   | { readonly type: "host" }
   | { readonly type: "org-settings" }
+  | { readonly type: "host-flag" }
   | { readonly type: "member" }
   | { readonly type: "grant"; readonly home: HomeRef }
   | { readonly type: "template"; readonly departmentId: string }
@@ -120,9 +121,11 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
     case "account":
     case "host":
     case "org-settings":
-      // Host-access flag changes alone are the org owner's (slice 11, F3);
-      // the rest of the org-level state is owner and admins.
       return level !== null;
+    case "host-flag":
+      // Only the org owner flips a host-access switch (slice 11, F3): a
+      // department admin or member is refused like a missing item.
+      return level === "owner";
     case "member":
       // Roles and membership: org owner and org admins, never a department
       // role and never a plain member.

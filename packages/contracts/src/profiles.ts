@@ -143,6 +143,8 @@ export const ProfileCreateSchema = Type.Object({
   onboard: Type.Optional(Type.Boolean()),
   /** The department to place the bot in; omitted or null = an org bot. */
   departmentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /** The bot's own host-access switch; org owner only may set it (F3). */
+  hostAccess: Type.Optional(Type.Boolean()),
 });
 
 export type ProfileCreate = Static<typeof ProfileCreateSchema>;

@@ -5,6 +5,7 @@
  * reads as a missing one, like every scoped route.
  */
 import type { DepartmentInfo, DepartmentSummary, HomeRef, VmSettings } from "@spriessen/contracts";
+import { effectiveHostAccess } from "@spriessen/mind";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
@@ -52,6 +53,35 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     const view = await mind.org.view();
     return (json(200, view), true);
   }
+  if (path === "/api/org" && method === "PATCH") {
+    const body = await args.readJson<{
+      name?: string;
+      vm?: { cpus?: number; memoryMiB?: number };
+      hostAccess?: boolean;
+    }>(req);
+    if (body.hostAccess !== undefined && !(await may(args, "change", { type: "host-flag" }))) {
+      return (json(404, { error: "no route: PATCH /api/org" }), true);
+    }
+    if (
+      (body.name !== undefined || body.vm !== undefined) &&
+      !(await may(args, "change", { type: "org-settings" }))
+    ) {
+      return (json(404, { error: "no route: PATCH /api/org" }), true);
+    }
+    const view = await mind.org.view();
+    if (view.org === null) return (json(404, { error: "the org does not exist yet" }), true);
+    const vm = readVm(body.vm);
+    if (vm === null) {
+      return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
+    }
+    const org = await mind.org.updateOrg({
+      ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
+      ...(vm !== undefined ? { vm } : {}),
+      ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
+    });
+    if (body.hostAccess !== undefined) audited(args, "org-host-access");
+    return (json(200, org), true);
+  }
   if (path === "/api/org/departments" && method === "POST") {
     if (!(await may(args, "change", { type: "org-settings" }))) {
       return (json(404, { error: "unknown route" }), true);
@@ -91,15 +121,21 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (!view.departments.some((row) => row.id === id)) {
       return (json(404, { error: "unknown department" }), true);
     }
-    if (!(await may(args, "change", { type: "department", departmentId: id }))) {
-      return (json(404, { error: "unknown department" }), true);
-    }
     const body = await args.readJson<{
       name?: string;
       vm?: { cpus?: number; memoryMiB?: number };
       hostAccess?: boolean;
       instructions?: string;
     }>(req);
+    // A department's admins manage its state, but a host-access switch is
+    // the org owner's alone (F3); a member reads as missing either way.
+    if (
+      body.hostAccess !== undefined
+        ? !(await may(args, "change", { type: "host-flag" }))
+        : !(await may(args, "change", { type: "department", departmentId: id }))
+    ) {
+      return (json(404, { error: "unknown department" }), true);
+    }
     const vm = readVm(body.vm);
     if (vm === null) {
       return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
@@ -147,6 +183,29 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       return (json(404, { error: "unknown department" }), true);
     }
     return (json(200, await departmentSummary(args, department)), true);
+  }
+  if (path === "/api/org/host-access" && method === "GET") {
+    // The effective matrix (slice 11): org AND department AND bot for a
+    // department bot; org AND bot for an org bot; blockedBy names the level
+    // that blocks (F4).
+    const view = await mind.org.view();
+    const bots = await mind.profiles.list(args.owner);
+    return (
+      json(200, {
+        org: view.org === null ? null : { hostAccess: view.org.hostAccess },
+        bots: bots.map((profile) => {
+          const verdict = effectiveHostAccess(view.org, view.departments, profile);
+          return {
+            profileId: profile.id,
+            departmentId: profile.departmentId ?? null,
+            own: profile.hostAccess ?? false,
+            allowed: verdict.allowed,
+            blockedBy: verdict.blockedBy,
+          };
+        }),
+      }),
+      true
+    );
   }
   if (path === "/api/org/grants" && method === "GET") {
     // Grants touch homes; the org level sees them all.

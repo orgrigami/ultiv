@@ -182,7 +182,7 @@ export interface MindOptions {
     readonly hostAccess?: (scope: {
       readonly owner: string;
       readonly profileId: string | null;
-    }) => boolean;
+    }) => boolean | Promise<boolean>;
   };
 }
 
@@ -208,7 +208,7 @@ interface MindWiring {
   /** Re-arms the server's cron scheduler after a schedule-registry change. */
   readonly onSchedulesChanged?: () => Promise<void>;
   /** The host-access decision, resolved per conversation (undefined = allow). */
-  readonly hostAccess?: (conversationId: string) => boolean;
+  readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
 }
 
 const mindLayerRaw = (
@@ -419,13 +419,13 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {
-          hostAccess: (conversationId: string): boolean => {
+          hostAccess: async (conversationId: string): Promise<boolean> => {
             const scope = holder.get()?.scopeOf(conversationId);
             return (
-              options.authz?.hostAccess?.({
+              (await options.authz?.hostAccess?.({
                 owner: scope?.owner ?? "",
                 profileId: scope?.profile ?? null,
-              }) ?? true
+              })) ?? true
             );
           },
         }

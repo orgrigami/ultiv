@@ -18,7 +18,13 @@ import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
-import { openMind, sealWebhookTokens, migrateOwners, migrateOrg } from "@spriessen/mind";
+import {
+  effectiveHostAccess,
+  migrateOrg,
+  migrateOwners,
+  openMind,
+  sealWebhookTokens,
+} from "@spriessen/mind";
 import { migrateStorage } from "./auth/migrate-storage.ts";
 import { OWNER_ID } from "./identity.ts";
 import { can } from "./rest/can.ts";
@@ -45,10 +51,20 @@ export async function buildStack(options?: {
 }) {
   const handle = await openMind({
     plugins: [httpPlugin],
-    // The host capability: today every bot runs under the owner's authority,
-    // so can()'s account check is the whole rule (see rest/can.ts).
+    // The host capability (slice 11): the effective flag — org AND
+    // department AND bot for a department bot, org AND bot for an org bot.
+    // Rest takes the account check (see rest/can.ts).
     authz: {
-      hostAccess: (scope) => can(scope.owner, "change", { type: "host" }),
+      hostAccess: async (scope) => {
+        const [view, profile] = await Promise.all([
+          handle.mind.org.view(),
+          scope.profileId === null
+            ? Promise.resolve(undefined)
+            : handle.mind.profiles.get(scope.owner, scope.profileId),
+        ]);
+        if (profile === undefined) return false;
+        return effectiveHostAccess(view.org, view.departments, profile).allowed;
+      },
     },
     // Schedules created by tools re-arm the in-process scheduler; the closure
     // is late-bound — `startScheduler` runs right after the mind opens.

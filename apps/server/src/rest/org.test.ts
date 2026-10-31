@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
+import { Effect } from "effect";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 import { AuthStore } from "../auth/store.ts";
@@ -436,5 +437,149 @@ describe("department shared memory (slice 9)", () => {
       facts: { text: string }[];
     };
     expect(JSON.stringify(facts.facts)).toContain("deploy window");
+  });
+});
+
+describe("host-access flags (slice 11)", () => {
+  it("new bots default off; the effective value ANDs the levels and names the blocker", async () => {
+    const fresh = await handle.mind.profiles.create("owner", { name: "Flagless", onboard: false });
+    expect(fresh.hostAccess).toBe(false);
+    const dept = (await call("POST", "/api/org/departments", { name: "FlagD" })).json as {
+      id: string;
+    };
+    expect((dept as unknown as { hostAccess: boolean }).hostAccess).toBe(false);
+    // A bot on its own: org is on (migration), department off -> blocked by
+    // the department.
+    const bot = await handle.mind.profiles.create("owner", {
+      name: "Flagged",
+      onboard: false,
+      departmentId: dept.id,
+      hostAccess: true,
+    });
+    const matrix = (await call("GET", "/api/org/host-access")).json as {
+      bots: { profileId: string; allowed: boolean; blockedBy: string | null }[];
+    };
+    const mine = matrix.bots.find((row) => row.profileId === bot.id);
+    expect(mine?.allowed).toBe(false);
+    expect(mine?.blockedBy).toBe("department");
+    // The org owner flips the department switch: now allowed.
+    await call("PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true });
+    const after = (await call("GET", "/api/org/host-access")).json as {
+      bots: { profileId: string; allowed: boolean }[];
+    };
+    expect(after.bots.find((row) => row.profileId === bot.id)?.allowed).toBe(true);
+    // Moving the bot to the org keeps its own flag; org AND bot -> allowed.
+    await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: null });
+    const moved = (await call("GET", "/api/org/host-access")).json as {
+      bots: { profileId: string; allowed: boolean }[];
+    };
+    expect(moved.bots.find((row) => row.profileId === bot.id)?.allowed).toBe(true);
+    // The bot's own switch off blocks even at the org.
+    await call("PATCH", `/api/profiles/${bot.id}`, { hostAccess: false });
+    const ownOff = (await call("GET", "/api/org/host-access")).json as {
+      bots: { profileId: string; allowed: boolean; blockedBy: string | null }[];
+    };
+    const off = ownOff.bots.find((row) => row.profileId === bot.id);
+    expect(off?.allowed).toBe(false);
+    expect(off?.blockedBy).toBe("bot");
+  });
+
+  it("a flag change writes an audit row and approves nothing already queued", async () => {
+    const bot = await handle.mind.profiles.create("owner", {
+      name: "AuditFlag",
+      onboard: false,
+    });
+    const events = (await call("GET", "/api/audit?kind=permission")).json as { name: string }[];
+    const before = events.filter((event) => event.name === "host-access-change").length;
+    await call("PATCH", `/api/profiles/${bot.id}`, { hostAccess: true });
+    const eventsAfter = (await call("GET", "/api/audit?kind=permission")).json as {
+      name: string;
+    }[];
+    expect(eventsAfter.filter((event) => event.name === "host-access-change").length).toBe(
+      before + 1,
+    );
+    // A pending card stays pending: turning a flag on approves nothing.
+    // A pending card stays pending: turning a flag on approves nothing (F6).
+    const chat = await handle.mind.profiles.ensureMain("owner", bot.id);
+    const row = await handle.mind.profiles.rowOf(chat.id);
+    const key = row !== undefined ? await handle.mind.profiles.keyOfRow(row) : "";
+    const conversation = String(
+      await Effect.runPromise(handle.mind.converse.conversationIdOf(key as never)),
+    );
+    void Effect.runPromise(
+      handle.mind.approvals.request(conversation, "call-flag", {
+        callId: "call-flag",
+        name: "bash",
+        input: { script: "echo x" },
+      }),
+    ).catch(() => {});
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && handle.mind.approvals.pendingFor(conversation).length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(handle.mind.approvals.pendingFor(conversation)).toHaveLength(1);
+    await call("PATCH", `/api/profiles/${bot.id}`, { hostAccess: true });
+    expect(handle.mind.approvals.pendingFor(conversation)).toHaveLength(1);
+    await handle.mind.approvals.decide(conversation, "call-flag", true);
+  });
+
+  it("a department admin or member changing any flag reads as a missing item", async () => {
+    const dept = (await call("POST", "/api/org/departments", { name: "FlagX" })).json as {
+      id: string;
+    };
+    await handle.mind.org.setMember({
+      accountId: "admin-fx",
+      role: "admin",
+      departmentId: dept.id,
+    });
+    await handle.mind.org.setMember({
+      accountId: "mate-fx",
+      role: "member",
+      departmentId: dept.id,
+    });
+    const missing = { status: 404, json: { error: "unknown department" } };
+    expect(
+      await callAs("admin-fx", "PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true }),
+    ).toEqual(missing);
+    expect(
+      await callAs("mate-fx", "PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true }),
+    ).toEqual(missing);
+    // And the org-level flag: same refusal for a department admin.
+    expect(await callAs("admin-fx", "PATCH", "/api/org", { hostAccess: true })).toEqual({
+      status: 404,
+      json: { error: "no route: PATCH /api/org" },
+    });
+    // A bot flag too (the profiles PATCH lives on the profiles routes; the
+    // gate is the same can() resource).
+    const bot = await handle.mind.profiles.create("owner", {
+      name: "FlagY",
+      onboard: false,
+      departmentId: dept.id,
+    });
+    const { profileRoutes } = await import("./profiles.ts");
+    const attempt = async (owner: string): Promise<{ status: number; json: unknown }> => {
+      let status = 0;
+      let payload: unknown = null;
+      const raw = JSON.stringify({ hostAccess: true });
+      const args = {
+        mind: handle.mind,
+        scheduler: { refresh: async () => {}, stop: () => {} },
+        req: { method: "PATCH", url: `/api/profiles/${bot.id}` } as never,
+        res: {} as never,
+        url: new URL(`/api/profiles/${bot.id}`, "http://localhost"),
+        owner,
+        path: `/api/profiles/${bot.id}`,
+        json: (code: number, out: unknown) => {
+          status = code;
+          payload = out;
+        },
+        readJson: async <T>() => JSON.parse(raw) as T,
+        readBody: async () => Buffer.from(raw),
+      } as unknown as import("./types.ts").RouteArgs;
+      await profileRoutes(args);
+      return { status, json: payload };
+    };
+    expect(await attempt("admin-fx")).toEqual({ status: 404, json: { error: "unknown profile" } });
+    expect((await attempt("owner")).status).toBe(200);
   });
 });

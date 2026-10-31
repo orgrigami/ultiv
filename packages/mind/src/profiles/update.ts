@@ -105,6 +105,7 @@ export const patchedProfile = (
   // bot keeps its own flags; its effective access follows the new home.
   departmentId:
     patch.departmentId !== undefined ? patch.departmentId : (current.departmentId ?? null),
+  hostAccess: patch.hostAccess ?? current.hostAccess ?? false,
 });
 
 /** Point every conversation that carries this profile at its edited copy. */

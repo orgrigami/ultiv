@@ -31,14 +31,14 @@ export const actService = (
    * bots keep today's behaviour). A host tool refused here never reaches a
    * card: the call comes back refused to the model.
    */
-  hostAccess?: (conversationId: string) => boolean,
+  hostAccess?: (conversationId: string) => boolean | Promise<boolean>,
 ): ActService => {
   const gate = (tool: Tool): Tool => {
     if (tool.gated !== true) return tool;
     const guard =
       HOST_TOOLS.has(tool.name) && hostAccess !== undefined
-        ? (_args: unknown, api: unknown): string | undefined =>
-            hostAccess(String((api as { conversationId?: unknown }).conversationId ?? ""))
+        ? async (_args: unknown, api: unknown): Promise<string | undefined> =>
+            (await hostAccess(String((api as { conversationId?: unknown }).conversationId ?? "")))
               ? undefined
               : "this bot does not have access to this computer (the owner has not granted it)"
         : undefined;
