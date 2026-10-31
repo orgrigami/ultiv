@@ -130,6 +130,32 @@ export const administers = (
   return departmentId !== null && hasRole(members, accountId, "admin", departmentId);
 };
 
+/**
+ * Who a pending approval card goes to: for a department bot, that
+ * department's admins and the org owner; for an org bot, the org owner and
+ * the org admins. Never another department's admins.
+ */
+export const approversFor = (
+  members: readonly MemberInfo[],
+  orgOwner: string | null,
+  botHome: HomeRef,
+): string[] => {
+  const out = new Set<string>();
+  if (orgOwner !== null) out.add(orgOwner);
+  if (botHome.kind === "department") {
+    for (const member of members) {
+      if (member.role === "admin" && member.departmentId === botHome.departmentId) {
+        out.add(member.accountId);
+      }
+    }
+  } else {
+    for (const member of members) {
+      if (member.role === "admin" && member.departmentId === null) out.add(member.accountId);
+    }
+  }
+  return [...out];
+};
+
 /** Which level blocks host access: "org", "department" or "bot" (null = not blocked). */
 export type HostBlock = "org" | "department" | "bot";
 

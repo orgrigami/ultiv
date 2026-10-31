@@ -45,7 +45,13 @@ export type Resource =
   | { readonly type: "grant"; readonly home: HomeRef }
   | { readonly type: "department"; readonly departmentId: string }
   | { readonly type: "department-summary"; readonly departmentId: string }
-  | { readonly type: "approval"; readonly owner: string; readonly id: string }
+  | {
+      /** Deciding a pending card; `home` is the bot's home, for the routing. */
+      readonly type: "approval";
+      readonly owner: string;
+      readonly id: string;
+      readonly home?: HomeRef;
+    }
   | { readonly type: "shared-folder"; readonly home: HomeRef }
   | { readonly type: "vm"; readonly home: HomeRef };
 
@@ -143,10 +149,23 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
         level !== null ||
         (view !== undefined && roleAt(actor, view, resource.departmentId) === "admin")
       );
-    case "approval":
-      // Deciding a card is not reading the chat; the routing matrix lands in
-      // slice 6 (department admins for their department's bots).
-      return actor === resource.owner || level !== null;
+    case "approval": {
+      // Deciding a card is not reading the chat. Routing (slice 6): the chat
+      // starter, then for a department bot its department's admins and the
+      // org owner; for an org bot the org owner and org admins.
+      if (actor === resource.owner) return true;
+      if (view === undefined) return level !== null;
+      if (view.org !== null && view.org.owner === actor) return true;
+      const home = resource.home;
+      if (home === undefined) return false;
+      const deptId = home.kind === "department" ? home.departmentId : null;
+      return view.members.some(
+        (member) =>
+          member.accountId === actor &&
+          member.role === "admin" &&
+          (deptId === null ? member.departmentId === null : member.departmentId === deptId),
+      );
+    }
     case "chat":
       // Chat privacy: private to whoever started it, whatever the roles. The
       // org owner and org admins see summaries, never chat contents.

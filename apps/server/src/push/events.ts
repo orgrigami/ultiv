@@ -6,6 +6,7 @@
 import { Effect } from "effect";
 import type { MailboxEntry, TaskInfo } from "@spriessen/contracts";
 import type { MindService } from "@spriessen/mind";
+import { approversFor, homeOf } from "@spriessen/mind";
 import type { DeliverySource } from "../deliver.ts";
 import type { Notifier, PushPayload } from "./notifier.ts";
 
@@ -89,11 +90,20 @@ const onApproval = async (
 ): Promise<void> => {
   const scope = mind.profiles.scopeOf(conversationId);
   if (scope === undefined) return;
-  const [bot, sessionId] = await Promise.all([
+  const [bot, sessionId, view] = await Promise.all([
     botName(mind, scope.owner, scope.profileId),
     sessionOfConversation(mind, scope.owner, scope.profileId, conversationId),
+    mind.org.view(),
   ]);
-  await notifier.notify(scope.owner, approvalPayload(bot, tool, sessionId));
+  // The card routes to its approvers (slice 6): a department bot's card
+  // reaches that department's admins and the org owner; an org bot's card
+  // the org owner and org admins. Today that list is the org owner.
+  const profile = (await mind.profiles.get(scope.owner, scope.profileId)) ?? null;
+  const home = profile !== null ? homeOf(profile) : { kind: "org" as const };
+  const approvers = approversFor(view.members, view.org?.owner ?? null, home);
+  await Promise.all(
+    approvers.map((approver) => notifier.notify(approver, approvalPayload(bot, tool, sessionId))),
+  );
 };
 
 const onExpired = async (

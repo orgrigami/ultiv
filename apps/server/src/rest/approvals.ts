@@ -1,35 +1,49 @@
 /**
  * The cross-profile approval inbox: every pending gate in one list, plus
- * REST decide. Owner scoping rides the conversation→profile index.
+ * REST decide. Cards route to their approvers (slice 6): a department bot's
+ * card reaches that department's admins (and the org owner), an org bot's
+ * card the org owner and org admins. Deciding a card never reads the chat.
  */
+import { homeOf } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
 import { can } from "./can.ts";
 
 export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
   const { req, mind, path, json } = args;
   const method = req.method ?? "GET";
+  /** The card's bot home, for the routing; undefined when unmapped. */
+  const homeOfConversation = async (conversationId: string) => {
+    const scope = mind.profiles.scopeOf(conversationId);
+    if (scope === undefined) return undefined;
+    const profile = await mind.profiles.get(scope.owner, scope.profileId);
+    return profile === undefined ? undefined : homeOf(profile);
+  };
   if (path === "/api/approvals" && method === "GET") {
-    const pending = mind.approvals.pendingAll().flatMap((entry) => {
+    const view = await mind.org.view();
+    const pending = [];
+    for (const entry of mind.approvals.pendingAll()) {
       const scope = mind.profiles.scopeOf(entry.conversationId);
+      if (scope === undefined) continue;
+      // A card is not chat contents: it routes to its approvers, whoever
+      // they are for this bot's home.
+      const home = await homeOfConversation(entry.conversationId);
       if (
-        scope === undefined ||
-        !can(args.owner, "view", { type: "chat", owner: scope.owner, id: entry.conversationId })
+        home === undefined ||
+        !can(args.owner, "view", { type: "approval", owner: scope.owner, id: "inbox", home }, view)
       ) {
-        return [];
+        continue;
       }
-      return [
-        {
-          conversationId: entry.conversationId,
-          profile: scope.profileId,
-          kind: scope.kind,
-          sessionId: null,
-          callId: entry.request.callId,
-          name: entry.request.name,
-          input: entry.request.input,
-          reason: entry.reason ?? null,
-        },
-      ];
-    });
+      pending.push({
+        conversationId: entry.conversationId,
+        profile: scope.profileId,
+        kind: scope.kind,
+        sessionId: null,
+        callId: entry.request.callId,
+        name: entry.request.name,
+        input: entry.request.input,
+        reason: entry.reason ?? null,
+      });
+    }
     json(200, pending);
     return true;
   }
@@ -37,9 +51,17 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
   if (decide !== null && method === "POST") {
     const [, conversationId, callId] = decide;
     const scope = mind.profiles.scopeOf(conversationId ?? "");
+    const home = await homeOfConversation(conversationId ?? "");
+    const view = await mind.org.view();
     if (
       scope === undefined ||
-      !can(args.owner, "decide", { type: "chat", owner: scope.owner, id: conversationId ?? "" })
+      home === undefined ||
+      !can(
+        args.owner,
+        "decide",
+        { type: "approval", owner: scope.owner, id: conversationId ?? "", home },
+        view,
+      )
     ) {
       json(403, { error: "not your conversation" });
       return true;
