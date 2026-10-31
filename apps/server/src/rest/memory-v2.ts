@@ -1,7 +1,7 @@
 /**
  * Memory v2 REST: the human surface over the facts/core/proposals docs —
- * the owner reads and decides, the tidy proposes. Owner-scoped via
- * `x-spriessen-user` like every route. Purge is irreversible and human-only.
+ * the owner reads and decides, the tidy proposes. Scoped to the signed-in
+ * account like every route. Purge is irreversible and human-only.
  */
 import { Effect } from "effect";
 import type { MemoryProposal } from "@spriessen/contracts";

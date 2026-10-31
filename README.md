@@ -96,7 +96,7 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @spriessen/server#push:keys`                                            |
 
-Product keys start with `SPRIESSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the `x-ultiv-user` and `x-ultiv-token` headers, which are still accepted next to `x-spriessen-user` and `x-spriessen-token`.
+Product keys start with `SPRIESSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the webhook `x-ultiv-token` header, still accepted next to `x-spriessen-token`. (No user header is read any more: identity comes from the sign-in session.)
 
 `.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `SPRIESSEN_MAX_RUNNING_TASKS` (background tasks one bot can run at once, default 3), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `SPRIESSEN_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
 

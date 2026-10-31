@@ -3,7 +3,8 @@
  * webhooks (also the `/hooks/:id` ingress), cron jobs, profiles, mailbox,
  * vault, connectors (MCP), approvals, memory and the audit tail. Plain REST on purpose — CRUD
  * over chord's replicated-object wire desyncs on attach (chord 1.4.0
- * ack-window bug). Owner scoping rides `x-spriessen-user`; routes live in ./rest.
+ * ack-window bug). Every route runs as the signed-in account (the session
+ * cookie, see auth/guard.ts) and scopes through rest/can.ts; routes live in ./rest.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { MindService } from "@spriessen/mind";

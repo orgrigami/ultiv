@@ -174,7 +174,7 @@ describe("another owner's records", () => {
     await likeMissing("DELETE", bot, theirs.bot);
     const still = await handle.mind.profiles.get(OTHER, theirs.bot);
     expect(still?.name).toBe("Theirs");
-    expect(still?.archived ?? false).toBe(false);
+    expect(still?.archivedAt).toBeNull();
   });
 
   it("their chat, routines, state, vault item and task answer like missing ones", async () => {

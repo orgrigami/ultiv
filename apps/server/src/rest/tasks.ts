@@ -10,7 +10,7 @@ import { projectTranscript } from "@spriessen/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
 import { canSeeTask } from "./can.ts";
-import { queryOr, type RouteArgs } from "./types.ts";
+import type { RouteArgs } from "./types.ts";
 import { activitySteps, type ActivityStep } from "./task-steps.ts";
 
 function liveOf(view: unknown): LiveState | undefined {
@@ -23,10 +23,9 @@ function liveOf(view: unknown): LiveState | undefined {
  * `agent` sentinel — a principal cannot BE the agent, and the identity seam
  * refuses the label anyway), agent-spawned rows whose BOT is its own (the
  * row's `bot.owner` is the principal the spawn bound), and nothing else.
- * Owner identity rides the client-supplied `x-spriessen-user` header, so "some
- * other named principal" is not a boundary; agent rows without a bot
- * binding stay hidden (fail safe), and any foreign task 404s without
- * disclosing that it exists.
+ * The owner is the signed-in account (the session cookie); agent rows
+ * without a bot binding stay hidden (fail safe), and any foreign task 404s
+ * without disclosing that it exists.
  */
 const maySee = (owner: string, task: Parameters<typeof canSeeTask>[1]): boolean =>
   canSeeTask(owner, task);
@@ -185,6 +184,5 @@ export async function taskRoutes(
     json(200, { ok: true, ...(await Effect.runPromise(mind.tasks.remove(id))) });
     return true;
   }
-  void queryOr;
   return false;
 }
