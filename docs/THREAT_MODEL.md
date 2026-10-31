@@ -3,39 +3,70 @@
 Who can reach what in Spriessen, what escapes the sandbox on purpose, and the
 gaps we know about. Each section names the module that enforces it, so a later
 change has one place to edit. `docs/SECURITY.md` carries the mechanism-level
-detail (path confinement, owner scoping, webhook token hashing); this file is
-the map of trust.
+detail (path confinement, owner scoping, the org model, webhook token
+hashing); this file is the map of trust.
 
 ## 1. Who is trusted
 
-| Actor                                                        | Trust                                                                                                                                                         | Boundary they must not cross                                                                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| The owner (signed-in person)                                 | Fully trusted. One account; sign-in is the passcode (and passkeys).                                                                                           | Nobody: the owner is the top of the model.                                                          |
-| Bots (profiles)                                              | Semi-trusted: they run model-chosen tool calls, gated by the approval mode (`policies.approvalMode`) with the owner as the floor.                             | Each other's memory, files, vault, chats; the host shell (without a card); the owner's credentials. |
-| Tasks (background bot turns)                                 | Same trust as their bot: a task runs AS its bot (adopted scope, kind `task`).                                                                                 | Same as bots, plus they never ask the model outside their own conversation.                         |
-| Other bots, via the mailbox                                  | Semi-trusted senders: messages arrive only through the room tunnel with rate, budget, hop and lineage caps (`packages/mind/src/mailbox/`).                    | Direct access to the recipient: a message is data on the recipient's thread, never a tool call.     |
-| Webhook callers                                              | Untrusted. Authenticated only by the show-once token (stored hashed); size, rate and schema gates run before the ack.                                         | Anything but delivering an input into the one session the hook points at.                           |
-| Cron and sensor triggers                                     | Local (the server fires them itself), but their prompts were written earlier, possibly by a bot.                                                              | Same as bots; delivery is admission-only (`deliverToSession`).                                      |
-| MCP servers                                                  | Chosen by the owner, otherwise untrusted: an HTTP/SSE server sees only the tool calls the bot makes to it; a stdio server is a local process (see section 3). | The vault (they receive vault item references, never secret bytes, by construction).                |
-| Web content (fetched pages, PDF/DOCX extracts, tool results) | Untrusted data. The memory write guard stamps it non-owner and refuses instructions from it; document readers are capped and dependency-free.                 | Becoming instructions: nothing a fetched page says is followed, only read.                          |
-| The browser client                                           | The owner's own device. It holds a session cookie; it can do everything the owner can, no more.                                                               | Other owners' data (single-account today; Phase 3 adds roles).                                      |
+| Actor                                                        | Trust                                                                                                                                                                                                                                                 | Boundary they must not cross                                                                                                                                            |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The org owner (signed-in person)                             | Fully trusted. One account today; sign-in is the passcode (and passkeys). The org model (phase 3) adds departments and roles on `can()` for future accounts.                                                                                          | Nobody: the org owner is the top of the model.                                                                                                                          |
+| Members (org admins, department admins, members, viewers)    | Modelled in `can()` (`apps/server/src/rest/can.ts`): org admins act at org level; a department admin acts only inside its own department; a member works their department but never roles, settings or flags; a viewer reads.                         | Chats they did not start (contents are creator-only, summaries only for org level); another department; org-level state.                                                |
+| Bots (profiles)                                              | Semi-trusted: they run model-chosen tool calls, gated by the approval mode (`policies.approvalMode`) with the owner as the floor.                                                                                                                     | Each other's memory, files, vault, chats; the host shell (without a card AND without the effective host-access flag); the owner's credentials.                          |
+| Tasks (background bot turns)                                 | Same trust as their bot: a task runs AS its bot (adopted scope, kind `task`), and inherits its bot's home.                                                                                                                                            | Same as bots, plus they never ask the model outside their own conversation.                                                                                             |
+| Other bots, via the mailbox                                  | Semi-trusted senders: messages arrive only through the room tunnel with rate, budget, hop and lineage caps (`packages/mind/src/mailbox/`). Any bot may message any bot across homes (open reach); each cross-home message writes a `reach` audit row. | Direct access to the recipient: a message is data on the recipient's thread, never a tool call.                                                                         |
+| Webhook callers                                              | Untrusted. Authenticated only by the show-once token (stored hashed); size, rate and schema gates run before the ack.                                                                                                                                 | Anything but delivering an input into the one session the hook points at.                                                                                               |
+| Cron and sensor triggers                                     | Local (the server fires them itself), but their prompts were written earlier, possibly by a bot.                                                                                                                                                      | Same as bots; delivery is admission-only (`deliverToSession`).                                                                                                          |
+| MCP servers                                                  | Chosen by the owner, otherwise untrusted: an HTTP/SSE server sees only the tool calls the bot makes to it; a stdio server is a local process (see section 3).                                                                                         | The vault (they receive vault item references, never secret bytes, by construction).                                                                                    |
+| Web content (fetched pages, PDF/DOCX extracts, tool results) | Untrusted data. The memory write guard stamps it non-owner and refuses instructions from it; document readers are capped and dependency-free.                                                                                                         | Becoming instructions: nothing a fetched page says is followed, only read. The same holds for bot-to-bot messages and shared-folder files (they flow between all bots). |
+| The browser client                                           | The owner's own device. It holds a session cookie; it can do everything the account can, no more.                                                                                                                                                     | What `can()` refuses for its account.                                                                                                                                   |
 
 ## 2. What each actor can reach
 
-- **The owner**, through REST and the chord WebSocket: every route for their
-  account. The gate is one module (`apps/server/src/auth/`, the session
-  cookie) and one decision helper (`can()` in `apps/server/src/rest/can.ts`);
-  what an actor cannot access answers exactly like a missing item, so ids
-  cannot be probed. Before a passcode is set, a loopback request can only
-  set the first passcode (one-time bootstrap); every other request needs a
-  session, loopback included.
+- **The org model (phase 3)**: one org holds flat departments (no nesting,
+  no parent) and bots; every bot has exactly one home — one department or
+  the org itself. **Departments are not a security boundary between bots**
+  (F-A): open reach lets every bot reach every home, so a prompt-injected
+  bot can act in every department. Departments remain organisation, VM
+  sizing (phase 4), vault/connector scoping and audit grouping — nothing
+  more. Every resource (bot, memory record, file, skill, vault item,
+  routine, sandbox) belongs to exactly one home through its bot
+  (`checkHomes` in `packages/mind/src/org/model.ts`).
+- **The org owner**, through REST and the chord WebSocket: every route for
+  their account. The gate is one module (`apps/server/src/auth/`, the
+  session cookie) and one decision helper (`can()` in
+  `apps/server/src/rest/can.ts`); what an actor cannot access answers
+  exactly like a missing item, so ids cannot be probed. Before a passcode
+  is set, a loopback request can only set the first passcode (one-time
+  bootstrap); every other request needs a session, loopback included.
+- **Open reach (an owner decision, 1 Nov 2026)**: no reach rule limits by
+  department. Every bot, in any home, can (1) read and write any
+  department's or the org's shared folder (phase 4 mounts it), (2) message
+  any bot, and (3) run commands in another home's VM (phase 4). The control
+  is the audit, not denial: each cross-home use writes a `reach` row (from,
+  to, surface — never content) into the audit trail (`org/reach.ts`).
+  Reach does NOT cover: another bot's chats, memory or home folder; vault
+  items and connectors of another home (those need a NAMED grant, audited,
+  revoked stops access at once); department and org settings for anyone
+  without the role. Messaging itself is unchanged: admission-only through
+  the mailbox with its caps, `canInitiate: ["*"]`.
+- **Chats stay private**: a chat belongs to whoever started it — org owner
+  and org admins see only a department's summary (counts, bots, activity
+  timestamps), never chat contents, over REST or the socket (the socket
+  resolves chats through the signed-in account's key space). Approval cards
+  route to their approvers (a department bot's card to that department's
+  admins and the org owner; an org bot's card to the org owner and org
+  admins) — deciding a card never reads the chat.
 - **Bots and tasks**: their own conversation (pi-durable, durable-scoped),
-  their profile's persona and Instructions files, their memory partitions
-  (`ultiv.mem.*` doc families per `owner`/profile), their files tree
-  (`{ARTIFACTS_DIR}/{owner}/{bot}`), their artifact store partition, their
-  vault scope (contacts readable, secrets only through the broker), the tools
-  their allowlist permits, and the mailbox/rooms they participate in. The
-  conversation-to-profile index
+  their profile's persona and Instructions files (a department bot also
+  inherits its department's standing Instructions, rendered BEFORE its own;
+  approval rules outrank any Instructions text), their memory partitions
+  (`ultiv.mem.*` doc families per `owner`/profile — plus, for a department
+  bot, its department's shared store, written only through admin-accepted
+  proposals), their files tree (`{ARTIFACTS_DIR}/{owner}/{bot}`), their
+  artifact store partition, their vault scope (contacts readable, secrets
+  only through the broker), the tools their allowlist permits, and the
+  mailbox/rooms they participate in. The conversation-to-profile index
   (`packages/mind/src/profiles/conversation-index.ts`) is the map every scope
   resolver reads.
 - **Webhook callers**: `POST /hooks/:id?token=…` only. The token is verified
@@ -53,6 +84,15 @@ the map of trust.
 
 ## 3. What escapes the sandbox by design
 
+- **Host access has three switches (phase 3)**: org AND department AND bot
+  for a department bot; org AND bot for an org bot; every level defaults to
+  off for anything created after the migration (the migration turned the
+  org and the existing bots on, F1). The effective flag gates every
+  host-running tool before any card exists (`effectiveHostAccess` in
+  `packages/mind/src/org/model.ts`, consulted through `openMind`'s
+  `authz.hostAccess`). Only the org owner may flip a switch; every change
+  is audited and approves nothing already queued (F6). A switch that is on
+  under an off level is inert and the UI names the blocking level (F4).
 - **`bash_host`** runs a script DIRECTLY on the host that runs the server: it
   can read and write everything that account can, including `.env`, the data
   folder, the vault's key material on disk and every bot's files. Nothing in
@@ -102,9 +142,21 @@ the map of trust.
   reset the passcode (`vp run --filter @spriessen/server recover:access`) and
   read everything. The host is the trust root; this is the same power
   `bash_host` has.
-- **One owner, no roles yet**: every signed-in session is the owner. Phase 3
-  adds the org, departments and roles on top of `can()`; until then there is
-  nothing to separate.
+- **Departments are organisation, not isolation (F-A)**: open reach makes
+  the whole org the blast radius of one misled bot — from phase 4 it can
+  read and write every shared folder, message every bot and run commands in
+  every VM. The audit trail is the compensating control; who reads it and
+  how loudly is an open question (F-E). Network policy can be bypassed by
+  targeting a VM with a looser allowlist (F-B). Any VM may receive work
+  from any bot (F-G capacity). Shared folders and bot-to-bot messages are
+  an injection channel between all bots (F-H): every bot message and every
+  shared-folder file is untrusted input, like web content. A published
+  template carries no vault items, memory or chats; copies are independent
+  from the moment they are made.
+- **One account, many roles on paper**: the role matrix (org admin,
+  department admin, member, viewer) is enforced by `can()` and tested, but
+  today only the org owner can sign in — no second account exists yet, so
+  no non-owner role is reachable on the wire.
 - **Web Push payloads** carry names and event kinds only, but the push
   endpoints are visible to the push services; subscriptions live under
   `PUSH_DIR` (0600) and endpoints are SSRF-guarded.

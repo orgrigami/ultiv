@@ -134,6 +134,62 @@ paths and links, plus the wrong owner),
 "artifact routes stay inside the artifacts folder" block in
 `apps/server/src/rest/artifacts.test.ts`.
 
+## The org: departments, roles, reach and grants
+
+One org per install (`ultiv.org` document, `packages/mind/src/org/`): flat
+departments (no parent field), bots with exactly one home (`departmentId`
+null = org bot), members with roles, reach grants and published templates.
+The ONE permission decision stays `can(actor, action, resource, view)`
+(`apps/server/src/rest/can.ts`): the org owner passes everything; org admins
+act at org level across departments; a department admin acts only inside its
+own department; a member works their department's resources but never roles,
+membership, department settings or flags; a viewer reads. Chats stay private
+to whoever started them, whatever the roles — the org level sees only a
+department summary (`GET /api/org/departments/:id/summary`: counts, bots,
+activity timestamps, never chat contents). A refusal anywhere answers exactly
+like a missing item. Approval cards route to their approvers
+(`approversFor`): a department bot's card to that department's admins and the
+org owner; an org bot's to the org owner and org admins — deciding never
+reads the chat.
+
+**Open reach** (owner decision, 1 Nov 2026): every bot reaches every home —
+shared folders, messaging, commands in another home's VM (the run lands in
+phase 4). There is no denial; the control is the `reach` audit row each
+cross-home use writes (`org/reach.ts`, the mailbox wrapper is wired in
+`entity.ts`), carrying from, to and surface — never content. Reach does NOT
+cover another bot's chats, memory or home folder, or another home's vault
+items and connectors: those need a **grant** (REST `/api/org/grants`), which
+names the resource, the grantee home and the action; creating, using and
+revoking are audited, and a revoke stops access at once (the broker's
+granted-credential fallback consults the live grant table on every spend).
+Messaging itself needs no grant and stays under the mailbox caps.
+
+**Department memory**: a department bot proposes one of its own facts for the
+department's shared store; only an admin of that department (or the org
+level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)
+?department=`); rejection discards; accepted facts are recalled only by the
+department's bots.
+
+**Host access** (`bash_host` and any host-running tool): effective value is
+org AND department AND bot for a department bot, org AND bot for an org bot;
+only the org owner flips a switch (the `host-flag` resource in `can()`, F3);
+every change writes a `permission` audit row and approves nothing already
+queued (F6); `GET /api/org/host-access` returns the matrix with the blocking
+level for the UI (F4).
+
+**Migration** (`migrateOrg`, repeatable, dry run
+`vpr @spriessen/server#org:dry-run`): the workspace becomes the org
+"Personal" owned by the account; every existing bot is an org bot with host
+access ON (F1 — today's behaviour); no department rows are created; a second
+run changes nothing. Rollback: rolling the code back leaves the `ultiv.org`
+document and the two profile fields, which older code ignores; nothing is
+moved or deleted. Tested by `packages/mind/src/org/org.test.ts` (migration,
+one-home invariant, flags), `apps/server/src/rest/org.test.ts` (routes,
+summary, grants, flags), `apps/server/src/rest/approval-routing.test.ts`,
+`apps/server/src/ws-chat-privacy.test.ts`, and the reach/grant tests in
+`packages/mind/src/org/reach.test.ts` and
+`packages/ext/src/broker/http-request-tool.test.ts`.
+
 ## Owner scoping and the one account
 
 There is exactly one account: the passcode signs you in as `owner`
