@@ -70,7 +70,7 @@ const TAB_ICON: Partial<Record<ProfileTab, LucideIcon>> = {
 };
 
 /** Live numbers for the tabs; each one stays blank if its read fails. */
-function useProfileCounts(botId: string, tab: ProfileTab): ProfileCounts {
+function useProfileCounts(botId: string, tab: ProfileTab, epoch = 0): ProfileCounts {
   const [counts, setCounts] = useState<ProfileCounts>({});
   useEffect(() => {
     let alive = true;
@@ -109,8 +109,9 @@ function useProfileCounts(botId: string, tab: ProfileTab): ProfileCounts {
     return () => {
       alive = false;
     };
-    // Re-read when the tab changes: the open tab may have changed a count.
-  }, [botId, tab]);
+    // Re-read when the tab changes (the open tab may have changed a count)
+    // and after a save on the open tab (`epoch`).
+  }, [botId, tab, epoch]);
   return counts;
 }
 
@@ -169,7 +170,8 @@ function Profile({
   const { sessions, refreshAll } = useApp();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
-  const counts = useProfileCounts(bot.id, active);
+  const [countsEpoch, setCountsEpoch] = useState(0);
+  const counts = useProfileCounts(bot.id, active, countsEpoch);
   const botId = bot.id;
   return (
     <Page
@@ -261,7 +263,14 @@ function Profile({
       <div role="tabpanel" aria-label={PROFILE_TABS.find((t) => t.id === active)?.label}>
         {active === "overview" && <OverviewTab bot={bot} counts={counts} />}
         {active === "instructions" && (
-          <BotFilesEditor key={bot.id} botId={bot.id} onSaved={() => void refreshAll()} />
+          <BotFilesEditor
+            key={bot.id}
+            botId={bot.id}
+            onSaved={() => {
+              setCountsEpoch((n) => n + 1);
+              void refreshAll();
+            }}
+          />
         )}
         {active === "memory" && (
           <MemoryContent
