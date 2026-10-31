@@ -163,6 +163,18 @@ export interface MindOptions {
   readonly schedules?: { readonly onChanged?: () => Promise<void> };
   /** MCP connector options (config dir, timeouts, boot). */
   readonly mcp?: McpOptions;
+  /**
+   * Authorization seam from the host app. `hostAccess` decides the host
+   * capability (`bash_host` and other tools that run on the server's own
+   * machine) per conversation scope; absent, the owner's bots keep today's
+   * behaviour (always allowed). Phases 3 and 4 add the switches.
+   */
+  readonly authz?: {
+    readonly hostAccess?: (scope: {
+      readonly owner: string;
+      readonly profileId: string | null;
+    }) => boolean;
+  };
 }
 
 /** Everything that can fail while booting the mind. */
@@ -184,6 +196,8 @@ interface MindWiring {
   ) => Promise<void>;
   /** Re-arms the server's cron scheduler after a schedule-registry change. */
   readonly onSchedulesChanged?: () => Promise<void>;
+  /** The host-access decision, resolved per conversation (undefined = allow). */
+  readonly hostAccess?: (conversationId: string) => boolean;
 }
 
 const mindLayerRaw = (
@@ -232,6 +246,7 @@ const mindLayerRaw = (
             return visible.filter((task) => task.status === "running").length < MAX_RUNNING_TASKS;
           },
         },
+        wiring.hostAccess,
       );
       // One runtime, one entity per profile: the profiles service owns the
       // session registry and the conversation→profile index; its identity
@@ -381,6 +396,19 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       : {}),
     ...(options.schedules?.onChanged !== undefined
       ? { onSchedulesChanged: options.schedules.onChanged }
+      : {}),
+    ...(options.authz?.hostAccess !== undefined
+      ? {
+          hostAccess: (conversationId: string): boolean => {
+            const scope = holder.get()?.scopeOf(conversationId);
+            return (
+              options.authz?.hostAccess?.({
+                owner: scope?.owner ?? "",
+                profileId: scope?.profile ?? null,
+              }) ?? true
+            );
+          },
+        }
       : {}),
   };
   const registry = Layer.effect(

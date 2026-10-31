@@ -59,6 +59,55 @@ describe("Act", () => {
     const gated = act.extension().tools?.find((tool) => tool.name === "echo");
     expect(gated?.execute).not.toBe(echo.execute);
   });
+
+  it("refuses a host tool before any card when the capability is absent", async () => {
+    const approvals = makeApprovals();
+    const act = actService(
+      registry([{ ...echo, name: "bash_host", gated: true }]),
+      approvals,
+      audit,
+      undefined,
+      undefined,
+      () => false,
+    );
+    const tool = act.extension().tools?.find((entry) => entry.name === "bash_host");
+    const result = (await tool?.execute(
+      { text: "x" } as never,
+      { conversationId: "c1", callId: "h1" } as never,
+      {} as never,
+    )) as { isError?: boolean; output: { text: string }[] };
+    expect(result.isError).toBe(true);
+    expect(result.output[0]?.text).toContain("does not have access to this computer");
+    // Nothing parked: the refusal was final, no card for the owner.
+    expect(approvals.pendingFor("c1")).toEqual([]);
+  });
+
+  it("keeps the host capability open when the seam allows it", async () => {
+    const approvals = makeApprovals();
+    const act = actService(
+      registry([{ ...echo, name: "bash_host", gated: true }]),
+      approvals,
+      audit,
+      undefined,
+      undefined,
+      () => true,
+    );
+    const tool = act.extension().tools?.find((entry) => entry.name === "bash_host");
+    const run = tool?.execute(
+      { text: "x" } as never,
+      { conversationId: "c2", callId: "h2" } as never,
+      {} as never,
+    ) as Promise<unknown>;
+    // The call parks on the approval broker (owner's card), as before.
+    let parked = false;
+    for (let i = 0; i < 100 && !parked; i += 1) {
+      parked = approvals.pendingFor("c2").length > 0;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    expect(parked).toBe(true);
+    approvals.decide("c2", "h2", false, undefined, undefined);
+    await run;
+  });
 });
 
 describe("Identity plugin", () => {

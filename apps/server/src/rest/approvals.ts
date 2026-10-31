@@ -3,6 +3,7 @@
  * REST decide. Owner scoping rides the conversation→profile index.
  */
 import type { RouteArgs } from "./types.ts";
+import { can } from "./can.ts";
 
 export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
   const { req, mind, path, json } = args;
@@ -10,7 +11,12 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
   if (path === "/api/approvals" && method === "GET") {
     const pending = mind.approvals.pendingAll().flatMap((entry) => {
       const scope = mind.profiles.scopeOf(entry.conversationId);
-      if (scope?.owner !== args.owner) return [];
+      if (
+        scope === undefined ||
+        !can(args.owner, "view", { type: "chat", owner: scope.owner, id: entry.conversationId })
+      ) {
+        return [];
+      }
       return [
         {
           conversationId: entry.conversationId,
@@ -31,7 +37,10 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
   if (decide !== null && method === "POST") {
     const [, conversationId, callId] = decide;
     const scope = mind.profiles.scopeOf(conversationId ?? "");
-    if (scope?.owner !== args.owner) {
+    if (
+      scope === undefined ||
+      !can(args.owner, "decide", { type: "chat", owner: scope.owner, id: conversationId ?? "" })
+    ) {
       json(403, { error: "not your conversation" });
       return true;
     }

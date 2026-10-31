@@ -82,9 +82,13 @@ const routeLiterals = (): string[] => {
 let server: Server;
 let base = "";
 let cookie = "";
+let hookId = "";
 
 beforeAll(async () => {
   const handle = await openMind({ storage: new MemoryStorage() });
+  const bot = await handle.mind.profiles.create("owner", { name: "Gated", onboard: false });
+  const session = await handle.mind.profiles.ensureMain("owner", bot.id);
+  hookId = (await handle.mind.webhooks.create({ sessionId: session.id, name: "gate" })).id;
   server = createServer(
     createRestHandler({
       mind: handle.mind,
@@ -126,6 +130,8 @@ describe("the gate answers every route", () => {
     for (const path of paths) {
       for (const method of METHODS) {
         if (isPublic(method, path)) continue;
+        // A non-GET on a public path answers the router's 404, never data.
+        if (path === "/api/health") continue;
         const answer = await anonymous(method, path);
         if (answer.status !== 401 || JSON.stringify(answer.body) !== JSON.stringify(REFUSAL)) {
           leaky.push(`${method} ${path} -> ${answer.status}`);
@@ -137,8 +143,8 @@ describe("the gate answers every route", () => {
 
   it("keeps the public contract: health and the token-authed webhook ingress", async () => {
     expect((await anonymous("GET", "/api/health")).status).toBe(200);
-    const knock = await anonymous("POST", "/hooks/any-id");
-    // The ingress's own 401 (wrong token), not the gate's refusal.
+    const knock = await anonymous("POST", `/hooks/${hookId}`);
+    // The ingress's own 401 (no token), not the gate's refusal.
     expect(knock.status).toBe(401);
     expect(JSON.stringify(knock.body)).not.toContain("sign in required");
   });

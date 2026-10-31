@@ -18,6 +18,7 @@ import {
   writeArtifactBytes,
 } from "@spriessen/ext";
 import { ownsProfile, ownsSession } from "./owner-scope.ts";
+import { can } from "./can.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 /** Every directory the owner's artifacts may live in: their profile dirs + the legacy root. */
@@ -52,8 +53,10 @@ const findArtifact = async (
  * Legacy flat-root artifacts carry `owner: null` and stay visible to everyone
  * (single-user era). Another owner's artifact answers 404, like a missing one.
  */
-const ownedBy = (info: { owner: string | null }, owner: string): boolean =>
-  info.owner === null || info.owner === owner;
+const ownedBy = (info: { owner: string | null; id?: string }, owner: string): boolean =>
+  // Legacy sidecars with no owner stay readable, as before (see SECURITY.md).
+  info.owner === null ||
+  can(owner, "view", { type: "artifact", owner: info.owner, id: info.id ?? "" });
 
 const UNSAFE_INLINE = new Set(["text/html", "image/svg+xml", "application/xhtml+xml"]);
 

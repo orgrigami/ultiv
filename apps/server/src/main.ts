@@ -21,6 +21,7 @@ import { startPush } from "./push/index.ts";
 import { openMind, sealWebhookTokens, migrateOwners } from "@spriessen/mind";
 import { migrateStorage } from "./auth/migrate-storage.ts";
 import { OWNER_ID } from "./identity.ts";
+import { can } from "./rest/can.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
@@ -41,6 +42,11 @@ export async function buildStack(options?: {
 }) {
   const handle = await openMind({
     plugins: [httpPlugin],
+    // The host capability: today every bot runs under the owner's authority,
+    // so can()'s account check is the whole rule (see rest/can.ts).
+    authz: {
+      hostAccess: (scope) => can(scope.owner, "change", { type: "host" }),
+    },
     // Schedules created by tools re-arm the in-process scheduler; the closure
     // is late-bound — `startScheduler` runs right after the mind opens.
     schedules: { onChanged: () => refreshSchedules() },

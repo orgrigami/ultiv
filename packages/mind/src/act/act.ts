@@ -10,6 +10,9 @@ import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { withTaskNudge, type NudgeGate } from "./nudge.ts";
 
+/** Tools that run directly on the server's own machine (see can()'s host capability). */
+const HOST_TOOLS: ReadonlySet<string> = new Set(["bash_host"]);
+
 export interface ActService {
   readonly tools: () => readonly Tool[];
   /** The extension installed into the harness registry for every conversation. */
@@ -23,8 +26,24 @@ export const actService = (
   profileOf?: (conversationId: string) => string | null | undefined,
   /** Set when the tasks faculty is present: long stretches get nudged to it. */
   nudge?: NudgeGate | undefined,
+  /**
+   * The host capability, resolved per conversation (undefined = the owner's
+   * bots keep today's behaviour). A host tool refused here never reaches a
+   * card: the call comes back refused to the model.
+   */
+  hostAccess?: (conversationId: string) => boolean,
 ): ActService => {
-  const gate = (tool: Tool): Tool => (tool.gated === true ? withApproval(approvals, tool) : tool);
+  const gate = (tool: Tool): Tool => {
+    if (tool.gated !== true) return tool;
+    const guard =
+      HOST_TOOLS.has(tool.name) && hostAccess !== undefined
+        ? (_args: unknown, api: unknown): string | undefined =>
+            hostAccess(String((api as { conversationId?: unknown }).conversationId ?? ""))
+              ? undefined
+              : "this bot does not have access to this computer (the owner has not granted it)"
+        : undefined;
+    return withApproval(approvals, tool, guard !== undefined ? { guard } : undefined);
+  };
   const tools: readonly Tool[] = registry
     .tools()
     .map(gate)

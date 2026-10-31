@@ -109,7 +109,14 @@ read any more (the CORS header list is unchanged). Every REST route that
 touches owner data asks one helper, `apps/server/src/rest/owner-scope.ts`
 (`ownsProfile`, `ownsSession`, `ownedTarget`, `ownsRecord`, `ownedRecords`,
 `findOwned`), which answers another account's item exactly like a missing
-one — same status, same body, so ids can't be probed. The WebSocket accepts
+one — same status, same body, so ids can't be probed. Under the helpers sits
+the one permission decision, `can(actor, action, resource)`
+(`apps/server/src/rest/can.ts`): routes, the approval decide path and the
+host capability all ask it, and it is the file a later change (roles,
+departments) extends. The host capability (`bash_host` and other tools that
+run on the server's own machine) belongs to the account's bots today; the
+act consults it through `openMind`'s `authz.hostAccess`, and a refusal comes
+back to the bot before any approval card exists. The WebSocket accepts
 only upgrades with a valid session (`apps/server/src/main.ts`); a link
 without one is refused at the handshake.
 
