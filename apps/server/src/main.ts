@@ -126,7 +126,7 @@ if (isMain) {
   const host = process.env.HOST === "" ? undefined : process.env.HOST;
   const stack = await buildStack();
   const ready = () =>
-    console.log(`ultiv server listening on ${reachableUrls(stack.http, host).join("  ")}`);
+    console.log(`spreissen server listening on ${reachableUrls(stack.http, host).join("  ")}`);
   if (host === undefined) stack.http.listen(port, ready);
   else stack.http.listen(port, host, ready);
   for (const signal of ["SIGINT", "SIGTERM"] as const) {

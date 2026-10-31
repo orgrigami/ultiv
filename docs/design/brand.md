@@ -7,15 +7,15 @@ The live UI colors are tokens in `apps/web/src/index.css`.
 
 ## Name
 
-**Ultiv**, written as the lowercase wordmark **ultiv** beside the mark. We
-looked for a clearly better name and didn't find one: the warm, short
-candidates we liked were already taken by AI-agent or consumer brands, and
-"Ultiv" has no close clash. The rebrand is the identity, not the name.
+**Spreissen**, written as the lowercase wordmark **spreissen** beside the
+mark. It replaced the earlier working name on 2026-10-31. The wordmark is set
+in the UI font at the same size and weight as before; it is longer, so the
+sidebar lockup gives it the room.
 
 ## Mark
 
-A soft amber gumdrop with two eyes and a sprout on top (the "cultivate" in
-Ultiv: you grow a crew of bots). It is drawn from one path set on a 64×64
+A soft amber gumdrop with two eyes and a sprout on top: a small growing
+thing, like a crew of bots that gets more useful as it learns. It is drawn from one path set on a 64×64
 grid (`MARK` in `brand.ts`) and used three ways:
 
 | Use                       | Where                                                                      | How                                                                                                        |
@@ -56,7 +56,7 @@ motion.
 
 ## Voice
 
-Ultiv talks like a calm, capable colleague who keeps you posted. Say what
+Spreissen talks like a calm, capable colleague who keeps you posted. Say what
 happened and what you can do next, in plain words and short sentences: "Nova
 finished the trip notes", "Atlas wants to run bash", "Couldn't reach the
 server. Retrying…". Name the bot, not the system. Lead with the outcome,

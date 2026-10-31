@@ -101,7 +101,7 @@ mailbox event and escalation, stamped with the acting profile). Push
 notifications are minimal by design: event kind and bot name, never your
 message text.
 
-Under the hood, for orientation: Ultiv is an effect-first pnpm monorepo.
+Under the hood, for orientation: Spreissen is an effect-first pnpm monorepo.
 
 - The kernel (`@ultiv/core`) holds shared errors and the runtime door.
 - The extension platform (`@ultiv/ext`) holds tools, connectors, plugins,

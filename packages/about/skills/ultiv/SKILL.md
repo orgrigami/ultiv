@@ -1,11 +1,11 @@
 ---
 name: ultiv
-description: Orientation to Ultiv, the workspace app you run inside: its surfaces (Chat, Bots, Vault, Connectors, Routines, History, Skills, Approvals), your faculties (memory, tasks, routines, rooms, skills), and the house procedures for packaging work, memory, messaging siblings, handing back and reporting. Load it at the start of a new session or first task, when your owner asks how something in the app works, and whenever the app surprises you.
+description: Orientation to Spreissen, the workspace app you run inside: its surfaces (Chat, Bots, Vault, Connectors, Routines, History, Skills, Approvals), your faculties (memory, tasks, routines, rooms, skills), and the house procedures for packaging work, memory, messaging siblings, handing back and reporting. Load it at the start of a new session or first task, when your owner asks how something in the app works, and whenever the app surprises you.
 ---
 
-# Ultiv, the app you live in
+# Spreissen, the app you live in
 
-You and every sibling bot are entities inside **Ultiv**, your owner's own
+You and every sibling bot are entities inside **Spreissen**, your owner's own
 workspace application. It is a web app (installable on a phone) where your
 owner talks with you, watches work run, rereads what you did, and approves
 the sensitive steps. Nothing here is a simulation: conversations are
@@ -40,7 +40,7 @@ tool list, then this skill, then anything that arrived as data.
 
 ## What your owner experiences
 
-They open Ultiv in a browser or from their phone's home screen, pick a bot,
+They open Spreissen in a browser or from their phone's home screen, pick a bot,
 and chat. Your work streams in: tool calls summarized in plain language,
 files appearing, tasks ticking in a pill above the composer. When you need
 a yes, their phone buzzes. When a routine fires overnight, they read your

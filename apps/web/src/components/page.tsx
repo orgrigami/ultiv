@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { pageTitle } from "@/lib/brand";
 
-/** Sets the tab's title ("Crew · Ultiv") while a screen is open. */
+/** Sets the tab's title ("Crew · Spreissen") while a screen is open. */
 export function useDocumentTitle(screen: string | undefined): void {
   useEffect(() => {
     document.title = pageTitle(screen);

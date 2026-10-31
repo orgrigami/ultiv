@@ -90,7 +90,7 @@ describe("skill tools", () => {
       origin: "self",
     }));
     const rendered = renderSkills(rows);
-    expect(rendered).toContain("You live in Ultiv");
+    expect(rendered).toContain("You live in Spreissen");
     expect(rendered).toContain("…and 4 more");
     expect(renderSkills([])).toBe("");
     const disabled = renderSkills([

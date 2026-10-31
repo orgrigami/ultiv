@@ -23,7 +23,7 @@ const escalationConfigured = (): boolean =>
   process.env.ESCALATION_EMAIL !== undefined;
 
 const sendEmail = async (event: AuditEvent): Promise<void> => {
-  const subject = `[ultiv] ${event.name}${event.profile !== null ? ` (${event.profile})` : ""}`;
+  const subject = `[spreissen] ${event.name}${event.profile !== null ? ` (${event.profile})` : ""}`;
   const body = [
     `A Routine escalation fired at ${new Date(event.at).toISOString()}.`,
     "",

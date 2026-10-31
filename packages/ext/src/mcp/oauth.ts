@@ -117,7 +117,7 @@ export const makeOAuthProvider = (options: ProviderOptions): OAuthClientProvider
   };
   options.onSecretForms(tokenForms(store.read(owner, id).tokens));
   const metadata: OAuthClientMetadata = {
-    client_name: "Ultiv",
+    client_name: "Spreissen",
     redirect_uris: [options.redirectUrl],
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],

@@ -7,9 +7,9 @@
 
 export const BRAND = {
   /** In sentences and titles. */
-  name: "Ultiv",
+  name: "Spreissen",
   /** The lowercase wordmark beside the mark. */
-  wordmark: "ultiv",
+  wordmark: "spreissen",
   tagline: "Your bots, on your own server.",
   /** The manifest and store-style description: what it is, plainly. */
   description: "Chat with your bots, follow their work and approve what needs you.",
@@ -23,15 +23,15 @@ export const BRAND = {
   },
 } as const;
 
-/** "Past chats · Ultiv": every screen's document title. */
+/** "Past chats · Spreissen": every screen's document title. */
 export function pageTitle(screen?: string | undefined): string {
   const trimmed = screen?.trim() ?? "";
   return trimmed === "" ? BRAND.name : `${trimmed} · ${BRAND.name}`;
 }
 
 /**
- * The mark: a soft amber gumdrop with two eyes and a sprout (the "cultivate"
- * in Ultiv), on a 64×64 grid. The same geometry draws the in-app mark, the
+ * The mark: a soft amber gumdrop with two eyes and a sprout: a small
+ * growing thing, on a 64×64 grid. The same geometry draws the in-app mark, the
  * favicon and the install icons.
  */
 export const MARK = {

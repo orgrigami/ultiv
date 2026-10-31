@@ -1,5 +1,5 @@
 /**
- * An empty screen with a face: the bot's own character (or the Ultiv mark
+ * An empty screen with a face: the bot's own character (or the Spreissen mark
  * when the screen is the whole crew's), a short title and one plain line
  * on how something gets here. Still unless hovered; nothing loops.
  */

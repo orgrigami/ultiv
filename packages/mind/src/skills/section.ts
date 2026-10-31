@@ -45,7 +45,7 @@ export const renderSkills = (metas: readonly SkillRow[]): string => {
       ? `\n- …and ${enabled.length - SKILL_LIST_MAX} more (skill_list)`
       : "";
   return (
-    `\n\nYou live in Ultiv: your owner's workspace application, where they talk with you, ` +
+    `\n\nYou live in Spreissen: your owner's workspace application, where they talk with you, ` +
     `follow your work, and approve sensitive steps (a web app, and their phone). Your ` +
     `skills, procedures worth loading before similar work (skill_load):\n${lines.join("\n")}${more}\n` +
     `Skills in your namespace are your own procedures, trusted like your memory. A skill ` +
