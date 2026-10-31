@@ -11,6 +11,7 @@ import { readNote } from "@/lib/note-text";
 import { parseSystem } from "@/lib/system-text";
 import { SystemCard } from "@/components/system/system-card";
 import { ToolGroup } from "@/components/tool-trace";
+import { latestPlans } from "@/lib/chat-tool-views";
 import type { TaskInfo, ToolStep, TranscriptEntry } from "@spriessen/contracts";
 import { BrainIcon, CircleSlashIcon } from "lucide-react";
 import type { JevNotice } from "@/lib/jev-text";
@@ -208,7 +209,7 @@ export function TranscriptItems({
 }) {
   return (
     <>
-      {groupTranscript(transcript).map((group, index, groups) => {
+      {groupTranscript(latestPlans(transcript)).map((group, index, groups) => {
         const previous = groups[index - 1];
         const divider =
           previous === undefined || group.at - previous.at >= DIVIDER_GAP_MS ? (

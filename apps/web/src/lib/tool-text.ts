@@ -4,7 +4,13 @@
  * names and payloads stay untouched; this is a presentation lens (approval-text.ts
  * words the approval cards the same way).
  */
-import type { ToolStep } from "@spriessen/contracts";
+import {
+  CHECKLIST_TOOL,
+  GRAPH_TOOL,
+  type ChecklistDetails,
+  type ToolStep,
+} from "@spriessen/contracts";
+import { checklistView, graphView } from "./chat-tool-views.ts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
 import { learnedOf, type LearnedRef } from "./learned.ts";
 
@@ -110,6 +116,10 @@ export type ToolView = {
   readonly structured?: ToolBodyData | undefined;
   /** A skill this call learned on its own, for the one-tap undo (skill_learn). */
   readonly learned?: LearnedRef | undefined;
+  /** The plan a checklist call settled on: drawn as the plan card. */
+  readonly checklist?: ChecklistDetails | undefined;
+  /** The Mermaid source a graph call drew, redrawn in the browser. */
+  readonly diagram?: { readonly source: string; readonly title: string | null } | undefined;
 };
 
 export type ToolPresentation =
@@ -772,6 +782,10 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: artifactView(step, "Read a file", "Reading a file…") };
     case "bot_create":
       return { kind: "human", view: botCreateView(step) };
+    case CHECKLIST_TOOL:
+      return { kind: "human", view: checklistView(step) };
+    case GRAPH_TOOL:
+      return { kind: "human", view: graphView(step) };
     default: {
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {

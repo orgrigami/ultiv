@@ -24,6 +24,8 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import type { ToolStep } from "@spriessen/contracts";
+import { ChecklistCard } from "@/components/checklist-card";
+import { Diagram } from "@/components/diagram";
 import { FileCard } from "@/components/file-card";
 import { ErrorNote, FoldText, Receipts, ToolBody, TypedOutput } from "@/components/tool-bodies";
 import { Mark } from "@/components/state-mark";
@@ -234,6 +236,10 @@ export const ToolTrace = memo(function ToolTrace({
     return notice === undefined ? null : <JevLine notice={notice} />;
   }
   const human = presentation.view;
+  // A settled plan is its own card; earlier updates of it are folded away upstream.
+  if (human.checklist !== undefined) {
+    return <ChecklistCard list={human.checklist} className="my-1.5 sm:ml-[3.75rem]" />;
+  }
   const title = step.status === "running" ? human.live : human.done;
   const error = errorTextOf(step);
   // The output minus the error line above it: one sentence never shows twice.
@@ -259,6 +265,13 @@ export const ToolTrace = memo(function ToolTrace({
       {human?.learned !== undefined && <LearnedUndo learned={human.learned} />}
       {human?.artifact !== undefined && (
         <FileCard file={human.artifact} className="mt-1 mb-1 ml-[3.75rem] max-w-prose" />
+      )}
+      {human.diagram !== undefined && (
+        <Diagram
+          source={human.diagram.source}
+          title={human.diagram.title}
+          className="mt-1 mb-1.5 max-w-prose sm:ml-[3.75rem]"
+        />
       )}
       <TraceCollapsibleContent>
         <div className="flex flex-col gap-2">
