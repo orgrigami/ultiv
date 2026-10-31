@@ -3,6 +3,45 @@
 How the server keeps files, owners, webhook tokens and the host shell apart. Each section
 names the one helper that enforces it, so a later change has one place to edit.
 
+## Sign-in (passcode and sessions)
+
+Until a passcode is set, only an unproxied loopback request may use the app
+(one-time bootstrap: setting the first passcode happens at the machine). A
+proxied request — tailscale serve, any reverse proxy — is never loopback
+(`x-forwarded-*` present), so the LAN and the tailnet get the
+sign-in-required answer from the start. After a passcode exists, every
+request needs a session, loopback included.
+
+- The gate is one function, `authorize` in `apps/server/src/auth/guard.ts`,
+  and it runs before any route: one refusal shape (`401 {"error": "sign in
+  required"}`) for everything, so a probe learns nothing per route.
+- The passcode is stored only as a slow hash: scrypt (N=16384, r=8, p=1)
+  with a random salt, in `AUTH_DIR/auth.json` (default `var/auth`, 0600).
+  Nothing else about it is stored; a wrong passcode never names which part
+  was wrong.
+- Sign-in is throttled: the first wrong attempts answer at once; from the
+  fifth, each attempt locks for a doubling wait capped at 15 minutes. The
+  right passcode during a lock is refused like any other (`429`, with
+  `Retry-After`).
+- A signed-in session is a random 32-byte id in an HttpOnly, SameSite=Strict
+  cookie (`spriessen_session`), Secure when the request came over HTTPS.
+  Sessions expire after 30 idle days (sliding: use refreshes), live in
+  `AUTH_DIR/sessions.json`, and are capped at 100 (the oldest falls out).
+- As a second fence against cross-site requests (CORS stays `*` by
+  decision): state-changing `/api` requests never arrive as a cross-site
+  form — the form content types (`application/x-www-form-urlencoded`,
+  `multipart/form-data`, `text/plain`) are refused with 415. JSON and
+  bodyless posts pass; raw-byte artifact uploads are exempt.
+- Routes that answer without a session: `GET /api/health`, the webhook
+  ingress `POST /hooks/:id` (its token is the auth), and `/api/auth/*`
+  (status, sign-in, sign-out, setup, change). The first-time setup
+  additionally requires the unproxied loopback.
+- Changing the passcode needs the current one; sessions survive a change.
+  Forgotten passcodes: the recovery command (see README) resets the passcode
+  and clears every session from the host.
+
+Tests: `apps/server/src/auth/auth.test.ts` and `store.test.ts`.
+
 ## File paths stay inside their folder
 
 Every store that turns a request or tool argument into a file path goes

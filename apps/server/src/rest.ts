@@ -9,6 +9,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { MindService } from "@spriessen/mind";
 import { isPathEscape } from "@spriessen/ext";
 import type { CronScheduler } from "./cron.ts";
+import { authorize, contentTypeAllowed } from "./auth/guard.ts";
+import { handleAuthRoutes } from "./auth/routes.ts";
+import type { AuthStore } from "./auth/store.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
 import { ownedProfileIds, ownsProfile } from "./rest/owner-scope.ts";
@@ -37,6 +40,11 @@ export interface RestDeps {
   readonly mind: MindService;
   readonly scheduler: CronScheduler;
   readonly push?: PushService;
+  /**
+   * The sign-in gate; absent only in stacks built without auth (old tests).
+   * The real server always provides it.
+   */
+  readonly auth?: AuthStore;
 }
 
 const readBody = async (req: IncomingMessage): Promise<Buffer> => {
@@ -64,26 +72,36 @@ export const createRestHandler = (deps: RestDeps) => {
       res.end(JSON.stringify(body));
     };
     if (req.method === "OPTIONS") {
+      // CORS preflight: browsers send it without cookies, so it stays open.
       res.writeHead(204, headers);
       res.end();
       return;
     }
-    const args: RouteArgs = {
-      mind: deps.mind,
-      scheduler: deps.scheduler,
-      ...(deps.push !== undefined ? { push: deps.push } : {}),
-      req,
-      res,
-      url,
-      owner: ownerOf(principalFromRequest(req)),
-      path: url.pathname,
-      json,
-      readJson,
-      readBody,
-    };
-    // A path that would leave its folder is the caller's mistake (400), and
-    // its message names only the attempted path, never a file's contents.
-    void route(args).catch((error) =>
+    void (async () => {
+      // The gate runs before any route: one refusal shape for everything.
+      if (deps.auth !== undefined) {
+        const access = authorize(req, deps.auth);
+        if (access.kind === "refuse") return json(access.status, access.body);
+        if (!contentTypeAllowed(req.method ?? "GET", url.pathname, req)) {
+          return json(415, { error: "send JSON (content-type: application/json)" });
+        }
+        if (await handleAuthRoutes(req, res, deps.auth)) return;
+      }
+      const args: RouteArgs = {
+        mind: deps.mind,
+        scheduler: deps.scheduler,
+        ...(deps.push !== undefined ? { push: deps.push } : {}),
+        req,
+        res,
+        url,
+        owner: ownerOf(principalFromRequest(req)),
+        path: url.pathname,
+        json,
+        readJson,
+        readBody,
+      };
+      await route(args);
+    })().catch((error) =>
       isPathEscape(error)
         ? json(400, { error: error.message })
         : json(500, { error: String(error).slice(0, 300) }),

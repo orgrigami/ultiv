@@ -21,6 +21,7 @@ import { startPush } from "./push/index.ts";
 import { openMind, sealWebhookTokens } from "@spriessen/mind";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalFromRequest, type Principal } from "./identity.ts";
+import { AuthStore } from "./auth/store.ts";
 import { createRestHandler } from "./rest.ts";
 import { serveSession } from "./session.ts";
 
@@ -94,7 +95,7 @@ export async function buildStack(options?: {
   });
   serveSession(host, mind);
 
-  const http = createServer(createRestHandler({ mind, scheduler, push }));
+  const http = createServer(createRestHandler({ mind, scheduler, push, auth: new AuthStore() }));
   const wss = new WebSocketServer({ server: http });
   // The upgrade request IS the credential for now: x-spriessen-user scopes the
   // link's principal (see identity.ts for the seam a real IdP replaces).

@@ -8,17 +8,17 @@ the map of trust.
 
 ## 1. Who is trusted
 
-| Actor | Trust | Boundary they must not cross |
-| --- | --- | --- |
-| The owner (signed-in person) | Fully trusted. One account; sign-in is the passcode (and passkeys). | Nobody: the owner is the top of the model. |
-| Bots (profiles) | Semi-trusted: they run model-chosen tool calls, gated by the approval mode (`policies.approvalMode`) with the owner as the floor. | Each other's memory, files, vault, chats; the host shell (without a card); the owner's credentials. |
-| Tasks (background bot turns) | Same trust as their bot: a task runs AS its bot (adopted scope, kind `task`). | Same as bots, plus they never ask the model outside their own conversation. |
-| Other bots, via the mailbox | Semi-trusted senders: messages arrive only through the room tunnel with rate, budget, hop and lineage caps (`packages/mind/src/mailbox/`). | Direct access to the recipient: a message is data on the recipient's thread, never a tool call. |
-| Webhook callers | Untrusted. Authenticated only by the show-once token (stored hashed); size, rate and schema gates run before the ack. | Anything but delivering an input into the one session the hook points at. |
-| Cron and sensor triggers | Local (the server fires them itself), but their prompts were written earlier, possibly by a bot. | Same as bots; delivery is admission-only (`deliverToSession`). |
-| MCP servers | Chosen by the owner, otherwise untrusted: an HTTP/SSE server sees only the tool calls the bot makes to it; a stdio server is a local process (see section 3). | The vault (they receive vault item references, never secret bytes, by construction). |
-| Web content (fetched pages, PDF/DOCX extracts, tool results) | Untrusted data. The memory write guard stamps it non-owner and refuses instructions from it; document readers are capped and dependency-free. | Becoming instructions: nothing a fetched page says is followed, only read. |
-| The browser client | The owner's own device. It holds a session cookie; it can do everything the owner can, no more. | Other owners' data (single-account today; Phase 3 adds roles). |
+| Actor                                                        | Trust                                                                                                                                                         | Boundary they must not cross                                                                        |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| The owner (signed-in person)                                 | Fully trusted. One account; sign-in is the passcode (and passkeys).                                                                                           | Nobody: the owner is the top of the model.                                                          |
+| Bots (profiles)                                              | Semi-trusted: they run model-chosen tool calls, gated by the approval mode (`policies.approvalMode`) with the owner as the floor.                             | Each other's memory, files, vault, chats; the host shell (without a card); the owner's credentials. |
+| Tasks (background bot turns)                                 | Same trust as their bot: a task runs AS its bot (adopted scope, kind `task`).                                                                                 | Same as bots, plus they never ask the model outside their own conversation.                         |
+| Other bots, via the mailbox                                  | Semi-trusted senders: messages arrive only through the room tunnel with rate, budget, hop and lineage caps (`packages/mind/src/mailbox/`).                    | Direct access to the recipient: a message is data on the recipient's thread, never a tool call.     |
+| Webhook callers                                              | Untrusted. Authenticated only by the show-once token (stored hashed); size, rate and schema gates run before the ack.                                         | Anything but delivering an input into the one session the hook points at.                           |
+| Cron and sensor triggers                                     | Local (the server fires them itself), but their prompts were written earlier, possibly by a bot.                                                              | Same as bots; delivery is admission-only (`deliverToSession`).                                      |
+| MCP servers                                                  | Chosen by the owner, otherwise untrusted: an HTTP/SSE server sees only the tool calls the bot makes to it; a stdio server is a local process (see section 3). | The vault (they receive vault item references, never secret bytes, by construction).                |
+| Web content (fetched pages, PDF/DOCX extracts, tool results) | Untrusted data. The memory write guard stamps it non-owner and refuses instructions from it; document readers are capped and dependency-free.                 | Becoming instructions: nothing a fetched page says is followed, only read.                          |
+| The browser client                                           | The owner's own device. It holds a session cookie; it can do everything the owner can, no more.                                                               | Other owners' data (single-account today; Phase 3 adds roles).                                      |
 
 ## 2. What each actor can reach
 
