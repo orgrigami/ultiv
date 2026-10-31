@@ -5,7 +5,7 @@
  * Failures to persist throw loudly here: unlike the audit, auth must gate.
  */
 import { randomBytes, scryptSync, timingSafeEqual, type BinaryLike } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   LOCK_BASE_MS,
@@ -94,17 +94,30 @@ const writeJson = (path: string, value: unknown): void => {
 
 export type AttemptOutcome = "ok" | "wrong" | "locked";
 
+const mtimeOf = (path: string): number => {
+  try {
+    return statSync(path).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
+
 export class AuthStore {
   private file: AuthFile = emptyAuth();
   private sessions = new Map<string, SessionRow>();
-  private loaded = false;
+  private seen = { auth: -1, sessions: -1 };
   private readonly authPath = join(authDir(), "auth.json");
   private readonly sessionsPath = join(authDir(), "sessions.json");
 
   private load(): void {
-    if (this.loaded) return;
-    this.loaded = true;
+    // Re-read when the files changed on disk, so the recovery command (a
+    // separate process) takes effect on a running server without a restart.
+    const auth = mtimeOf(this.authPath);
+    const sessions = mtimeOf(this.sessionsPath);
+    if (auth === this.seen.auth && sessions === this.seen.sessions) return;
+    this.seen = { auth, sessions };
     this.file = { ...emptyAuth(), ...readJson<Partial<AuthFile>>(this.authPath, {}) };
+    this.sessions = new Map();
     const rows = readJson<Record<string, SessionRow>>(this.sessionsPath, {});
     const cutoff = Date.now() - SESSION_TTL_MS;
     for (const [id, row] of Object.entries(rows)) {
