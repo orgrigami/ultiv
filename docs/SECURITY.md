@@ -6,13 +6,17 @@ names the one helper that enforces it, so a later change has one place to edit.
 ## Sign-in (passcode and sessions)
 
 Until a passcode is set, the only thing anyone can do is the one-time
-"set passcode" step, and only from an unproxied loopback request (setting
-the first passcode happens at the machine; it signs that browser in). The
-rest of the API and every socket answer the sign-in refusal, loopback
-included. A
-proxied request — tailscale serve, any reverse proxy — is never loopback
-(`x-forwarded-*` present), so the LAN and the tailnet get the
-sign-in-required answer from the start. After a passcode exists, every
+"set passcode" step, and only when the client itself is on the machine
+(setting the first passcode happens at the machine; it signs that browser
+in). The rest of the API and every socket answer the sign-in refusal,
+loopback included. The loopback test (`isLoopback` in
+`apps/server/src/auth/http.ts`) looks at the client, not the proxy: the web
+dev/preview server forwards the client address (`xfwd` in
+`apps/web/dev-proxy.ts`), so a phone reaching the app through it is not
+loopback; a forwarded request counts only when every `x-forwarded-for` hop
+is loopback, and a proxy that hides the client (`forwarded`, `x-real-ip`,
+or `x-forwarded-proto` alone) never counts. So the LAN and
+the tailnet get the sign-in-required answer from the start. After a passcode exists, every
 request needs a session, loopback included.
 
 - The gate is one function, `authorize` in `apps/server/src/auth/guard.ts`,

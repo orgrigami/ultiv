@@ -1,6 +1,6 @@
 /**
  * Request helpers the auth gate and routes share: cookie parsing, the
- * loopback test (a proxied request is never loopback), the HTTPS test, and a
+ * loopback test (the client, not just the peer, must be on this machine), the HTTPS test, and a
  * capped JSON body reader for the pre-auth routes.
  */
 import type { IncomingMessage } from "node:http";
@@ -34,19 +34,26 @@ export const serializeCookie = (
 /** The direct peer address, before any proxy header is considered. */
 const peerOf = (req: IncomingMessage): string => req.socket.remoteAddress ?? "";
 
+const headerText = (value: string | string[] | undefined): string | undefined =>
+  value === undefined ? undefined : Array.isArray(value) ? value.join(",") : value;
+
 /**
- * True only for an UNPROXIED loopback connection. Tailscale serve (and any
- * reverse proxy) connects from 127.0.0.1 with `x-forwarded-*` set; treating
- * those as loopback would let the LAN set the first passcode, so a proxied
- * request is never the bootstrap.
+ * True only when the CLIENT is on this machine. A loopback peer is not
+ * enough: tailscale serve, the web dev proxy and any reverse proxy connect
+ * from 127.0.0.1 on behalf of someone else. So a forwarded request counts
+ * only when every hop it names in `x-forwarded-for` is loopback too (the
+ * host's own browser through the dev proxy); a proxy that hides the client
+ * (`forwarded`, `x-real-ip`, or only `x-forwarded-proto`) never counts.
  */
 export const isLoopback = (req: IncomingMessage): boolean => {
   if (!LOOPBACK.has(peerOf(req))) return false;
-  return (
-    req.headers["x-forwarded-for"] === undefined &&
-    req.headers["x-forwarded-proto"] === undefined &&
-    req.headers.forwarded === undefined
-  );
+  if (req.headers.forwarded !== undefined) return false;
+  const realIp = headerText(req.headers["x-real-ip"]);
+  if (realIp !== undefined && !LOOPBACK.has(realIp.trim())) return false;
+  const chain = headerText(req.headers["x-forwarded-for"]);
+  if (chain === undefined) return req.headers["x-forwarded-proto"] === undefined;
+  const hops = chain.split(",").map((hop) => hop.trim());
+  return hops.every((hop) => LOOPBACK.has(hop));
 };
 
 /** Served over HTTPS: a TLS socket, or a proxy that says the client used it. */

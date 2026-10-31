@@ -7,7 +7,8 @@ How the client learns about changes without polling.
 A plain WebSocket at `/push`, cookie-authenticated by the same gate as every
 other surface, carries COARSE change signals: small JSON frames like
 `{"kind":"tasks","at":…}` that say a slice changed, never what changed. The
-client refetches that slice over the REST it already uses, which stays the
+client refetches that slice over the REST it already uses (the web
+dev/preview proxy carries `/push` beside `/chord`, see `apps/web/dev-proxy.ts`), which stays the
 only source of truth. Nothing on this socket is a replicated chord object
 (chord 1.4.0's attach desync, see AGENTS.md, is exactly why); it is a dumb
 broadcast with an authenticated handshake and a backoff reconnect.

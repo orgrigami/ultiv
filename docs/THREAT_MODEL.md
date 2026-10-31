@@ -92,9 +92,10 @@ the map of trust.
   same-origin policy would tighten this; not planned.
 - **The loopback bootstrap**: before a passcode exists, a loopback request
   can set it (and nothing else). A second local user or process on the
-  machine could set the passcode first. Proxied requests (tailnet serve) are never treated as
-  loopback (`x-forwarded-*` present), so the LAN path is the sign-in-required
-  answer.
+  machine could set the passcode first. A proxied request counts as
+  loopback only when every forwarded hop is loopback (the web dev proxy
+  forwards the client address), so the LAN and tailnet paths get the
+  sign-in-required answer.
 - **Recovery is physical**: anyone who can run a command on the host can
   reset the passcode (`vp run --filter @spriessen/server recover:access`) and
   read everything. The host is the trust root; this is the same power
