@@ -81,6 +81,11 @@ Because it isn't gated, the refusals are the safety:
   output or MCP tool result, and any address, link, handle or long number
   from it that the owner didn't type themselves. If an outside tool ran but
   its result can't be read back, the save is refused (fails closed);
+- a compaction summary or handoff note is never the owner's text: it isn't
+  read as the turn's input (the real input behind it is), and what it says
+  counts as outside content for the two checks above. Which messages a
+  summary drew on can't be told reliably, so every summary counts, whether
+  or not the history held outside content;
 - nothing about approvals or permissions (approval modes, YOLO, always-allow,
   allowlists, "without asking"): those live in the owner's settings only;
 - no secrets or vault values: key shapes, cards, IDs, codes, and any
@@ -104,7 +109,8 @@ No replay or evaluation runs on a learned save (`skill_evolve` is the
 separate, explicit loop). Tests: `packages/mind/src/skills/learn.test.ts`
 (including the planted-instruction case),
 `packages/mind/src/skills/write-guard.test.ts`,
-`packages/mind/src/skills/task-outside.test.ts` and
+`packages/mind/src/skills/task-outside.test.ts`,
+`packages/mind/src/skills/compaction.test.ts` and
 `apps/server/src/rest/learn-switch.test.ts`.
 
 ## Evolution

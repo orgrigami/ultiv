@@ -83,6 +83,12 @@ export interface TurnContext {
   readonly outside: readonly string[];
   /** Vault tool results this turn, as text. */
   readonly vault: readonly string[];
+  /**
+   * Derived text this turn: compaction summaries and handoff notes. Never
+   * the owner's words; checked like outside content (a summary may quote
+   * pages or mail), but not counted as an outside call.
+   */
+  readonly derived?: readonly string[];
   /** Outside-content tools that ran this turn per the audit trail. */
   readonly outsideCalls: number;
   /** Skill saves (skill_learn or skill_write) already made this turn. */
@@ -103,6 +109,7 @@ export interface TurnContext {
 export const turnIsOutside = (turn: TurnContext): boolean =>
   (turn.origin !== "owner" && turn.origin !== "cron") ||
   turn.outside.length > 0 ||
+  (turn.derived?.length ?? 0) > 0 ||
   turn.outsideCalls > 0 ||
   turn.outsideTask === true;
 
@@ -125,7 +132,11 @@ const textOf = (content: unknown): string =>
           .join("\n")
       : "";
 
+/** Transcript entries whose user-role text is derived, not typed by anyone. */
+const DERIVED_KINDS: readonly string[] = ["pi.compaction", "pi.reset"];
+
 /** This turn as learning sees it: its input, and what outside content it read. */
+
 export const turnContext = async (
   deps: {
     readonly converse: ConverseService;
@@ -145,13 +156,15 @@ export const turnContext = async (
           () => true,
         );
   const entries = await Effect.runPromise(deps.converse.entriesOf(conversationId, 60)).then(
-    (records) => records as readonly { readonly model?: readonly Message[] }[],
+    (records) =>
+      records as readonly { readonly kind?: string; readonly model?: readonly Message[] }[],
     () => [] as const,
   );
   const isOutside = (name: string): boolean =>
     LEARN_UNTRUSTED_TOOLS.includes(name) || (deps.untrustedTool?.(name) ?? false);
   const outside: string[] = [];
   const vault: string[] = [];
+  const derived: string[] = [];
   const callNames = new Map<string, string>();
   let origin: Origin = "unknown";
   let ownerInput = "";
@@ -159,6 +172,13 @@ export const turnContext = async (
   // Newest first: every tool result until this turn's input, then the input.
   scan: for (const entry of entries) {
     const messages = entry.model ?? [];
+    // A compaction summary or handoff note is a user-role message, but it
+    // isn't the turn's input: it's derived from history that may hold
+    // outside content. Keep it as derived text and look on for the input.
+    if (DERIVED_KINDS.includes(entry.kind ?? "")) {
+      derived.push(messages.map((message) => textOf(message.content)).join("\n"));
+      continue;
+    }
     for (const message of messages) {
       if (message.role !== "assistant" || !Array.isArray(message.content)) continue;
       for (const block of message.content as { type?: string; id?: string; name?: string }[]) {
@@ -191,6 +211,7 @@ export const turnContext = async (
     inputAt,
     outside,
     vault,
+    derived,
     outsideCalls: events.filter((event) => isOutside(String(event.name))).length,
     learned: events.filter(
       (event) => (event.name === SKILL_LEARN || event.name === SKILL_WRITE) && event.ok,
@@ -319,10 +340,11 @@ const contentRefusal = (body: string, turn: TurnContext): string | null => {
     sharesRun(body, turn.vault, VAULT_RUN)
   )
     return "refused: the text holds values from the vault; skills never carry them";
-  if (sharesRun(body, turn.outside, COPY_RUN))
+  const unowned = [...turn.outside, ...(turn.derived ?? [])];
+  if (sharesRun(body, unowned, COPY_RUN))
     return "refused: the text copies outside content from this turn (a page, document, mail or file); write the procedure in your own words, from what your owner asked";
   const ownerTokens = tokensOf(turn.ownerInput);
-  const outsideTokens = new Set(turn.outside.flatMap((text) => [...tokensOf(text)]));
+  const outsideTokens = new Set(unowned.flatMap((text) => [...tokensOf(text)]));
   const planted = [...tokensOf(body)].find(
     (token) => outsideTokens.has(token) && !ownerTokens.has(token),
   );
