@@ -10,6 +10,7 @@ import {
 import { projectTranscript } from "@spriessen/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
+import { canSeeTask } from "./can.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 import { activitySteps, type ActivityStep } from "./task-steps.ts";
 
@@ -28,12 +29,8 @@ function liveOf(view: unknown): LiveState | undefined {
  * binding stay hidden (fail safe), and any foreign task 404s without
  * disclosing that it exists.
  */
-const maySee = (
-  owner: string,
-  task: { owner: string; bot?: { owner: string; profileId: string } },
-): boolean =>
-  owner !== AGENT_OWNER &&
-  (task.owner === owner || (task.owner === AGENT_OWNER && task.bot?.owner === owner));
+const maySee = (owner: string, task: Parameters<typeof canSeeTask>[1]): boolean =>
+  canSeeTask(owner, task);
 
 export async function taskRoutes(
   args: RouteArgs,

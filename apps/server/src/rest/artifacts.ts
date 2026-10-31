@@ -180,14 +180,10 @@ export async function artifactRoutes(
     return true;
   }
   if (path === "/api/artifacts" && method === "DELETE") {
-    if (args.owner === "guest") {
-      json(403, { error: "clearing the workspace requires an identified user" });
-      return true;
-    }
-    // Only the caller's own legacy-root artifacts; other owners' and the
-    // ownerless legacy ones stay.
+    // Only the caller's own legacy-root artifacts; ownerless legacy ones and
+    // anything not the caller's stay.
     const root = artifactsDir();
-    const mine = listArtifacts(root).filter((info) => info.owner === args.owner);
+    const mine = listArtifacts(root).filter((info) => ownedBy(info, args.owner));
     const cleared = mine.filter((info) => deleteArtifact(root, info.id)).length;
     json(200, { ok: true, cleared });
     return true;

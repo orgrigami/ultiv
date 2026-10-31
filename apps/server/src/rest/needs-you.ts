@@ -13,6 +13,7 @@ import { Effect } from "effect";
 import type { AuditEvent, MemoryProposal } from "@spriessen/contracts";
 import { ProposalsDoc, profileKey } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
+import { can } from "./can.ts";
 import { visibleProposals } from "./memory-v2.ts";
 import { sessionOfConversation } from "../push/events.ts";
 
@@ -69,7 +70,12 @@ async function ownParked(args: RouteArgs): Promise<ParkedRow[]> {
   const rows: ParkedRow[] = [];
   for (const task of await Effect.runPromise(args.mind.converse.parked())) {
     const scope = args.mind.profiles.scopeOf(task.conversationId);
-    if (scope?.owner !== args.owner) continue;
+    if (
+      scope === undefined ||
+      !can(args.owner, "view", { type: "chat", owner: scope.owner, id: task.conversationId })
+    ) {
+      continue;
+    }
     const sessionId = await sessionOfConversation(
       args.mind,
       args.owner,
@@ -118,7 +124,13 @@ export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
   const chats: Record<string, string> = {};
   for (const entry of args.mind.approvals.pendingAll()) {
     const scope = args.mind.profiles.scopeOf(entry.conversationId);
-    if (scope?.owner !== args.owner || chats[entry.conversationId] !== undefined) continue;
+    if (
+      scope === undefined ||
+      !can(args.owner, "view", { type: "chat", owner: scope.owner, id: entry.conversationId }) ||
+      chats[entry.conversationId] !== undefined
+    ) {
+      continue;
+    }
     const sessionId = await sessionOfConversation(
       args.mind,
       args.owner,

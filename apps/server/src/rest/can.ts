@@ -44,3 +44,18 @@ export const can = (actor: string, action: Action, resource: Resource): boolean 
       return actor === resource.owner;
   }
 };
+
+/**
+ * A background task's row is visible to the account its row (or, for
+ * agent-filed rows, its adopted bot) is filed under. The `agent` sentinel
+ * never acts, so a caller naming it sees nothing.
+ */
+export const canSeeTask = (
+  actor: string,
+  task: {
+    readonly owner: string;
+    readonly bot?: { readonly owner: string; readonly profileId: string };
+  },
+): boolean =>
+  actor !== AGENT_OWNER &&
+  (task.owner === actor || (task.owner === AGENT_OWNER && task.bot?.owner === actor));
