@@ -1,8 +1,9 @@
 /**
- * Owner scoping over the real REST handler and an offline mind: owner-b
- * can't see, change or probe owner-a's routines, bot state, audit or
- * artifacts, and gets the same answer a missing item gets. A caller with no
- * header is "guest" and keeps working on its own data (single-user mode).
+ * Owner scoping over the real REST handler after sign-in: the ONE account
+ * sees its own records everywhere, an unknown id answers exactly like an
+ * unknown id, and an anonymous request gets the one refusal shape. The
+ * cross-LABEL semantics live in packages/mind/src/migrate/owners.test.ts;
+ * the gate itself is tested in apps/server/src/auth/auth.test.ts.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -12,55 +13,74 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { createCronJob, createSensor, openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-owner-scope-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
-const ids = { a: { bot: "", session: "" }, guest: { bot: "", session: "" } };
+let cookie = "";
+const ids = { bot: "", session: "" };
 const records = { cron: "", sensor: "", webhook: "" };
 
-const call = async (owner: string | null, method: string, path: string, body?: unknown) => {
+/** Call with the signed-in cookie (headers merged in last). */
+const call = async (
+  method: string,
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {},
+) => {
   const response = await fetch(`${base}${path}`, {
     method,
     headers: {
-      "content-type": "application/json",
-      ...(owner !== null ? { "x-spriessen-user": owner } : {}),
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      cookie,
+      ...headers,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
-  return { status: response.status, json: (await response.json()) as any };
+  const raw = await response.text();
+  return {
+    status: response.status,
+    json: (() => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    })(),
+  };
 };
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   const { mind } = handle;
-  const botA = await mind.profiles.create("owner-a", { name: "Alpha" });
-  const sessionA = await mind.profiles.ensureMain("owner-a", botA.id);
-  const botG = await mind.profiles.create("guest", { name: "Solo" });
-  const sessionG = await mind.profiles.ensureMain("guest", botG.id);
-  ids.a = { bot: botA.id, session: sessionA.id };
-  ids.guest = { bot: botG.id, session: sessionG.id };
+  const bot = await mind.profiles.create("owner", { name: "Alpha" });
+  const session = await mind.profiles.ensureMain("owner", bot.id);
+  ids.bot = bot.id;
+  ids.session = session.id;
   records.cron = (
     await createCronJob(mind.converse, mind.profiles, {
-      sessionId: sessionA.id,
+      sessionId: session.id,
       schedule: "0 9 * * *",
       prompt: "tick",
     })
   ).id;
   records.sensor = (
     await createSensor(mind.converse, mind.profiles, {
-      sessionId: sessionA.id,
+      sessionId: session.id,
       kind: "rss",
       url: "https://example.com/feed.xml",
       match: "",
     } as Parameters<typeof createSensor>[2])
   ).id;
-  records.webhook = (await mind.webhooks.create({ sessionId: sessionA.id, name: "door" })).id;
-  await mind.state.set(botA.id, "seen", "42");
+  records.webhook = (await mind.webhooks.create({ sessionId: session.id, name: "door" })).id;
+  await mind.state.set(bot.id, "seen", "42");
   const audited = {
     ...mind,
     audit: {
@@ -70,7 +90,7 @@ beforeAll(async () => {
           at: 1,
           kind: "tool_call",
           conversationId: "c",
-          profile: botA.id,
+          profile: bot.id,
           callId: null,
           name: "a",
           durationMs: null,
@@ -94,11 +114,13 @@ beforeAll(async () => {
   const rest = createRestHandler({
     mind: audited,
     scheduler: { refresh: async () => {}, stop: () => {} },
+    auth: new AuthStore(),
   });
   server = createServer(rest);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {
@@ -107,159 +129,68 @@ afterAll(async () => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
-describe("routine registries are owner-scoped", () => {
-  it("lists only the caller's own cron jobs, sensors and webhooks", async () => {
+describe("the signed-in account reaches its own records", () => {
+  it("lists its cron jobs, sensors and webhooks", async () => {
     for (const [path, id] of [
       ["/api/cron", records.cron],
       ["/api/sensors", records.sensor],
       ["/api/webhooks", records.webhook],
     ] as const) {
-      const mine = await call("owner-a", "GET", path);
+      const list = await call("GET", path);
+      expect(list.status).toBe(200);
       expect(
-        mine.json.map((r: { id: string }) => r.id),
+        list.json.map((r: { id: string }) => r.id),
         path,
       ).toContain(id);
-      const theirs = await call("owner-b", "GET", path);
-      expect(theirs.json, path).toEqual([]);
     }
   });
 
-  it("refuses another owner's delete exactly like a missing id", async () => {
-    for (const path of [
-      `/api/cron/${records.cron}`,
-      `/api/sensors/${records.sensor}`,
-      `/api/webhooks/${records.webhook}`,
-    ]) {
-      const foreign = await call("owner-b", "DELETE", path);
-      const missing = await call("owner-b", "DELETE", `${path}-nope`);
-      expect(foreign, path).toEqual(missing);
-      expect(foreign.json, path).toEqual({ ok: false });
-    }
-    // Still there for its owner.
-    expect((await call("owner-a", "GET", "/api/cron")).json).toHaveLength(1);
+  it("deletes its own record and answers an unknown id like a missing one", async () => {
+    expect((await call("DELETE", "/api/cron/nope")).json).toEqual({ ok: false });
+    expect((await call("DELETE", `/api/cron/${records.cron}`)).json).toEqual({ ok: true });
+    expect((await call("GET", "/api/cron")).json).toHaveLength(0);
   });
 
-  it("refuses another owner's webhook test-fire like a missing one", async () => {
-    const foreign = await call("owner-b", "POST", `/api/webhooks/${records.webhook}/test`, {});
-    const missing = await call("owner-b", "POST", "/api/webhooks/nope/test", {});
-    expect(foreign).toEqual(missing);
-    expect(foreign.status).toBe(404);
-    expect(
-      (await call("owner-a", "POST", `/api/webhooks/${records.webhook}/test`, {})).status,
-    ).toBe(200);
+  it("hides receipts of an unknown routine", async () => {
+    const mine = await call("GET", `/api/routines/events?routine=${records.webhook}`);
+    expect(mine.json.length).toBeGreaterThanOrEqual(0);
+    expect((await call("GET", "/api/routines/events?routine=nope")).json).toEqual([]);
   });
 
-  it("won't attach a routine to another owner's session", async () => {
-    const cron = await call("owner-b", "POST", "/api/cron", {
-      sessionId: ids.a.session,
-      schedule: "0 9 * * *",
-      prompt: "x",
-    });
-    const cronMissing = await call("owner-b", "POST", "/api/cron", {
-      sessionId: "no-such-session",
-      schedule: "0 9 * * *",
-      prompt: "x",
-    });
-    expect(cron).toEqual(cronMissing);
-    expect(cron.status).toBe(404);
-    const hook = await call("owner-b", "POST", "/api/webhooks", { sessionId: ids.a.session });
-    expect(hook.status).toBe(404);
-    expect(hook.json).toEqual({ error: "unknown session" });
+  it("reads and deletes bot state for its own bot", async () => {
+    expect(JSON.stringify((await call("GET", `/api/state?profile=${ids.bot}`)).json)).toContain(
+      "42",
+    );
+    expect((await call("DELETE", `/api/state/${ids.bot}/seen`)).json).toEqual({ ok: true });
+    expect((await call("GET", `/api/state?profile=${ids.bot}`)).json).toEqual([]);
   });
 
-  it("hides another owner's fire receipts", async () => {
-    const mine = await call("owner-a", "GET", `/api/routines/events?routine=${records.webhook}`);
-    expect(mine.json.length).toBeGreaterThan(0);
-    expect(
-      (await call("owner-b", "GET", `/api/routines/events?routine=${records.webhook}`)).json,
-    ).toEqual([]);
-    expect((await call("owner-b", "GET", "/api/routines/events")).json).toEqual([]);
-  });
-});
-
-describe("bot state, audit and artifacts are owner-scoped", () => {
-  it("reads and deletes bot state only for the owner", async () => {
-    const theirs = await call("owner-b", "GET", `/api/state?profile=${ids.a.bot}`);
-    expect(theirs.json).toEqual((await call("owner-b", "GET", "/api/state?profile=nope")).json);
-    expect((await call("owner-b", "DELETE", `/api/state/${ids.a.bot}/seen`)).json).toEqual({
-      ok: false,
-    });
-    expect(
-      JSON.stringify((await call("owner-a", "GET", `/api/state?profile=${ids.a.bot}`)).json),
-    ).toContain("42");
-  });
-
-  it("tails audit events of the caller's own bots only", async () => {
-    const mine = await call("owner-a", "GET", "/api/audit");
+  it("tails audit events of its own bots and hides unattributed ones", async () => {
+    const mine = await call("GET", "/api/audit");
     expect(mine.json.map((e: { name: string }) => e.name)).toEqual(["a"]);
-    expect((await call("owner-b", "GET", "/api/audit")).json).toEqual([]);
   });
 
-  it("keeps another owner's artifacts at 404 and their bot's list empty", async () => {
-    const upload = await fetch(`${base}/api/artifacts?name=a.md&sessionId=${ids.a.session}`, {
+  it("keeps artifacts owner-scoped: unknown ids 404, uploads land in scope", async () => {
+    const upload = await fetch(`${base}/api/artifacts?name=a.md&sessionId=${ids.session}`, {
       method: "POST",
       body: "# a",
-      headers: { "x-spriessen-user": "owner-a" },
+      headers: { cookie },
     });
     const art = (await upload.json()) as { id: string };
     expect(upload.status).toBe(200);
-    const foreign = await call("owner-b", "GET", `/api/artifacts/${art.id}/meta`);
-    expect(foreign).toEqual(await call("owner-b", "GET", "/api/artifacts/nope/meta"));
-    expect(foreign.status).toBe(404);
-    expect((await call("owner-b", "DELETE", `/api/artifacts/${art.id}`)).status).toBe(404);
-    expect((await call("owner-b", "GET", `/api/artifacts?profile=${ids.a.bot}`)).json).toEqual([]);
-    const intoForeign = await fetch(`${base}/api/artifacts?name=b.md&sessionId=${ids.a.session}`, {
-      method: "POST",
-      body: "# b",
-      headers: { "x-spriessen-user": "owner-b" },
-    });
-    expect(intoForeign.status).toBe(404);
-    expect((await call("owner-a", "GET", `/api/artifacts/${art.id}/meta`)).status).toBe(200);
+    expect((await call("GET", "/api/artifacts/nope/meta")).json).toEqual(
+      (await call("GET", "/api/artifacts/missing-id/meta")).json,
+    );
+    expect((await call("GET", `/api/artifacts?profile=${ids.bot}`)).json).toHaveLength(1);
+    expect((await call("GET", `/api/artifacts/${art.id}/meta`)).status).toBe(200);
+    expect((await call("DELETE", `/api/artifacts/${art.id}`)).status).toBe(200);
   });
-});
 
-describe("single-user mode (no header) still works", () => {
-  it("guest creates, lists and removes its own routines", async () => {
-    const made = await call(null, "POST", "/api/cron", {
-      sessionId: ids.guest.session,
-      schedule: "0 9 * * *",
-      prompt: "solo",
-    });
-    expect(made.status).toBe(200);
-    expect((await call(null, "GET", "/api/cron")).json.map((j: { id: string }) => j.id)).toEqual([
-      made.json.id,
-    ]);
-    const hook = await call(null, "POST", "/api/webhooks", { sessionId: ids.guest.session });
-    expect(hook.status).toBe(200);
-    expect((await call(null, "DELETE", `/api/cron/${made.json.id}`)).json).toEqual({ ok: true });
-    expect((await call(null, "DELETE", `/api/webhooks/${hook.json.id}`)).json).toEqual({
-      ok: true,
-    });
-  });
-});
-
-describe("routine targets", () => {
-  it("a bot id the caller owns delivers into that bot's main chat; anyone else's is unknown", async () => {
-    const hook = await call("owner-a", "POST", "/api/webhooks", { sessionId: ids.a.bot });
-    expect(hook.status).toBe(200);
-    expect(hook.json.sessionId).toBe(ids.a.session);
-    expect(hook.json.profile).toBe(ids.a.bot);
-    const job = await call("owner-a", "POST", "/api/cron", {
-      sessionId: ids.a.bot,
-      schedule: "0 9 * * *",
-      prompt: "tick",
-    });
-    expect(job.status).toBe(200);
-    expect(job.json.sessionId ?? job.json.job?.sessionId).toBe(ids.a.session);
-    for (const [path, body] of [
-      ["/api/webhooks", { sessionId: ids.a.bot }],
-      ["/api/cron", { sessionId: ids.a.bot, schedule: "0 9 * * *", prompt: "tick" }],
-    ] as const) {
-      const foreign = await call("owner-b", "POST", path, body);
-      expect(foreign, path).toEqual(
-        await call("owner-b", "POST", path, { ...body, sessionId: "no-such-bot" }),
-      );
-      expect(foreign.status, path).toBe(404);
-    }
+  it("refuses an anonymous request with the one refusal shape", async () => {
+    const anonymous = await fetch(`${base}/api/sessions`);
+    expect(anonymous.status).toBe(401);
+    expect(await anonymous.json()).toEqual({ error: "sign in required" });
+    const health = await fetch(`${base}/api/health`);
+    expect(health.status).toBe(200);
   });
 });

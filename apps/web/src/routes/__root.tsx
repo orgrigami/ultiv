@@ -5,6 +5,7 @@ import { QuickSwitchProvider } from "@/components/quick-switcher";
 import { RouteError, RouteNotFound } from "@/components/route-error";
 import { WorkPane } from "@/components/work-pane";
 import { AppProvider } from "@/lib/app-state";
+import { SignInGate } from "@/components/sign-in-gate";
 import { WorkPaneProvider } from "@/lib/work-pane";
 
 export const Route = createRootRoute({
@@ -23,18 +24,20 @@ export const Route = createRootRoute({
 function RootLayout() {
   return (
     <div className="root bg-background text-foreground flex h-dvh w-full antialiased">
-      <AppProvider>
-        <WorkPaneProvider>
-          <QuickSwitchProvider>
-            <SideNav />
-            <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4.75rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
-              <Outlet />
-            </main>
-            <WorkPane />
-            <TabBar />
-          </QuickSwitchProvider>
-        </WorkPaneProvider>
-      </AppProvider>
+      <SignInGate>
+        <AppProvider>
+          <WorkPaneProvider>
+            <QuickSwitchProvider>
+              <SideNav />
+              <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4.75rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
+                <Outlet />
+              </main>
+              <WorkPane />
+              <TabBar />
+            </QuickSwitchProvider>
+          </WorkPaneProvider>
+        </AppProvider>
+      </SignInGate>
       <Toaster position="top-center" theme="system" closeButton />
     </div>
   );

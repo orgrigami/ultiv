@@ -47,12 +47,10 @@ export const smokeMcp = async (
       return server?.state === "connected" && server.tools.length > 0;
     });
     expect("mcp connects live and lists tools", connected);
-    const stranger = await call("GET", "/api/mcp/servers", undefined, {
-      "x-spriessen-user": "other",
-    });
-    expect("mcp list owner-scoped", stranger.json.servers.length === 0);
-    const foreign = await call("DELETE", path, undefined, { "x-spriessen-user": "other" });
-    expect("mcp remove owner-scoped", foreign.status === 404);
+    expect(
+      "mcp unknown id answers 404",
+      (await call("DELETE", "/api/mcp/servers/no-such-id", undefined, headers)).status === 404,
+    );
     const bad = await call("POST", "/api/mcp/servers", { ...input, url: "ftp://x" }, headers);
     expect("mcp bad input refused", bad.status === 400 && typeof bad.json.error === "string");
     const off = await call("PATCH", path, { ...input, enabled: false }, headers);

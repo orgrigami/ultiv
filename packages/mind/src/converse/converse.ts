@@ -169,7 +169,7 @@ export class Converse extends Context.Service<Converse, ConverseService>()(
 ) {}
 
 /** Durable session-key -> conversation mapping (kind preserved: pre-existing SQLite data). */
-const SessionMapDoc = defineDocFamily<
+export const SessionMapDoc = defineDocFamily<
   { conversationId: ConversationId },
   { conversationId: ConversationId }
 >({

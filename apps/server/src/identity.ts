@@ -1,24 +1,20 @@
 /**
- * Identity: the principal seam. Chord stamps every link (and every REST
- * request, via the header) with a principal; the registry, conversations and
- * tasks scope themselves under its owner label. There is no IdP yet —
- * `x-spriessen-user` IS the identity — but every key and registry row is
- * owner-partitioned HERE, in one file, so a real authenticator later only
- * replaces `principalFromHeaders` and the WebSocket callback.
+ * Identity: the principal seam. Every request authenticates through the
+ * sign-in session (auth/guard.ts) and carries THE owner account; chord links
+ * carry the same principal. The registry, conversations, tasks, memory and
+ * vault scope themselves under its owner label. There is one account, so the
+ * label is a constant; phase 3 attaches roles to it.
  */
 import { AGENT_OWNER } from "@spriessen/mind";
 
 export type Principal = { kind: "guest" } | { kind: "user"; id: string } | { kind: "server" };
 
-export const USER_HEADER = "x-spriessen-user";
-/** The pre-rename header, still accepted when the new one is absent. */
-export const LEGACY_USER_HEADER = "x-ultiv-user";
-
 /**
- * The registry label a principal's data lives under.
+ * The single owner account: every signed-in principal is this label, and the
+ * migration moves every pre-sign-in row (guest, or whatever an older client
+ * sent) under it.
  */
-export const ownerOf = (principal: Principal): string =>
-  principal.kind === "user" ? principal.id : "guest";
+export const OWNER_ID = "owner";
 
 /** The durable conversation key for an app session id, scoped to its owner. */
 export const sessionKey = (owner: string, id: string): string => `${owner}:${id}`;
@@ -27,25 +23,22 @@ export const sessionKey = (owner: string, id: string): string => `${owner}:${id}
  * Owner labels the seam never hands out: `agent` is the sentinel bot-spawned
  * task rows are filed under (see @spriessen/mind's AGENT_OWNER), so a caller
  * NAMING itself that would pass every "own rows" check on those rows —
- * including the pending approval inputs task rows carry. A principal that
- * claims a reserved label resolves to guest.
+ * including the pending approval inputs task rows carry. The signed-in
+ * account is never a reserved label.
  */
 const RESERVED_OWNERS: readonly string[] = [AGENT_OWNER];
 
-const principalFor = (id: string): Principal =>
+/** The principal of a signed-in session (and of the loopback bootstrap). */
+export const principalOfAccount = (): Principal => ({ kind: "user", id: OWNER_ID });
+
+/**
+ * Resolve a principal from a caller-claimed label, refusing reserved ones.
+ * Kept for the one internal path that receives a label from a stored row
+ * (never from a request).
+ */
+export const principalForLabel = (id: string): Principal =>
   id === "" || RESERVED_OWNERS.includes(id) ? { kind: "guest" } : { kind: "user", id };
 
-/** Resolve a principal from header-style access; empty/missing means guest. */
-export const principalFromHeaders = (get: (name: string) => string | undefined): Principal =>
-  principalFor((get(USER_HEADER) ?? get(LEGACY_USER_HEADER) ?? "").trim());
-
-/** The principal of an incoming HTTP request (REST and WebSocket upgrades alike). */
-export const principalFromRequest = (request: { readonly headers: unknown }): Principal => {
-  const headers = request.headers as { get?: (name: string) => unknown } | Record<string, unknown>;
-  const read = (name: string): unknown =>
-    typeof (headers as { get?: unknown }).get === "function"
-      ? (headers as { get: (name: string) => unknown }).get(name)
-      : (headers as Record<string, unknown>)[name];
-  const raw = read(USER_HEADER) ?? read(LEGACY_USER_HEADER);
-  return principalFor(typeof raw === "string" ? raw.trim() : "");
-};
+/** The registry label a principal's data lives under. */
+export const ownerOf = (principal: Principal): string =>
+  principal.kind === "user" ? principal.id : "guest";

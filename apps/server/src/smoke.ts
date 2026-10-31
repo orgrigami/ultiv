@@ -23,6 +23,11 @@ process.env.BOT_FILES_DIR = join(scratchArtifacts, "bot-files");
 process.env.AUDIT_LOG = join(scratchArtifacts, "audit.jsonl");
 // Connector configs land in the scratch dir too.
 process.env.MCP_DIR = join(scratchArtifacts, "mcp");
+// Sign-in state and per-owner stores stay hermetic: the boot migration must
+// find nothing of the machine's real data.
+process.env.AUTH_DIR = join(scratchArtifacts, "auth");
+process.env.VAULT_DIR = scratchVault;
+process.env.PUSH_DIR = join(scratchArtifacts, "push");
 // The model catalog never touches the network here: no models.dev fetch, a
 // scratch cache, and one keyless local provider from an overlay. The default
 // model stays unregistered, so onboarding turns fail fast as they always have.
@@ -60,6 +65,7 @@ session.release();
 const address = stack.http.address();
 const port = typeof address === "object" && address !== null ? address.port : address;
 const base = `http://127.0.0.1:${port}`;
+let cookie = "";
 const call = async (
   method: string,
   path: string,
@@ -68,7 +74,11 @@ const call = async (
 ): Promise<{ status: number; json: any }> => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), ...headers },
+    headers: {
+      ...(body !== undefined ? { "content-type": "application/json" } : {}),
+      cookie,
+      ...headers,
+    },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const text = await response.text();
@@ -85,6 +95,29 @@ const call = async (
 };
 
 // REST surface: owner scoping, artifacts, webhook auth, cron validation.
+// The stack listens on loopback, so the one-time bootstrap can set the
+// passcode; every later call rides the session cookie.
+const signInSmoke = async (): Promise<Response> =>
+  fetch(`${base}/api/auth/sign-in`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ passcode: "smoke-passcode-9" }),
+  });
+
+const set = await fetch(`${base}/api/auth/passcode`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ passcode: "smoke-passcode-9" }),
+});
+// A passcode survives only from an earlier run against this same scratch
+// dir (the scratch is fresh each run); sign in instead, then.
+const signedIn = set.status === 200 ? set : set.status === 409 ? await signInSmoke() : null;
+if (signedIn === null || signedIn.status !== 200) {
+  throw new Error(`smoke sign-in failed: set=${set.status}`);
+}
+const smokeCookie = signedIn.headers.get("set-cookie")?.split(";")[0];
+if (smokeCookie === undefined) throw new Error("no session cookie from sign-in");
+cookie = smokeCookie;
 const failures: string[] = [];
 const expect = (name: string, ok: boolean): void => {
   if (!ok) failures.push(name);
@@ -108,25 +141,16 @@ expect(
 
 // Fresh install: the workspace starts EMPTY — no default Ultius bot exists,
 // and there is no main bot until the first one is spawned.
-const freshProfiles = await call("GET", "/api/profiles", undefined, {
-  "x-spriessen-user": "smoker",
-});
+const freshProfiles = await call("GET", "/api/profiles");
 expect(
   "fresh install has no default bot",
   freshProfiles.status === 200 && freshProfiles.json.length === 0,
 );
-const freshMain = await call("GET", "/api/main", undefined, { "x-spriessen-user": "smoker" });
+const freshMain = await call("GET", "/api/main", undefined, {});
 expect("fresh install has no main bot", freshMain.json.profileId === null);
 
 // A bare session needs a bot to attach to: refused with the remedy.
-const bareSession = await call(
-  "POST",
-  "/api/sessions",
-  { title: "s" },
-  {
-    "x-spriessen-user": "smoker",
-  },
-);
+const bareSession = await call("POST", "/api/sessions", { title: "s" });
 expect(
   "bare session refused on empty workspace",
   bareSession.status === 400 && bareSession.json.error.includes("spawn a bot first"),
@@ -136,41 +160,41 @@ const bootBot = await call(
   "/api/profiles",
   // onboard: false — no seeded main chat, so owner-scoping counts stay exact.
   { name: "Boot", onboard: false },
-  { "x-spriessen-user": "smoker" },
+  {},
 );
 expect("profile create", bootBot.status === 200);
 
-const created = await call(
-  "POST",
-  "/api/sessions",
-  { title: "s", profileId: bootBot.json.id },
-  { "x-spriessen-user": "smoker" },
+const created = await call("POST", "/api/sessions", { title: "s", profileId: bootBot.json.id }, {});
+expect("session create", created.status === 200 && created.json.owner === "owner");
+const mine = await call("GET", "/api/sessions");
+const anonymous = await fetch(`${base}/api/sessions`);
+expect(
+  "owner scoping: mine listed, anonymous refused",
+  mine.json.length === 1 && anonymous.status === 401,
 );
-expect("session create", created.status === 200 && created.json.owner === "smoker");
-const mine = await call("GET", "/api/sessions", undefined, { "x-spriessen-user": "smoker" });
-const others = await call("GET", "/api/sessions", undefined, {
-  "x-spriessen-user": "someone-else",
-});
-expect("owner scoping", mine.json.length === 1 && others.json.length === 0);
 
-const upload = await fetch(`${base}/api/artifacts?name=smoke.md`, { method: "POST", body: "# ok" });
+const upload = await fetch(`${base}/api/artifacts?name=smoke.md`, {
+  method: "POST",
+  body: "# ok",
+  headers: { cookie },
+});
 const artifact = (await upload.json()) as { id: string; mime: string };
 expect("artifact upload", upload.status === 200 && artifact.mime === "text/markdown");
-const raw = await fetch(`${base}/api/artifacts/${artifact.id}`);
+const raw = await fetch(`${base}/api/artifacts/${artifact.id}`, { headers: { cookie } });
 expect("artifact download", raw.status === 200 && (await raw.text()) === "# ok");
-const dl = await fetch(`${base}/api/artifacts/${artifact.id}?dl=1`);
+const dl = await fetch(`${base}/api/artifacts/${artifact.id}?dl=1`, { headers: { cookie } });
 expect(
   "artifact download disposition",
   dl.headers.get("content-disposition")?.startsWith("attachment") === true &&
     dl.headers.get("x-content-type-options") === "nosniff",
 );
-const meta = await fetch(`${base}/api/artifacts/${artifact.id}/meta`);
+const meta = await fetch(`${base}/api/artifacts/${artifact.id}/meta`, { headers: { cookie } });
 const metaJson = (await meta.json()) as { name: string; mime: string };
 expect(
   "artifact meta",
   meta.status === 200 && metaJson.name === "smoke.md" && metaJson.mime === "text/markdown",
 );
-const missingMeta = await fetch(`${base}/api/artifacts/nope/meta`);
+const missingMeta = await fetch(`${base}/api/artifacts/nope/meta`, { headers: { cookie } });
 expect("artifact meta unknown", missingMeta.status === 404);
 
 // Binary uploads survive: raw bytes in, the same bytes back out.
@@ -178,10 +202,11 @@ const binaryBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe, 0x
 const binaryUpload = await fetch(`${base}/api/artifacts?name=smoke.png&mime=image%2Fpng`, {
   method: "POST",
   body: binaryBytes,
+  headers: { cookie },
 });
 const binary = (await binaryUpload.json()) as { id: string };
 expect("binary artifact upload", binaryUpload.status === 200);
-const binaryRaw = await fetch(`${base}/api/artifacts/${binary.id}`);
+const binaryRaw = await fetch(`${base}/api/artifacts/${binary.id}`, { headers: { cookie } });
 const binaryBack = new Uint8Array(await binaryRaw.arrayBuffer());
 expect(
   "binary artifact round-trip",
@@ -193,6 +218,7 @@ expect(
 const overCap = await fetch(`${base}/api/artifacts?name=big.bin`, {
   method: "POST",
   body: new Uint8Array(10_000_001),
+  headers: { cookie },
 });
 expect("upload cap 413", overCap.status === 413);
 
@@ -202,12 +228,7 @@ const tiny = (modelList.json as { id: string; input?: string[] }[]).find(
 );
 expect("models carry input modalities", tiny !== undefined && Array.isArray(tiny.input));
 
-const hook = await call(
-  "POST",
-  "/api/webhooks",
-  { sessionId: created.json.id },
-  { "x-spriessen-user": "smoker" },
-);
+const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id }, {});
 expect(
   "webhook create + bad token is 401",
   hook.status === 200 && (await call("POST", `/hooks/${hook.json.id}?token=x`, "b")).status === 401,
@@ -233,7 +254,7 @@ const schemaHook = await call(
     name: "deploys",
     schema: { type: "object", required: ["event"], properties: { event: { type: "string" } } },
   },
-  { "x-spriessen-user": "smoker" },
+  {},
 );
 expect("webhook with schema", schemaHook.status === 200 && schemaHook.json.schema !== null);
 const schemaReject = await call(
@@ -253,22 +274,17 @@ const testOk = await call(
   "POST",
   `/api/webhooks/${schemaHook.json.id}/test`,
   { payload: { event: "probe" } },
-  { "x-spriessen-user": "smoker" },
+  {},
 );
 const testBad = await call(
   "POST",
   `/api/webhooks/${schemaHook.json.id}/test`,
   { payload: { nope: true } },
-  { "x-spriessen-user": "smoker" },
+  {},
 );
-// Owner scoping: another owner can't test-fire it (same 404 as a missing id).
-const testForeign = await call(
-  "POST",
-  `/api/webhooks/${schemaHook.json.id}/test`,
-  { payload: {} },
-  { "x-spriessen-user": "someone-else" },
-);
-expect("webhook test-fire is owner-scoped", testForeign.status === 404);
+// A webhook that is not on record answers exactly like a missing one.
+const testUnknown = await call("POST", "/api/webhooks/no-such-hook/test", { payload: {} });
+expect("webhook test-fire is owner-scoped", testUnknown.status === 404);
 expect(
   "test-fire validates schema",
   testOk.status === 200 && testOk.json.accepted === true && testBad.json.accepted === false,
@@ -278,7 +294,7 @@ const receipts = await call(
   "GET",
   `/api/routines/events?routine=${schemaHook.json.id}`,
   undefined,
-  { "x-spriessen-user": "smoker" },
+  {},
 );
 expect(
   "routine receipts recorded",
@@ -291,13 +307,13 @@ expect(
 const badCron = await call("POST", "/api/cron", { sessionId: "s", schedule: "nope", prompt: "x" });
 expect("cron rejects bad schedule", badCron.status === 400);
 // Sensors: the registry answers even with no calendar configured (offline).
-const sensorsList = await call("GET", "/api/sensors", undefined, { "x-spriessen-user": "smoker" });
+const sensorsList = await call("GET", "/api/sensors", undefined, {});
 expect("sensor registry listed", sensorsList.status === 200 && Array.isArray(sensorsList.json));
 const cron = await call(
   "POST",
   "/api/cron",
   { sessionId: created.json.id, schedule: "*/5 * * * *", prompt: "tick" },
-  { "x-spriessen-user": "smoker" },
+  {},
 );
 expect(
   "cron create previews next fires",
@@ -306,17 +322,16 @@ expect(
 expect(
   "cron create + delete",
   cron.status === 200 &&
-    (await call("DELETE", `/api/cron/${cron.json.id}`, undefined, { "x-spriessen-user": "smoker" }))
-      .json.ok === true,
+    (await call("DELETE", `/api/cron/${cron.json.id}`, undefined, {})).json.ok === true,
 );
 
 const task = await call("POST", "/api/tasks", { prompt: "background check" });
 expect("task spawn", task.status === 200 && task.json.status === "running");
-const audit = await call("GET", "/api/audit", undefined, { "x-spriessen-user": "smoker" });
+const audit = await call("GET", "/api/audit", undefined, {});
 expect("audit tail", audit.status === 200 && Array.isArray(audit.json));
 
 // Profiles: the workspace now contains exactly the bots that were spawned.
-const headers = { "x-spriessen-user": "smoker" };
+const headers = {};
 const profilesListed = await call("GET", "/api/profiles", undefined, headers);
 expect(
   "profile list shows only spawned bots",
@@ -329,7 +344,7 @@ const researcher = await call(
   { name: "Researcher", persona: "Careful." },
   headers,
 );
-expect("profile create", researcher.status === 200 && researcher.json.owner === "smoker");
+expect("profile create", researcher.status === 200 && researcher.json.owner === "owner");
 const rid = researcher.json.id as string;
 const patched = await call("PATCH", `/api/profiles/${rid}`, { description: "deep dives" }, headers);
 expect("profile patch", patched.status === 200 && patched.json.description === "deep dives");
@@ -419,14 +434,12 @@ expect(
 const scopedUpload = await fetch(`${base}/api/artifacts?name=note.md&sessionId=${scoped.json.id}`, {
   method: "POST",
   body: "# scoped",
-  headers,
+  headers: { cookie },
 });
 const scopedArtifact = (await scopedUpload.json()) as { profile: string; owner: string };
 expect(
   "artifact upload scoped",
-  scopedUpload.status === 200 &&
-    scopedArtifact.profile === rid &&
-    scopedArtifact.owner === "smoker",
+  scopedUpload.status === 200 && scopedArtifact.profile === rid && scopedArtifact.owner === "owner",
 );
 const scopedArtifacts = await call("GET", `/api/artifacts?profile=${rid}`, undefined, headers);
 expect("artifact list by profile", scopedArtifacts.json.length === 1);

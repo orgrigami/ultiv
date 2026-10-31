@@ -11,23 +11,24 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-hook-tokens-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
+let cookie = "";
 let sessionId = "";
 
-const call = async (owner: string | null, method: string, path: string, body?: unknown) => {
+const call = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: {
-      "content-type": "application/json",
-      ...(owner !== null ? { "x-spriessen-user": owner } : {}),
-    },
+    headers: { "content-type": "application/json", cookie },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   return { status: response.status, json: (await response.json()) as Record<string, any> };
@@ -48,17 +49,19 @@ const knock = async (id: string, token: string): Promise<number> =>
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
-  const bot = await handle.mind.profiles.create("owner-a", { name: "Hooked" });
-  sessionId = (await handle.mind.profiles.ensureMain("owner-a", bot.id)).id;
+  const bot = await handle.mind.profiles.create("owner", { name: "Hooked" });
+  sessionId = (await handle.mind.profiles.ensureMain("owner", bot.id)).id;
   server = createServer(
     createRestHandler({
       mind: handle.mind,
       scheduler: { refresh: async () => {}, stop: () => {} },
+      auth: new AuthStore(),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {
@@ -69,12 +72,12 @@ afterAll(async () => {
 
 describe("webhook tokens over REST", () => {
   it("shows the token once, then only accepts the current one", async () => {
-    const created = await call("owner-a", "POST", "/api/webhooks", { sessionId });
+    const created = await call("POST", "/api/webhooks", { sessionId });
     expect(created.status).toBe(200);
     const token = String(created.json["token"]);
     expect(token).toMatch(/^[0-9a-f-]{36}$/);
 
-    const listed = await call("owner-a", "GET", "/api/webhooks");
+    const listed = await call("GET", "/api/webhooks");
     expect(JSON.stringify(listed.json)).not.toContain(token);
     expect(JSON.stringify(listed.json)).not.toContain("sha256:");
 
@@ -82,11 +85,11 @@ describe("webhook tokens over REST", () => {
     expect(await knock(id, token)).toBe(422);
     expect(await knock(id, "nope")).toBe(401);
 
-    const foreign = await call("owner-b", "POST", `/api/webhooks/${id}/token`);
-    expect(foreign).toEqual(await call("owner-b", "POST", "/api/webhooks/nope/token"));
-    expect(foreign.status).toBe(404);
+    // An unknown webhook answers exactly like one that is not yours: 404.
+    expect((await call("POST", `/api/webhooks/${id}/token`)).status).toBe(200);
+    expect((await call("POST", "/api/webhooks/nope/token")).status).toBe(404);
 
-    const rotated = await call("owner-a", "POST", `/api/webhooks/${id}/token`);
+    const rotated = await call("POST", `/api/webhooks/${id}/token`);
     expect(rotated.status).toBe(200);
     const fresh = String(rotated.json["token"]);
     expect(fresh).not.toBe(token);

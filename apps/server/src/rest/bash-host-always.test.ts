@@ -13,14 +13,18 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-host-always-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
+let cookie = "";
 let bot = "";
 let conversation = "";
 let calls = 0;
@@ -28,7 +32,7 @@ let calls = 0;
 const call = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spriessen-user": "owner-a" },
+    headers: { "content-type": "application/json", cookie },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   return { status: response.status, json: (await response.json()) as any };
@@ -55,12 +59,12 @@ const gate = async (script: string) => {
 };
 
 const autoApprove = async (): Promise<string[]> =>
-  (await handle.mind.profiles.get("owner-a", bot))?.policies.autoApprove ?? [];
+  (await handle.mind.profiles.get("owner", bot))?.policies.autoApprove ?? [];
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
-  bot = (await handle.mind.profiles.create("owner-a", { name: "Host", onboard: false })).id;
-  const main = await handle.mind.profiles.ensureMain("owner-a", bot);
+  bot = (await handle.mind.profiles.create("owner", { name: "Host", onboard: false })).id;
+  const main = await handle.mind.profiles.ensureMain("owner", bot);
   const cid = await Effect.runPromise(
     handle.mind.converse.conversationIdOf(await handle.mind.profiles.keyOfRow(main)),
   );
@@ -69,11 +73,13 @@ beforeAll(async () => {
     createRestHandler({
       mind: handle.mind,
       scheduler: { refresh: async () => {}, stop: () => {} },
+      auth: new AuthStore(),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {

@@ -62,9 +62,7 @@ export const sessionOps = (
         info.titleSeed !== undefined ? await titleFor(generate, info.titleSeed) : undefined;
       await run(
         commitSessions(converse, (sessions) => {
-          const index = sessions.findIndex(
-            (row) => row.id === chatId && (row.owner === owner || owner === "guest"),
-          );
+          const index = sessions.findIndex((row) => row.id === chatId && row.owner === owner);
           if (index < 0) {
             // Register on first contact (legacy ids included), under default.
             return [
@@ -106,7 +104,7 @@ export const keyOps = (
     keyOfRow: (row) => index.keyOfRow(row),
     keyForSession: async (owner, id) => {
       const row = await ctx.self().rowOf(id);
-      if (row !== undefined && (row.owner === owner || owner === "guest")) {
+      if (row !== undefined && row.owner === owner) {
         return index.keyOfRow(row);
       }
       return scopedKey(owner, "default", id);

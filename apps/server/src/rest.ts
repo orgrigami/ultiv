@@ -12,7 +12,7 @@ import type { CronScheduler } from "./cron.ts";
 import { authorize, contentTypeAllowed } from "./auth/guard.ts";
 import { handleAuthRoutes } from "./auth/routes.ts";
 import type { AuthStore } from "./auth/store.ts";
-import { ownerOf, principalFromRequest } from "./identity.ts";
+import { OWNER_ID } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
 import { ownedProfileIds, ownsProfile } from "./rest/owner-scope.ts";
 import { ownedRoutineIds } from "./rest/owned-routines.ts";
@@ -94,7 +94,7 @@ export const createRestHandler = (deps: RestDeps) => {
         req,
         res,
         url,
-        owner: ownerOf(principalFromRequest(req)),
+        owner: OWNER_ID,
         path: url.pathname,
         json,
         readJson,

@@ -17,10 +17,12 @@ import { Page } from "@/components/page";
 import { PushToggle } from "@/components/push-toggle";
 import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type ServerCheck } from "@/lib/api";
+import { signOut } from "@/lib/auth";
 import { APPROVAL_MODES, MODE_CHIP } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +88,37 @@ function SettingsPage() {
         <SectionHeader title="Appearance" />
         <ThemeSwitch />
       </section>
+      <section aria-label="Sign-in" className="flex flex-col gap-2">
+        <SectionHeader title="Sign-in" />
+        <SignOutRow />
+      </section>
     </Page>
+  );
+}
+
+/** Sign out of this server on this device; the gate takes over. */
+function SignOutRow() {
+  const [done, setDone] = useState(false);
+  if (done) {
+    return (
+      <div className={card}>
+        <p className="text-sm">Signed out. Reload to sign back in.</p>
+      </div>
+    );
+  }
+  return (
+    <div className={`${card} flex items-center justify-between gap-3`}>
+      <p className="text-sm">End this device's session.</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          void signOut().then(() => setDone(true));
+        }}
+      >
+        Sign out
+      </Button>
+    </div>
   );
 }
 

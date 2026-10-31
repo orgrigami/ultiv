@@ -18,9 +18,12 @@ import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
-import { openMind, sealWebhookTokens } from "@spriessen/mind";
+import { openMind, sealWebhookTokens, migrateOwners } from "@spriessen/mind";
+import { migrateStorage } from "./auth/migrate-storage.ts";
+import { OWNER_ID } from "./identity.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
-import { principalFromRequest, type Principal } from "./identity.ts";
+import { principalOfAccount, type Principal } from "./identity.ts";
+import { authorize } from "./auth/guard.ts";
 import { AuthStore } from "./auth/store.ts";
 import { createRestHandler } from "./rest.ts";
 import { serveSession } from "./session.ts";
@@ -59,6 +62,20 @@ export async function buildStack(options?: {
   // working). Logs a count only, never a token.
   const sealed = await sealWebhookTokens(mind.converse);
   if (sealed > 0) console.log(`webhooks: sealed ${sealed} stored token(s) as hashes`);
+  // One-time, repeatable: every pre-sign-in owner label (guest, or whatever
+  // an older client sent) moves to the ONE account before anything listens.
+  const migration = await migrateOwners(mind.converse, { to: OWNER_ID });
+  const storageMove = migrateStorage({ to: OWNER_ID, from: migration.movedFrom });
+  const movedRows =
+    migration.sessions + migration.profiles + migration.tasks + migration.rooms + migration.mailbox;
+  if (movedRows > 0 || storageMove.folders.length > 0) {
+    console.log(
+      `owners: moved ${movedRows} row(s), ${migration.conversationKeys} conversation key(s), ` +
+        `${migration.memoryStores} memory store(s), ${storageMove.folders.length} folder(s) ` +
+        `to ${OWNER_ID}${migration.movedFrom.length > 0 ? ` from ${migration.movedFrom.join(", ")}` : ""}`,
+    );
+    for (const move of storageMove.moves) console.log(`owners: ${move}`);
+  }
   // The attention last-mile: dead-letters and disabled jobs must ARRIVE.
   wireEscalationPager(mind);
   // Web Push to the owner's devices (inert until VAPID keys are in .env).
@@ -95,11 +112,33 @@ export async function buildStack(options?: {
   });
   serveSession(host, mind);
 
-  const http = createServer(createRestHandler({ mind, scheduler, push, auth: new AuthStore() }));
-  const wss = new WebSocketServer({ server: http });
-  // The upgrade request IS the credential for now: x-spriessen-user scopes the
-  // link's principal (see identity.ts for the seam a real IdP replaces).
-  acceptWebSockets(wss, host, { principal: async (request) => principalFromRequest(request) });
+  const auth = new AuthStore();
+  const http = createServer(createRestHandler({ mind, scheduler, push, auth }));
+  // noServer: the http server's one upgrade handler routes by path (the
+  // chord links here, the live event socket in slice 10).
+  const wss = new WebSocketServer({ noServer: true });
+  acceptWebSockets(wss, host, {
+    principal: async (request) => {
+      // The upgrade IS the credential check: no valid session, no link.
+      const access = authorize(request, auth);
+      return access.kind === "session" || access.kind === "bootstrap"
+        ? principalOfAccount()
+        : undefined;
+    },
+  });
+  http.on("upgrade", (req, socket, head) => {
+    // The handshake IS the credential check: no valid session, no upgrade.
+    // (The chord principal callback below stays as the second layer.)
+    const access = authorize(req, auth);
+    if (access.kind === "refuse") {
+      socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+    // Every upgrade is a chord link today; the live socket (slice 10) will
+    // claim its own path here.
+    wss.handleUpgrade(req, socket, head, (client) => wss.emit("connection", client, req));
+  });
 
   const close = async () => {
     push.stop();

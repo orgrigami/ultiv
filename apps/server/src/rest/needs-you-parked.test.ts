@@ -14,22 +14,26 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind, type ParkedTask } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-parked-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
+let cookie = "";
 let bot = "";
 let parked: ParkedTask[] = [];
 const retried: string[] = [];
 
-const call = async (owner: string, method: string, path: string) => {
+const call = async (method: string, path: string) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spriessen-user": owner },
+    headers: { "content-type": "application/json", cookie },
   });
   return { status: response.status, json: (await response.json()) as any };
 };
@@ -37,8 +41,8 @@ const call = async (owner: string, method: string, path: string) => {
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   const { mind } = handle;
-  bot = (await mind.profiles.create("owner-a", { name: "Alpha", onboard: false })).id;
-  const main = await mind.profiles.ensureMain("owner-a", bot);
+  bot = (await mind.profiles.create("owner", { name: "Alpha", onboard: false })).id;
+  const main = await mind.profiles.ensureMain("owner", bot);
   const conversation = String(
     await Effect.runPromise(mind.converse.conversationIdOf(await mind.profiles.keyOfRow(main))),
   );
@@ -61,11 +65,16 @@ beforeAll(async () => {
     },
   } as typeof mind;
   server = createServer(
-    createRestHandler({ mind: stubbed, scheduler: { refresh: async () => {}, stop: () => {} } }),
+    createRestHandler({
+      mind: stubbed,
+      scheduler: { refresh: async () => {}, stop: () => {} },
+      auth: new AuthStore(),
+    }),
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {
@@ -75,29 +84,17 @@ afterAll(async () => {
 });
 
 describe("Needs you: parked tasks", () => {
-  it("lists only the caller's own parked tasks", async () => {
-    const mine = await call("owner-a", "GET", "/api/needs-you");
+  it("lists the parked tasks", async () => {
+    const mine = await call("GET", "/api/needs-you");
     expect(mine.json.parked).toEqual([
       expect.objectContaining({ taskId: "41", profile: bot, kind: "pi.generation" }),
     ]);
-    const theirs = await call("owner-b", "GET", "/api/needs-you");
-    expect(theirs.json.parked).toEqual([]);
-  });
-
-  it("refuses another owner's retry exactly like an unknown task", async () => {
-    const foreign = await call("owner-b", "POST", "/api/needs-you/parked/41/retry");
-    const unknown = await call("owner-b", "POST", "/api/needs-you/parked/nope/retry");
-    const unmapped = await call("owner-a", "POST", "/api/needs-you/parked/42/retry");
-    expect(foreign).toEqual(unknown);
-    expect(foreign.status).toBe(404);
-    expect(unmapped.status).toBe(404);
-    expect(retried).toEqual([]);
   });
 
   it("retries the owner's own parked task, which then leaves the list", async () => {
-    const response = await call("owner-a", "POST", "/api/needs-you/parked/41/retry");
+    const response = await call("POST", "/api/needs-you/parked/41/retry");
     expect(response).toEqual({ status: 200, json: { outcome: "retried" } });
     expect(retried).toEqual(["41"]);
-    expect((await call("owner-a", "GET", "/api/needs-you")).json.parked).toEqual([]);
+    expect((await call("GET", "/api/needs-you")).json.parked).toEqual([]);
   });
 });

@@ -13,8 +13,11 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind, questionTools } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-ask-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
@@ -25,14 +28,15 @@ let bot = "";
 let conversation = "";
 let calls = 0;
 
-const call = async (method: string, path: string, body?: unknown, user = "owner-a") => {
+const call = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spriessen-user": user },
+    headers: { "content-type": "application/json", cookie },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   return { status: response.status, json: (await response.json()) as any };
 };
+let cookie = "";
 
 const ask = (args: object) => {
   const tool = questionTools({
@@ -68,8 +72,8 @@ const question = {
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
-  bot = (await handle.mind.profiles.create("owner-a", { name: "Asker", onboard: false })).id;
-  const main = await handle.mind.profiles.ensureMain("owner-a", bot);
+  bot = (await handle.mind.profiles.create("owner", { name: "Asker", onboard: false })).id;
+  const main = await handle.mind.profiles.ensureMain("owner", bot);
   conversation = String(
     await Effect.runPromise(
       handle.mind.converse.conversationIdOf(await handle.mind.profiles.keyOfRow(main)),
@@ -79,11 +83,13 @@ beforeAll(async () => {
     createRestHandler({
       mind: handle.mind,
       scheduler: { refresh: async () => {}, stop: () => {} },
+      auth: new AuthStore(),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {
@@ -138,9 +144,9 @@ describe("ask_user_question", () => {
   });
 
   it("YOLO still asks the owner", async () => {
-    const row = await handle.mind.profiles.get("owner-a", bot);
+    const row = await handle.mind.profiles.get("owner", bot);
     if (row === undefined) throw new Error("missing bot");
-    await handle.mind.profiles.update("owner-a", bot, {
+    await handle.mind.profiles.update("owner", bot, {
       policies: { ...row.policies, approvalMode: "yolo" },
     });
     const { callId, result } = ask(question);
@@ -152,17 +158,13 @@ describe("ask_user_question", () => {
     expect((await result).text).toBe("The owner chose option 1: PDF");
   });
 
-  it("the wrong person can't see or answer it", async () => {
+  it("an unknown conversation gets the same refusal, and the card still waits", async () => {
     const { callId, result } = ask(question);
     await waiting(callId);
-    const theirs = await call("GET", "/api/approvals", undefined, "owner-b");
-    expect(theirs.json.some((entry: { callId: string }) => entry.callId === callId)).toBe(false);
-    const forged = await call(
-      "POST",
-      `/api/approvals/${conversation}/${callId}`,
-      { approved: true, input: { answer: "PDF" } },
-      "owner-b",
-    );
+    const forged = await call("POST", `/api/approvals/no-such-chat/${callId}`, {
+      approved: true,
+      input: { answer: "PDF" },
+    });
     expect(forged.status).toBe(403);
     expect(handle.mind.approvals.pendingFor(conversation).some((p) => p.callId === callId)).toBe(
       true,

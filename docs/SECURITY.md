@@ -99,19 +99,46 @@ paths and links, plus the wrong owner),
 "artifact routes stay inside the artifacts folder" block in
 `apps/server/src/rest/artifacts.test.ts`.
 
-## Owner scoping
+## Owner scoping and the one account
 
-There's no sign-in yet: the owner label is the `x-spriessen-user` header
-(`x-ultiv-user` still accepted), and a request without one is `guest`, which is
-how the web app runs single-user. Every REST route that reads or changes owner
-data asks one helper, `apps/server/src/rest/owner-scope.ts`
+There is exactly one account: the passcode signs you in as `owner`
+(`OWNER_ID` in `apps/server/src/identity.ts`), and every request the gate
+lets through acts on that account's data. Identity comes from the session
+cookie only; the old `x-spriessen-user` / `x-ultiv-user` headers are not
+read any more (the CORS header list is unchanged). Every REST route that
+touches owner data asks one helper, `apps/server/src/rest/owner-scope.ts`
 (`ownsProfile`, `ownsSession`, `ownedTarget`, `ownsRecord`, `ownedRecords`,
-`findOwned`).
-When a real sign-in arrives, only the source of `args.owner`
-(`apps/server/src/identity.ts`) changes; the checks stay.
+`findOwned`), which answers another account's item exactly like a missing
+one — same status, same body, so ids can't be probed. The WebSocket accepts
+only upgrades with a valid session (`apps/server/src/main.ts`); a link
+without one is refused at the handshake.
 
-Another owner's item is answered exactly like a missing one (a 404 with the
-same body, an empty list, or `{ ok: false }`), so ids can't be probed.
+### Migration of pre-sign-in data
+
+Older installs stored rows under whatever label the old header carried
+(`guest`, mostly). On every boot, before the server listens,
+`migrateOwners` (`packages/mind/src/migrate/owners.ts`) moves every row,
+main-bot entry, task, room and mailbox record with such a label to
+`owner`, re-aliases each session's durable conversation key (a new
+`ultiv.session-map` entry pointing at the SAME conversation, so no
+transcript is orphaned), and copies each v2 memory family's content to the
+account's family keys. On disk, the per-owner folders (artifacts, skills,
+bot files, MCP work dirs, vault) and the artifact sidecars' owner fields
+move with them (`apps/server/src/auth/migrate-storage.ts`). Rows stamped
+`agent` (bot-spawned task sentinel) never move. It is repeatable and logs
+a count when anything moved.
+
+- **Dry run:** `vpr @spriessen/server#owners:dry-run` (server stopped)
+  prints what a boot would move, changing nothing.
+- **Rollback:** rows keep nothing of the old label behind, but the old
+  conversation keys, memory family keys and push subscriptions stay in
+  place untouched; the folder move is a rename. Rolling the CODE back
+  restores the old labels' reachability only for data that was never
+  moved — a moved row reads `owner`. For a controlled rollback, restore
+  the data folder from backup (`var/`, plus `AUTH_DIR` if the passcode
+  should go too). Tested by `packages/mind/src/migrate/owners.test.ts`
+  (repeatable, transcripts preserved, old memory keys intact) and the
+  storage moves in `apps/server/src/auth/migrate-storage.test.ts`.
 
 Scoped by this helper:
 
@@ -142,9 +169,10 @@ Left as they are, on purpose:
   folders) stay readable by everyone, as before.
 - Fire receipts of a deleted routine can't be attributed and stay hidden.
 
-Tests: `apps/server/src/rest/owner-scope.test.ts` (owner-a / owner-b over the
-real REST handler, plus a no-header guest run) and the owner check in
-`vp run smoke`.
+Tests: `apps/server/src/rest/owner-scope.test.ts` (the signed-in account over
+the real REST handler), `packages/mind/src/migrate/owners.test.ts` (cross-label
+refusals at the mind level), `apps/server/src/auth/auth.test.ts` (the gate),
+`apps/server/src/ws-auth.test.ts` (the WebSocket) and `vp run smoke`.
 
 ## Webhook tokens are stored as hashes
 

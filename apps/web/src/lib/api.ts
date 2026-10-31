@@ -24,6 +24,7 @@ import type {
   WebhookInfo,
 } from "@spriessen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
+import { UNAUTHORIZED_EVENT } from "./auth.ts";
 
 /**
  * The registries are plain REST on the server's HTTP handler (CRUD over
@@ -69,7 +70,10 @@ async function failure(response: Response, method: string, path: string): Promis
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${base()}${path}`);
-  if (!response.ok) throw await failure(response, "GET", path);
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw await failure(response, "GET", path);
+  }
   return (await response.json()) as T;
 }
 
@@ -80,14 +84,20 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
       ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
       : {}),
   });
-  if (!response.ok) throw await failure(response, method, path);
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw await failure(response, method, path);
+  }
   return (await response.json()) as T;
 }
 
 /** DELETE that fails loudly: a swallowed 409 used to read as success. */
 async function drop(path: string): Promise<boolean> {
   const response = await fetch(`${base()}${path}`, { method: "DELETE" });
-  if (!response.ok) throw await failure(response, "DELETE", path);
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw await failure(response, "DELETE", path);
+  }
   return true;
 }
 

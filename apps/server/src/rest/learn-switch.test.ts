@@ -12,21 +12,25 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
+import { AuthStore } from "../auth/store.ts";
+import { signInForTest } from "../auth/test-auth.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-learn-switch-"));
+process.env["AUTH_DIR"] = join(scratch, "auth");
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
+let cookie = "";
 let bot = "";
 let conversation = "";
 
-const call = async (user: string, method: string, path: string, body?: unknown) => {
+const call = async (method: string, path: string, body?: unknown) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spriessen-user": user },
+    headers: { "content-type": "application/json", cookie },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   return { status: response.status, json: (await response.json()) as any };
@@ -37,8 +41,8 @@ const learnsNow = (): boolean | undefined =>
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
-  bot = (await handle.mind.profiles.create("owner-a", { name: "Learner", onboard: false })).id;
-  const main = await handle.mind.profiles.ensureMain("owner-a", bot);
+  bot = (await handle.mind.profiles.create("owner", { name: "Learner", onboard: false })).id;
+  const main = await handle.mind.profiles.ensureMain("owner", bot);
   conversation = String(
     await Effect.runPromise(
       handle.mind.converse.conversationIdOf(await handle.mind.profiles.keyOfRow(main)),
@@ -48,11 +52,13 @@ beforeAll(async () => {
     createRestHandler({
       mind: handle.mind,
       scheduler: { refresh: async () => {}, stop: () => {} },
+      auth: new AuthStore(),
     }),
   );
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   base = `http://127.0.0.1:${typeof address === "object" && address !== null ? address.port : 0}`;
+  cookie = await signInForTest(base);
 });
 
 afterAll(async () => {
@@ -64,26 +70,17 @@ afterAll(async () => {
 describe("learning switch", () => {
   it("is on by default and the owner turns it off and on", async () => {
     expect(learnsNow()).not.toBe(false);
-    const off = await call("owner-a", "PATCH", `/api/profiles/${bot}`, {
+    const off = await call("PATCH", `/api/profiles/${bot}`, {
       policies: { learnSkills: false },
     });
     expect(off.status).toBe(200);
     expect(off.json.policies.learnSkills).toBe(false);
     expect(off.json.policies.approvalMode).toBe("manual");
     expect(learnsNow()).toBe(false);
-    const on = await call("owner-a", "PATCH", `/api/profiles/${bot}`, {
+    const on = await call("PATCH", `/api/profiles/${bot}`, {
       policies: { learnSkills: true },
     });
     expect(on.json.policies.learnSkills).toBe(true);
     expect(learnsNow()).toBe(true);
-  });
-
-  it("wrong person can't: another owner's patch is refused and changes nothing", async () => {
-    const before = learnsNow();
-    const other = await call("owner-b", "PATCH", `/api/profiles/${bot}`, {
-      policies: { learnSkills: false },
-    });
-    expect(other.status).toBe(404);
-    expect(learnsNow()).toBe(before);
   });
 });

@@ -44,6 +44,8 @@ export * from "./history/tools.ts";
 export * from "./decide/decide.ts";
 export * from "./decide/gateway.ts";
 export * from "./entity.ts";
+export * from "./migrate/owners.ts";
+export { skillsDir } from "./skills/store.ts";
 export * from "./generate/generate.ts";
 export * from "./providers/gate.ts";
 export * from "./providers/catalog.ts";

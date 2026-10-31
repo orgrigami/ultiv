@@ -1,51 +1,19 @@
-/** The principal seam: reserved owner labels resolve to guest. */
+/** The principal seam: one account, reserved labels never pass as it. */
 import { describe, expect, it } from "vite-plus/test";
 import { AGENT_OWNER } from "@spriessen/mind";
-import { ownerOf, principalFromHeaders, principalFromRequest } from "./identity.ts";
+import { OWNER_ID, ownerOf, principalForLabel, principalOfAccount } from "./identity.ts";
 
-describe("principalFromHeaders", () => {
-  it("a named principal keeps its id", () => {
-    expect(principalFromHeaders((n) => (n === "x-spriessen-user" ? "owner-a" : undefined))).toEqual(
-      {
-        kind: "user",
-        id: "owner-a",
-      },
-    );
+describe("identity", () => {
+  it("the signed-in account is the one owner label", () => {
+    expect(OWNER_ID).toBe("owner");
+    expect(principalOfAccount()).toEqual({ kind: "user", id: OWNER_ID });
+    expect(ownerOf(principalOfAccount())).toBe(OWNER_ID);
   });
 
-  it("still accepts the pre-rename x-ultiv-user header", () => {
-    expect(principalFromHeaders((n) => (n === "x-ultiv-user" ? "owner-b" : undefined))).toEqual({
-      kind: "user",
-      id: "owner-b",
-    });
-    expect(principalFromRequest({ headers: { "x-ultiv-user": "owner-b" } })).toEqual({
-      kind: "user",
-      id: "owner-b",
-    });
-    const both = { "x-spriessen-user": "owner-a", "x-ultiv-user": "owner-b" };
-    expect(principalFromRequest({ headers: both })).toEqual({ kind: "user", id: "owner-a" });
-  });
-
-  it("ignores the short-lived misspelt x-spreissen-user header (clean cut)", () => {
-    expect(principalFromRequest({ headers: { "x-spreissen-user": "owner-a" } })).toEqual({
-      kind: "guest",
-    });
-  });
-
-  it("empty or missing means guest", () => {
-    expect(principalFromHeaders(() => undefined)).toEqual({ kind: "guest" });
-    expect(principalFromHeaders((n) => (n === "x-spriessen-user" ? "  " : undefined))).toEqual({
-      kind: "guest",
-    });
-  });
-
-  it("a principal may not NAME itself a reserved owner label", () => {
-    // `agent` is the sentinel bot-spawned task rows are filed under; a
-    // caller claiming it would pass every "own rows" check on those rows.
+  it("a reserved label never passes as the account", () => {
     expect(AGENT_OWNER).toBe("agent");
-    const principal = principalFromHeaders((n) => (n === "x-spriessen-user" ? "agent" : undefined));
-    expect(ownerOf(principal)).toBe("guest");
-    const fromRequest = principalFromRequest({ headers: { "x-spriessen-user": "agent" } });
-    expect(ownerOf(fromRequest)).toBe("guest");
+    expect(ownerOf(principalForLabel("agent"))).toBe("guest");
+    expect(ownerOf(principalForLabel(""))).toBe("guest");
+    expect(ownerOf(principalForLabel("owner-a"))).toBe("owner-a");
   });
 });
