@@ -113,7 +113,7 @@ export function Composer({
             type="button"
             variant="outline"
             size="icon-lg"
-            className="shrink-0 rounded-full text-signal"
+            className="working-ring shrink-0 rounded-full text-signal"
             aria-label="Stop"
             title="Stop"
             disabled={!live}
@@ -125,6 +125,7 @@ export function Composer({
         <SendButton
           busy={busy}
           enabled={canSend(live, sending, draft, staged.length > 0)}
+          sending={sending}
           onSend={onSend}
         />
       </div>

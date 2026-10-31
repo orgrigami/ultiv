@@ -26,10 +26,13 @@ export function canSend(
 export function SendButton({
   busy,
   enabled,
+  sending = false,
   onSend,
 }: {
   busy: boolean;
   enabled: boolean;
+  /** A send is in flight: the arrow lifts until the server has it. */
+  sending?: boolean;
   onSend: (mode?: SendMode) => void;
 }) {
   const anchor = useRef<HTMLButtonElement>(null);
@@ -49,8 +52,9 @@ export function SendButton({
         ref={anchor}
         type="submit"
         size="icon-lg"
-        className="shrink-0 rounded-full select-none [-webkit-touch-callout:none]"
+        className="send-btn shrink-0 rounded-full select-none [-webkit-touch-callout:none]"
         aria-label="Send"
+        aria-busy={sending || undefined}
         aria-haspopup={menu ? "menu" : undefined}
         title={
           busy

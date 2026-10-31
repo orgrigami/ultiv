@@ -1,3 +1,4 @@
+import { CharacterEmpty } from "@/components/character-empty";
 import { SearchIcon, SquarePenIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { useNewChat, useOpenChat } from "@/components/app-nav";
@@ -54,9 +55,13 @@ export function HistoryList() {
         </Button>
       </div>
       {rows.length === 0 ? (
-        <p className="text-muted-foreground px-1 py-6 text-center text-sm">
-          {all.length === 0 ? "No chats yet. Say hello on the Chat tab." : "No chat matches that."}
-        </p>
+        all.length === 0 ? (
+          <CharacterEmpty title="No chats yet">Say hello on the Chat tab.</CharacterEmpty>
+        ) : (
+          <p className="text-muted-foreground px-1 py-6 text-center text-sm">
+            No chat matches that.
+          </p>
+        )
       ) : (
         <ul aria-label="Past chats" className="bg-card divide-border divide-y rounded-2xl border">
           {rows.map((row) => (

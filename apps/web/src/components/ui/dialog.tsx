@@ -32,7 +32,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-popup"
         className={cn(
-          "bg-card text-card-foreground fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] w-full overflow-y-auto overscroll-contain rounded-t-xl border-t p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-lg transition-[translate,opacity] duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full motion-reduce:transition-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[85dvh] sm:w-[min(48rem,92vw)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border sm:p-6 sm:data-ending-style:-translate-y-1/2 sm:data-ending-style:opacity-0 sm:data-starting-style:-translate-y-1/2 sm:data-starting-style:opacity-0",
+          "bg-card text-card-foreground fixed inset-x-0 bottom-0 z-50 max-h-[90dvh] w-full overflow-y-auto overscroll-contain rounded-t-3xl border-t p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-lg transition-[translate,opacity] duration-200 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full motion-reduce:transition-none sm:inset-x-auto sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[85dvh] sm:w-[min(48rem,92vw)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:border sm:p-6 sm:data-ending-style:-translate-y-1/2 sm:data-ending-style:opacity-0 sm:data-starting-style:-translate-y-1/2 sm:data-starting-style:opacity-0",
           typeof className === "string" ? className : undefined,
         )}
         {...props}

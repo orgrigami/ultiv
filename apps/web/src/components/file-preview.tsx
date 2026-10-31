@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/code-block";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LazyMarkdown } from "@/components/lazy-markdown";
-import { Spinner } from "@/components/ui/spinner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { buttonVariants } from "@/components/ui/button";
 import { useHighlightedCode } from "@/hooks/use-highlighted-code";
 import { api } from "@/lib/api";
@@ -62,8 +62,9 @@ function FetchState({ failed }: { failed: boolean }) {
   return failed ? (
     <EmptyState>Couldn’t load this file. Download it instead.</EmptyState>
   ) : (
-    <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-sm">
-      <Spinner /> Loading…
+    <div role="status" aria-label="Loading the file" className="flex flex-col gap-2 py-2">
+      <Skeleton className="h-40 rounded-2xl" />
+      <Skeleton className="h-4 w-2/3 rounded-full" />
     </div>
   );
 }

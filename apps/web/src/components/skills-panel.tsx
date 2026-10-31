@@ -30,7 +30,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Spinner } from "@/components/ui/spinner";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatFull } from "@/lib/format";
 
@@ -133,9 +133,7 @@ function ReferenceFile({
           {error !== null ? (
             <ErrorState message={`Couldn't load the file: ${error}`} />
           ) : content === null ? (
-            <p className="text-muted-foreground flex items-center gap-2 py-2 text-xs">
-              <Spinner /> Loading…
-            </p>
+            <SkeletonRows label="Loading the file" rows={3} rowClassName="h-4 rounded-full" />
           ) : (
             <pre className="bg-card text-foreground max-h-64 overflow-auto rounded-lg border p-2.5 font-mono text-xs leading-relaxed">
               {content}
@@ -409,9 +407,7 @@ function SkillDialog({
             />
           </div>
         ) : detail === null ? (
-          <p className="text-muted-foreground mt-3 flex items-center gap-2 text-sm">
-            <Spinner /> Loading…
-          </p>
+          <SkeletonRows label="Loading the skill" className="mt-3" rows={2} />
         ) : (
           <LoadedSkill
             profile={target.profile}
@@ -513,11 +509,7 @@ export function SkillsContent() {
     return <ErrorState message={`Couldn't load skills: ${error}`} onRetry={() => void load()} />;
   }
   if (overview === null) {
-    return (
-      <p className="text-muted-foreground flex items-center gap-2 text-sm">
-        <Spinner /> Loading skills…
-      </p>
-    );
+    return <SkeletonRows label="Loading skills" />;
   }
   if (overview.profiles.length === 0 && overview.builtins.length === 0) {
     return (

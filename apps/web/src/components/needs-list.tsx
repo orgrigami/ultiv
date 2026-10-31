@@ -5,6 +5,7 @@
  * Failed tasks open their work; the rest open the chat or screen that settles
  * them. Failed tasks and routine escalations can be dismissed once seen.
  */
+import { CharacterEmpty } from "@/components/character-empty";
 import { useNavigate } from "@tanstack/react-router";
 import {
   BrainIcon,
@@ -20,7 +21,6 @@ import { useEffect, useRef, useState } from "react";
 import { ApprovalCard } from "@/components/approval-card";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { formatWhen } from "@/lib/format";
@@ -88,15 +88,9 @@ export function NeedsList({ className }: { className?: string }) {
 
   if (rows.length === 0 && settled.length === 0)
     return (
-      <div
-        className={cn(
-          "bg-card flex flex-col items-center gap-1 rounded-3xl border px-4 py-10 text-center",
-          className,
-        )}
-      >
-        <p className="text-sm font-medium">All clear</p>
-        <EmptyState>Approvals, failed tasks and memory suggestions show up here.</EmptyState>
-      </div>
+      <CharacterEmpty title="All clear" className={cn("py-10", className)}>
+        Approvals, failed tasks and memory suggestions show up here.
+      </CharacterEmpty>
     );
 
   return (

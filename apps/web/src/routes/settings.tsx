@@ -19,7 +19,7 @@ import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Spinner } from "@/components/ui/spinner";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type ServerCheck } from "@/lib/api";
 import { APPROVAL_MODES, MODE_CHIP } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";
@@ -163,9 +163,7 @@ function ServerSection({
     return (
       <section aria-label="Server" className="flex flex-col gap-2">
         <SectionHeader title="Server" />
-        <p className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Spinner /> Checking the server…
-        </p>
+        <SkeletonRows label="Checking the server" rows={2} />
       </section>
     );
   const anyModel = check.keys.some((key) => key.group === "models" && key.set);

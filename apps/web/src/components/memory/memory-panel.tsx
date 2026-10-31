@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorState } from "@/components/ui/empty-state";
-import { Spinner } from "@/components/ui/spinner";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api, type ArtifactRow, type MemoryV2Fact, type MemoryV2State } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -206,11 +206,7 @@ function MemoryStatus({
 }) {
   return (
     <>
-      {status === "loading" && (
-        <p className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
-          <Spinner /> Loading memory…
-        </p>
-      )}
+      {status === "loading" && <SkeletonRows label="Loading memory" className="mt-4" />}
       {status === "error" && (
         <div className="mt-4">
           <ErrorState message={error ?? "Couldn't load memory."} onRetry={() => void load()} />

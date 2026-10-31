@@ -3,6 +3,7 @@
  * (workspace) ones labelled, the forgotten list with restore, and the add
  * form. Forget/edit/restore route to the store the fact lives in.
  */
+import { CharacterEmpty } from "@/components/character-empty";
 import { useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +159,13 @@ function CurrentView({
   reload: () => Promise<void>;
 }) {
   if (botFacts.length === 0 && sharedFacts.length === 0) {
-    return <EmptyState>{needle === "" ? t.factsEmpty(name) : t.noMatches}</EmptyState>;
+    return needle === "" ? (
+      <CharacterEmpty bot={{ id: profileId, name }} title="Nothing remembered yet">
+        {t.factsEmpty(name)}
+      </CharacterEmpty>
+    ) : (
+      <EmptyState>{t.noMatches}</EmptyState>
+    );
   }
   return (
     <>

@@ -13,6 +13,7 @@ import {
   BellDotIcon,
   HistoryIcon,
   MessageCircleIcon,
+  SearchIcon,
   SettingsIcon,
   SquarePenIcon,
   UsersIcon,
@@ -24,7 +25,12 @@ import { useApp } from "@/lib/app-state";
 import { pastChats, type ChatRow } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
 import { badgeText, SECTION_LABEL, SECTIONS, sectionOf, type Section } from "@/lib/nav";
+import { useQuickSwitch } from "@/lib/quick-switch-context";
 import { cn } from "@/lib/utils";
+
+/** ⌘ on Apple keyboards, Ctrl elsewhere. */
+const modKey = (): string =>
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘" : "Ctrl ";
 
 export type { Section } from "@/lib/nav";
 
@@ -207,6 +213,7 @@ export function SideNav() {
   const section = useSection();
   const navigate = useNavigate();
   const newChat = useNewChat();
+  const quick = useQuickSwitch();
   return (
     <nav
       aria-label="Primary"
@@ -224,6 +231,17 @@ export function SideNav() {
           <span className="flex-1 text-left">New chat</span>
           <kbd className="text-muted-foreground readout">N</kbd>
         </button>
+        {quick !== null && (
+          <button
+            type="button"
+            onClick={quick.openSwitcher}
+            className="hover:bg-sidebar-accent/60 focus-visible:ring-ring/40 press text-muted-foreground mb-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm outline-none focus-visible:ring-2"
+          >
+            <SearchIcon className="size-5 shrink-0" />
+            <span className="flex-1 text-left">Find</span>
+            <kbd className="readout">{modKey()}K</kbd>
+          </button>
+        )}
         <RailLink section="chat" current={section === "chat"} />
         <RailLink section="history" current={section === "history"} />
         <RailLink section="needs" current={section === "needs"} />

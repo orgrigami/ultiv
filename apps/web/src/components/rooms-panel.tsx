@@ -3,12 +3,14 @@
  * names — the same shape as the owner's own threads. Per-seat internals are
  * invisible here; a supervision "say" posts into a chosen bot's side.
  */
+import { CharacterEmpty } from "@/components/character-empty";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { ArrowLeftIcon, MessagesSquareIcon, SendIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo, RoomInfo } from "@ultiv/contracts";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Button } from "@/components/ui/button";
-import { EmptyState, ErrorState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -108,8 +110,7 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
     }
   };
 
-  if (detail === null)
-    return <p className="text-muted-foreground text-sm">Loading the conversation…</p>;
+  if (detail === null) return <SkeletonRows label="Loading the conversation" rows={4} />;
   const title = detail.participants.map((participant) => participant.name).join(" ↔ ");
 
   return (
@@ -205,10 +206,12 @@ export function RoomsContent({
       </div>
     );
   }
-  if (!loaded) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (!loaded) return <SkeletonRows label="Loading bot talks" />;
   if (rooms.length === 0) {
     return (
-      <EmptyState>None yet. Bots start one when they message each other, one per topic.</EmptyState>
+      <CharacterEmpty title="No bot talks yet">
+        Bots start one when they message each other, one per topic.
+      </CharacterEmpty>
     );
   }
   return (

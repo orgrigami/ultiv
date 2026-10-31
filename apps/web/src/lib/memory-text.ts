@@ -14,7 +14,7 @@ export const TABS = {
 } as const;
 
 export const factsEmpty = (name: string): string =>
-  `Nothing yet. Facts ${name} keeps about its work show up here, and you can edit or delete them.`;
+  `Facts ${name} keeps about its work show up here. You can edit or delete them.`;
 export const factsBotTitle = "This bot";
 export const factsSharedTitle = "Shared · the whole workspace";
 export const searchLabel = "Search facts";

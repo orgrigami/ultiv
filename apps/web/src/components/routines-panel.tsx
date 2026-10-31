@@ -18,7 +18,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Spinner } from "@/components/ui/spinner";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { ScheduleRow, SensorRow } from "@/components/routine-rows";
 import { CreateWebhook, WebhookRow } from "@/components/webhook-row";
 import { Mark } from "@/components/state-mark";
@@ -115,11 +115,7 @@ export function RoutinesContent({
     return <ErrorState message={`Couldn't load routines: ${error}`} onRetry={() => void load()} />;
   }
   if (data === null) {
-    return (
-      <p className="text-muted-foreground flex items-center gap-2 text-sm">
-        <Spinner /> Loading routines…
-      </p>
-    );
+    return <SkeletonRows label="Loading routines" />;
   }
   return (
     <div className="flex flex-col gap-6">

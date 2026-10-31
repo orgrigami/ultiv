@@ -6,6 +6,7 @@
  * panel that already owned that job (memory, routines, the bot form, the
  * audit log); the overview is file-style cards into those tabs.
  */
+import { CharacterEmpty } from "@/components/character-empty";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   BrainIcon,
@@ -34,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { describeTool } from "@/lib/approval-text";
@@ -521,15 +523,13 @@ function ActivityTab({ bot }: { bot: ProfileInfo }) {
         onRetry={() => setAttempt((n) => n + 1)}
       />
     );
-  if (events === null)
+  if (events === null) return <SkeletonRows label="Loading activity" />;
+  if (events.length === 0)
     return (
-      <div className="flex flex-col gap-2" aria-label="Loading activity" role="status">
-        {[0, 1, 2].map((row) => (
-          <div key={row} className="skeleton h-12 rounded-2xl" />
-        ))}
-      </div>
+      <CharacterEmpty bot={bot} title="Nothing yet">
+        What {bot.name} does shows up here once it starts working.
+      </CharacterEmpty>
     );
-  if (events.length === 0) return <EmptyState>Nothing recorded for {bot.name} yet.</EmptyState>;
   return (
     <div className="flex flex-col gap-2">
       <p className="text-muted-foreground text-xs">
