@@ -51,12 +51,19 @@ export const sessionOps = (
                 (row.profile === profileId || row.participants?.includes(profileId) === true),
           ),
       ),
-    removeSession: (owner, id) =>
-      run(
-        commitSessions(converse, (sessions) =>
-          sessions.filter((row) => !(row.id === id && row.owner === owner)),
-        ),
-      ).then(() => true),
+    removeSession: async (owner, id) => {
+      // True only when a row of this owner's went: a missing id and another
+      // owner's id both answer false.
+      let removed = false;
+      await run(
+        commitSessions(converse, (sessions) => {
+          const kept = sessions.filter((row) => !(row.id === id && row.owner === owner));
+          removed = kept.length < sessions.length;
+          return kept;
+        }),
+      );
+      return removed;
+    },
     touchSession: async (owner, chatId, info) => {
       const seedTitle =
         info.titleSeed !== undefined ? await titleFor(generate, info.titleSeed) : undefined;

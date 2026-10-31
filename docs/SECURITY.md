@@ -216,7 +216,10 @@ Left as they are, on purpose:
 - Fire receipts of a deleted routine can't be attributed and stay hidden.
 
 Tests: `apps/server/src/rest/owner-scope.test.ts` (the signed-in account over
-the real REST handler), `packages/mind/src/migrate/owners.test.ts` (cross-label
+the real REST handler), `apps/server/src/rest/wrong-owner.test.ts` (another
+owner's bot, chat, files, skills, routines, vault item, task and parked
+approval: absent from every list, and each read or write answers exactly
+like a missing id), `packages/mind/src/migrate/owners.test.ts` (cross-label
 refusals at the mind level), `apps/server/src/auth/auth.test.ts` (the gate),
 `apps/server/src/ws-auth.test.ts` (the WebSocket) and `vp run smoke`.
 
