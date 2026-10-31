@@ -1,7 +1,8 @@
 /**
  * One bot's profile, reached from Crew: its character big and centered,
- * then pill tabs with live counts (Overview · Instructions · Memory n ·
- * Routines n · Access n · Files n · Activity). Instructions edits the
+ * then pill tabs with live counts (Overview · Instructions n · Memory n ·
+ * Routines n · Access n|All · Files n · Activity n). Overview is the index
+ * of the others, so it carries no count. Instructions edits the
  * bot's Persona and Instructions files with their versions. The tab rides ?tab= so Needs you and
  * other screens can deep-link to the exact section. Every tab reuses the
  * panel that already owned that job (memory, routines, the bot form, the
@@ -43,7 +44,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { describeTool } from "@/lib/approval-text";
 import { formatWhen } from "@/lib/format";
-import { cardLine, tabCount, type ProfileCounts } from "@/lib/profile-summary";
+import { ACTIVITY_LIMIT, cardLine, tabCount, type ProfileCounts } from "@/lib/profile-summary";
 import { cn } from "@/lib/utils";
 
 export const PROFILE_TABS = [
@@ -96,6 +97,14 @@ function useProfileCounts(botId: string, tab: ProfileTab): ProfileCounts {
       .artifacts(botId)
       .then((rows) => settle({ files: rows.length }))
       .catch(() => settle({ files: undefined }));
+    api
+      .botFiles(botId)
+      .then((files) => settle({ versions: files.persona.version + files.instructions.version }))
+      .catch(() => settle({ versions: undefined }));
+    api
+      .auditOf(botId, ACTIVITY_LIMIT)
+      .then((rows) => settle({ activity: rows.length }))
+      .catch(() => settle({ activity: undefined }));
     return () => {
       alive = false;
     };
@@ -529,7 +538,7 @@ function ActivityTab({ bot }: { bot: ProfileInfo }) {
   useEffect(() => {
     let alive = true;
     api
-      .auditOf(bot.id, 50)
+      .auditOf(bot.id, ACTIVITY_LIMIT)
       .then((rows) => {
         if (!alive) return;
         setEvents([...rows].reverse());

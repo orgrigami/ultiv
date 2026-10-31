@@ -10,7 +10,14 @@ export interface ProfileCounts {
   memory?: number | undefined;
   routines?: number | undefined;
   files?: number | undefined;
+  /** Saved versions across Persona and Instructions. */
+  versions?: number | undefined;
+  /** Activity lines loaded (the tab shows the newest ACTIVITY_LIMIT). */
+  activity?: number | undefined;
 }
+
+/** How many activity lines the tab loads, so the count says "50+" past it. */
+export const ACTIVITY_LIMIT = 50;
 
 export interface ProfileFacts {
   policies: { approvalMode: ProfileApprovalMode };
@@ -18,16 +25,26 @@ export interface ProfileFacts {
   toolAllowlist: readonly string[] | null;
 }
 
-/** The number on a tab, or none. Access counts tools only when the list is narrowed. */
+/**
+ * The count on a tab, or none while it is loading. Every tab but Overview
+ * has one; Overview is the index of the others, so it carries none. Access
+ * counts allowed tools, or "All" when the list isn't narrowed; Activity
+ * stops at ACTIVITY_LIMIT and shows "50+" there.
+ */
 export function tabCount(
   tab: string,
   counts: ProfileCounts,
   bot: ProfileFacts,
-): number | undefined {
+): number | string | undefined {
+  if (tab === "instructions") return counts.versions;
   if (tab === "memory") return counts.memory;
   if (tab === "routines") return counts.routines;
   if (tab === "files") return counts.files;
-  if (tab === "access") return bot.toolAllowlist?.length;
+  if (tab === "access") return bot.toolAllowlist === null ? "All" : bot.toolAllowlist.length;
+  if (tab === "activity")
+    return counts.activity !== undefined && counts.activity >= ACTIVITY_LIMIT
+      ? `${ACTIVITY_LIMIT}+`
+      : counts.activity;
   return undefined;
 }
 
@@ -63,6 +80,10 @@ export function cardLine(tab: string, counts: ProfileCounts, bot: ProfileFacts):
         : counts.files === 0
           ? "No files yet"
           : `${plural(counts.files, "file", "files")} it made or you shared`;
+    case "instructions":
+      return counts.versions === undefined
+        ? "Its persona and standing instructions"
+        : `Persona and instructions · ${plural(counts.versions, "version", "versions")} saved`;
     case "activity":
       return "What it did, newest first";
     default:

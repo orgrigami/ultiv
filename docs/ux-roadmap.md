@@ -153,6 +153,9 @@ says when another chat needs you. Rebrand: one brand module
 (`lib/brand.ts`), the amber sprout mark, icons and a voice guide
 (`docs/design/brand.md`). Every bot has a deterministic character. The
 profile has a centered hero, pill tabs with live counts and file-style cards.
+Every tab but Overview has a count (Instructions: saved versions; Access:
+allowed tools or All; Activity: lines, 50+ past the page). Overview is the
+index of the others, so it carries none.
 Delight: one radius scale, press and send states, skeletons, character empty
 states, and a Cmd/Ctrl-K quick switcher with N and ? shortcuts.
 Remaining: sign-in, push instead of poll, and the per-bot notification switch.
