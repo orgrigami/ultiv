@@ -197,11 +197,12 @@ export function needsYouItems(input: {
     .slice(0, NEEDS_YOU_LIMIT);
 }
 
-const DISMISSED_KEY = "spreissen.needs-you.dismissed";
-const LEGACY_DISMISSED_KEY = "ultiv.needs-you.dismissed";
+const DISMISSED_KEY = "spriessen.needs-you.dismissed";
+/** Newest first: the short-lived misspelt prefix, then the pre-rename one. */
+const LEGACY_DISMISSED_KEYS = ["spreissen.needs-you.dismissed", "ultiv.needs-you.dismissed"];
 
 export function readDismissed(): Set<string> {
-  adoptLegacyKey(DISMISSED_KEY, LEGACY_DISMISSED_KEY);
+  adoptLegacyKey(DISMISSED_KEY, LEGACY_DISMISSED_KEYS);
   try {
     const raw = localStorage.getItem(DISMISSED_KEY);
     const parsed: unknown = raw === null ? [] : JSON.parse(raw);

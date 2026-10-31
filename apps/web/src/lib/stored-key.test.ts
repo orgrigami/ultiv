@@ -11,22 +11,36 @@ const memory = (seed: Record<string, string>) => {
   };
 };
 
+const OLD = ["spreissen.theme", "ultiv.theme"];
+
 describe("adoptLegacyKey", () => {
-  it("copies the old value once and drops the old key", () => {
+  it("copies the pre-rename value once and drops the old key", () => {
     const store = memory({ "ultiv.theme": "light" });
-    adoptLegacyKey("spreissen.theme", "ultiv.theme", store);
-    expect(Object.fromEntries(store.data)).toEqual({ "spreissen.theme": "light" });
+    adoptLegacyKey("spriessen.theme", OLD, store);
+    expect(Object.fromEntries(store.data)).toEqual({ "spriessen.theme": "light" });
   });
 
-  it("never overwrites a value already under the new key", () => {
+  it("adopts the misspelt key, preferring it over the older one, and drops both", () => {
     const store = memory({ "spreissen.theme": "dark", "ultiv.theme": "light" });
-    adoptLegacyKey("spreissen.theme", "ultiv.theme", store);
-    expect(store.getItem("spreissen.theme")).toBe("dark");
+    adoptLegacyKey("spriessen.theme", OLD, store);
+    expect(Object.fromEntries(store.data)).toEqual({ "spriessen.theme": "dark" });
+  });
+
+  it("never overwrites a value already under the new key, and clears stale old keys", () => {
+    const store = memory({ "spriessen.theme": "dark", "spreissen.theme": "light" });
+    adoptLegacyKey("spriessen.theme", OLD, store);
+    expect(Object.fromEntries(store.data)).toEqual({ "spriessen.theme": "dark" });
+  });
+
+  it("still takes a single legacy key", () => {
+    const store = memory({ "ultiv.theme": "light" });
+    adoptLegacyKey("spriessen.theme", "ultiv.theme", store);
+    expect(store.getItem("spriessen.theme")).toBe("light");
   });
 
   it("does nothing when there is nothing to adopt", () => {
     const store = memory({});
-    adoptLegacyKey("spreissen.theme", "ultiv.theme", store);
+    adoptLegacyKey("spriessen.theme", OLD, store);
     expect(store.data.size).toBe(0);
   });
 });

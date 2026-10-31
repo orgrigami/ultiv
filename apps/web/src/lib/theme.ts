@@ -7,8 +7,9 @@ import { adoptLegacyKey } from "./stored-key.ts";
 
 export type ThemeChoice = "system" | "light" | "dark";
 
-const KEY = "spreissen.theme";
-const LEGACY_KEY = "ultiv.theme";
+const KEY = "spriessen.theme";
+/** Newest first: the short-lived misspelt prefix, then the pre-rename one. */
+const LEGACY_KEYS = ["spreissen.theme", "ultiv.theme"];
 const query = (): MediaQueryList => window.matchMedia("(prefers-color-scheme: dark)");
 
 function apply(): void {
@@ -19,7 +20,7 @@ function apply(): void {
 
 export function themeChoice(): ThemeChoice {
   if (typeof window === "undefined") return "system";
-  adoptLegacyKey(KEY, LEGACY_KEY);
+  adoptLegacyKey(KEY, LEGACY_KEYS);
   const saved = window.localStorage.getItem(KEY);
   return saved === "light" || saved === "dark" ? saved : "system";
 }
