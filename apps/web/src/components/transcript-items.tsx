@@ -28,7 +28,7 @@ import {
 // The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
 const roleStyles = {
-  user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words",
+  user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-chat whitespace-pre-wrap break-words",
 } as const;
 
 // Past this much text a finished reply folds; the fold is a reading aid,
@@ -74,7 +74,7 @@ const Output = memo(function Output({
         <div className="min-w-0 max-w-full">
           <div
             className={
-              "prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere] " +
+              "prose prose-sm chat-prose dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere] " +
               (foldable
                 ? "max-h-80 overflow-hidden [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
                 : "")

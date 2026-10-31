@@ -34,7 +34,7 @@ export function EmptyChat({
     <li className="flex flex-col items-center gap-3 px-2 pt-10 text-center">
       <BotAvatar name={name} size="lg" />
       <div className="flex flex-col gap-1">
-        <p className="font-heading text-lg font-semibold">{name}</p>
+        <p className="font-heading text-title font-semibold tracking-tight">{name}</p>
         {bot !== undefined && bot.description !== "" && (
           <p className="text-muted-foreground max-w-sm text-sm">{bot.description}</p>
         )}

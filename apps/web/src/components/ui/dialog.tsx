@@ -62,7 +62,7 @@ function DialogTitle({ ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className="pr-8 text-lg font-semibold"
+      className="pr-8 text-title font-semibold tracking-tight"
       {...props}
     />
   );

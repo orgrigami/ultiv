@@ -11,6 +11,17 @@
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+  /* The type scale: four sizes. Meta = timestamps, labels, readouts; UI =
+     rows, cards, buttons (the body default); chat = messages and inputs;
+     title = screen titles. Mono only for code, paths, hosts and tool names. */
+  --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-chat: 1rem;
+  --text-chat--line-height: 1.5rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.75rem;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -181,8 +192,8 @@
   body {
     @apply bg-background text-foreground;
     position: relative;
-    font-size: 0.8125rem;
-    line-height: 1.55;
+    font-size: var(--text-ui);
+    line-height: var(--text-ui--line-height);
   }
   /* The app fills the dynamic viewport and every screen scrolls inside its own
      container, so the page itself never scrolls (or rubber-bands) on phones. */
@@ -240,16 +251,23 @@
 
 /* Small muted labels for section and field headers. */
 .section-label {
-  font-size: 0.6875rem;
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
   font-weight: 500;
   color: var(--muted-foreground);
 }
 /* Readouts: mono with tabular figures, for measured values. */
 .readout {
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+}
+/* Chat messages read at the chat size, over prose's own scale. */
+.prose.chat-prose {
+  font-size: var(--text-chat);
+  line-height: var(--text-chat--line-height);
 }
 .tnum {
   font-variant-numeric: tabular-nums;

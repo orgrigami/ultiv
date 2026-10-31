@@ -98,7 +98,7 @@ export function Composer({
           value={draft}
           disabled={!live}
           rows={1}
-          className="placeholder:text-muted-foreground field-sizing-content max-h-[40dvh] min-h-10 min-w-0 pointer-coarse:min-h-11 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-base leading-snug outline-none disabled:opacity-60 md:text-sm"
+          className="placeholder:text-muted-foreground field-sizing-content max-h-[40dvh] min-h-10 min-w-0 pointer-coarse:min-h-11 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-chat outline-none disabled:opacity-60"
           onChange={(event) => onDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || coarsePointer()) return;
