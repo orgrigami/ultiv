@@ -16,6 +16,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as NeedsRouteImport } from './routes/needs'
 import { Route as RoomsRouteImport } from './routes/rooms'
 import { Route as RoutinesRouteImport } from './routes/routines'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SkillsRouteImport } from './routes/skills'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as VaultRouteImport } from './routes/vault'
@@ -57,6 +58,11 @@ const RoomsRoute = RoomsRouteImport.update({
 const RoutinesRoute = RoutinesRouteImport.update({
   id: '/routines',
   path: '/routines',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SkillsRoute = SkillsRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
+  '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
@@ -119,6 +126,7 @@ export interface FileRoutesByTo {
   '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
+  '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
@@ -136,6 +144,7 @@ export interface FileRoutesById {
   '/needs': typeof NeedsRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
+  '/settings': typeof SettingsRoute
   '/skills': typeof SkillsRoute
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
@@ -154,6 +163,7 @@ export interface FileRouteTypes {
     | '/needs'
     | '/rooms'
     | '/routines'
+    | '/settings'
     | '/skills'
     | '/tools'
     | '/vault'
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/needs'
     | '/rooms'
     | '/routines'
+    | '/settings'
     | '/skills'
     | '/tools'
     | '/vault'
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/needs'
     | '/rooms'
     | '/routines'
+    | '/settings'
     | '/skills'
     | '/tools'
     | '/vault'
@@ -203,6 +215,7 @@ export interface RootRouteChildren {
   NeedsRoute: typeof NeedsRoute
   RoomsRoute: typeof RoomsRoute
   RoutinesRoute: typeof RoutinesRoute
+  SettingsRoute: typeof SettingsRoute
   SkillsRoute: typeof SkillsRoute
   ToolsRoute: typeof ToolsRoute
   VaultRoute: typeof VaultRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/routines'
       fullPath: '/routines'
       preLoaderRoute: typeof RoutinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/skills': {
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   NeedsRoute: NeedsRoute,
   RoomsRoute: RoomsRoute,
   RoutinesRoute: RoutinesRoute,
+  SettingsRoute: SettingsRoute,
   SkillsRoute: SkillsRoute,
   ToolsRoute: ToolsRoute,
   VaultRoute: VaultRoute,

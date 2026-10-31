@@ -128,6 +128,14 @@ export interface PendingApprovalRow {
   reason: string | null;
 }
 
+/** GET /api/server/check — which keys are set (never their values) and how the server runs. */
+export interface ServerCheck {
+  keys: { names: string[]; set: boolean; enables: string; group: "models" | "features" }[];
+  models: { providers: string[]; count: number; default: string; source: string };
+  microvm: { available: boolean; detail: string };
+  listen: { port: number; scope: "all" | "loopback" | "specific" };
+}
+
 /** One row of GET /api/artifacts — a file a bot made (or the owner uploaded). */
 export interface ArtifactRow {
   id: string;
@@ -405,6 +413,7 @@ export const api = {
     getJson<PendingApprovalRow[]>("/api/approvals"),
   /** The Needs you inputs no poll carries: tidy counts, escalations, approval chats. */
   needsYou: (): Promise<NeedsYouExtra> => getJson<NeedsYouExtra>("/api/needs-you"),
+  serverCheck: (): Promise<ServerCheck> => getJson<ServerCheck>("/api/server/check"),
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),
