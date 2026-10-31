@@ -13,17 +13,20 @@ import { CardShell } from "./card-shell";
 type BotMessage = Extract<SystemMessage, { kind: "bot" }>;
 type NackMessage = Extract<SystemMessage, { kind: "nack" }>;
 
-/** A bot id (outgoing mail) or name (incoming) as a display name. */
-function useBotName(who: string): string {
+/** A bot id (outgoing mail) or name (incoming) as the bot, when it is known. */
+function useBot(who: string): { id: string | undefined; name: string } {
   const { sessions } = useApp();
-  return (
-    sessions.profiles.find((bot) => bot.id === who)?.name ??
-    (/^[0-9a-f-]{36}$/i.test(who) ? "another bot" : who)
-  );
+  const bot = sessions.profiles.find((row) => row.id === who || row.name === who);
+  return {
+    id: bot?.id,
+    name: bot?.name ?? (/^[0-9a-f-]{36}$/i.test(who) ? "another bot" : who),
+  };
 }
 
+const useBotName = (who: string): string => useBot(who).name;
+
 export function BotCard({ message, at }: { message: BotMessage; at: number }) {
-  const name = useBotName(message.who);
+  const { id, name } = useBot(message.who);
   const Arrow = message.direction === "in" ? ArrowLeftIcon : ArrowRightIcon;
   const head =
     message.direction === "out"
@@ -36,7 +39,7 @@ export function BotCard({ message, at }: { message: BotMessage; at: number }) {
     .join(" · ");
   return (
     <CardShell
-      icon={<BotAvatar name={name} size="sm" />}
+      icon={<BotAvatar id={id} name={name} size="sm" />}
       title={
         <span className="inline-flex max-w-full items-center gap-1.5">
           <Arrow aria-hidden className="text-muted-foreground size-3.5! shrink-0" />

@@ -32,7 +32,7 @@ export function EmptyChat({
   const name = bot?.name !== undefined && bot.name !== "" ? bot.name : "your bot";
   return (
     <li className="flex flex-col items-center gap-3 px-2 pt-10 text-center">
-      <BotAvatar name={name} size="lg" />
+      <BotAvatar id={bot?.id} name={name} size="hero" />
       <div className="flex flex-col gap-1">
         <p className="font-heading text-title font-semibold tracking-tight">{name}</p>
         {bot !== undefined && bot.description !== "" && (
@@ -81,7 +81,7 @@ export function StatusRow({
 }) {
   return (
     <li className="text-muted-foreground flex items-center gap-2 self-start text-sm">
-      <BotAvatar name={bot?.name ?? "?"} size="sm" />
+      <BotAvatar id={bot?.id} name={bot?.name ?? "?"} size="sm" mood="thinking" />
       <Mark kind="working" tone="live" className="size-3" />
       <span>{activityOf(transcript, pending)}</span>
     </li>

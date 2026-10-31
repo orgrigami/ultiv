@@ -24,7 +24,7 @@ export function BotSwitcher({
   /** Opens this bot's Memory panel (absent when there is no bot). */
   onMemory?: (() => void) | undefined;
 }) {
-  const { attention } = useApp();
+  const { attention, busy } = useApp();
   const [open, setOpen] = useState(false);
   // Another bot's gate may need the owner; this chat's own card handles its own.
   const waiting = [...attention].some((id) => id !== currentId);
@@ -36,7 +36,11 @@ export function BotSwitcher({
           aria-label={`${name}: switch bot`}
           className="bg-background/60 supports-backdrop-filter:bg-background/40 hover:bg-muted/80 border-border/60 relative flex max-w-full min-w-0 cursor-pointer pointer-coarse:min-h-11 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1 shadow-sm backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <BotAvatar name={name} />
+          <BotAvatar
+            id={currentId}
+            name={name}
+            mood={currentId !== undefined && busy.has(currentId) ? "thinking" : "idle"}
+          />
           <span className="flex min-w-0 flex-col text-left leading-tight">
             <span className="truncate text-sm font-medium">{name}</span>
           </span>

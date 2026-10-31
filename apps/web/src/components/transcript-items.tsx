@@ -4,6 +4,7 @@
  */
 import { memo, useState } from "react";
 import { AttachmentChips } from "@/components/attachment-chips";
+import { BotAvatar } from "@/components/bot-avatar";
 import { useApp } from "@/lib/app-state";
 import { formatDivider, formatFull } from "@/lib/format";
 import { readNote } from "@/lib/note-text";
@@ -175,6 +176,16 @@ function groupTranscript(transcript: TranscriptEntry[]): Group[] {
   return groups;
 }
 
+const isOwnerInput = (group: Group | undefined): boolean =>
+  group !== undefined && !("tools" in group) && group.entry.kind === "input";
+
+/** The bot's side begins: output, reasoning or tools right after the owner spoke. */
+function startsBotTurn(group: Group, previous: Group | undefined): boolean {
+  if (isOwnerInput(group)) return false;
+  if (!("tools" in group) && group.entry.kind === "note") return false;
+  return previous === undefined || isOwnerInput(previous);
+}
+
 /** Every transcript entry, in order, as list items. busy marks the last reasoning as live. */
 export function TranscriptItems({
   transcript,
@@ -182,6 +193,7 @@ export function TranscriptItems({
   tasks = [],
   jevNotices,
   onOpenMemory,
+  bot,
 }: {
   transcript: TranscriptEntry[];
   busy?: boolean;
@@ -191,6 +203,8 @@ export function TranscriptItems({
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
   /** Opens this chat's bot Memory panel with a search pre-filled (memory chips). */
   onOpenMemory?: ((query: string) => void) | undefined;
+  /** The chat's bot: its face and name head each of its turns. */
+  bot?: { id?: string | undefined; name: string } | undefined;
 }) {
   return (
     <>
@@ -208,8 +222,19 @@ export function TranscriptItems({
               <span className="bg-border h-px flex-1" />
             </li>
           ) : null;
+        const head =
+          bot !== undefined && startsBotTurn(group, previous) ? (
+            <li
+              key={`head-${group.key}`}
+              className="text-muted-foreground -mb-1.5 flex items-center gap-1.5 self-start text-xs font-medium"
+            >
+              <BotAvatar id={bot.id} name={bot.name} size="sm" />
+              {bot.name}
+            </li>
+          ) : null;
         return [
           divider,
+          head,
           renderGroup(group, busy && index === groups.length - 1, tasks, jevNotices, onOpenMemory),
         ];
       })}

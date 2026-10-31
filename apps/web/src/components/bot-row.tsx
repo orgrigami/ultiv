@@ -61,7 +61,11 @@ export function BotRow(props: BotRowProps) {
         )}
       >
         <span className="relative">
-          <BotAvatar name={bot.name} />
+          <BotAvatar
+            id={bot.id}
+            name={bot.name}
+            mood={needsYou ? "alert" : busy.has(bot.id) ? "thinking" : "idle"}
+          />
           {needsYou && (
             <Mark
               kind="attention"

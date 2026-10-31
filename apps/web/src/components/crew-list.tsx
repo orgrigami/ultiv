@@ -90,7 +90,12 @@ function CrewRow({
         )}
       >
         <span className="relative">
-          <BotAvatar name={bot.name} size={variant === "rail" ? "sm" : "md"} />
+          <BotAvatar
+            id={bot.id}
+            name={bot.name}
+            size={variant === "rail" ? "sm" : "md"}
+            mood={needsYou ? "alert" : working ? "thinking" : "idle"}
+          />
           {needsYou && (
             <Mark
               kind="attention"

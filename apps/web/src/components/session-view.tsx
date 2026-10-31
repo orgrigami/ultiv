@@ -256,6 +256,7 @@ export function SessionView({
                 tasks={taskInfo}
                 jevNotices={jevNotices}
                 onOpenMemory={hasBot ? openMemory : undefined}
+                bot={bot}
               />
               {pending !== null ? (
                 <li>
