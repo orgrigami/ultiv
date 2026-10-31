@@ -1,8 +1,8 @@
 /**
- * The chat-header pill (every width): tap it for the shared bot panel
- * (bots with role lines and activity, New bot, What-X-remembers, Bot talks).
- * The side nav has its own switcher block; the pill keeps the chat's own
- * context under the pointer. Link state stays in the SessionDetails popover.
+ * The chat-header pill (every width): tap it for the shared bot panel (the
+ * crew list, this bot's memory and profile, New bot). The rail shows the
+ * same list; the pill keeps switching under the thumb. Link state stays in
+ * the SessionDetails popover.
  */
 import { Popover } from "@base-ui/react/popover";
 import { ChevronDownIcon } from "lucide-react";
@@ -49,7 +49,7 @@ export function BotSwitcher({
             />
           )}
         </Popover.Trigger>
-        <BotPanel currentId={currentId} onMemory={onMemory} />
+        <BotPanel currentId={currentId} onMemory={onMemory} onClose={() => setOpen(false)} />
       </Popover.Root>
     </>
   );
