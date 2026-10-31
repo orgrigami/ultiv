@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 const TONE = {
   good: "bg-ok",
   busy: "bg-live animate-pulse motion-reduce:animate-none",
-  warn: "bg-amber-500",
+  warn: "bg-warning",
   bad: "bg-destructive",
   off: "bg-muted-foreground/40",
 } as const;

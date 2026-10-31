@@ -58,7 +58,7 @@ export function ChangeDetails({ change }: { change: ConnectorChange }) {
       {change.caution !== undefined && (
         <p
           role="note"
-          className="flex gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-2 text-xs"
+          className="flex gap-2 rounded-lg border border-warning/50 bg-warning/10 p-2 text-xs"
         >
           <TriangleAlertIcon className="text-live mt-0.5 size-3.5 shrink-0" aria-hidden />
           {change.caution}
