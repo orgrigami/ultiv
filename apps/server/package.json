@@ -11,7 +11,8 @@
     "test": "vp test",
     "push:keys": "node src/push-keys.ts",
     "recover:access": "node src/recover-access.ts",
-    "owners:dry-run": "node src/migrate-owners.ts"
+    "owners:dry-run": "node src/migrate-owners.ts",
+    "org:dry-run": "node src/migrate-org.ts"
   },
   "dependencies": {
     "@earendil-works/chord": "catalog:",

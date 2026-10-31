@@ -1,10 +1,13 @@
 /**
  * The ONE permission decision. Every REST route, the approval decide path
- * and the host-access seam ask here instead of comparing owner labels
- * themselves. Phase 2 has one account, so the model is simple; phase 3
- * attaches roles to it, and phase 4 adds per-department conditions to the
- * host capability. Keep this file the only place that compares labels.
+ * and the host-access seam ask here instead of comparing owner labels or
+ * roles themselves. The org (departments, members, roles) rides in the
+ * optional `view`: the org owner passes everything, org admins pass org
+ * level, a department admin passes only inside its own department — that
+ * matrix grows in slice 3; this file stays the only place that compares
+ * labels.
  */
+import type { HomeRef } from "@spriessen/contracts";
 import { AGENT_OWNER } from "@spriessen/mind";
 import { OWNER_ID } from "../identity.ts";
 
@@ -15,7 +18,11 @@ export type Action = "view" | "change" | "remove" | "decide";
  * What it is asked of. Bot-owned data carries the owner label its row is
  * filed under; `account` is owner-level state (audit, needs-you, sign-in
  * settings); `host` is the capability to run things on the server's own
- * machine (`bash_host`, later other host-running tools).
+ * machine (`bash_host`, later other host-running tools). The org kinds:
+ * `org-settings` and `member` are org-level state; `department` is one
+ * department's own state; `department-summary` is its read-only digest;
+ * `approval` is deciding a pending card on a chat; `shared-folder` and `vm`
+ * are the open-reach surfaces (every bot may reach any home's).
  */
 export type Resource =
   | {
@@ -24,7 +31,40 @@ export type Resource =
       readonly id: string;
     }
   | { readonly type: "account" }
-  | { readonly type: "host" };
+  | { readonly type: "host" }
+  | { readonly type: "org-settings" }
+  | { readonly type: "member" }
+  | { readonly type: "department"; readonly departmentId: string }
+  | { readonly type: "department-summary"; readonly departmentId: string }
+  | { readonly type: "approval"; readonly owner: string; readonly id: string }
+  | { readonly type: "shared-folder"; readonly home: HomeRef }
+  | { readonly type: "vm"; readonly home: HomeRef };
+
+/**
+ * The org slice a decision may need: who owns the org, which members hold
+ * which roles, and where each bot lives. Absent (legacy call sites, pure
+ * tests), decisions fall back to the one-account reading.
+ */
+export interface OrgView {
+  readonly org: { readonly owner: string } | null;
+  readonly departments: readonly { readonly id: string }[];
+  readonly members: readonly {
+    readonly accountId: string;
+    readonly role: string;
+    readonly departmentId: string | null;
+  }[];
+}
+
+/** The org-level role of `actor`: "owner", "admin", or null. */
+export const orgLevelOf = (actor: string, view: OrgView | undefined): "owner" | "admin" | null => {
+  if (actor === OWNER_ID && (view === undefined || view.org === null)) return "owner";
+  if (view === undefined) return actor === OWNER_ID ? "owner" : null;
+  if (view.org !== null && view.org.owner === actor) return "owner";
+  const role = view.members.find(
+    (member) => member.accountId === actor && member.departmentId === null,
+  )?.role;
+  return role === "owner" ? "owner" : role === "admin" ? "admin" : null;
+};
 
 /**
  * Whether `actor` (a principal's owner label: the signed-in account, or a
@@ -32,14 +72,31 @@ export type Resource =
  * task rows) is never an actor: a row filed under it must not become
  * reachable by naming it.
  */
-export const can = (actor: string, action: Action, resource: Resource): boolean => {
+export const can = (actor: string, action: Action, resource: Resource, view?: OrgView): boolean => {
   if (actor === "" || actor === AGENT_OWNER) return false;
+  const level = orgLevelOf(actor, view);
   switch (resource.type) {
     case "account":
     case "host":
+    case "org-settings":
+    case "member":
       // Host access belongs to the owner's bots for now: every bot runs under
-      // the account's authority. Phases 3 and 4 add the switches.
-      return actor === OWNER_ID;
+      // the account's authority. The flags arrive in slice 11.
+      return level !== null;
+    case "department":
+    case "department-summary":
+      // Slice 3 narrows this to the department's own admins; today the org
+      // level administers every department.
+      return level !== null;
+    case "approval":
+      // Deciding a card is not reading the chat (slice 4 keeps contents
+      // private); the routing matrix lands in slice 6.
+      return actor === resource.owner || level !== null;
+    case "shared-folder":
+    case "vm":
+      // Open reach: every bot reaches every home. The audit rows land with
+      // the resources themselves in Phase 4.
+      return true;
     default:
       return actor === resource.owner;
   }

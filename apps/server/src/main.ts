@@ -18,7 +18,7 @@ import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
-import { openMind, sealWebhookTokens, migrateOwners } from "@spriessen/mind";
+import { openMind, sealWebhookTokens, migrateOwners, migrateOrg } from "@spriessen/mind";
 import { migrateStorage } from "./auth/migrate-storage.ts";
 import { OWNER_ID } from "./identity.ts";
 import { can } from "./rest/can.ts";
@@ -84,6 +84,15 @@ export async function buildStack(options?: {
         `to ${OWNER_ID}${migration.movedFrom.length > 0 ? ` from ${migration.movedFrom.join(", ")}` : ""}`,
     );
     for (const move of storageMove.moves) console.log(`owners: ${move}`);
+  }
+  // One-time, repeatable: the workspace becomes the org ("Personal", owned
+  // by the account); every existing bot becomes an org bot with host access
+  // on. No department rows are created. Logs when it changed anything.
+  const org = await migrateOrg(mind.converse, { owner: OWNER_ID });
+  if (org.createdOrg || org.botsStamped > 0) {
+    console.log(
+      `org: created=${org.createdOrg} bots stamped ${org.botsStamped}, departments ${org.departments}`,
+    );
   }
   // What the migration could NOT move must be visible, not silent.
   if (migration.memorySkipped > 0) {

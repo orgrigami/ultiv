@@ -57,6 +57,7 @@ export const rowOps = (
         policies: { ...defaultPolicies(), ...input.policies },
         createdAt: Date.now(),
         archivedAt: null,
+        departmentId: input.departmentId ?? null,
       };
       return run(commitProfiles(converse, (profiles) => [...profiles, profile])).then(async () => {
         // The first bot in a fresh workspace claims main automatically — there

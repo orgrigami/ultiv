@@ -65,6 +65,39 @@ export type {
   ProfilePolicies,
   DeadlineField,
 } from "./profiles.ts";
+export {
+  OrgRoleSchema,
+  HomeRefSchema,
+  VmSettingsSchema,
+  OrgInfoSchema,
+  DepartmentInfoSchema,
+  MemberInfoSchema,
+  GrantInfoSchema,
+  TemplateInfoSchema,
+  OrgStateSchema,
+  DepartmentCreateSchema,
+  DepartmentPatchSchema,
+  MemberPutSchema,
+  DepartmentSummarySchema,
+  TemplatePayloadSchema,
+  DEFAULT_VM,
+} from "./org.ts";
+export type {
+  OrgRole,
+  HomeRef,
+  VmSettings,
+  OrgInfo,
+  DepartmentInfo,
+  MemberInfo,
+  GrantInfo,
+  TemplateInfo,
+  TemplatePayload,
+  OrgState,
+  DepartmentCreate,
+  DepartmentPatch,
+  MemberPut,
+  DepartmentSummary,
+} from "./org.ts";
 export { MailboxEnvelopeSchema, MailboxEntrySchema, MailboxListSchema } from "./mailbox.ts";
 export type { MailboxEnvelope, MailboxEntry, MailboxList } from "./mailbox.ts";
 export {

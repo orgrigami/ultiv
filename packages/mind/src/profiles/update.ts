@@ -101,6 +101,10 @@ export const patchedProfile = (
   model: patch.model !== undefined ? patch.model : current.model,
   toolAllowlist: patch.toolAllowlist !== undefined ? patch.toolAllowlist : current.toolAllowlist,
   policies: { ...current.policies, ...patch.policies },
+  // Moving homes (org to department, department to org or elsewhere): the
+  // bot keeps its own flags; its effective access follows the new home.
+  departmentId:
+    patch.departmentId !== undefined ? patch.departmentId : (current.departmentId ?? null),
 });
 
 /** Point every conversation that carries this profile at its edited copy. */

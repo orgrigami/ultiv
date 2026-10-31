@@ -133,11 +133,21 @@ export const normalizeRow = (row: SessionInfo): SessionInfo => ({
 export const readSessions = (converse: ConverseService) =>
   Effect.map(converse.docs.snapshot(SessionsDoc), (doc) => (doc?.sessions ?? []).map(normalizeRow));
 
-/** Profiles stored before provider-qualified refs carry bare (kenari) model ids. */
-const withModelRef = (profile: ProfileInfo): ProfileInfo =>
-  profile.model === null
-    ? profile
-    : { ...profile, model: { ...profile.model, id: normalizeRef(profile.model.id) } };
+/**
+ * Profiles stored before provider-qualified refs carry bare (kenari) model
+ * ids; rows stored before the org carry no home fields (org bot, host access
+ * off until the org migration stamps existing rows true).
+ */
+const withModelRef = (profile: ProfileInfo): ProfileInfo => {
+  const normalized: ProfileInfo = {
+    ...profile,
+    departmentId: profile.departmentId ?? null,
+    hostAccess: profile.hostAccess ?? false,
+  };
+  return normalized.model === null
+    ? normalized
+    : { ...normalized, model: { ...normalized.model, id: normalizeRef(normalized.model.id) } };
+};
 
 export const readProfiles = (converse: ConverseService) =>
   Effect.map(converse.docs.snapshot(ProfilesDoc), (doc) => (doc?.profiles ?? []).map(withModelRef));

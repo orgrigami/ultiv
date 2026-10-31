@@ -37,6 +37,7 @@ import { webhookRoutes } from "./rest/webhooks.ts";
 import { sensorRoutes } from "./rest/sensors.ts";
 import { pushRoutes } from "./rest/push.ts";
 import { mcpRoutes } from "./rest/mcp.ts";
+import { orgRoutes } from "./rest/org.ts";
 import type { PushService } from "./push/index.ts";
 
 export interface RestDeps {
@@ -248,6 +249,7 @@ async function route(args: RouteArgs): Promise<void> {
   if (await bindingRoutes(args, segment)) return;
   if (await vaultRoutes(args, segment)) return;
   if (await mcpRoutes(args)) return;
+  if (await orgRoutes(args)) return;
   if (await approvalRoutes(args)) return;
   if (await secretRoutes(args)) return;
   if (await pushRoutes(args)) return;

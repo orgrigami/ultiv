@@ -58,6 +58,7 @@ import { botCreateTools } from "./profiles/bot-create.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
+import { orgService, type OrgService } from "./org/service.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
 import { type MemoryService } from "./memory/memory.ts";
 import { type HistoryService } from "./history/history.ts";
@@ -110,6 +111,8 @@ export interface MindService {
   readonly rooms: RoomsService;
   /** Inter-entity messaging on per-pair DM threads. */
   readonly mailbox: MailboxService;
+  /** The org: one per install, flat departments, members, grants, templates. */
+  readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */
   readonly skills: SkillsService;
   /** The memory seam: profile and owner stores with write authority. */
@@ -354,6 +357,7 @@ const mindLayerRaw = (
         rooms,
         mailbox,
         skills,
+        org: orgService(converse),
         ...routines,
         mcp: mcp.manager,
         secrets: mcp.secrets,
