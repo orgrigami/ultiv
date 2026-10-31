@@ -147,11 +147,23 @@ function HttpBody({ method, url, status, sent, got }: Extract<ToolBodyData, { t:
   );
 }
 
+/** A script and what it printed: two bounded plates, never an empty one. */
 function TermBody({ command, output }: { command: string; output: string }) {
+  if (command === "" && output === "") return null;
   return (
     <div className={cn(BOX, "flex flex-col gap-2")}>
-      <CodePlate title="script" code={command} lang="bash" icon={<TerminalIcon />} wrap copy />
-      {output !== "" && <CodePlate title="output" code={output} lang="ansi" wrap />}
+      {command !== "" && (
+        <CodePlate
+          title="script"
+          code={command}
+          lang="bash"
+          icon={<TerminalIcon />}
+          wrap
+          copy
+          maxH="max-h-48"
+        />
+      )}
+      {output !== "" && <CodePlate title="output" code={output} lang="ansi" wrap copy />}
     </div>
   );
 }

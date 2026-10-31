@@ -164,6 +164,18 @@ const jsonOf = (step: ToolStep): unknown => {
 };
 
 /** The owner-facing error line: the payload's own words when it has them. */
+/**
+ * The output worth showing under a call's error line: none when the output
+ * is nothing but that error (a refusal, a "split it" note), so the same
+ * sentence never shows twice.
+ */
+export function outputBesidesError(step: ToolStep): string | undefined {
+  const raw = rawOf(step.output);
+  if (raw === undefined) return undefined;
+  const error = errorTextOf(step);
+  return error !== undefined && raw === error ? undefined : raw;
+}
+
 export function errorTextOf(step: ToolStep): string | undefined {
   if (step.status !== "error") return undefined;
   const raw = rawOf(step.output);
@@ -457,19 +469,40 @@ const searchView = (step: ToolStep): ToolView => {
   };
 };
 
+/** web_fetch takes `urls` (1-10); a lone `url` is read for older calls. */
+const fetchUrlsOf = (input: unknown): string[] => {
+  const record = recordOf(input);
+  const many = Array.isArray(record.urls) ? record.urls.flatMap((u) => flatOf(u) ?? []) : [];
+  const one = flatOf(record.url);
+  return many.length > 0 ? many : one === undefined ? [] : [one];
+};
+
 const fetchView = (step: ToolStep): ToolView => {
-  const url = flatOf(recordOf(step.input).url);
+  const urls = fetchUrlsOf(step.input);
+  const url = urls[0];
   const host = hostOf(url) ?? "page";
-  const parsed = jsonOf(step) as { content?: unknown } | undefined;
+  // The tool answers { pages: [{ url, content, ... }] }; `content` at the top is older.
+  const parsed = recordOf(jsonOf(step));
+  const pages = Array.isArray(parsed.pages) ? parsed.pages.map(recordOf) : [];
+  const first = pages[0];
+  const content =
+    typeof first?.content === "string"
+      ? first.content
+      : typeof parsed.content === "string"
+        ? parsed.content
+        : undefined;
   const text =
-    typeof parsed?.content === "string"
-      ? clip(parsed.content, 6000)
-      : clip(rawOf(step.output), 6000);
+    content !== undefined
+      ? clip(content, 6000)
+      : step.status === "error"
+        ? undefined
+        : clip(rawOf(step.output), 6000);
+  const more = urls.length > 1 ? ` +${urls.length - 1}` : "";
   return {
     family: "web",
-    done: "Read a web page",
-    live: "Reading a web page…",
-    detail: host,
+    done: urls.length > 1 ? `Read ${urls.length} web pages` : "Read a web page",
+    live: urls.length > 1 ? "Reading web pages…" : "Reading a web page…",
+    detail: `${host}${more}`,
     ...(url === undefined || text === undefined
       ? {}
       : { structured: { t: "page", url, host, text } }),
@@ -506,10 +539,12 @@ const artifactFileOf = (step: ToolStep): FileRef | undefined => {
 
 const artifactView = (step: ToolStep, past: string, live: string): ToolView => {
   const input = recordOf(step.input);
-  const file = artifactFileOf(step);
-  const name = clip(flatOf(input.name) ?? flatOf(input.path), 40);
-  const listing = step.name === "artifact_list" ? rawOf(step.output) : undefined;
+  const file = step.name === "artifact_write" ? artifactFileOf(step) : undefined;
   const read = step.name === "artifact_read" ? rawOf(step.output) : undefined;
+  // artifact_read takes only an id; its answer opens with "# <file name>".
+  const heading = read?.match(/^# (.+)\n/)?.[1];
+  const name = clip(flatOf(input.name) ?? flatOf(input.path) ?? flatOf(heading), 40);
+  const listing = step.name === "artifact_list" ? rawOf(step.output) : undefined;
   return {
     family: "artifact",
     done: past,
@@ -520,19 +555,36 @@ const artifactView = (step: ToolStep, past: string, live: string): ToolView => {
       : { lines: listing.split("\n").filter((line) => line.trim() !== "") }),
     ...(read === undefined || name === undefined
       ? {}
-      : { structured: { t: "file", name, text: clip(read, 8000) ?? read } }),
+      : {
+          structured: {
+            t: "file",
+            name,
+            text: clip(heading === undefined ? read : read.replace(/^# .+\n\n?/, ""), 8000) ?? read,
+          },
+        }),
     ...(file === undefined ? {} : { artifact: file }),
   };
 };
 
+/**
+ * The script a shell call ran. Both shell tools (`bash`, `bash_host`) take
+ * it as `script`; `command` is read too for older stored calls. Kept as
+ * written (newlines and all), so the copy button copies a runnable script.
+ */
+const scriptOf = (input: unknown): string => {
+  const record = recordOf(input);
+  return rawOf(record.script) ?? rawOf(record.command) ?? "";
+};
+
 const bashView = (step: ToolStep): ToolView => {
-  const command = flatOf(recordOf(step.input).command) ?? "";
+  const script = scriptOf(step.input);
+  const host = step.name === "bash_host";
   return {
     family: "code",
-    done: "Ran a script",
-    live: "Running a script…",
-    detail: clip(command, 44),
-    structured: { t: "term", command, output: rawOf(step.output) ?? "" },
+    done: host ? "Ran a script on the host" : "Ran a script",
+    live: host ? "Running a host script…" : "Running a script…",
+    detail: clip(flatOf(script), 44),
+    structured: { t: "term", command: script, output: outputBesidesError(step) ?? "" },
   };
 };
 
@@ -622,7 +674,6 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   state_set: ["Saved a note", "Saving a note…", "generic"],
   state_list: ["Listed its working notes", "Listing its notes…", "generic"],
   state_delete: ["Removed a working note", "Removing a note…", "generic"],
-  bash_host: ["Ran a script on the host", "Running a host script…", "code"],
   skill_list: ["Listed its skills", "Listing its skills…", "skill"],
   skill_load: ["Loaded a skill", "Loading a skill…", "skill"],
   skill_write: ["Wrote a skill", "Writing a skill…", "skill"],
@@ -711,11 +762,14 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     case "task_spawn":
       return { kind: "human", view: taskView(step) };
     case "bash":
+    case "bash_host":
       return { kind: "human", view: bashView(step) };
     case "http_request":
       return { kind: "human", view: requestView(step) };
     case "artifact_write":
       return { kind: "human", view: artifactView(step, "Saved a file", "Saving a file…") };
+    case "artifact_read":
+      return { kind: "human", view: artifactView(step, "Read a file", "Reading a file…") };
     case "bot_create":
       return { kind: "human", view: botCreateView(step) };
     default: {

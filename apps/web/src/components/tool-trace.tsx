@@ -35,6 +35,7 @@ import {
   DURATION_FLOOR_MS,
   errorTextOf,
   humanizeMs,
+  outputBesidesError,
   presentationOf,
   type ToolFamily,
   type ToolView,
@@ -234,6 +235,8 @@ export const ToolTrace = memo(function ToolTrace({
   const human = presentation.view;
   const title = step.status === "running" ? human.live : human.done;
   const error = errorTextOf(step);
+  // The output minus the error line above it: one sentence never shows twice.
+  const output = outputBesidesError(step);
   const body =
     human.structured !== undefined && human.structured.t !== "json"
       ? "structured"
@@ -262,15 +265,12 @@ export const ToolTrace = memo(function ToolTrace({
           {body === "structured" && human?.structured !== undefined && (
             <ToolBody data={human.structured} />
           )}
-          {human?.structured?.t === "record" && step.output !== null && step.output !== "" && (
-            <TypedOutput output={step.output} />
+          {human?.structured?.t === "record" && output !== undefined && (
+            <TypedOutput output={output} />
           )}
           {body === "lines" && <Lines lines={human?.lines ?? []} />}
           {body === undefined && (
-            <Receipts
-              input={step.input}
-              {...(step.output !== null && step.output !== "" ? { output: step.output } : {})}
-            />
+            <Receipts input={step.input} {...(output !== undefined ? { output } : {})} />
           )}
         </div>
       </TraceCollapsibleContent>

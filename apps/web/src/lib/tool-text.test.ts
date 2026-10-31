@@ -212,7 +212,7 @@ describe("presentationOf", () => {
 
   it("puts a script's first words on the bash line", () => {
     const view = presentationOf(
-      step({ name: "bash", input: { command: "ls -la\nrm -rf nothing" } }),
+      step({ name: "bash", input: { script: "ls -la\nrm -rf nothing" } }),
     );
     if (view.kind !== "human") return fail();
     expect(view.view.done).toBe("Ran a script");
