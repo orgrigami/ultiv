@@ -22,7 +22,7 @@ import { ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type ServerCheck } from "@/lib/api";
-import { signOut } from "@/lib/auth";
+import { addPasskey, passkeys, removePasskey, signOut, type PasskeyRow } from "@/lib/auth";
 import { APPROVAL_MODES, MODE_CHIP } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";
 
@@ -88,12 +88,73 @@ function SettingsPage() {
         <SectionHeader title="Appearance" />
         <ThemeSwitch />
       </section>
-      <section aria-label="Sign-in" className="flex flex-col gap-2">
+      <section aria-label="Sign-in" className="Sign-in-section flex flex-col gap-2">
         <SectionHeader title="Sign-in" />
         <SignOutRow />
+        <PasskeyManager />
         <SecurityLog />
       </section>
     </Page>
+  );
+}
+
+/**
+ * Passkeys on this server: add one to the signed-in account (the browser
+ * asks the authenticator), see what exists, remove one. The passcode stays
+ * as the fallback whatever happens here.
+ */
+function PasskeyManager() {
+  const [keys, setKeys] = useState<PasskeyRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const reload = useCallback((): void => {
+    void passkeys().then(setKeys);
+  }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  const add = (): void => {
+    setError(null);
+    void addPasskey().then((result) => {
+      if (result.ok) reload();
+      else setError(result.error ?? "That didn't work.");
+    });
+  };
+  return (
+    <div className={card}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm">Passkeys</p>
+        <Button size="sm" onClick={add}>
+          Add a passkey
+        </Button>
+      </div>
+      {error !== null && (
+        <p role="alert" className="text-destructive text-xs">
+          {error}
+        </p>
+      )}
+      {keys.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {keys.map((key) => (
+            <li
+              key={key.id}
+              className="text-muted-foreground flex items-center justify-between gap-2 text-xs"
+            >
+              <span className="truncate font-mono">{key.id.slice(0, 24)}…</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void removePasskey(key.id).then(reload)}
+              >
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-muted-foreground text-xs">
+        Unlocks without typing the passcode. The passcode stays as the fallback.
+      </p>
+    </div>
   );
 }
 
@@ -249,7 +310,7 @@ function ServerSection({
           }
           detail={
             check.listen.scope === "all"
-              ? "Anyone on the same Wi-Fi or tailnet can open the app, and there is no sign-in yet. Set HOST=127.0.0.1 to keep it on this computer."
+              ? "Anyone on the network can reach the sign-in. Set HOST=127.0.0.1 to keep the server off your network."
               : "Set by HOST in the server's environment."
           }
         />

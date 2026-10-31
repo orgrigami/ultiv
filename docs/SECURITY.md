@@ -37,10 +37,18 @@ request needs a session, loopback included.
   (status, sign-in, sign-out, setup, change). The first-time setup
   additionally requires the unproxied loopback.
 - Changing the passcode needs the current one; sessions survive a change.
+  **Passkeys** work beside the passcode (WebAuthn, via
+  `@simplewebauthn/server`): a signed-in owner adds one in Settings, and the
+  sign-in screen offers "Use a passkey" whenever one exists for the site's
+  origin. The rp id and origin come from the request's own Host, so
+  localhost and the tailnet HTTPS facet each register their own working
+  passkey. The passcode stays as the fallback and cannot be removed.
   Forgotten passcodes: the recovery command (see README) resets the passcode
   and clears every session from the host.
 
-Tests: `apps/server/src/auth/auth.test.ts` and `store.test.ts`.
+Tests: `apps/server/src/auth/auth.test.ts`, `store.test.ts`, and
+`passkeys.test.ts` (wiring; the browser round-trip was verified in Chrome
+with a CDP virtual authenticator: register, sign out, sign in).
 
 ## File paths stay inside their folder
 

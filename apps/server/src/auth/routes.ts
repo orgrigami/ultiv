@@ -10,6 +10,12 @@ import type { AuditEvent } from "@spriessen/contracts";
 import type { AuditService } from "@spriessen/mind";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "./config.ts";
 import { isHttps, isLoopback, readJsonBody, serializeCookie, sessionCookieOf } from "./http.ts";
+import {
+  authenticationOptionsFor,
+  registerPasskey,
+  registrationOptionsFor,
+  verifyPasskeySignIn,
+} from "./passkeys.ts";
 import type { AuthStore } from "./store.ts";
 
 /** One owner-level auth event; never carries the attempted passcode. */
@@ -72,7 +78,138 @@ export const handleAuthRoutes = async (
   if (url.pathname === "/api/auth/passcode/change" && method === "POST") {
     return changePasscode(req, res, store, record);
   }
+  if (url.pathname === "/api/auth/passkey/register-options" && method === "POST") {
+    return passkeyRegisterOptions(req, res, store);
+  }
+  if (url.pathname === "/api/auth/passkey/register" && method === "POST") {
+    return passkeyRegister(req, res, store, record);
+  }
+  if (url.pathname === "/api/auth/passkey/auth-options" && method === "POST") {
+    return passkeyAuthOptions(req, res, store);
+  }
+  if (url.pathname === "/api/auth/passkey/auth" && method === "POST") {
+    return passkeyAuth(req, res, store, record);
+  }
+  if (url.pathname === "/api/auth/passkeys" && method === "GET") {
+    return passkeyList(req, res, store);
+  }
+  const passkeyRemove = url.pathname.match(/^\/api\/auth\/passkeys\/([^/]+)$/);
+  if (passkeyRemove !== null && method === "DELETE") {
+    return passkeyDelete(req, res, store, decodeURIComponent(passkeyRemove[1] ?? ""));
+  }
   sendJson(res, 404, { error: `no auth route: ${method} ${url.pathname}` });
+  return true;
+};
+
+/** A real session (not just the bootstrap) — passkey management needs it. */
+const signedIn = (req: IncomingMessage, store: AuthStore): boolean => {
+  const sessionId = sessionCookieOf(req);
+  return sessionId !== undefined && store.session(sessionId) !== undefined;
+};
+
+const passkeyRegisterOptions = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+): Promise<boolean> => {
+  if (!signedIn(req, store)) {
+    sendJson(res, 401, { error: "sign in first" });
+    return true;
+  }
+  const { options, token } = await registrationOptionsFor(req, store);
+  sendJson(res, 200, { options, token });
+  return true;
+};
+
+const passkeyRegister = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+  record: (name: string, ok: boolean, error?: string) => void,
+): Promise<boolean> => {
+  if (!signedIn(req, store)) {
+    sendJson(res, 401, { error: "sign in first" });
+    return true;
+  }
+  const body = await readJsonBody<{ token?: string; response?: object }>(req);
+  if (body.response === undefined) {
+    sendJson(res, 400, { error: "the authenticator's answer is missing" });
+    return true;
+  }
+  const result = await registerPasskey(req, store, body.token ?? "", body.response as never);
+  if (!result.ok) {
+    sendJson(res, 400, { error: result.error ?? "could not add the passkey" });
+    return true;
+  }
+  record("passkey-added", true);
+  sendJson(res, 200, { ok: true });
+  return true;
+};
+
+const passkeyAuthOptions = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+): Promise<boolean> => {
+  if (store.passkeys().length === 0) {
+    sendJson(res, 404, { error: "no passkey is set up on this server" });
+    return true;
+  }
+  const { options, token } = await authenticationOptionsFor(req, store);
+  sendJson(res, 200, { options, token });
+  return true;
+};
+
+const passkeyAuth = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+  record: (name: string, ok: boolean, error?: string) => void,
+): Promise<boolean> => {
+  const body = await readJsonBody<{ token?: string; response?: object }>(req);
+  if (body.response === undefined) {
+    sendJson(res, 400, { error: "the authenticator's answer is missing" });
+    return true;
+  }
+  const ok = await verifyPasskeySignIn(req, store, body.token ?? "", body.response as never);
+  if (!ok) {
+    record("sign-in", false, "passkey not verified");
+    sendJson(res, 401, { error: "the passkey could not be verified" });
+    return true;
+  }
+  record("sign-in", true);
+  sendJson(res, 200, { ok: true }, issueCookie(req, store.createSession()));
+  return true;
+};
+
+const passkeyList = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+): Promise<boolean> => {
+  if (!signedIn(req, store)) {
+    sendJson(res, 401, { error: "sign in first" });
+    return true;
+  }
+  sendJson(
+    res,
+    200,
+    store.passkeys().map((key) => ({ id: key.id, createdAt: key.createdAt })),
+  );
+  return true;
+};
+
+const passkeyDelete = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  store: AuthStore,
+  id: string,
+): Promise<boolean> => {
+  if (!signedIn(req, store)) {
+    sendJson(res, 401, { error: "sign in first" });
+    return true;
+  }
+  sendJson(res, 200, { ok: store.removePasskey(id) });
   return true;
 };
 
@@ -83,6 +220,7 @@ const status = (req: IncomingMessage, res: ServerResponse, store: AuthStore): vo
     // Bootstrap means THIS request may set the first passcode.
     bootstrap: !store.passcodeSet && isLoopback(req),
     session: cookie !== undefined && store.session(cookie) !== undefined,
+    passkeys: store.passkeys().length > 0,
   });
 };
 

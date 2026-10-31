@@ -9,11 +9,26 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { UNAUTHORIZED_EVENT, authStatus, setPasscode, signIn, type AuthStatus } from "@/lib/auth";
+import {
+  UNAUTHORIZED_EVENT,
+  authStatus,
+  setPasscode,
+  signIn,
+  signInWithPasskey,
+  type AuthStatus,
+} from "@/lib/auth";
 import { BRAND } from "@/lib/brand";
 
 /** Sign-in / setup form: passcode in, one button, one error line. */
-function PasscodeForm({ mode, onDone }: { mode: "sign-in" | "setup"; onDone: () => void }) {
+function PasscodeForm({
+  mode,
+  passkeysAvailable,
+  onDone,
+}: {
+  mode: "sign-in" | "setup";
+  passkeysAvailable: boolean;
+  onDone: () => void;
+}) {
   const [passcode, setPasscodeValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,7 +75,38 @@ function PasscodeForm({ mode, onDone }: { mode: "sign-in" | "setup"; onDone: () 
           manager; if it's lost, recovery runs on the host.
         </p>
       )}
+      {mode === "sign-in" && passkeysAvailable && <PasskeyButton onDone={onDone} />}
     </form>
+  );
+}
+
+/** Sign in with a passkey instead of the passcode. */
+function PasskeyButton({ onDone }: { onDone: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="flex flex-col gap-1">
+      <Button
+        variant="outline"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          void signInWithPasskey().then((result) => {
+            setBusy(false);
+            if (result.ok) onDone();
+            else setError(result.error ?? "That didn't work.");
+          });
+        }}
+      >
+        Use a passkey
+      </Button>
+      {error !== null && (
+        <p role="alert" className="text-destructive text-xs">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -113,7 +159,11 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col items-start gap-4">
         <span className="text-title">{BRAND.name}</span>
         {mode !== null ? (
-          <PasscodeForm mode={mode} onDone={() => void recheck()} />
+          <PasscodeForm
+            mode={mode}
+            passkeysAvailable={status.passkeys}
+            onDone={() => void recheck()}
+          />
         ) : (
           <p className="text-muted-foreground max-w-72 text-sm">
             This server needs its passcode set first. Open it on the host itself (localhost) to
