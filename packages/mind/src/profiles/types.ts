@@ -3,6 +3,8 @@ import type { AgentChange } from "@earendil-works/pi-durable";
 import type { ProfileCreate, ProfileInfo, SessionInfo } from "@spreissen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
+import type { SaveMeta } from "../versions/store.ts";
+import type { BotFilesService } from "./bot-files.ts";
 import type { ConversationIndex } from "./conversation-index.ts";
 import type { ConversationScope } from "./docs.ts";
 
@@ -14,7 +16,11 @@ export interface ProfilesService {
     owner: string,
     id: string,
     patch: Partial<ProfileCreate>,
+    /** Who saved a Persona change and why (its version entry); default: the owner. */
+    meta?: SaveMeta,
   ) => Promise<ProfileInfo>;
+  /** Persona and Instructions with versions (docs/BOT-FILES.md); unset in bare tests. */
+  readonly files?: BotFilesService;
   readonly setArchived: (owner: string, id: string, archived: boolean) => Promise<ProfileInfo>;
   /**
    * Save a tool (or a verified sub-action pattern) on the profile's
@@ -90,6 +96,8 @@ export interface ProfilesContext {
   readonly index: ConversationIndex;
   /** Whether a model ref is in the live catalog (profile validation). */
   readonly knownModel: (ref: string) => boolean;
+  /** Persona and Instructions files, when wired. */
+  readonly files?: BotFilesService;
   /** The assembled service, for parts that call each other. */
   readonly self: () => ProfilesService;
 }

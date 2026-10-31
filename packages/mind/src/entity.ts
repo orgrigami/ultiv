@@ -50,6 +50,8 @@ import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
 import { deadlinesExtension, limitsOf, turnDeadlines } from "./converse/deadlines.ts";
 import { Tasks, MAX_RUNNING_TASKS, tasksLayer, type TasksService } from "./tasks/tasks.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
+import { botFiles } from "./profiles/bot-files.ts";
+import { readProfiles } from "./profiles/docs.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { botCreateTools } from "./profiles/bot-create.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
@@ -235,9 +237,11 @@ const mindLayerRaw = (
       // conversation through a late registry install.
       let mcpRef: McpRuntime | undefined;
       let botTools: readonly ToolRegistration[] = [];
+      const files = botFiles();
       const profiles = profilesService({
         converse,
         generate,
+        files,
         tools: () => [
           ...(act.extension().tools ?? []),
           ...botTools,
@@ -249,6 +253,10 @@ const mindLayerRaw = (
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
+      // Persona and Instructions files: every existing bot gets both, once.
+      void Effect.runPromise(readProfiles(converse))
+        .then((rows) => files.migrate(rows))
+        .catch((cause) => console.error("bot files migration failed:", cause));
       botTools = [
         ...botsTools({ profiles, audit, activity: taskActivity(tasks) }),
         ...botCreateTools({ profiles, approvals, audit }),

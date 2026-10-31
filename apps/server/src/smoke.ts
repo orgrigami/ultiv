@@ -18,6 +18,7 @@ const scratchArtifacts = mkdtempSync(join(tmpdir(), "spreissen-smoke-artifacts-"
 process.env.ARTIFACTS_DIR = scratchArtifacts;
 // Skill stores stay hermetic too.
 process.env.SKILLS_DIR = join(scratchArtifacts, "skills");
+process.env.BOT_FILES_DIR = join(scratchArtifacts, "bot-files");
 // Keep the audit trail hermetic: never append to a real var/audit.jsonl.
 process.env.AUDIT_LOG = join(scratchArtifacts, "audit.jsonl");
 // Connector configs land in the scratch dir too.

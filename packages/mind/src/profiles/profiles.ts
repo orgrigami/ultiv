@@ -11,6 +11,7 @@
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import { agentForProfile } from "./agent.ts";
+import type { BotFilesService } from "./bot-files.ts";
 import { conversationIndex } from "./conversation-index.ts";
 import { mainOps } from "./main.ts";
 import { lifecycleOps, rowOps } from "./rows.ts";
@@ -40,6 +41,8 @@ export const profilesService = (deps: {
   readonly implied?: (allowlist: readonly string[]) => readonly string[];
   /** Whether a model ref is in the live catalog; every ref passes without one (tests). */
   readonly knownModel?: (ref: string) => boolean;
+  /** Persona and Instructions files (docs/BOT-FILES.md). */
+  readonly files?: BotFilesService;
 }): ProfilesService => {
   const agentFor: ProfilesService["agentFor"] = (profile) =>
     agentForProfile(profile, deps.tools, deps.implied);
@@ -49,6 +52,7 @@ export const profilesService = (deps: {
     generate: deps.generate,
     index,
     knownModel: deps.knownModel ?? (() => true),
+    ...(deps.files !== undefined ? { files: deps.files } : {}),
     self: () => service,
   };
   const service: ProfilesService = {
@@ -60,6 +64,7 @@ export const profilesService = (deps: {
     scopeOf: (conversationId) => index.scopes.get(String(conversationId)),
     profileOf: (conversationId) => index.profiles.get(String(conversationId)),
     agentFor,
+    ...(deps.files !== undefined ? { files: deps.files } : {}),
   };
   void index.ensure();
   return service;

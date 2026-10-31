@@ -64,6 +64,8 @@ export const rowOps = (
         const settings = await run(converse.docs.snapshot(SettingsDoc));
         const stored = settings?.main[owner];
         if (stored === undefined || stored === "") await ctx.self().setMain(owner, profile.id);
+        // Both files exist from the start: Persona from the field, Instructions empty.
+        ctx.files?.ensure(profile);
         // Spawning initiates the conversation: the bot's first turn runs
         // under its own identity, built from the provided details. Best
         // effort — admission succeeds even when the model call cannot run.
@@ -71,7 +73,7 @@ export const rowOps = (
         return profile;
       });
     },
-    update: async (owner, id, patch) => {
+    update: async (owner, id, patch, meta) => {
       validatePatch(patch, ctx.knownModel);
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === id);
@@ -82,6 +84,11 @@ export const rowOps = (
           profiles.map((row) => (row.id === id && row.owner === owner ? next : row)),
         ),
       );
+      // A Persona edit is a version of the Persona file; the field mirrors it.
+      if (patch.persona !== undefined && ctx.files !== undefined) {
+        ctx.files.ensure(current);
+        ctx.files.save(next, "persona", next.persona, meta ?? { by: "owner", reason: "Edited" });
+      }
       // Every chat of the bot picks the edit up from its next turn.
       refreshCopies(ctx.index.profiles, next);
       return next;

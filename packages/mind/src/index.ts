@@ -51,3 +51,5 @@ export * from "./providers/models.ts";
 export * from "./tasks/tasks.ts";
 export { recentSteps, stepLine } from "./tasks/steps.ts";
 export { tasksVisibleTo } from "./act/task-live.ts";
+export * from "./profiles/bot-files.ts";
+export * from "./versions/store.ts";
