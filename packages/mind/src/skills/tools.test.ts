@@ -11,7 +11,7 @@ import { evolveBrief } from "./evolve.ts";
 let root: string | undefined;
 
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-skills-tools-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-skills-tools-"));
   return root;
 };
 
@@ -90,7 +90,7 @@ describe("skill tools", () => {
       origin: "self",
     }));
     const rendered = renderSkills(rows);
-    expect(rendered).toContain("You live in Spreissen");
+    expect(rendered).toContain("You live in Spriessen");
     expect(rendered).toContain("…and 4 more");
     expect(renderSkills([])).toBe("");
     const disabled = renderSkills([

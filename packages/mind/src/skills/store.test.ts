@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -7,7 +7,7 @@ import { skillsService } from "./service.ts";
 let root: string | undefined;
 
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-skills-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-skills-"));
   return root;
 };
 
@@ -24,10 +24,30 @@ describe("skills service over disk", () => {
     const skills = skillsService({ root: fresh() });
     const list = await skills.list("harry", "p1");
     const builtinNames = list.filter((meta) => meta.origin === "builtin").map((meta) => meta.name);
-    expect(builtinNames).toEqual(["spreissen"]);
+    expect(builtinNames).toEqual(["spriessen"]);
     await expect(
-      skills.write("harry", "p1", { name: "spreissen", body: BODY("spreissen", "d", "b") }),
+      skills.write("harry", "p1", { name: "spriessen", body: BODY("spriessen", "d", "b") }),
     ).rejects.toThrow(/built-in/);
+  });
+
+  it("a bot's off switch saved under the misspelt built-in name still holds", async () => {
+    const dir = fresh();
+    mkdirSync(join(dir, "owner-a", "p1"), { recursive: true });
+    const index = join(dir, "owner-a", "p1", "skills.index.json");
+    writeFileSync(
+      index,
+      JSON.stringify({ skills: {}, builtins: { spreissen: { enabled: false } } }),
+    );
+    const skills = skillsService({ root: dir });
+    const builtin = (await skills.list("owner-a", "p1")).find((m) => m.origin === "builtin");
+    expect(builtin).toMatchObject({ name: "spriessen", enabled: false });
+    // Another owner's index is untouched by this one's migration.
+    const other = (await skills.list("owner-b", "p1")).find((m) => m.origin === "builtin");
+    expect(other).toMatchObject({ name: "spriessen", enabled: true });
+    await skills.setEnabled("owner-a", "p1", "spriessen", true);
+    expect(JSON.parse(readFileSync(index, "utf8")).builtins).toEqual({
+      spriessen: { enabled: true },
+    });
   });
 
   it("writes, rereads, bumps versions, reverts", async () => {
@@ -66,16 +86,16 @@ describe("skills service over disk", () => {
 
   it("built-in reference files list and read from the package", async () => {
     const skills = skillsService({ root: fresh() });
-    const spreissen = await skills.read("harry", "p1", "spreissen");
-    expect(spreissen?.meta.files).toEqual([
+    const spriessen = await skills.read("harry", "p1", "spriessen");
+    expect(spriessen?.meta.files).toEqual([
       "references/mind.md",
       "references/platform.md",
       "references/procedures.md",
       "references/surfaces.md",
     ]);
-    const surfaces = await skills.readFile("harry", "p1", "spreissen", "references/surfaces.md");
+    const surfaces = await skills.readFile("harry", "p1", "spriessen", "references/surfaces.md");
     expect(surfaces?.includes("Chat")).toBe(true);
-    expect(await skills.readFile("harry", "p1", "spreissen", "../escape.md")).toBeUndefined();
+    expect(await skills.readFile("harry", "p1", "spriessen", "../escape.md")).toBeUndefined();
   });
 
   it("reference files: written as a full set, listed, pruned, readable", async () => {

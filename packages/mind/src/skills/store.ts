@@ -102,12 +102,32 @@ const legacyHistory = (stored: StoredSkill, body: string): Version[] => [
   },
 ];
 
+/**
+ * Built-in skills whose name changed: old name -> new name. A bot's on/off
+ * switch saved under the old name is read under the new one; the next index
+ * write stores only the new name.
+ */
+const RENAMED_BUILTINS: Readonly<Record<string, string>> = { spreissen: "spriessen" };
+
+const adoptRenamedBuiltins = (
+  builtins: Record<string, { enabled: boolean }>,
+): Record<string, { enabled: boolean }> => {
+  const next = { ...builtins };
+  for (const [old, name] of Object.entries(RENAMED_BUILTINS)) {
+    const saved = next[old];
+    if (saved === undefined) continue;
+    if (next[name] === undefined) next[name] = saved;
+    delete next[old];
+  }
+  return next;
+};
+
 const readIndex = (root: string, owner: string, profile: string): ProfileIndex => {
   const file = indexFile(root, owner, profile);
   if (!existsSync(file)) return emptyIndex();
   try {
     const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<ProfileIndex>;
-    return { skills: raw.skills ?? {}, builtins: raw.builtins ?? {} };
+    return { skills: raw.skills ?? {}, builtins: adoptRenamedBuiltins(raw.builtins ?? {}) };
   } catch {
     return emptyIndex();
   }

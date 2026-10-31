@@ -11,7 +11,7 @@ import { skillsService } from "./service.ts";
 
 let root: string | undefined;
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-skill-versions-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-skill-versions-"));
   return root;
 };
 afterEach(() => {
@@ -75,7 +75,7 @@ describe("skill versions", () => {
     const skills = skillsService({ root: fresh() });
     await skills.write("owner-a", "bot-1", { name: "weekly-report", body: BODY("one") });
     expect(await skills.revert("owner-a", "bot-1", "weekly-report")).toBeUndefined();
-    expect(await skills.versions("owner-a", "bot-1", "spreissen")).toEqual([]);
+    expect(await skills.versions("owner-a", "bot-1", "spriessen")).toEqual([]);
   });
 
   it("a skill saved before full history keeps its two known versions", async () => {

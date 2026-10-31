@@ -27,7 +27,7 @@ export interface AboutSkill {
 }
 
 /** Reading order for the built-in library (currently one whole-world skill). */
-const ORDER = ["spreissen"];
+const ORDER = ["spriessen"];
 
 const readFiles = (dir: string): AboutFile[] => {
   const walk = (rel: string): AboutFile[] =>

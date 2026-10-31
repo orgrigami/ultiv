@@ -22,7 +22,7 @@ vi.mock("./fetch.ts", () => ({
 let root: string | undefined;
 
 const fresh = (): string => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-install-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-install-"));
   return root;
 };
 

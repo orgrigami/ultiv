@@ -68,7 +68,7 @@ const rig = (
   events: readonly AuditEvent[] = [],
   policies: Record<string, unknown> = {},
 ): Rig => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-skill-learn-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-skill-learn-"));
   const skills = skillsService({ root });
   const scopes: Record<string, { owner: string; profileId: string }> = {
     c1: { owner: "owner-a", profileId: "bot-1" },
@@ -271,7 +271,7 @@ describe("skill_learn", () => {
   });
 
   it("can't overwrite a built-in skill", async () => {
-    const saved = await rig([user("remember this")]).learn({ ...LESSON, name: "spreissen" });
+    const saved = await rig([user("remember this")]).learn({ ...LESSON, name: "spriessen" });
     expect(saved.isError).toBe(true);
   });
 });

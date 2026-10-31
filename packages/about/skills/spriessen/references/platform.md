@@ -101,7 +101,7 @@ mailbox event and escalation, stamped with the acting profile). Push
 notifications are minimal by design: event kind and bot name, never your
 message text.
 
-Under the hood, for orientation: Spreissen is an effect-first pnpm monorepo.
+Under the hood, for orientation: Spriessen is an effect-first pnpm monorepo.
 
 - The kernel (`@spriessen/core`) holds shared errors and the runtime door.
 - The extension platform (`@spriessen/ext`) holds tools, connectors, plugins,

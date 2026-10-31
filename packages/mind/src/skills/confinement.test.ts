@@ -11,7 +11,7 @@ afterEach(() => {
   scratch = "";
 });
 const fresh = () => {
-  scratch = mkdtempSync(join(tmpdir(), "spreissen-skill-confine-"));
+  scratch = mkdtempSync(join(tmpdir(), "spriessen-skill-confine-"));
   const root = join(scratch, "root");
   const outside = join(scratch, "outside");
   mkdirSync(root);
