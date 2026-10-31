@@ -75,6 +75,22 @@ describe("websocket auth", () => {
     expect(await wsProbe(cookie)).toBe("open");
   });
 
+  it("reconnects after sign-out and a fresh sign-in", async () => {
+    expect(await wsProbe(cookie)).toBe("open");
+    // Sign this session out; the old cookie is dead for sockets too.
+    await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { cookie } });
+    expect(await wsProbe(cookie)).toBe("refused");
+    const again = await fetch(`${base}/api/auth/sign-in`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ passcode: "ws-auth-passcode" }),
+    });
+    expect(again.status).toBe(200);
+    const fresh = again.headers.get("set-cookie")?.split(";")[0] ?? "";
+    expect(fresh).not.toBe("");
+    expect(await wsProbe(fresh)).toBe("open");
+  });
+
   it("drops an expired session", async () => {
     // Backdate it inside the store file, as idle time would.
     const file = join(process.env["AUTH_DIR"] ?? "", "sessions.json");
