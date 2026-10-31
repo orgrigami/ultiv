@@ -82,12 +82,13 @@ describe("department Instructions resolve through the org (slice 7)", () => {
       { name: "Writers", instructions: "Always answer in Bahasa Indonesia." },
       "owner",
     );
+    // The first bot lives in the org (it becomes the main bot).
+    const orgBot = await handle.mind.profiles.create("owner", { name: "Lone", onboard: false });
     const bot = await handle.mind.profiles.create("owner", {
       name: "Scribe",
       onboard: false,
       departmentId: dept.id,
     });
-    const orgBot = await handle.mind.profiles.create("owner", { name: "Lone", onboard: false });
     const resolve = departmentInstructionsOf(handle.mind.converse);
     expect(await resolve(bot)).toBe("Always answer in Bahasa Indonesia.");
     expect(await resolve(orgBot)).toBe("");
@@ -110,6 +111,7 @@ describe("department Instructions resolve through the org (slice 7)", () => {
       },
       "owner",
     );
+    await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const bot = await handle.mind.profiles.create("owner", {
       name: "Reckless",
       onboard: false,

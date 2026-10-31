@@ -8,7 +8,9 @@
  * change (a moved bot or a switch turned off must survive a restart, since
  * this runs at every boot). The bots are stamped before the org row is
  * written, so a run cut short between the two simply stamps again next
- * boot. Dry-run mode reports what would change without writing.
+ * boot. One repair runs at every boot: a main bot found in a department
+ * (written before the main-bot rule existed) moves back to the org.
+ * Dry-run mode reports what would change without writing.
  *
  * Rollback: rolling the code back leaves an `ultiv.org` document and
  * `departmentId`/`hostAccess` fields older code ignores; bots keep their
@@ -19,7 +21,7 @@
 import { Effect } from "effect";
 import type { ProfileInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
-import { commitProfiles, readProfiles } from "../profiles/docs.ts";
+import { SettingsDoc, commitProfiles, readProfiles } from "../profiles/docs.ts";
 import { OrgDoc } from "./model.ts";
 import { readOrgState } from "./service.ts";
 
@@ -33,6 +35,8 @@ export interface OrgMigrationReport {
   botsStamped: number;
   /** Department rows created — always 0 today (the brief: none are created). */
   departments: number;
+  /** The main bot found in a department and moved back to the org (it must be an org bot). */
+  mainRehomed: boolean;
 }
 
 export interface MigrateOrgOptions {
@@ -54,7 +58,16 @@ export const migrateOrg = async (
     createdOrg: firstRun,
     botsStamped: firstRun ? existing.filter(needsStamp).length : 0,
     departments: 0,
+    mainRehomed: false,
   };
+  const settings = await run(converse.docs.snapshot(SettingsDoc));
+  const mainId = settings?.main[options.owner];
+  const main = existing.find((row) => row.id === mainId && row.owner === options.owner);
+  report.mainRehomed =
+    !firstRun &&
+    main !== undefined &&
+    typeof main.departmentId === "string" &&
+    main.departmentId !== "";
   if (options.dryRun === true) return report;
   if (report.botsStamped > 0) {
     await run(
@@ -62,6 +75,13 @@ export const migrateOrg = async (
         rows.map((row) =>
           needsStamp(row) ? { ...row, departmentId: null, hostAccess: true } : row,
         ),
+      ),
+    );
+  }
+  if (report.mainRehomed && main !== undefined) {
+    await run(
+      commitProfiles(converse, (rows) =>
+        rows.map((row) => (row.id === main.id ? { ...row, departmentId: null } : row)),
       ),
     );
   }

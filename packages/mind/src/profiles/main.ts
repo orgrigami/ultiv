@@ -5,7 +5,7 @@
  */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { NotFound } from "@spriessen/core";
+import { InvalidInput, NotFound } from "@spriessen/core";
 import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
 import {
   MAIN_PREFIX,
@@ -16,6 +16,7 @@ import {
   scopedKey,
 } from "./docs.ts";
 import type { ProfilesContext, ProfilesService } from "./types.ts";
+import { homeRuleProblem } from "../org/home-rules.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -138,6 +139,9 @@ export const mainOps = (
     },
     setMain: async (owner, profileId) => {
       await requireProfile(ctx, owner, profileId);
+      const rows = await run(readProfiles(converse));
+      const problem = homeRuleProblem(rows, owner, null, { kind: "set-main", id: profileId });
+      if (problem !== null) throw new InvalidInput({ reason: problem });
       await run(
         converse.docs.commit(async (tx) => {
           const draft = await tx.doc(SettingsDoc);

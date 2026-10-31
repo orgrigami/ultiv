@@ -60,6 +60,8 @@ beforeAll(async () => {
     vault: { dir: join(scratch, "vault") },
   });
   await handle.mind.org.ensureOrg("owner", "Personal", true);
+  // The first bot lives in the org and becomes the main bot (the home rules).
+  await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
   deptA = (await handle.mind.org.createDepartment({ name: "PubA" }, "owner")).id;
   deptB = (await handle.mind.org.createDepartment({ name: "PubB" }, "owner")).id;
   const bot = await handle.mind.profiles.create("owner", {

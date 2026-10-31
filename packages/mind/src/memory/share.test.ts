@@ -20,6 +20,8 @@ describe("department shared memory", () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     await handle.mind.org.ensureOrg("owner", "Personal", true);
     const dept = await handle.mind.org.createDepartment({ name: "ShareD" }, "owner");
+    // The first bot lives in the org (it becomes the main bot).
+    await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const bot = await handle.mind.profiles.create("owner", {
       name: "Sharer",
       onboard: false,
@@ -80,6 +82,8 @@ describe("department shared memory", () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     await handle.mind.org.ensureOrg("owner", "Personal", true);
     const dept = await handle.mind.org.createDepartment({ name: "RecallD" }, "owner");
+    // The first bot lives in the org (it becomes the main bot).
+    await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const bot = await handle.mind.profiles.create("owner", {
       name: "Recaller",
       onboard: false,

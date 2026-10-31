@@ -35,6 +35,8 @@ describe("the mailbox reach audit (wired in the entity)", () => {
     await handle.mind.org.ensureOrg("owner", "Personal", true);
     const a = await handle.mind.org.createDepartment({ name: "Alpha" }, "owner");
     const b = await handle.mind.org.createDepartment({ name: "Beta" }, "owner");
+    // The first bot lives in the org (it becomes the main bot).
+    await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const scout = await handle.mind.profiles.create("owner", {
       name: "Scout",
       onboard: false,

@@ -83,6 +83,8 @@ const callAs = async (
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   await handle.mind.org.ensureOrg("owner", "Personal", true);
+  // The first bot lives in the org and becomes the main bot (the home rules).
+  await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
   server = createServer(
     createRestHandler({
       mind: handle.mind,

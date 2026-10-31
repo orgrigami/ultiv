@@ -53,6 +53,8 @@ beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   // The org exists the way a boot migration leaves it.
   await handle.mind.org.ensureOrg("owner", "Personal", true);
+  // The first bot lives in the org and becomes the main bot (the home rules).
+  await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
   server = createServer(
     createRestHandler({
       mind: handle.mind,
@@ -115,6 +117,17 @@ describe("a bot's home over REST", () => {
     expect((into.json as { departmentId: string }).departmentId).toBe(dept);
     const out = await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: null });
     expect((out.json as { departmentId: unknown }).departmentId).toBeNull();
+    // The main bot (Keeper) stays in the org; a department bot cannot be main.
+    const main = ((await call("GET", "/api/profiles")).json as { id: string; name: string }[]).find(
+      (row) => row.name === "Keeper",
+    );
+    const keep = await call("PATCH", `/api/profiles/${main?.id}`, { departmentId: dept });
+    expect(keep.status).toBe(400);
+    expect((keep.json as { error: string }).error).toMatch(/main bot lives in the org/);
+    await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: dept });
+    const promote = await call("POST", `/api/profiles/${bot.id}/main`, {});
+    expect(promote.status).toBe(409);
+    expect((await call("POST", `/api/profiles/${main?.id}/archive`, {})).status).toBe(409);
     // A department that still has bots cannot be removed.
     const remove = await call("DELETE", `/api/org/departments/${dept}`);
     expect(remove.status).toBe(400);

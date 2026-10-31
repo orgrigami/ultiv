@@ -17,6 +17,10 @@ import { BadBody } from "./auth/http.ts";
 import type { AuthStore } from "./auth/store.ts";
 import { OWNER_ID } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
+
+/** A service refusal (a home rule, a bad value) the owner can act on: 409, not a crash. */
+const isRefusal = (error: unknown): boolean =>
+  (error as { _tag?: unknown } | null)?._tag === "spriessen/InvalidInput";
 import { ownedProfileIds, ownsProfile } from "./rest/owner-scope.ts";
 import { ownedRoutineIds } from "./rest/owned-routines.ts";
 import { approvalRoutes } from "./rest/approvals.ts";
@@ -117,7 +121,9 @@ export const createRestHandler = (deps: RestDeps) => {
         ? json(400, { error: error.message })
         : error instanceof BadBody
           ? json(error.status, { error: error.message })
-          : json(500, { error: String(error).slice(0, 300) }),
+          : isRefusal(error)
+            ? json(409, { error: errorOf(error) })
+            : json(500, { error: String(error).slice(0, 300) }),
     );
   };
 };

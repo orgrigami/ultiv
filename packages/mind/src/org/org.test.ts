@@ -120,7 +120,12 @@ describe("the workspace-to-org migration", () => {
     await migrateOrg(converse, { owner: "owner" });
     const afterFirst = await readOrgState(converse);
     const report = await migrateOrg(converse, { owner: "owner" });
-    expect(report).toEqual({ createdOrg: false, botsStamped: 0, departments: 0 });
+    expect(report).toEqual({
+      createdOrg: false,
+      botsStamped: 0,
+      departments: 0,
+      mainRehomed: false,
+    });
     expect(await readOrgState(converse)).toEqual(afterFirst);
     await handle.close();
   });
@@ -131,9 +136,11 @@ describe("the workspace-to-org migration", () => {
     await commitProfiles(converse, () => [preOrg({ id: "bot-a" })]);
     await migrateOrg(converse, { owner: "owner" });
     const dept = await handle.mind.org.createDepartment({ name: "Dept X" }, "owner");
-    await handle.mind.profiles.update("owner", "bot-a", { departmentId: dept.id });
-    // A bot made after the migration starts with its switch off.
+    // A bot made after the migration starts with its switch off; it becomes
+    // main so bot-a may leave the org (the main bot is an org bot).
     const fresh = await handle.mind.profiles.create("owner", { name: "Wren", onboard: false });
+    await handle.mind.profiles.setMain("owner", fresh.id);
+    await handle.mind.profiles.update("owner", "bot-a", { departmentId: dept.id });
     const report = await migrateOrg(converse, { owner: "owner" });
     expect(report.botsStamped).toBe(0);
     const rows = await handle.mind.profiles.list("owner");
@@ -141,6 +148,24 @@ describe("the workspace-to-org migration", () => {
       ["bot-a", dept.id, true],
       [fresh.id, null, false],
     ]);
+    await handle.close();
+  });
+
+  it("moves a main bot found in a department back to the org", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const converse = handle.mind.converse;
+    await commitProfiles(converse, () => [preOrg({ id: "bot-a" })]);
+    await handle.mind.profiles.setMain("owner", "bot-a");
+    await migrateOrg(converse, { owner: "owner" });
+    const dept = await handle.mind.org.createDepartment({ name: "Dept X" }, "owner");
+    // Written around the rule, the way an older build could have left it.
+    await Effect.runPromise(
+      commitProfiles(converse, (rows) => rows.map((row) => ({ ...row, departmentId: dept.id }))),
+    );
+    const report = await migrateOrg(converse, { owner: "owner" });
+    expect(report.mainRehomed).toBe(true);
+    const row = await handle.mind.profiles.get("owner", "bot-a");
+    expect(row?.departmentId).toBeNull();
     await handle.close();
   });
 

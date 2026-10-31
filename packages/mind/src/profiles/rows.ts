@@ -1,7 +1,7 @@
 /** Profile rows: list, read, create, edit, archive, always-allow and remove. */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { NotFound } from "@spriessen/core";
+import { InvalidInput, NotFound } from "@spriessen/core";
 import type { ProfileInfo } from "@spriessen/contracts";
 import {
   actionTextsOf,
@@ -24,6 +24,18 @@ import {
 import { onboardProfile } from "./main.ts";
 import { PROFILE_LIMITS, patchedProfile, refreshCopies, validatePatch } from "./update.ts";
 import type { ProfilesContext, ProfilesService } from "./types.ts";
+import { homeRuleProblem, type HomeChange } from "../org/home-rules.ts";
+
+/** Refuse a change that would break a home invariant (main bot in the org, the org never empty). */
+export const guardHome = async (
+  ctx: ProfilesContext,
+  owner: string,
+  change: HomeChange,
+): Promise<void> => {
+  const rows = await run(readProfiles(ctx.converse));
+  const problem = homeRuleProblem(rows, owner, await ctx.self().mainOf(owner), change);
+  if (problem !== null) throw new InvalidInput({ reason: problem });
+};
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -45,57 +57,82 @@ export const rowOps = (
     create: (owner, input) => {
       // Same checks as update; `model: null` means "workspace default".
       validatePatch(input, ctx.knownModel);
-      const profile: ProfileInfo = {
-        id: randomUUID(),
-        owner,
-        name: input.name.trim().slice(0, PROFILE_LIMITS.name),
-        description: (input.description ?? "").slice(0, PROFILE_LIMITS.description),
-        persona: (input.persona ?? "").slice(0, PROFILE_LIMITS.persona),
-        timezone: input.timezone ?? defaultTimezone(),
-        model: input.model ?? null,
-        toolAllowlist: input.toolAllowlist ?? null,
-        policies: { ...defaultPolicies(), ...input.policies },
-        createdAt: Date.now(),
-        archivedAt: null,
-        departmentId: input.departmentId ?? null,
-        hostAccess: input.hostAccess ?? false,
-      };
-      return run(commitProfiles(converse, (profiles) => [...profiles, profile])).then(async () => {
-        // The first bot in a fresh workspace claims main automatically — there
-        // is no seeded Ultius anymore.
-        const settings = await run(converse.docs.snapshot(SettingsDoc));
-        const stored = settings?.main[owner];
-        if (stored === undefined || stored === "") await ctx.self().setMain(owner, profile.id);
-        // Both files exist from the start: Persona from the field, Instructions empty.
-        ctx.files?.ensure(profile);
-        // Spawning initiates the conversation: the bot's first turn runs
-        // under its own identity, built from the provided details. Best
-        // effort — admission succeeds even when the model call cannot run.
-        if (input.onboard !== false) void onboardProfile(ctx, owner, profile);
-        return profile;
-      });
+      return guardHome(ctx, owner, { kind: "create", to: input.departmentId ?? null }).then(() =>
+        createRow(ctx, owner, input),
+      );
     },
     update: async (owner, id, patch, meta) => {
       validatePatch(patch, ctx.knownModel);
-      const rows = await run(readProfiles(converse));
-      const current = rows.find((p) => p.owner === owner && p.id === id);
-      if (current === undefined) throw new NotFound({ what: `profile ${id}` });
-      const next = patchedProfile(current, patch);
-      await run(
-        commitProfiles(converse, (profiles) =>
-          profiles.map((row) => (row.id === id && row.owner === owner ? next : row)),
-        ),
-      );
-      // A Persona edit is a version of the Persona file; the field mirrors it.
-      if (patch.persona !== undefined && ctx.files !== undefined) {
-        ctx.files.ensure(current);
-        ctx.files.save(next, "persona", next.persona, meta ?? { by: "owner", reason: "Edited" });
+      if (patch.departmentId !== undefined) {
+        await guardHome(ctx, owner, { kind: "move", id, to: patch.departmentId ?? null });
       }
-      // Every chat of the bot picks the edit up from its next turn.
-      refreshCopies(ctx.index.profiles, next);
-      return next;
+      return updateRow(ctx, owner, id, patch, meta);
     },
   };
+};
+
+const createRow = (
+  ctx: ProfilesContext,
+  owner: string,
+  input: Parameters<ProfilesService["create"]>[1],
+): Promise<ProfileInfo> => {
+  const { converse } = ctx;
+  const profile: ProfileInfo = {
+    id: randomUUID(),
+    owner,
+    name: input.name.trim().slice(0, PROFILE_LIMITS.name),
+    description: (input.description ?? "").slice(0, PROFILE_LIMITS.description),
+    persona: (input.persona ?? "").slice(0, PROFILE_LIMITS.persona),
+    timezone: input.timezone ?? defaultTimezone(),
+    model: input.model ?? null,
+    toolAllowlist: input.toolAllowlist ?? null,
+    policies: { ...defaultPolicies(), ...input.policies },
+    createdAt: Date.now(),
+    archivedAt: null,
+    departmentId: input.departmentId ?? null,
+    hostAccess: input.hostAccess ?? false,
+  };
+  return run(commitProfiles(converse, (profiles) => [...profiles, profile])).then(async () => {
+    // The first bot in a fresh workspace claims main automatically — there
+    // is no seeded Ultius anymore.
+    const settings = await run(converse.docs.snapshot(SettingsDoc));
+    const stored = settings?.main[owner];
+    if (stored === undefined || stored === "") await ctx.self().setMain(owner, profile.id);
+    // Both files exist from the start: Persona from the field, Instructions empty.
+    ctx.files?.ensure(profile);
+    // Spawning initiates the conversation: the bot's first turn runs
+    // under its own identity, built from the provided details. Best
+    // effort — admission succeeds even when the model call cannot run.
+    if (input.onboard !== false) void onboardProfile(ctx, owner, profile);
+    return profile;
+  });
+};
+
+const updateRow = async (
+  ctx: ProfilesContext,
+  owner: string,
+  id: string,
+  patch: Parameters<ProfilesService["update"]>[2],
+  meta: Parameters<ProfilesService["update"]>[3],
+): Promise<ProfileInfo> => {
+  const { converse } = ctx;
+  const rows = await run(readProfiles(converse));
+  const current = rows.find((p) => p.owner === owner && p.id === id);
+  if (current === undefined) throw new NotFound({ what: `profile ${id}` });
+  const next = patchedProfile(current, patch);
+  await run(
+    commitProfiles(converse, (profiles) =>
+      profiles.map((row) => (row.id === id && row.owner === owner ? next : row)),
+    ),
+  );
+  // A Persona edit is a version of the Persona file; the field mirrors it.
+  if (patch.persona !== undefined && ctx.files !== undefined) {
+    ctx.files.ensure(current);
+    ctx.files.save(next, "persona", next.persona, meta ?? { by: "owner", reason: "Edited" });
+  }
+  // Every chat of the bot picks the edit up from its next turn.
+  refreshCopies(ctx.index.profiles, next);
+  return next;
 };
 
 export const lifecycleOps = (
@@ -130,8 +167,9 @@ export const lifecycleOps = (
     return entries;
   };
   return {
-    setArchived: (owner, id, archived) =>
-      run(
+    setArchived: async (owner, id, archived) => {
+      if (archived) await guardHome(ctx, owner, { kind: "archive", id });
+      return run(
         commitProfiles(converse, (rows) =>
           rows.map((row) =>
             row.id === id && row.owner === owner
@@ -144,7 +182,8 @@ export const lifecycleOps = (
         .then((profile) => {
           if (profile === undefined) throw new NotFound({ what: `profile ${id}` });
           return profile;
-        }),
+        });
+    },
     allowTool: async (owner, profileId, tool, input): Promise<string[]> => {
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
@@ -202,6 +241,7 @@ export const lifecycleOps = (
       return saveEntries(owner, profileId, entries);
     },
     remove: async (owner, id) => {
+      await guardHome(ctx, owner, { kind: "remove", id });
       const rows = await run(readSessions(converse));
       const mine = rows.filter((row) => row.owner === owner && row.profile === id);
       await run(

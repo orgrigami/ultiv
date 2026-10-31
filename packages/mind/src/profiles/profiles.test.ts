@@ -156,6 +156,8 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
       threw = (error as { reason?: string }).reason === "unknown timezone: Mars/Olympus";
     }
     expect(threw).toBe(true);
+    // The main bot cannot be removed, so a keeper takes that seat first.
+    await profiles.create("harry", { name: "Keeper", onboard: false });
     const profile = await profiles.create("harry", { name: "Temp", onboard: false });
     await profiles.createSession("harry", profile.id, null);
     const removed = await profiles.remove("harry", profile.id);
