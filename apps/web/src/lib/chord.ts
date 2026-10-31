@@ -11,6 +11,22 @@ export type SessionRef = Ref<typeof Session>;
 export type GuestPrincipal = { kind: "guest" };
 
 let hostPromise: Promise<Host<GuestPrincipal>> | undefined;
+const closedListeners = new Set<() => void>();
+
+/**
+ * Called when the page's link to the server drops (a server restart, a
+ * network change). Open sessions are dead from then on; the listener reopens
+ * them. Returns the unsubscribe.
+ */
+export function onLinkClosed(listener: () => void): () => void {
+  closedListeners.add(listener);
+  return () => closedListeners.delete(listener);
+}
+
+/** Wait before reconnect attempt `attempt` (0-based): 0.5 s doubling, at most 10 s. */
+export function reconnectDelay(attempt: number): number {
+  return Math.min(500 * 2 ** Math.max(0, attempt), 10_000);
+}
 
 function wsUrl(): string {
   const override = import.meta.env.VITE_CHORD_URL;
@@ -35,11 +51,17 @@ function clientHost(): Promise<Host<GuestPrincipal>> {
       socket.addEventListener("error", () => reject(new Error("chord link failed")), {
         once: true,
       });
+    }).catch((error: unknown) => {
+      // A failed open must not stay cached, or no retry could ever connect.
+      hostPromise = undefined;
+      throw error;
     });
-    // A server restart kills this socket; drop the cache so the next
-    // navigation builds a fresh host instead of reusing the dead one.
+    // A server restart kills this socket; drop the cache so the next open
+    // builds a fresh host instead of reusing the dead one, and tell the open
+    // sessions so they reconnect instead of showing stale cards and rows.
     socket.addEventListener("close", () => {
-      if (hostPromise !== undefined) hostPromise = undefined;
+      hostPromise = undefined;
+      for (const listener of closedListeners) listener();
     });
     host.connect(webSocketLink(socket as unknown as WebSocketLike), {
       principal: { kind: "guest" },

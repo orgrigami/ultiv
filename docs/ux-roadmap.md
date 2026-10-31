@@ -174,3 +174,11 @@ with "ei"; every name, package, env key, header, device key, the built-in
 skill and the docs now use "ie". The misspelt env keys and headers are not
 read (clean cut); saved device keys and a bot's built-in-skill switch carry
 over.
+
+**Question cards that never get lost** (2026-10-31): DONE — a bot's
+`ask_user_question` card survives a server restart (the call is replay-safe,
+so the same card comes back instead of the question reading "interrupted");
+a message the owner sends instead of tapping resolves the card as declined
+and the bot reads that message as the answer; and an open chat reconnects by
+itself after the link drops (0.5 s doubling to 10 s), clearing the stale
+card, Waiting row and Stop until the fresh state arrives.

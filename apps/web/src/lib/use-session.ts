@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   PendingApproval,
   Phase,
@@ -8,7 +8,7 @@ import type {
   UsageSummary,
   SendMode,
 } from "@spriessen/contracts";
-import { openSession, type SessionRef } from "./chord.ts";
+import { onLinkClosed, openSession, reconnectDelay, type SessionRef } from "./chord.ts";
 
 export type LinkPhase = "connecting" | "live" | "lost";
 
@@ -52,11 +52,46 @@ export function useSession(sessionId: string): {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [queued, setQueued] = useState<QueuedInput[]>([]);
   const [ref, setRef] = useState<SessionRef | undefined>(undefined);
+  // Bumped to reopen the session after the link dropped; the transcript
+  // stays on screen meanwhile and is replaced by the fresh one.
+  const [epoch, setEpoch] = useState(0);
+  const attempts = useRef(0);
+
+  // Everything shown belongs to one session: clear it only when that changes.
+  useEffect(
+    () => () => {
+      attempts.current = 0;
+      setLink("connecting");
+      setTranscript([]);
+      setPhase("idle");
+      setLastError(null);
+      setPending(null);
+      setUsage(null);
+      setModel(null);
+      setEffort(null);
+      setConversationId(null);
+      setQueued([]);
+    },
+    [sessionId],
+  );
 
   useEffect(() => {
     let active = true;
     let current: SessionRef | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     const unsubs: Array<() => void> = [];
+    // The link dropped (or never came up): nothing on screen can be acted on
+    // any more — no stale card, no Waiting row, no Stop — until it is back.
+    const lost = () => {
+      if (!active || retry !== undefined) return;
+      setLink("lost");
+      setRef(undefined);
+      setPending(null);
+      setPhase("idle");
+      setQueued([]);
+      retry = setTimeout(() => setEpoch((n) => n + 1), reconnectDelay(attempts.current++));
+    };
+    unsubs.push(onLinkClosed(lost));
     openSession(sessionId)
       .then((opened) => {
         if (!active) {
@@ -64,6 +99,7 @@ export function useSession(sessionId: string): {
           return;
         }
         current = opened;
+        attempts.current = 0;
         setRef(opened);
         setLink("live");
         unsubs.push(opened.transcript.subscribe(setTranscript));
@@ -77,30 +113,23 @@ export function useSession(sessionId: string): {
         unsubs.push(opened.queued.subscribe(setQueued));
         unsubs.push(
           opened.onStatus((status) => {
-            if (status === "gone") setLink("lost");
+            if (status === "gone") lost();
           }),
         );
       })
-      .catch(() => {
-        if (active) setLink("lost");
-      });
+      .catch(lost);
     return () => {
       active = false;
+      if (retry !== undefined) clearTimeout(retry);
       for (const unsub of unsubs) unsub();
-      current?.release();
+      try {
+        current?.release();
+      } catch {
+        // A ref on a dead link has nothing left to release.
+      }
       setRef(undefined);
-      setLink("connecting");
-      setTranscript([]);
-      setPhase("idle");
-      setLastError(null);
-      setPending(null);
-      setUsage(null);
-      setModel(null);
-      setEffort(null);
-      setConversationId(null);
-      setQueued([]);
     };
-  }, [sessionId]);
+  }, [sessionId, epoch]);
 
   // Every action resolves when the server accepted it and rejects otherwise —
   // the view decides how to surface the failure (nothing is swallowed here).
