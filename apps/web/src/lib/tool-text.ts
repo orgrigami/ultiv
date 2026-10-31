@@ -604,6 +604,7 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   file_edit: ["Changed a file", "Changing a file…", "artifact"],
   file_delete: ["Deleted a file", "Deleting a file…", "artifact"],
   secret_request: ["Asked you for a key", "Asking you for a key…", "credentials"],
+  ask_user_question: ["Asked you a question", "Waiting for your answer…", "generic"],
   connector_add: ["Added a connector", "Adding a connector…", "connectors"],
   connector_update: ["Changed a connector", "Changing a connector…", "connectors"],
   connector_remove: ["Removed a connector", "Removing a connector…", "connectors"],

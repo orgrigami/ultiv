@@ -66,6 +66,19 @@ describe("needsYouItems", () => {
     expect(needsYouItems(base)).toEqual([]);
   });
 
+  it("a waiting question reads as the question", () => {
+    const [item] = needsYouItems({
+      ...base,
+      approvals: [
+        approval({
+          name: "ask_user_question",
+          input: { question: "Which format?", options: [{ label: "PDF" }], allowOther: true },
+        }),
+      ],
+    });
+    expect(item).toMatchObject({ kind: "approval", title: "Bot a asks: Which format?" });
+  });
+
   it("orders approvals, failed tasks, escalations, then tidy", () => {
     const items = needsYouItems({
       ...base,

@@ -10,6 +10,14 @@
 import { adoptLegacyKey } from "./stored-key.ts";
 import type { AuditEvent, ProfileInfo, TaskRow } from "@spreissen/contracts";
 import type { PendingApprovalRow } from "./api";
+import { ASK_USER_QUESTION, questionOf, questionTitle } from "./question.ts";
+
+/** A waiting question reads as the question itself, not "wants to run". */
+const questionTitleOf = (botName: string, row: PendingApprovalRow): string | undefined => {
+  if (row.name !== ASK_USER_QUESTION) return undefined;
+  const ask = questionOf(row.input);
+  return ask === null ? undefined : questionTitle(botName, ask);
+};
 
 export const FAILED_TASK_WINDOW_MS = 24 * 3_600_000;
 export const ESCALATION_WINDOW_MS = 7 * 24 * 3_600_000;
@@ -93,7 +101,7 @@ export function needsYouItems(input: {
       kind: "approval",
       botId: row.profile,
       botName: name,
-      title: `${name} wants to run ${row.name}`,
+      title: questionTitleOf(name, row) ?? `${name} wants to run ${row.name}`,
       detail: row.reason,
       at: null,
       target:

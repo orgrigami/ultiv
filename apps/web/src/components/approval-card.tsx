@@ -16,8 +16,10 @@ import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
+import { QuestionCard } from "@/components/question-card";
 import { SecretCard, secretAskOf } from "@/components/secure/secret-card";
 import { alwaysAllowText, canAlwaysAllow, describeTool, hintOf } from "@/lib/approval-text";
+import { ASK_USER_QUESTION, questionOf } from "@/lib/question";
 import { cn } from "@/lib/utils";
 
 export interface DecideOutcome {
@@ -54,6 +56,11 @@ export function ApprovalCard(props: {
   const ask = props.name === "secret_request" ? secretAskOf(props.input) : null;
   if (ask !== null && props.callId !== undefined)
     return <SecretCard key={props.callId} callId={props.callId} who={props.who} ask={ask} />;
+  const question = props.name === ASK_USER_QUESTION ? questionOf(props.input) : null;
+  if (question !== null)
+    return (
+      <QuestionCard key={props.callId} ask={question} who={props.who} onDecide={props.onDecide} />
+    );
   if (props.name === "bot_create" && props.callId !== undefined)
     return (
       <BotCreateCard

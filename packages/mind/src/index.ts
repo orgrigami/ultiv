@@ -5,6 +5,7 @@ export * from "./act/decision-tools.ts";
 export * from "./act/task-tools.ts";
 export * from "./act/temporal.ts";
 export * from "./approvals.ts";
+export * from "./ask/question.ts";
 export * from "./audit/audit.ts";
 export * from "./config.ts";
 export * from "./converse/converse.ts";

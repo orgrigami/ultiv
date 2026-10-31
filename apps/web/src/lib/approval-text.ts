@@ -108,6 +108,11 @@ const KNOWN: Record<string, Known> = {
     risk: "What you type goes straight to your vault. The bot never sees it.",
     risky: false,
   },
+  ask_user_question: {
+    action: "ask you a question",
+    risk: "Nothing runs: your answer goes back to the bot and it carries on.",
+    risky: false,
+  },
   bot_create: {
     action: "create a new bot",
     risk: "Lower risk: it joins your bots with the details on the form; edit or archive it any time.",
@@ -179,7 +184,8 @@ export const canAlwaysAllow = (name: string): boolean =>
   name !== "http_request (first use of a credential)" &&
   !name.startsWith("mcp (first use of ") &&
   !isConnectorChange(name) &&
-  name !== "secret_request";
+  name !== "secret_request" &&
+  name !== "ask_user_question";
 
 /** Tools whose "Always allow" saves only the exact script on the card. */
 const EXACT_ONLY_TOOLS: readonly string[] = ["bash_host"];

@@ -55,6 +55,13 @@ conversation→profile index):
 - `secrets` — `secret_request`: a masked field in the chat that stores a key
   straight into the vault (`POST /api/secrets/:callId`); the value never
   passes through the model, transcript, audit or logs.
+- `ask` — `ask_user_question` (`ask/question.ts`): one question with 2-6
+  tappable options (and the owner's own words unless `allow_other` is false).
+  It parks on the approval broker as an owner-only card, so it shows in the
+  chat and in Needs you and no auto-approve rule, Jev or YOLO answers it. The
+  answer rides the decide override as `{ answer }` and continues the same
+  turn; Dismiss tells the bot to carry on. Waits up to 24 hours; the turn's
+  deadlines pause meanwhile.
 - Bot discovery — `bots_list` / `bot_info` (`profiles/bots*.ts`): siblings'
   public facts only (role, persona's first line, contact rights, tool
   groups, busy/idle). The prompt roster stays one capped line per sibling.
