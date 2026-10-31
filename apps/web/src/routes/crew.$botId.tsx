@@ -1,12 +1,24 @@
 /**
- * One bot's profile, reached from Crew: Overview · Memory · Routines ·
- * Access · Files · Activity. The tab rides ?tab= so Needs you and other
- * screens can deep-link to the exact section. Every tab reuses the panel
- * that already owned that job (memory, routines, the bot form, the audit
- * log); nothing here keeps state of its own.
+ * One bot's profile, reached from Crew: its character big and centered,
+ * then pill tabs with live counts (Overview · Memory n · Routines n ·
+ * Access n · Files n · Activity). The tab rides ?tab= so Needs you and
+ * other screens can deep-link to the exact section. Every tab reuses the
+ * panel that already owned that job (memory, routines, the bot form, the
+ * audit log); the overview is file-style cards into those tabs.
  */
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeftIcon, MessageCircleIcon, StarIcon } from "lucide-react";
+import {
+  BrainIcon,
+  CalendarClockIcon,
+  ChevronLeftIcon,
+  FolderIcon,
+  HistoryIcon,
+  MessageCircleIcon,
+  PencilIcon,
+  ShieldCheckIcon,
+  StarIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AuditEvent, ProfileApprovalMode, ProfileInfo } from "@ultiv/contracts";
 import { ApprovalModeChoice } from "@/components/approval-mode-control";
@@ -14,6 +26,7 @@ import { APPROVAL_MODE_HELP, AutoApproveField, EditBotDialog } from "@/component
 import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MemoryContent } from "@/components/memory/memory-panel";
+import { NavCard } from "@/components/nav-card";
 import { Page } from "@/components/page";
 import { RoutinesContent } from "@/components/routines-panel";
 import { Mark } from "@/components/state-mark";
@@ -21,11 +34,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
-import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { describeTool } from "@/lib/approval-text";
 import { formatWhen } from "@/lib/format";
+import { cardLine, tabCount, type ProfileCounts } from "@/lib/profile-summary";
 import { cn } from "@/lib/utils";
 
 export const PROFILE_TABS = [
@@ -38,6 +51,51 @@ export const PROFILE_TABS = [
 ] as const;
 
 export type ProfileTab = (typeof PROFILE_TABS)[number]["id"];
+
+const TAB_ICON: Partial<Record<ProfileTab, LucideIcon>> = {
+  memory: BrainIcon,
+  routines: CalendarClockIcon,
+  access: ShieldCheckIcon,
+  files: FolderIcon,
+  activity: HistoryIcon,
+};
+
+/** Live numbers for the tabs; each one stays blank if its read fails. */
+function useProfileCounts(botId: string, tab: ProfileTab): ProfileCounts {
+  const [counts, setCounts] = useState<ProfileCounts>({});
+  useEffect(() => {
+    let alive = true;
+    const settle = (patch: ProfileCounts): void => {
+      if (alive) setCounts((now) => ({ ...now, ...patch }));
+    };
+    api
+      .memoryV2(botId)
+      .then((state) =>
+        settle({
+          memory: state.facts.filter(
+            (fact) => fact.status === "current" && fact.scope === "profile",
+          ).length,
+        }),
+      )
+      .catch(() => settle({ memory: undefined }));
+    Promise.all([api.cron(), api.webhooks(), api.sensors()])
+      .then(([cron, hooks, sensors]) =>
+        settle({
+          routines: [...cron, ...hooks, ...sensors].filter((row) => row.profile === botId).length,
+        }),
+      )
+      .catch(() => settle({ routines: undefined }));
+    api
+      .artifacts(botId)
+      .then((rows) => settle({ files: rows.length }))
+      .catch(() => settle({ files: undefined }));
+    return () => {
+      alive = false;
+    };
+    // Re-read when the tab changes: the open tab may have changed a count.
+  }, [botId, tab]);
+  return counts;
+}
 
 export const Route = createFileRoute("/crew/$botId")({
   validateSearch: (search: Record<string, unknown>): { tab?: ProfileTab } =>
@@ -68,61 +126,123 @@ function ProfilePage() {
   if (bot === undefined) {
     return (
       <Page title="Bot not found" back={<BackToCrew />}>
-        <EmptyState>
-          {sessions.phase === "connecting"
-            ? "Loading…"
-            : "This bot was removed, or the link is from another workspace."}
-        </EmptyState>
+        {sessions.phase === "connecting" ? (
+          <div className="flex flex-col items-center gap-3 py-4" role="status" aria-label="Loading">
+            <div className="skeleton size-24 rounded-full" />
+            <div className="skeleton h-5 w-32 rounded-full" />
+          </div>
+        ) : (
+          <EmptyState>This bot was removed, or the link is from another workspace.</EmptyState>
+        )}
       </Page>
     );
   }
+  return <Profile bot={bot} active={active} isMain={bot.id === mainId} />;
+}
+
+function Profile({
+  bot,
+  active,
+  isMain,
+}: {
+  bot: ProfileInfo;
+  active: ProfileTab;
+  isMain: boolean;
+}) {
+  const { sessions, refreshAll } = useApp();
+  const navigate = useNavigate();
+  const [editing, setEditing] = useState(false);
+  const counts = useProfileCounts(bot.id, active);
+  const botId = bot.id;
   return (
     <Page
       back={<BackToCrew />}
-      title={
-        <span className="flex min-w-0 items-center gap-2.5">
-          <BotAvatar name={bot.name} size="xl" />
-          <span className="truncate">{bot.name}</span>
-          {bot.id === mainId && (
-            <StarIcon className="fill-live text-live size-4 shrink-0" aria-label="Main bot" />
-          )}
-          {bot.archivedAt !== null && <Badge variant="outline">Hidden</Badge>}
-        </span>
+      docTitle={bot.name}
+      title={bot.name}
+      hero={
+        <div className="flex flex-col items-center gap-2 pt-1 pb-2 text-center">
+          <BotAvatar id={bot.id} name={bot.name} size="hero" />
+          <h1 className="font-heading text-title mt-1 flex max-w-full items-center gap-1.5 font-semibold tracking-tight">
+            <span className="truncate">{bot.name}</span>
+            {isMain && (
+              <StarIcon className="fill-live text-live size-4 shrink-0" aria-label="Main bot" />
+            )}
+            {bot.archivedAt !== null && <Badge variant="outline">Hidden</Badge>}
+          </h1>
+          <p className="text-muted-foreground max-w-sm text-sm">
+            {bot.description !== "" ? bot.description : "No role yet"}
+          </p>
+          <div className="mt-1 flex gap-2">
+            <Button
+              className="rounded-full px-4"
+              onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}
+            >
+              <MessageCircleIcon /> Open chat
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full px-4"
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon /> Edit
+            </Button>
+          </div>
+          <EditBotDialog
+            bot={bot}
+            models={sessions.models}
+            open={editing}
+            onOpenChange={setEditing}
+            refresh={refreshAll}
+          />
+        </div>
       }
-      lead={bot.description !== "" ? bot.description : "No role yet"}
     >
       <div
         role="tablist"
         aria-label="Profile sections"
         className="tab-strip -mx-3 flex snap-x scroll-px-3 gap-1 overflow-x-auto pr-8 pb-1 pl-3 sm:mx-0 sm:px-0"
       >
-        {PROFILE_TABS.map((entry) => (
-          <Link
-            key={entry.id}
-            to="/crew/$botId"
-            params={{ botId }}
-            search={entry.id === "overview" ? {} : { tab: entry.id }}
-            role="tab"
-            aria-selected={active === entry.id}
-            // Keep the open tab in view when the strip scrolls on a phone.
-            ref={(node) => {
-              if (node !== null && active === entry.id) {
-                node.scrollIntoView({ block: "nearest", inline: "nearest" });
-              }
-            }}
-            className={cn(
-              "focus-visible:ring-ring/50 flex min-h-11 shrink-0 snap-start items-center rounded-lg px-3 text-sm outline-none focus-visible:ring-3 sm:min-h-9",
-              active === entry.id
-                ? "bg-secondary text-secondary-foreground font-medium"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {entry.label}
-          </Link>
-        ))}
+        {PROFILE_TABS.map((entry) => {
+          const count = tabCount(entry.id, counts, bot);
+          return (
+            <Link
+              key={entry.id}
+              to="/crew/$botId"
+              params={{ botId }}
+              search={entry.id === "overview" ? {} : { tab: entry.id }}
+              role="tab"
+              aria-selected={active === entry.id}
+              // Keep the open tab in view when the strip scrolls on a phone.
+              ref={(node) => {
+                if (node !== null && active === entry.id) {
+                  node.scrollIntoView({ block: "nearest", inline: "nearest" });
+                }
+              }}
+              className={cn(
+                "press focus-visible:ring-ring/50 flex min-h-11 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm outline-none focus-visible:ring-3 sm:min-h-9",
+                active === entry.id
+                  ? "bg-foreground text-background border-transparent font-medium"
+                  : "text-muted-foreground hover:text-foreground bg-card",
+              )}
+            >
+              {entry.label}
+              {count !== undefined && (
+                <span
+                  className={cn(
+                    "min-w-5 rounded-full px-1.5 text-center text-xs tabular-nums",
+                    active === entry.id ? "bg-background/15" : "bg-muted",
+                  )}
+                >
+                  {" "}
+                  {count}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
       <div role="tabpanel" aria-label={PROFILE_TABS.find((t) => t.id === active)?.label}>
-        {active === "overview" && <OverviewTab bot={bot} />}
+        {active === "overview" && <OverviewTab bot={bot} counts={counts} />}
         {active === "memory" && (
           <MemoryContent
             key={bot.id}
@@ -151,10 +271,9 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function OverviewTab({ bot }: { bot: ProfileInfo }) {
+function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts }) {
   const { sessions, mainId, refreshAll } = useApp();
   const navigate = useNavigate();
-  const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMain = bot.id === mainId;
@@ -182,17 +301,22 @@ function OverviewTab({ bot }: { bot: ProfileInfo }) {
   };
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}>
-          <MessageCircleIcon /> Open chat
-        </Button>
-        <Button variant="outline" onClick={() => setEditing(true)}>
-          Edit
-        </Button>
-      </div>
       {error !== null && <ErrorState message={error} />}
-      <dl className="bg-card divide-border divide-y rounded-xl border">
-        <Fact label="Role">{bot.description !== "" ? bot.description : "No role yet"}</Fact>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {PROFILE_TABS.filter((entry) => entry.id !== "overview").map((entry) => (
+          <NavCard
+            key={entry.id}
+            to="/crew/$botId"
+            params={{ botId: bot.id }}
+            search={{ tab: entry.id }}
+            icon={TAB_ICON[entry.id] ?? BrainIcon}
+            title={entry.label}
+            detail={cardLine(entry.id, counts, bot)}
+          />
+        ))}
+      </div>
+      <SectionHeader title="Details" />
+      <dl className="bg-card divide-border divide-y rounded-2xl border">
         <Fact label="Personality">
           <span className="line-clamp-4 whitespace-pre-wrap">
             {bot.persona !== "" ? bot.persona : "Not set"}
@@ -206,7 +330,7 @@ function OverviewTab({ bot }: { bot: ProfileInfo }) {
         <Fact label="Created">{formatWhen(bot.createdAt)}</Fact>
       </dl>
       <SectionHeader title="Manage" />
-      <div className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+      <div className="bg-card divide-border flex flex-col divide-y rounded-2xl border">
         {!isMain && !archived && (
           <ManageRow
             title="Make main bot"
@@ -236,13 +360,6 @@ function OverviewTab({ bot }: { bot: ProfileInfo }) {
           onClick={() => setRemoving(true)}
         />
       </div>
-      <EditBotDialog
-        bot={bot}
-        models={sessions.models}
-        open={editing}
-        onOpenChange={setEditing}
-        refresh={refreshAll}
-      />
       <ConfirmDialog
         title={`Delete ${bot.name}?`}
         warning="This permanently removes the bot with all of their chats, memory and artifacts. It cannot be undone."
@@ -278,7 +395,7 @@ function ManageRow({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5 text-left outline-none first:rounded-t-xl last:rounded-b-xl focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-60"
+      className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5 text-left outline-none first:rounded-t-2xl last:rounded-b-2xl focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className={cn("text-sm", destructive && "text-destructive")}>{title}</span>
       <span className="text-muted-foreground text-xs">{detail}</span>
@@ -406,9 +523,11 @@ function ActivityTab({ bot }: { bot: ProfileInfo }) {
     );
   if (events === null)
     return (
-      <p className="text-muted-foreground flex items-center gap-2 text-sm">
-        <Spinner /> Loading activity…
-      </p>
+      <div className="flex flex-col gap-2" aria-label="Loading activity" role="status">
+        {[0, 1, 2].map((row) => (
+          <div key={row} className="skeleton h-12 rounded-2xl" />
+        ))}
+      </div>
     );
   if (events.length === 0) return <EmptyState>Nothing recorded for {bot.name} yet.</EmptyState>;
   return (
