@@ -133,6 +133,9 @@
   --chart-3: oklch(0.5 0.16 28);
   --chart-4: oklch(0.55 0.14 55);
   --chart-5: oklch(0.45 0.02 260);
+  /* The one radius scale: sm 6px · md 9px · lg 10px (fields, buttons) · xl 15px ·
+     2xl 20px (cards, rows) · 3xl 25px (sheets, the work pane, empty states);
+     pills are rounded-full. Motion: 120-200ms, never on with reduced motion. */
   --radius: 0.625rem;
   --sidebar: var(--gray-1);
   --sidebar-foreground: var(--gray-12);
