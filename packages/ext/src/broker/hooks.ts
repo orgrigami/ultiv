@@ -21,6 +21,22 @@ export interface BrokerHooks {
   /** The owner's decision note for a call, if any. */
   readonly noteFor: (conversationId: string, callId: string) => string | undefined;
   readonly audit: (event: AuditEvent) => void;
+  /**
+   * The granted-credential fallback (the org's reach rules live in the
+   * mind, not here): resolve a reference the bot's own vault scope does not
+   * hold through an active cross-home grant. The returned binding still
+   * governs the call; undefined keeps the ordinary refusal.
+   */
+  readonly findGranted?: (
+    scope: { readonly owner: string; readonly profile: string },
+    reference: string,
+  ) => Promise<
+    | {
+        item: import("@spriessen/contracts").VaultItemInfo;
+        binding: import("@spriessen/contracts").CredentialBinding;
+      }
+    | undefined
+  >;
 }
 
 export interface BrokerHooksHolder {

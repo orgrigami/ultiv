@@ -266,3 +266,83 @@ describe("the department summary (slice 4)", () => {
     );
   });
 });
+
+describe("reach grants (slice 5)", () => {
+  it("creates, lists and revokes a grant, with audit rows", async () => {
+    const alpha = (await call("POST", "/api/org/departments", { name: "GrantA" })).json as {
+      id: string;
+    };
+    const beta = (await call("POST", "/api/org/departments", { name: "GrantB" })).json as {
+      id: string;
+    };
+    const made = await call("POST", "/api/org/grants", {
+      resource: {
+        kind: "vault-item",
+        id: "item-9",
+        home: { kind: "department", departmentId: beta.id },
+      },
+      grantee: { kind: "department", departmentId: alpha.id },
+    });
+    expect(made.status).toBe(200);
+    const grant = made.json as { id: string; action: string; revokedAt: null };
+    expect(grant.action).toBe("use");
+    expect(grant.revokedAt).toBeNull();
+    const list = await call("GET", "/api/org/grants");
+    expect((list.json as { id: string }[]).some((row) => row.id === grant.id)).toBe(true);
+    expect((await call("DELETE", `/api/org/grants/${grant.id}`)).json).toEqual({ ok: true });
+    // Revoked grants leave the active list at once.
+    const after = await call("GET", "/api/org/grants");
+    expect((after.json as { id: string }[]).some((row) => row.id === grant.id)).toBe(false);
+    // Revoking again reads as missing.
+    expect((await call("DELETE", `/api/org/grants/${grant.id}`)).status).toBe(404);
+    const events = await call("GET", "/api/audit?kind=permission");
+    const names = (events.json as { name: string }[]).map((event) => event.name);
+    expect(names).toContain("grant-created");
+    expect(names).toContain("grant-revoked");
+  });
+
+  it("refuses a malformed grant and unknown homes", async () => {
+    expect(
+      (await call("POST", "/api/org/grants", { resource: { kind: "vault-item" } })).status,
+    ).toBe(400);
+    expect(
+      (
+        await call("POST", "/api/org/grants", {
+          resource: {
+            kind: "vault-item",
+            id: "x",
+            home: { kind: "department", departmentId: "ghost" },
+          },
+          grantee: { kind: "org" },
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it("a member cannot grant or revoke, and reads the missing-route answer", async () => {
+    const alpha = (await call("POST", "/api/org/departments", { name: "GrantC" })).json as {
+      id: string;
+    };
+    await handle.mind.org.setMember({
+      accountId: "mate-c",
+      role: "member",
+      departmentId: alpha.id,
+    });
+    const body = {
+      resource: {
+        kind: "vault-item",
+        id: "item-1",
+        home: { kind: "department", departmentId: alpha.id },
+      },
+      grantee: { kind: "org" },
+    };
+    expect(await callAs("mate-c", "POST", "/api/org/grants", body)).toEqual({
+      status: 404,
+      json: { error: "unknown route" },
+    });
+    expect(await callAs("mate-c", "GET", "/api/org/grants")).toEqual({
+      status: 404,
+      json: { error: "no route: GET /api/org/grants" },
+    });
+  });
+});

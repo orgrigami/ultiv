@@ -48,6 +48,7 @@ export * from "./migrate/owners.ts";
 export * from "./org/model.ts";
 export * from "./org/service.ts";
 export * from "./org/migrate.ts";
+export * from "./org/reach.ts";
 export { skillsDir } from "./skills/store.ts";
 export * from "./generate/generate.ts";
 export * from "./providers/gate.ts";

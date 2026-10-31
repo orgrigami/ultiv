@@ -4,7 +4,7 @@
  * routes only shape the answers. A department another role may not touch
  * reads as a missing one, like every scoped route.
  */
-import type { DepartmentInfo, DepartmentSummary, VmSettings } from "@spriessen/contracts";
+import type { DepartmentInfo, DepartmentSummary, HomeRef, VmSettings } from "@spriessen/contracts";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
@@ -148,8 +148,71 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     }
     return (json(200, await departmentSummary(args, department)), true);
   }
+  if (path === "/api/org/grants" && method === "GET") {
+    // Grants touch homes; the org level sees them all.
+    if (!(await may(args, "view", { type: "org-settings" }))) {
+      return (json(404, { error: "no route: GET /api/org/grants" }), true);
+    }
+    return (json(200, await mind.org.activeGrants()), true);
+  }
+  if (path === "/api/org/grants" && method === "POST") {
+    const body = await args.readJson<{
+      resource?: { kind?: string; id?: string; home?: HomeRef };
+      grantee?: HomeRef;
+    }>(req);
+    const resource = body.resource;
+    if (
+      resource === undefined ||
+      (resource.kind !== "vault-item" && resource.kind !== "connector") ||
+      resource.id === undefined ||
+      resource.home === undefined ||
+      body.grantee === undefined
+    ) {
+      return (
+        json(400, {
+          error: "a grant needs resource {kind: vault-item|connector, id, home} and a grantee home",
+        }),
+        true
+      );
+    }
+    if (!(await may(args, "change", { type: "grant", home: resource.home }))) {
+      return (json(404, { error: "unknown route" }), true);
+    }
+    if (!(await homesExist(mind, resource.home, body.grantee))) {
+      return (json(400, { error: "unknown home in grant" }), true);
+    }
+    const grant = await mind.org.addGrant(
+      { kind: resource.kind, id: resource.id, home: resource.home },
+      body.grantee,
+      args.owner,
+    );
+    audited(args, "grant-created");
+    return (json(200, grant), true);
+  }
+  if (path.startsWith("/api/org/grants/") && method === "DELETE") {
+    const id = segment("/api/org/grants/");
+    const grants = await mind.org.activeGrants();
+    const grant = grants.find((row) => row.id === id);
+    if (grant === undefined) return (json(404, { error: "unknown grant" }), true);
+    if (!(await may(args, "change", { type: "grant", home: grant.resource.home }))) {
+      return (json(404, { error: "unknown grant" }), true);
+    }
+    const ok = await mind.org.revokeGrant(id);
+    if (ok) audited(args, "grant-revoked");
+    return (json(200, { ok }), true);
+  }
   return false;
 }
+
+/** Both homes of a grant must exist (the org counts as a home). */
+const homesExist = async (mind: RouteArgs["mind"], ...homes: HomeRef[]): Promise<boolean> => {
+  const view = await mind.org.view();
+  return homes.every((home) =>
+    home.kind === "org"
+      ? view.org !== null
+      : view.departments.some((row) => row.id === home.departmentId),
+  );
+};
 
 /**
  * The department digest: counts, bot names, activity timestamps. Metadata

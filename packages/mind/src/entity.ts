@@ -59,6 +59,7 @@ import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
 import { orgService, type OrgService } from "./org/service.ts";
+import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
 import { type MemoryService } from "./memory/memory.ts";
 import { type HistoryService } from "./history/history.ts";
@@ -189,6 +190,8 @@ interface MindWiring {
   readonly vaultStore: VaultStore | null;
   readonly vaultRoot: string | null;
   readonly bindings: BindingStore | null;
+  /** Late-bound converse: the registry builds before the converse layer. */
+  readonly converseRef: { current?: ConverseService };
   readonly mcp?: McpOptions;
   /** Materializes mailbox envelope artifact grants (server copies files). */
   readonly grantArtifacts?: (
@@ -223,6 +226,7 @@ const mindLayerRaw = (
     Mind,
     Effect.gen(function* () {
       const converse = yield* Converse;
+      wiring.converseRef.current = converse;
       const decide = yield* Decide;
       const approvals = yield* Approvals;
       const registry = yield* Registry;
@@ -285,13 +289,16 @@ const mindLayerRaw = (
       const rooms = roomsService({ converse });
       const skills = skillsService();
       const skillsRef: SkillsService = skills;
-      const mailbox = mailboxService({
-        converse,
-        profiles,
-        rooms,
-        audit,
-        ...(wiring.grantArtifacts !== undefined ? { grantArtifacts: wiring.grantArtifacts } : {}),
-      });
+      const mailbox = auditedMailbox(
+        mailboxService({
+          converse,
+          profiles,
+          rooms,
+          audit,
+          ...(wiring.grantArtifacts !== undefined ? { grantArtifacts: wiring.grantArtifacts } : {}),
+        }),
+        { converse, audit },
+      );
       // Messages a crash interrupted are redelivered (idempotently) on boot.
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
       // Tasks run as their bot: bind (and resume) only once the index exists.
@@ -386,6 +393,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   // dirs, vault lists) can partition per profile; the entity sets it once the
   // conversation→profile index exists. Same lifecycle for the vault store.
   const holder = createScopeHolder();
+  const converseRef: { current?: ConverseService } = {};
   const vaultRoot = vaultConfigured() ? (options.vault?.dir ?? vaultDir()) : null;
   const vaultStore = vaultRoot !== null ? makeVaultStore(vaultRoot) : null;
   const bindings = vaultRoot !== null ? makeBindingStore(vaultRoot) : null;
@@ -394,6 +402,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     vaultStore,
     vaultRoot,
     bindings,
+    converseRef,
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }
@@ -420,7 +429,12 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     Effect.gen(function* () {
       const decideService = yield* Decide;
       // http_request rides always (credential-less calls need no vault).
-      const broker = yield* brokerFor(vaultStore, bindings, holder);
+      const broker = yield* brokerFor(
+        vaultStore,
+        bindings,
+        holder,
+        () => wiring.converseRef.current,
+      );
       // First-party faculties ride always (temporal, artifacts); the vault and
       // TinyFish live-web egress and Jev install only when keys are present.
       const base = [

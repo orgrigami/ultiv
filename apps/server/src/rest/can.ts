@@ -42,6 +42,7 @@ export type Resource =
   | { readonly type: "host" }
   | { readonly type: "org-settings" }
   | { readonly type: "member" }
+  | { readonly type: "grant"; readonly home: HomeRef }
   | { readonly type: "department"; readonly departmentId: string }
   | { readonly type: "department-summary"; readonly departmentId: string }
   | { readonly type: "approval"; readonly owner: string; readonly id: string }
@@ -120,11 +121,21 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
       // role and never a plain member.
       return level !== null;
     case "department":
-      // A department's own state: its admins, plus the org level.
+    case "grant": {
+      // A department's own state, and grants over a home's resources: the
+      // org level, or that home's own admins (an org-home grant is org
+      // level's to give).
+      const deptId =
+        resource.type === "department"
+          ? resource.departmentId
+          : resource.home.kind === "department"
+            ? resource.home.departmentId
+            : null;
       return (
         level !== null ||
-        (view !== undefined && roleAt(actor, view, resource.departmentId) === "admin")
+        (view !== undefined && deptId !== null && roleAt(actor, view, deptId) === "admin")
       );
+    }
     case "department-summary":
       // Org level, or the department's own admins; members and viewers of
       // the department get no digest (counts, bots, activity are metadata).

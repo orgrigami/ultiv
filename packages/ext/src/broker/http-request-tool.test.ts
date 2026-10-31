@@ -20,6 +20,8 @@ interface Rig {
   readonly run: (args: Record<string, unknown>) => Promise<{ isError?: boolean; text: string }>;
   readonly approve: { value: boolean };
   readonly bindings: ReturnType<typeof makeBindingStore>;
+  readonly hooks: ReturnType<typeof createBrokerHooks>;
+  readonly vault: ReturnType<typeof makeVaultStore>;
   readonly itemId: string;
   readonly base: string;
 }
@@ -67,7 +69,7 @@ beforeEach(async () => {
     const text = (result.output?.[0] as { text: string } | undefined)?.text ?? "";
     return { ...(result.isError !== undefined ? { isError: result.isError } : {}), text };
   };
-  rig = { server, cards, audits, run, approve, bindings, itemId: item.id, base };
+  rig = { server, cards, audits, run, approve, bindings, hooks, vault, itemId: item.id, base };
 });
 
 afterEach(async () => {
@@ -143,5 +145,62 @@ describe("http_request broker tool", () => {
     const metadata = await rig.run({ method: "GET", url: "https://169.254.169.254/latest" });
     expect(metadata.text).toMatch(/refused/);
     expect(rig.server.seen).toHaveLength(0);
+  });
+
+  it("a cross-home grant unlocks a named item; revoking stops it at once", async () => {
+    // An item of ANOTHER home: scoped to frank's profile (frank lives in
+    // another department), so eve's scope cannot see it at all.
+    const hidden = rig.vault.create("harry", {
+      kind: "key",
+      name: "Hidden",
+      profile: "frank",
+      key: { secret: SECRET },
+    });
+    rig.bindings.put("harry", hidden.id, {
+      adapter: "http",
+      hosts: [`${rig.base}v1`],
+      methods: ["GET"],
+      auth: { placement: "query", name: "key" },
+      profiles: ["frank"],
+      allowLocalhostHttp: true,
+    });
+    // Without a grant: refused like any invisible item.
+    const refused = await rig.run({ method: "GET", url: `${rig.base}v1/x`, credential: "Hidden" });
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toMatch(/no credential/);
+    expect(rig.server.seen).toHaveLength(0);
+    // The grant resolves the item through the mind-side hook (the org's
+    // grant table lives there); the binding still governs the call.
+    rig.hooks.set({
+      confirm: async (_c, _id, request) => {
+        rig.cards.push(request);
+        return true;
+      },
+      noteFor: () => undefined,
+      audit: (event) => rig.audits.push(event),
+      findGranted: async (scope, reference) => {
+        const item = rig.vault.get(scope.owner, hidden.id);
+        const binding = rig.bindings.get(scope.owner, hidden.id);
+        if (item === undefined || binding === undefined) return undefined;
+        if (item.name.toLowerCase() !== reference.trim().toLowerCase()) return undefined;
+        return { item, binding };
+      },
+    });
+    const granted = await rig.run({ method: "GET", url: `${rig.base}v1/x`, credential: "Hidden" });
+    // The first use of the granted item still raises its own card (the
+    // floor), approved here, so the call goes through.
+    expect(granted.isError).toBeFalsy();
+    expect(rig.cards.length).toBeGreaterThan(0);
+    expect(rig.server.seen).toHaveLength(1);
+    // Revoked: the hook goes quiet, the item is refused again at once.
+    rig.hooks.set({
+      confirm: async () => true,
+      noteFor: () => undefined,
+      audit: (event) => rig.audits.push(event),
+    });
+    const revoked = await rig.run({ method: "GET", url: `${rig.base}v1/x`, credential: "Hidden" });
+    expect(revoked.isError).toBe(true);
+    expect(revoked.text).toMatch(/no credential/);
+    expect(rig.server.seen).toHaveLength(1);
   });
 });

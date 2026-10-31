@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { HomeRefSchema } from "./org.ts";
 
 /**
  * One audited event: a tool call the act executed, or an approval decision a
@@ -24,6 +25,12 @@ export const AuditEventSchema = Type.Object({
     Type.Literal("permission"),
     /** A vault item was READ (masked metadata only; never the secret). */
     Type.Literal("vault"),
+    /**
+     * A cross-home use of an open-reach surface (a message to a bot in
+     * another home; from Phase 4, a shared folder or another home's VM).
+     * Reach is allowed for every bot; the audit row is the control.
+     */
+    Type.Literal("reach"),
   ]),
   conversationId: Type.String(),
   /** The profile the acting conversation belongs to; null when unmapped. */
@@ -47,6 +54,18 @@ export const AuditEventSchema = Type.Object({
       host: Type.String(),
       method: Type.String(),
       status: Type.Union([Type.Number(), Type.Null()]),
+    }),
+  ),
+  /** `reach` events: which homes and which surface — no content, ever. */
+  reach: Type.Optional(
+    Type.Object({
+      from: HomeRefSchema,
+      to: HomeRefSchema,
+      surface: Type.Union([
+        Type.Literal("message"),
+        Type.Literal("shared-folder"),
+        Type.Literal("vm"),
+      ]),
     }),
   ),
 });

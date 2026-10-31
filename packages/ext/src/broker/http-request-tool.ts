@@ -63,15 +63,21 @@ interface Spend {
 }
 
 /** Policy, then the secret: returns what to spend or why not. */
-const prepare = (
+const prepare = async (
   deps: BrokerDeps,
   scope: { readonly owner: string; readonly profile: string } | undefined,
   call: HttpCall,
   reference: string,
-): Spend | string => {
+): Promise<Spend | string> => {
   if (deps.vault === null || deps.bindings === null) return "the vault is not configured";
   if (scope === undefined) return "credentials are only available inside a bot's conversation";
-  const found = findCredential(deps.vault, deps.bindings, scope, reference);
+  let found = findCredential(deps.vault, deps.bindings, scope, reference);
+  if (!found.ok) {
+    // Not in the bot's own scope: a cross-home grant may name it. The
+    // granted item's binding still governs the call below.
+    const granted = await deps.hooks.get()?.findGranted?.(scope, reference);
+    if (granted !== undefined) found = { ok: true, ...granted };
+  }
   if (!found.ok) return found.reason;
   const check = checkHttp(found.binding, call);
   if (!check.ok) return check.reason;
@@ -158,7 +164,8 @@ const runCall = async (
   } catch {
     return fail("not an absolute URL");
   }
-  const spend = reference === undefined ? null : prepare(deps, context.scope, call, reference);
+  const spend =
+    reference === undefined ? null : await prepare(deps, context.scope, call, reference);
   if (typeof spend === "string") return fail(spend);
   const problem = targetProblem(url, spend?.binding.allowLocalhostHttp ?? false);
   if (problem !== undefined) return fail(problem);
