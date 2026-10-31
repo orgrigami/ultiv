@@ -7,14 +7,14 @@
  * skill_write).
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolveInside } from "@spreissen/core";
 import { randomUUID } from "node:crypto";
 import type { SkillProposal } from "@spreissen/contracts";
 
 const PROPOSALS_MAX = 50;
 
 const fileOf = (root: string, owner: string, profile: string): string =>
-  join(root, owner, profile, "skills.proposals.json");
+  resolveInside(root, owner, profile, "skills.proposals.json");
 
 const readAll = (root: string, owner: string, profile: string): SkillProposal[] => {
   const file = fileOf(root, owner, profile);

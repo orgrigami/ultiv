@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { InvalidInput } from "@spreissen/core";
+import { InvalidInput, resolveInside } from "@spreissen/core";
 import type { McpServerInput } from "@spreissen/contracts";
 
 /** One saved server: the owner's input plus identity and first-use state. */
@@ -45,7 +45,7 @@ export interface McpConfigStore {
 }
 
 export const makeMcpConfigStore = (root: string = mcpDir()): McpConfigStore => {
-  const fileOf = (owner: string): string => join(root, owner, "servers.json");
+  const fileOf = (owner: string): string => resolveInside(root, owner, "servers.json");
   const read = (owner: string): McpServerRecord[] => {
     if (!SAFE_SEGMENT.test(owner)) return [];
     const path = fileOf(owner);
@@ -89,7 +89,7 @@ export const makeMcpConfigStore = (root: string = mcpDir()): McpConfigStore => {
       if (!SAFE_SEGMENT.test(owner) || !SAFE_SEGMENT.test(id)) {
         throw new InvalidInput({ reason: "bad server id" });
       }
-      const dir = join(root, owner, "work", id);
+      const dir = resolveInside(root, owner, "work", id);
       mkdirSync(dir, { recursive: true, mode: 0o700 });
       return dir;
     },

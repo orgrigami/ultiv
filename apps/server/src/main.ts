@@ -11,8 +11,7 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { WebSocketServer } from "ws";
 import { Ping } from "@spreissen/contracts";
-import { artifactsDir, copyArtifact } from "@spreissen/ext";
-import { join } from "node:path";
+import { artifactsDir, copyArtifact, resolveInside } from "@spreissen/ext";
 import { httpPlugin } from "@spreissen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
@@ -49,7 +48,7 @@ export async function buildStack(options?: {
       grantArtifacts: async (owner, from, to, ids) => {
         const base = artifactsDir();
         for (const id of ids) {
-          copyArtifact(join(base, owner, from), join(base, owner, to), id);
+          copyArtifact(resolveInside(base, owner, from), resolveInside(base, owner, to), id);
         }
       },
     },

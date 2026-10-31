@@ -6,7 +6,7 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { artifactsDir, destroySandbox, sandboxNameOf } from "@spreissen/ext";
+import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spreissen/ext";
 import { taskConversationKey } from "@spreissen/mind";
 import type { ProfileCreate, ProfileInfo } from "@spreissen/contracts";
 import { removeCronJobsForSessions } from "../cron.ts";
@@ -265,7 +265,7 @@ async function purgeProfile(args: RouteArgs, id: string): Promise<unknown> {
   ]);
   let artifacts = 0;
   try {
-    const dir = join(artifactsDir(), args.owner, id);
+    const dir = resolveInside(artifactsDir(), args.owner, id);
     rmSync(dir, { recursive: true, force: true });
     artifacts = sessions.length;
   } catch {

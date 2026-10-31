@@ -9,7 +9,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolveInside } from "@spreissen/core";
 import type {
   OAuthClientMetadata,
   OAuthClientProvider,
@@ -37,7 +37,7 @@ export interface OAuthStore {
 
 export const makeOAuthStore = (vaultRoot: string): OAuthStore => {
   const fileOf = (owner: string, id: string): string =>
-    join(vaultRoot, owner, "mcp-oauth", `${id}.json`);
+    resolveInside(vaultRoot, owner, "mcp-oauth", `${id}.json`);
   const read = (owner: string, id: string): OAuthState => {
     const path = fileOf(owner, id);
     if (!existsSync(path)) return {};
@@ -51,7 +51,7 @@ export const makeOAuthStore = (vaultRoot: string): OAuthStore => {
   return {
     read,
     write: (owner, id, state) => {
-      mkdirSync(join(vaultRoot, owner, "mcp-oauth"), { recursive: true, mode: 0o700 });
+      mkdirSync(resolveInside(vaultRoot, owner, "mcp-oauth"), { recursive: true, mode: 0o700 });
       writeFileSync(fileOf(owner, id), JSON.stringify(sealValue(state)), { mode: 0o600 });
     },
     clear: (owner, id) => rmSync(fileOf(owner, id), { force: true }),

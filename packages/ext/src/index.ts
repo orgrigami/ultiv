@@ -22,3 +22,6 @@ export * from "./broker/http-request-tool.ts";
 export * from "./broker/net-guard.ts";
 export * from "./broker/redact.ts";
 export * from "./mcp/index.ts";
+
+// Path confinement lives in core; re-exported for the server, which only depends on ext and mind.
+export { isPathEscape, PathEscapeError, resolveInside, tryResolveInside } from "@spreissen/core";

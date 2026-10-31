@@ -8,9 +8,10 @@
  * where the model sees it.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { posix, join } from "node:path";
+import { posix } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ArtifactInfo } from "@spreissen/contracts";
+import { resolveInside } from "@spreissen/core";
 import { mimeOfName, VFS_INDEX_ID } from "../plugins/artifacts.ts";
 
 /** Minimal fs-shape types, local since just-bash was replaced by microsandbox. */
@@ -125,10 +126,10 @@ export class DurableFs {
   // ---- persistence -------------------------------------------------------
 
   private sidecarOf(id: string): string {
-    return join(this.dir, `${id}.json`);
+    return resolveInside(this.dir, `${id}.json`);
   }
   private blobOf(id: string): string {
-    return join(this.dir, `${id}.bin`);
+    return resolveInside(this.dir, `${id}.bin`);
   }
 
   private load(): void {

@@ -14,15 +14,16 @@
 import { spawn } from "node:child_process";
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { resolveInside } from "@spreissen/core";
 
 export interface ShellFile {
   /** Workspace path relative to `/home`, POSIX style, no leading slash. */
@@ -58,14 +59,16 @@ export type ShellBackendFactory = (homeDir: string) => ShellBackend;
 export const localShellBackend: ShellBackendFactory = (homeDir: string): ShellBackend => {
   let realHome = existsSync(homeDir) ? realpathSync(homeDir) : "";
   const guestToHost = (value: string): string =>
-    value === "/home" ? homeDir : join(homeDir, value.replace(/^\/home\/?/, ""));
+    value === "/home"
+      ? homeDir
+      : resolveInside(homeDir, value.replace(/^\/home\/?/, "").replace(/^\/+/, ""));
 
   const writeAll = (files: readonly ShellFile[]): void => {
     rmSync(homeDir, { recursive: true, force: true });
     mkdirSync(homeDir, { recursive: true });
     realHome = realpathSync(homeDir);
     for (const file of files) {
-      const target = guestToHost(`/${file.path}`);
+      const target = resolveInside(homeDir, file.path);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, file.bytes);
     }
@@ -76,8 +79,12 @@ export const localShellBackend: ShellBackendFactory = (homeDir: string): ShellBa
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
       const rel = prefix === "" ? name : `${prefix}/${name}`;
-      if (statSync(full).isDirectory()) paths.push(...walk(full, rel));
-      else paths.push(rel);
+      // lstat, not stat: like the VM's `find -type f`, only regular files
+      // sync back, so a symlink the script made is never followed out of the
+      // workspace (readFile below refuses one that points out, too).
+      const stat = lstatSync(full);
+      if (stat.isDirectory()) paths.push(...walk(full, rel));
+      else if (stat.isFile()) paths.push(rel);
     }
     return paths.sort();
   };
@@ -127,6 +134,6 @@ export const localShellBackend: ShellBackendFactory = (homeDir: string): ShellBa
     },
     exec: (script, cwd, timeoutMs) => run(script, cwd, timeoutMs),
     listFiles: async () => walk(homeDir, ""),
-    readFile: async (path) => new Uint8Array(readFileSync(guestToHost(`/${path}`))),
+    readFile: async (path) => new Uint8Array(readFileSync(resolveInside(homeDir, path))),
   };
 };

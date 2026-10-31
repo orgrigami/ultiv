@@ -4,7 +4,6 @@
  * sidecars (owner null — uuid-capability access, exactly as before).
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { Effect } from "effect";
 import {
   artifactFile,
@@ -15,6 +14,7 @@ import {
   MAX_UPLOAD_BYTES,
   mimeOfName,
   readArtifactInfo,
+  resolveInside,
   searchArtifacts,
   writeArtifactBytes,
 } from "@spreissen/ext";
@@ -23,9 +23,9 @@ import { queryOr, type RouteArgs } from "./types.ts";
 /** Every directory the owner's artifacts may live in: their profile dirs + the legacy root. */
 const dirsOf = async (args: RouteArgs, profile?: string): Promise<string[]> => {
   const root = artifactsDir();
-  if (profile !== undefined) return [join(root, args.owner, profile)];
+  if (profile !== undefined) return [resolveInside(root, args.owner, profile)];
   const profiles = await args.mind.profiles.list(args.owner);
-  return [root, ...profiles.map((p) => join(root, args.owner, p.id))];
+  return [root, ...profiles.map((p) => resolveInside(root, args.owner, p.id))];
 };
 
 const conversationIdOf = async (
@@ -148,7 +148,7 @@ export async function artifactRoutes(
     json(
       200,
       writeArtifactBytes(
-        row !== undefined ? join(artifactsDir(), row.owner, row.profile) : artifactsDir(),
+        row !== undefined ? resolveInside(artifactsDir(), row.owner, row.profile) : artifactsDir(),
         {
           name,
           mime,

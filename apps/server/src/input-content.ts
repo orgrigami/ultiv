@@ -7,7 +7,6 @@
  * with artifact_read. One strip-point (`ATTACHMENTS_MARK`) keeps display
  * surfaces from showing the machinery.
  */
-import { join } from "node:path";
 import type { Conversation, InputEntry, UserInput } from "@earendil-works/pi-durable";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
 import type { ArtifactInfo, AttachmentRef } from "@spreissen/contracts";
@@ -16,6 +15,7 @@ import {
   MAX_IMAGE_BASE64,
   readArtifactBytes,
   readArtifactInfo,
+  resolveInside,
   VISION_MIMES,
 } from "@spreissen/ext";
 import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND, type MindService } from "@spreissen/mind";
@@ -38,7 +38,7 @@ export interface BuildInputArgs {
 const dirsOf = async (mind: MindService, owner: string): Promise<string[]> => {
   const root = artifactsDir();
   const profiles = await mind.profiles.list(owner);
-  return [root, ...profiles.map((p) => join(root, owner, p.id))];
+  return [root, ...profiles.map((p) => resolveInside(root, owner, p.id))];
 };
 
 /** Find an artifact across the owner's dirs; undefined when absent everywhere. */

@@ -2,12 +2,12 @@
  * Artifact byte serving: the /meta endpoint, ?dl=1 content disposition and the
  * inline-safety headers (fake RouteArgs over a seeded temp store — no HTTP).
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { writeArtifact } from "@spreissen/ext";
+import { PathEscapeError, writeArtifact } from "@spreissen/ext";
 import { artifactRoutes } from "./artifacts.ts";
 import type { RouteArgs } from "./types.ts";
 
@@ -164,5 +164,48 @@ describe("POST /api/artifacts", () => {
     const over = await post("/api/artifacts?name=big.bin", Buffer.alloc(10_000_001));
     expect(over.json.status).toBe(413);
     expect(over.json.body).toMatchObject({ error: "file too large (10 MB max)" });
+  });
+});
+
+describe("artifact routes stay inside the artifacts folder", () => {
+  const seed = () => {
+    dir = mkdtempSync(join(tmpdir(), "spreissen-rest-traversal-"));
+    const root = join(dir, "store");
+    mkdirSync(root);
+    writeFileSync(join(dir, "outside.txt"), "outside-the-store");
+    process.env["ARTIFACTS_DIR"] = root;
+    return root;
+  };
+
+  it("refuses ../, encoded ../ and absolute ids as unknown", async () => {
+    seed();
+    for (const id of [
+      "..%2Foutside.txt",
+      "..%2F..%2Fetc%2Fpasswd",
+      "%2Fetc%2Fpasswd",
+      "%2E%2E%2Foutside.txt",
+    ]) {
+      const decoded = decodeURIComponent(id);
+      const { args, json } = fakeArgs(`/api/artifacts/${id}`);
+      await artifactRoutes(args, () => decoded);
+      expect(json().status, id).toBe(404);
+    }
+  });
+
+  it("refuses a profile filter or owner label that climbs out", async () => {
+    seed();
+    await expect(get("/api/artifacts?profile=..%2F..%2F..")).rejects.toThrow(PathEscapeError);
+    await expect(get("/api/artifacts?profile=%2Ftmp")).rejects.toThrow(PathEscapeError);
+    await expect(get("/api/artifacts", "../..")).rejects.toThrow(PathEscapeError);
+  });
+
+  it("never serves an artifact whose blob is a symlink out of the store", async () => {
+    const root = seed();
+    const info = writeArtifact(root, { name: "a.txt", content: "inside", owner: null });
+    unlinkSync(join(root, `${info.id}.bin`));
+    symlinkSync(join(dir, "outside.txt"), join(root, `${info.id}.bin`));
+    const { raw, json } = await get(`/api/artifacts/${info.id}`);
+    expect(json.status).toBe(404);
+    expect(String(raw.body ?? "")).not.toContain("outside-the-store");
   });
 });

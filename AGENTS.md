@@ -118,6 +118,7 @@ Not run automatically (long-running or live):
 - pi-durable's README examples drift from its 1.4.0 types — trust `dist/*.d.ts`: `AssistantEntry` stores the message in `record.model[0]` (`[AssistantMessage]`), `settled.answer` is an `EntryId`, `commit()` may return `undefined`.
 - pnpm 12 gates build scripts with `allowBuilds` in `pnpm-workspace.yaml` (not the old `ignoredBuiltDependencies`). `@google/genai` and `protobufjs` are explicit `false` (vetted no-ops) — never flip to `true` without reading the script. To allow one deliberately: `vp add <pkg> --allow-build <pkg>`.
 - `vp install` may report "Agent skills awaiting approval" (currently `@tanstack/react-router`, `@tanstack/router-plugin`). vp 1.4.0 does not forward pnpm's `approve` (`vp pm approve` errors; only `approve-builds` exists), so leave them unapproved — approving is the owner's call, not an agent's.
+- **Never `join` a caller-supplied id or path onto a data folder.** Use `resolveInside` / `tryResolveInside` from `@spreissen/core` (re-exported by `@spreissen/ext` for the server): it refuses `../`, absolute parts and symlinks out. See `docs/SECURITY.md`.
 - Files Node executes directly (server, probe, smoke) must be erasable-syntax-only TS: no enums/namespaces/parameter properties.
 - Annotate chord `principal` callbacks with the app `Principal` type — inline object literals widen string literals and break `Host<P>` inference.
 - `tsconfig.json` files must stay strict JSON (tooling validates them; no comments).

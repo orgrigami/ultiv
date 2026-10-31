@@ -10,6 +10,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { resolveInside, tryResolveInside } from "@spreissen/core";
 import type { SkillMeta, SkillOrigin } from "@spreissen/contracts";
 import {
   MAX_DESCRIPTION_CHARS,
@@ -55,7 +56,7 @@ const scopeDir = (root: string, owner: string, profile: string): string => {
       throw new Error(`bad scope segment "${segment}"`);
     }
   }
-  return join(root, owner, profile);
+  return resolveInside(root, owner, profile);
 };
 
 const skillsOf = (root: string, owner: string, profile: string): string =>
@@ -136,8 +137,8 @@ const readStoredBody = (
   profile: string,
   name: string,
 ): string | undefined => {
-  const file = join(skillsOf(root, owner, profile), name, "SKILL.md");
-  return existsSync(file) ? readFileSync(file, "utf8") : undefined;
+  const file = tryResolveInside(skillsOf(root, owner, profile), name, "SKILL.md");
+  return file !== undefined && existsSync(file) ? readFileSync(file, "utf8") : undefined;
 };
 
 /** One skill's meta + body; built-ins resolve from their package markdown. */
@@ -179,8 +180,8 @@ export const readSkillFile = (
     const file = builtin.files.find((candidate) => candidate.path === rel);
     return file?.content;
   }
-  const file = join(skillsOf(root, owner, profile), name, rel);
-  if (!existsSync(file)) return undefined;
+  const file = tryResolveInside(skillsOf(root, owner, profile), name, rel);
+  if (file === undefined || !existsSync(file)) return undefined;
   const text = readFileSync(file, "utf8");
   return text.length > MAX_SKILL_FILE_CHARS ? text.slice(0, MAX_SKILL_FILE_CHARS) : text;
 };
@@ -238,9 +239,9 @@ const applySkillFiles = (dir: string, name: string, files: readonly SkillFileIn[
       throw new Error(`reference files exceed ${MAX_SKILL_FILES_BYTES} bytes in total`);
     }
   }
-  const skillDir = join(dir, name);
+  const skillDir = resolveInside(dir, name);
   for (const file of files) {
-    const target = join(skillDir, file.path);
+    const target = resolveInside(skillDir, file.path);
     mkdirSync(join(target, ".."), { recursive: true });
     writeFileSync(target, file.content, "utf8");
   }
@@ -248,7 +249,7 @@ const applySkillFiles = (dir: string, name: string, files: readonly SkillFileIn[
   for (const existing of extraFiles(dir)) {
     const rel = existing.slice(name.length + 1);
     if (existing.startsWith(`${name}/`) && !seen.has(rel)) {
-      rmSync(join(skillDir, rel), { recursive: true, force: true });
+      rmSync(resolveInside(skillDir, rel), { recursive: true, force: true });
     }
   }
   return [...seen];
@@ -321,8 +322,8 @@ export const writeSkill = (
           },
   };
   const dir = skillsOf(root, owner, profile);
-  mkdirSync(join(dir, input.name), { recursive: true });
-  writeFileSync(join(dir, input.name, "SKILL.md"), body, "utf8");
+  mkdirSync(resolveInside(dir, input.name), { recursive: true });
+  writeFileSync(resolveInside(dir, input.name, "SKILL.md"), body, "utf8");
   index.skills[input.name] = stored;
   writeIndex(root, owner, profile, index);
   const { previous: _previous, ...meta } = stored;
@@ -342,7 +343,7 @@ export const removeSkill = (
   }
   const index = readIndex(root, owner, profile);
   if (index.skills[name] === undefined) return false;
-  rmSync(join(skillsOf(root, owner, profile), name), { recursive: true, force: true });
+  rmSync(resolveInside(skillsOf(root, owner, profile), name), { recursive: true, force: true });
   delete index.skills[name];
   writeIndex(root, owner, profile, index);
   return true;

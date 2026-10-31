@@ -134,6 +134,7 @@ In every mode, these always come to you as a card: a credential's first use on a
 - **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
 - **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval, or follow the bot's [approval mode](#approval-modes). Some always ask, whatever the mode or the allow list says: using a credential on a new host for the first time, a connector's first use, changing connectors, and `secret_request`. `bash_host` can't be saved as an "Always allow" rule and Jev never decides it, but fully automatic mode runs it.
 - **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
+- **File paths can't leave their folder.** Every file store resolves paths with symlinks followed and refuses `../`, absolute paths and links that point outside; see `docs/SECURITY.md`.
 - **`.env` stays on the server.** It's never printed or sent to the client.
 
 ## Layout
@@ -171,3 +172,4 @@ Before a change goes in, I run `vp check`, the seven typechecks, `vp test`, the 
 - `docs/ROUTINES.md`: how cron, webhooks and sensors stay durable and get delivered
 - `docs/MEMORY.md`: how memory works (tiers, recall, guard, tidy)
 - `docs/SKILLS.md`: how skills are stored, loaded, installed and improved
+- `docs/SECURITY.md`: path confinement, owner scoping and webhook token storage

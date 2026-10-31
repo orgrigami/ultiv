@@ -9,9 +9,8 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { InvalidInput, NotFound } from "@spreissen/core";
+import { InvalidInput, NotFound, resolveInside, tryResolveInside } from "@spreissen/core";
 import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@spreissen/contracts";
 
 /** The vault root (relative to the server's cwd, like HARNESS_DB). */
@@ -281,14 +280,15 @@ const contactsOf = (
 };
 
 export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
-  const itemsDir = (owner: string): string => join(root, owner, "items");
-  const sidecarOf = (owner: string, id: string): string => join(itemsDir(owner), `${id}.json`);
+  const itemsDir = (owner: string): string => resolveInside(root, owner, "items");
+  const sidecarOf = (owner: string, id: string): string =>
+    resolveInside(itemsDir(owner), `${id}.json`);
   const grants = new Map<string, VaultGrant>();
 
   const readItem = (owner: string, id: string): VaultItem | undefined => {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id)) return undefined;
-    const path = sidecarOf(owner, id);
-    if (!existsSync(path)) return undefined;
+    const path = tryResolveInside(itemsDir(owner), `${id}.json`);
+    if (path === undefined || !existsSync(path)) return undefined;
     const stored = JSON.parse(readFileSync(path, "utf8")) as StoredVaultItem;
     return { info: stored.info, sealed: stored.sealed ?? null };
   };
@@ -330,7 +330,9 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
         .filter((file) => file.endsWith(".json"))
         .flatMap((file) => {
           try {
-            return [(JSON.parse(readFileSync(join(dir, file), "utf8")) as StoredVaultItem).info];
+            const path = tryResolveInside(dir, file);
+            if (path === undefined) return [];
+            return [(JSON.parse(readFileSync(path, "utf8")) as StoredVaultItem).info];
           } catch {
             return [];
           }

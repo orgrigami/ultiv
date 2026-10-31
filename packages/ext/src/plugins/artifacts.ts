@@ -16,11 +16,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Type } from "typebox";
 import type { Static } from "typebox";
 import { ArtifactInfoSchema } from "@spreissen/contracts";
+import { isPathEscape, resolveInside, tryResolveInside } from "@spreissen/core";
 import type { ArtifactInfo } from "@spreissen/contracts";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -62,8 +62,20 @@ export const MAX_IMAGE_BASE64 = 3_000_000;
 const validId = (id: string): boolean =>
   id.length > 0 && id.length <= MAX_ID_CHARS && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
 
-const sidecarOf = (dir: string, id: string): string => join(dir, `${id}.json`);
-const blobOf = (dir: string, id: string): string => join(dir, `${id}.bin`);
+// Both resolve through resolveInside: an id is already a plain name, but a
+// blob or sidecar that is a symlink out of the store is refused all the same.
+const sidecarOf = (dir: string, id: string): string => resolveInside(dir, `${id}.json`);
+const blobOf = (dir: string, id: string): string => resolveInside(dir, `${id}.bin`);
+
+/** Run a read; a path that escapes the store reads as "not there". */
+const confined = <A>(read: () => A | undefined): A | undefined => {
+  try {
+    return read();
+  } catch (cause) {
+    if (isPathEscape(cause)) return undefined;
+    throw cause;
+  }
+};
 
 const mimes: Record<string, string> = {
   txt: "text/plain",
@@ -154,6 +166,11 @@ const normalize = (raw: ArtifactInfo): ArtifactInfo => ({
 export const readArtifact = (
   dir: string,
   id: string,
+): { info: ArtifactInfo; text: string } | undefined => confined(() => readArtifactUnsafe(dir, id));
+
+const readArtifactUnsafe = (
+  dir: string,
+  id: string,
 ): { info: ArtifactInfo; text: string } | undefined => {
   if (!validId(id)) return undefined;
   const sidecar = sidecarOf(dir, id);
@@ -164,34 +181,38 @@ export const readArtifact = (
 };
 
 /** The absolute path of an artifact's bytes, for raw serving; undefined when absent. */
-export const artifactFile = (dir: string, id: string): string | undefined => {
-  if (!validId(id)) return undefined;
-  const blob = blobOf(dir, id);
-  return existsSync(blob) ? blob : undefined;
-};
+export const artifactFile = (dir: string, id: string): string | undefined =>
+  confined(() => {
+    if (!validId(id)) return undefined;
+    const blob = blobOf(dir, id);
+    return existsSync(blob) ? blob : undefined;
+  });
 
 /** Read one artifact's raw bytes (binary-safe); undefined when absent. Callers cap. */
 export const readArtifactBytes = (
   dir: string,
   id: string,
-): { info: ArtifactInfo; data: Buffer } | undefined => {
-  if (!validId(id)) return undefined;
-  const sidecar = sidecarOf(dir, id);
-  if (!existsSync(sidecar)) return undefined;
-  const info = normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo);
-  return { info, data: readFileSync(blobOf(dir, id)) };
-};
+): { info: ArtifactInfo; data: Buffer } | undefined =>
+  confined(() => {
+    if (!validId(id)) return undefined;
+    const sidecar = sidecarOf(dir, id);
+    if (!existsSync(sidecar)) return undefined;
+    const info = normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo);
+    return { info, data: readFileSync(blobOf(dir, id)) };
+  });
 
-export const readArtifactInfo = (dir: string, id: string): ArtifactInfo | undefined => {
-  if (!validId(id)) return undefined;
-  const sidecar = sidecarOf(dir, id);
-  if (!existsSync(sidecar)) return undefined;
-  return normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo);
-};
+export const readArtifactInfo = (dir: string, id: string): ArtifactInfo | undefined =>
+  confined(() => {
+    if (!validId(id)) return undefined;
+    const sidecar = sidecarOf(dir, id);
+    if (!existsSync(sidecar)) return undefined;
+    return normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo);
+  });
 
 /** Copy one artifact (blob + sidecar) between stores — envelope grants. */
 export const copyArtifact = (fromDir: string, toDir: string, id: string): boolean => {
-  if (!validId(id) || !existsSync(sidecarOf(fromDir, id))) return false;
+  if (!validId(id) || confined(() => existsSync(sidecarOf(fromDir, id)) || undefined) !== true)
+    return false;
   mkdirSync(toDir, { recursive: true });
   copyFileSync(blobOf(fromDir, id), blobOf(toDir, id));
   copyFileSync(sidecarOf(fromDir, id), sidecarOf(toDir, id));
@@ -200,7 +221,8 @@ export const copyArtifact = (fromDir: string, toDir: string, id: string): boolea
 
 /** Delete one artifact (blob + sidecar); false when it was not there. */
 export const deleteArtifact = (dir: string, id: string): boolean => {
-  if (!validId(id) || !existsSync(sidecarOf(dir, id))) return false;
+  if (!validId(id) || confined(() => existsSync(sidecarOf(dir, id)) || undefined) !== true)
+    return false;
   rmSync(sidecarOf(dir, id), { force: true });
   rmSync(blobOf(dir, id), { force: true });
   return true;
@@ -211,9 +233,13 @@ export const clearArtifacts = (dir: string): number => {
   if (!existsSync(dir)) return 0;
   const sidecars = readdirSync(dir).filter((file) => file.endsWith(".json"));
   for (const file of sidecars) {
+    // rm on a symlink removes the link, never its target; still, only names
+    // that resolve inside the store are touched.
     const id = file.slice(0, -".json".length);
-    rmSync(sidecarOf(dir, id), { force: true });
-    rmSync(blobOf(dir, id), { force: true });
+    const sidecar = tryResolveInside(dir, `${id}.json`);
+    const blob = tryResolveInside(dir, `${id}.bin`);
+    if (sidecar !== undefined) rmSync(sidecar, { force: true });
+    if (blob !== undefined) rmSync(blob, { force: true });
   }
   return sidecars.length;
 };
@@ -225,7 +251,9 @@ export const listArtifacts = (dir: string): readonly ArtifactInfo[] => {
     .filter((file) => file.endsWith(".json") && file !== `${VFS_INDEX_ID}.json`)
     .flatMap((file) => {
       try {
-        return [normalize(JSON.parse(readFileSync(join(dir, file), "utf8")) as ArtifactInfo)];
+        const sidecar = tryResolveInside(dir, file);
+        if (sidecar === undefined) return [];
+        return [normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo)];
       } catch {
         return [];
       }

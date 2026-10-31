@@ -4,7 +4,7 @@
  * reference class (who to email). No tool returns secret bytes: there is no
  * read path for them at the act surface, by construction.
  */
-import { join } from "node:path";
+import { resolveInside } from "@spreissen/core";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -36,7 +36,7 @@ export const createScopeHolder = (): ScopeHolder => {
 /** The artifact directory for a conversation: {root}/{owner}/{profile}, or the shared root. */
 export const scopeDir = (holder: ScopeHolder, conversationId: string, root: string): string => {
   const scope = holder.get()?.scopeOf(conversationId);
-  return scope === undefined ? root : join(root, scope.owner, scope.profile);
+  return scope === undefined ? root : resolveInside(root, scope.owner, scope.profile);
 };
 
 const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>

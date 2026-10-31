@@ -6,7 +6,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { InvalidInput } from "@spreissen/core";
+import { InvalidInput, resolveInside } from "@spreissen/core";
 import type { CredentialBinding, CredentialBindingInput } from "@spreissen/contracts";
 import { isLocalhostName } from "./net-guard.ts";
 
@@ -80,7 +80,7 @@ export const validateBinding = (input: CredentialBindingInput): CredentialBindin
 };
 
 export const makeBindingStore = (root: string): BindingStore => {
-  const fileOf = (owner: string): string => join(root, owner, "bindings.json");
+  const fileOf = (owner: string): string => resolveInside(root, owner, "bindings.json");
   const read = (owner: string): CredentialBinding[] => {
     const path = fileOf(owner);
     if (!existsSync(path)) return [];

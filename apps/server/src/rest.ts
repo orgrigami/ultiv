@@ -7,6 +7,7 @@
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { MindService } from "@spreissen/mind";
+import { isPathEscape } from "@spreissen/ext";
 import type { CronScheduler } from "./cron.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
@@ -78,7 +79,13 @@ export const createRestHandler = (deps: RestDeps) => {
       readJson,
       readBody,
     };
-    void route(args).catch((error) => json(500, { error: String(error).slice(0, 300) }));
+    // A path that would leave its folder is the caller's mistake (400), and
+    // its message names only the attempted path, never a file's contents.
+    void route(args).catch((error) =>
+      isPathEscape(error)
+        ? json(400, { error: error.message })
+        : json(500, { error: String(error).slice(0, 300) }),
+    );
   };
 };
 
