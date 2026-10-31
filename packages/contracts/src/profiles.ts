@@ -66,6 +66,26 @@ export const ProfilePoliciesSchema = Type.Object({
 export type ProfilePolicies = Static<typeof ProfilePoliciesSchema>;
 
 /**
+ * The per-bot deadlines' bounds and the labels the Edit-bot dialog shows. The
+ * server's refusal and the dialog's own check use the same words.
+ */
+export const DEADLINE_FIELDS = {
+  firstTokenDeadlineSec: { label: "First reply (seconds)", min: 10, max: 1_800 },
+  turnDeadlineMin: { label: "Whole turn (minutes)", min: 1, max: 720 },
+} as const;
+
+export type DeadlineField = keyof typeof DEADLINE_FIELDS;
+
+/** What is wrong with a deadline value, in the dialog's words; null when it is fine (absent = default). */
+export const deadlineProblem = (field: DeadlineField, value: unknown): string | null => {
+  if (value === undefined || value === null) return null;
+  const { label, min, max } = DEADLINE_FIELDS[field];
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max
+    ? null
+    : `${label} must be a whole number from ${min} to ${max}. Leave it empty for the default.`;
+};
+
+/**
  * One profile: a user-defined AI entity. Owns its main chat, sessions, DM
  * threads, artifacts and vault scope. Served as plain REST (not a chord
  * object) like every registry in the app.

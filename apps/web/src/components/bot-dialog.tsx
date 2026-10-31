@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { describeAllowEntry } from "@/lib/approval-text";
 import { useApp } from "@/lib/app-state";
 import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spreissen/contracts";
+import { deadlineFieldProblem, deadlineValue, formProblem } from "@/lib/deadline-fields";
 
 export interface BotForm {
   name: string;
@@ -32,15 +33,6 @@ export interface BotForm {
   firstTokenSec?: string;
   turnMin?: string;
 }
-
-/** A deadline field for the patch: "" clears it back to the default (null). */
-export const deadlineValue = (text: string | undefined): number | null => {
-  if (text === undefined || text.trim() === "") return null;
-  const value = Number(text.trim());
-  // JSON would turn NaN into null (the default), so refuse it here instead.
-  if (!Number.isFinite(value)) throw new Error("Deadlines must be whole numbers, or empty.");
-  return value;
-};
 
 export const emptyForm: BotForm = {
   name: "",
@@ -246,8 +238,12 @@ export function BotDialog({
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const firstTokenProblem = deadlineFieldProblem(form.firstTokenSec, "firstTokenDeadlineSec");
+  const turnProblem = deadlineFieldProblem(form.turnMin, "turnDeadlineMin");
   const submit = async (): Promise<void> => {
     if (form.name.trim() === "") return;
+    // Bad deadlines are shown next to their field; nothing is sent.
+    if (formProblem(form) !== null) return;
     setBusy(true);
     setError(null);
     try {
@@ -355,8 +351,14 @@ export function BotDialog({
                     inputMode="numeric"
                     placeholder="60"
                     value={form.firstTokenSec}
+                    aria-invalid={firstTokenProblem !== null}
                     onChange={(event) => setForm({ ...form, firstTokenSec: event.target.value })}
                   />
+                  {firstTokenProblem !== null && (
+                    <span role="alert" className="text-destructive">
+                      {firstTokenProblem}
+                    </span>
+                  )}
                 </label>
                 <label className="flex flex-1 flex-col gap-1 text-xs">
                   Whole turn (minutes)
@@ -364,8 +366,14 @@ export function BotDialog({
                     inputMode="numeric"
                     placeholder="15"
                     value={form.turnMin ?? ""}
+                    aria-invalid={turnProblem !== null}
                     onChange={(event) => setForm({ ...form, turnMin: event.target.value })}
                   />
+                  {turnProblem !== null && (
+                    <span role="alert" className="text-destructive">
+                      {turnProblem}
+                    </span>
+                  )}
                 </label>
               </div>
               <span className="text-muted-foreground text-xs">
@@ -484,8 +492,8 @@ export function EditBotDialog({
           policies: {
             approvalMode: form.approvalMode,
             sandbox: form.sandbox,
-            firstTokenDeadlineSec: deadlineValue(form.firstTokenSec),
-            turnDeadlineMin: deadlineValue(form.turnMin),
+            firstTokenDeadlineSec: deadlineValue(form.firstTokenSec, "firstTokenDeadlineSec"),
+            turnDeadlineMin: deadlineValue(form.turnMin, "turnDeadlineMin"),
           },
         });
         await refresh();

@@ -53,6 +53,8 @@ export {
   ProfileApprovalModeSchema,
   ProfileModelSchema,
   ProfilePoliciesSchema,
+  DEADLINE_FIELDS,
+  deadlineProblem,
 } from "./profiles.ts";
 export type {
   ProfileInfo,
@@ -61,6 +63,7 @@ export type {
   ProfileApprovalMode,
   ProfileModel,
   ProfilePolicies,
+  DeadlineField,
 } from "./profiles.ts";
 export { MailboxEnvelopeSchema, MailboxEntrySchema, MailboxListSchema } from "./mailbox.ts";
 export type { MailboxEnvelope, MailboxEntry, MailboxList } from "./mailbox.ts";

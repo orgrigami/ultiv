@@ -24,7 +24,7 @@
 import { defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
 import type { Conversation, LiveState } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { ProfilePolicies } from "@spreissen/contracts";
+import { DEADLINE_FIELDS, type ProfilePolicies } from "@spreissen/contracts";
 import type { ConverseService } from "./converse.ts";
 
 /** D4 defaults. */
@@ -33,8 +33,8 @@ export const DEFAULT_TURN_MS = 15 * 60_000;
 
 /** Per-bot bounds the profile patch accepts (seconds / minutes). */
 export const DEADLINE_BOUNDS = {
-  firstTokenSec: { min: 10, max: 1_800 },
-  turnMin: { min: 1, max: 720 },
+  firstTokenSec: DEADLINE_FIELDS.firstTokenDeadlineSec,
+  turnMin: DEADLINE_FIELDS.turnDeadlineMin,
 } as const;
 
 /** The passive entry a deadline hit writes (stored kinds keep the `ultiv.` prefix). */

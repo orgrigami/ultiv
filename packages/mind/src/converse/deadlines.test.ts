@@ -204,8 +204,20 @@ describe("per-bot limits", () => {
       { turnDeadlineMin: 721 },
       { turnDeadlineMin: "10" as never },
     ]) {
-      expect(refusal({ policies: { ...policies, ...bad } })).toMatch(/Deadline(Sec|Min) must be/);
+      const reason = refusal({ policies: { ...policies, ...bad } });
+      // Bug 3: the dialog's labels, not field names or "null".
+      expect(reason).toMatch(
+        /^(First reply \(seconds\)|Whole turn \(minutes\)) must be a whole number/,
+      );
+      expect(reason).toContain("Leave it empty for the default.");
+      expect(reason).not.toMatch(/firstTokenDeadlineSec|turnDeadlineMin|null/);
     }
+    expect(refusal({ policies: { ...policies, firstTokenDeadlineSec: 12.5 } })).toBe(
+      "First reply (seconds) must be a whole number from 10 to 1800. Leave it empty for the default.",
+    );
+    expect(refusal({ policies: { ...policies, turnDeadlineMin: 0 } })).toBe(
+      "Whole turn (minutes) must be a whole number from 1 to 720. Leave it empty for the default.",
+    );
   });
 
   it("words the notice with the limit that was hit", () => {
