@@ -1,3 +1,4 @@
+import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
 import type {
   AuditEvent,
   CredentialBinding,
@@ -464,6 +465,25 @@ export const api = {
     send<{ ok: boolean }>(
       `/api/state/${encodeURIComponent(profile)}/${encodeURIComponent(key)}`,
       "DELETE",
+    ),
+  botFiles: (profile: string): Promise<Record<BotFileName, BotFileState>> =>
+    getJson<Record<BotFileName, BotFileState>>(
+      `/api/profiles/${encodeURIComponent(profile)}/files`,
+    ),
+  botFileVersions: (profile: string, file: BotFileName): Promise<BotFileVersion[]> =>
+    getJson<BotFileVersion[]>(
+      `/api/profiles/${encodeURIComponent(profile)}/files/${file}/versions`,
+    ),
+  botFileSave: (profile: string, file: BotFileName, text: string): Promise<BotFileState> =>
+    send<BotFileState>(`/api/profiles/${encodeURIComponent(profile)}/files/${file}`, "PUT", {
+      text,
+      reason: "Edited on the profile page",
+    }),
+  botFileRestore: (profile: string, file: BotFileName, version: number): Promise<BotFileState> =>
+    send<BotFileState>(
+      `/api/profiles/${encodeURIComponent(profile)}/files/${file}/restore`,
+      "POST",
+      { version },
     ),
   skills: (): Promise<SkillOverview> => getJson<SkillOverview>("/api/skills"),
   skill: (profile: string, name: string): Promise<SkillDetail> =>

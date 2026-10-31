@@ -88,5 +88,6 @@ prompt says so next to the Instructions.
   one.
 
 All of these are owner-scoped. Another owner's bot gets the same 404 that
-an unknown bot gets. The profile page edits both files, lists versions and
-restores, and the Overview shows both.
+an unknown bot gets. On the profile page, the Instructions tab edits both
+files, lists versions newest first, and restores any older one. The
+Overview's Details show both files.

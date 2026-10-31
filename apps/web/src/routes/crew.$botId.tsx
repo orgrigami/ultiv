@@ -1,11 +1,13 @@
 /**
  * One bot's profile, reached from Crew: its character big and centered,
- * then pill tabs with live counts (Overview · Memory n · Routines n ·
- * Access n · Files n · Activity). The tab rides ?tab= so Needs you and
+ * then pill tabs with live counts (Overview · Instructions · Memory n ·
+ * Routines n · Access n · Files n · Activity). Instructions edits the
+ * bot's Persona and Instructions files with their versions. The tab rides ?tab= so Needs you and
  * other screens can deep-link to the exact section. Every tab reuses the
  * panel that already owned that job (memory, routines, the bot form, the
  * audit log); the overview is file-style cards into those tabs.
  */
+import { BotFilesEditor } from "@/components/bot-files-editor";
 import { CharacterEmpty } from "@/components/character-empty";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -16,6 +18,7 @@ import {
   HistoryIcon,
   MessageCircleIcon,
   PencilIcon,
+  ScrollTextIcon,
   ShieldCheckIcon,
   StarIcon,
   type LucideIcon,
@@ -45,6 +48,7 @@ import { cn } from "@/lib/utils";
 
 export const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
+  { id: "instructions", label: "Instructions" },
   { id: "memory", label: "Memory" },
   { id: "routines", label: "Routines" },
   { id: "access", label: "Access" },
@@ -55,6 +59,7 @@ export const PROFILE_TABS = [
 export type ProfileTab = (typeof PROFILE_TABS)[number]["id"];
 
 const TAB_ICON: Partial<Record<ProfileTab, LucideIcon>> = {
+  instructions: ScrollTextIcon,
   memory: BrainIcon,
   routines: CalendarClockIcon,
   access: ShieldCheckIcon,
@@ -245,6 +250,9 @@ function Profile({
       </div>
       <div role="tabpanel" aria-label={PROFILE_TABS.find((t) => t.id === active)?.label}>
         {active === "overview" && <OverviewTab bot={bot} counts={counts} />}
+        {active === "instructions" && (
+          <BotFilesEditor key={bot.id} botId={bot.id} onSaved={() => void refreshAll()} />
+        )}
         {active === "memory" && (
           <MemoryContent
             key={bot.id}
@@ -276,6 +284,17 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts }) {
   const { sessions, mainId, refreshAll } = useApp();
   const navigate = useNavigate();
+  const [instructions, setInstructions] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api
+      .botFiles(bot.id)
+      .then((files) => alive && setInstructions(files.instructions.text))
+      .catch(() => alive && setInstructions(null));
+    return () => {
+      alive = false;
+    };
+  }, [bot.id]);
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMain = bot.id === mainId;
@@ -319,9 +338,14 @@ function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts 
       </div>
       <SectionHeader title="Details" />
       <dl className="bg-card divide-border divide-y rounded-2xl border">
-        <Fact label="Personality">
+        <Fact label="Persona">
           <span className="line-clamp-4 whitespace-pre-wrap">
             {bot.persona !== "" ? bot.persona : "Not set"}
+          </span>
+        </Fact>
+        <Fact label="Instructions">
+          <span className="line-clamp-4 whitespace-pre-wrap">
+            {instructions === null ? "…" : instructions !== "" ? instructions : "Not set"}
           </span>
         </Fact>
         <Fact label="Model">

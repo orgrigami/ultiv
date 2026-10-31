@@ -20,6 +20,7 @@ import {
   sensorsService,
   webhooksService,
 } from "@spreissen/mind";
+import { botFileRoutes } from "./bot-files.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
 const ID = "[a-zA-Z0-9][a-zA-Z0-9._-]*";
@@ -69,6 +70,7 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
     json(200, owned);
     return true;
   }
+  if (await botFileRoutes(args, owned, rest)) return true;
   if (rest === "" && method === "PATCH") {
     try {
       const patch = await args.readJson<Record<string, unknown>>(req);
