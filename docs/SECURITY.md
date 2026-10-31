@@ -181,11 +181,14 @@ level for the UI (F4).
 `vpr @spriessen/server#org:dry-run`): the workspace becomes the org
 "Personal" owned by the account; every existing bot is an org bot with host
 access ON (F1 — today's behaviour); no department rows are created; a second
-run changes nothing. Rollback: rolling the code back leaves the `ultiv.org`
+run changes nothing — it stamps bots only on the run that creates the org,
+so a bot moved to a department or a switch turned off survives a restart
+(the migration runs at every boot). Rollback: rolling the code back leaves the `ultiv.org`
 document and the two profile fields, which older code ignores; nothing is
 moved or deleted. Tested by `packages/mind/src/org/org.test.ts` (migration,
 one-home invariant, flags), `apps/server/src/rest/org.test.ts` (routes,
-summary, grants, flags), `apps/server/src/rest/approval-routing.test.ts`,
+summary, grants, flags), `apps/server/src/rest/bot-home.test.ts` (a bot's
+home must exist; moves audited), `apps/server/src/rest/approval-routing.test.ts`,
 `apps/server/src/ws-chat-privacy.test.ts`, and the reach/grant tests in
 `packages/mind/src/org/reach.test.ts` and
 `packages/ext/src/broker/http-request-tool.test.ts`.

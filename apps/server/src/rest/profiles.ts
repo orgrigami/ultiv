@@ -9,22 +9,7 @@ import { Effect } from "effect";
 import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spriessen/ext";
 import { taskConversationKey } from "@spriessen/mind";
 import type { ProfileCreate, ProfileInfo } from "@spriessen/contracts";
-import { may } from "./ask.ts";
-
-/** One permission audit row for an org-level bot change (move, host flag). */
-const auditedRow = (args: RouteArgs, profile: string, name: string): void => {
-  args.mind.audit.record({
-    at: Date.now(),
-    kind: "permission",
-    conversationId: "",
-    profile,
-    callId: null,
-    name,
-    durationMs: null,
-    ok: true,
-    error: null,
-  });
-};
+import { auditOrgFields, orgFieldsRefusal } from "./profile-org.ts";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
 import {
@@ -59,7 +44,15 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
   }
   if (path === "/api/profiles" && method === "POST") {
     try {
-      json(200, await mind.profiles.create(args.owner, await collect(await args.readJson(req))));
+      const input = await collect(await args.readJson(req));
+      const refusal = await orgFieldsRefusal(args, input);
+      if (refusal !== null) {
+        json(refusal.status, { error: refusal.error });
+        return true;
+      }
+      const created = await mind.profiles.create(args.owner, input);
+      auditOrgFields(args, created.id, input);
+      json(200, created);
     } catch (cause) {
       json(400, { error: errorOf(cause) });
     }
@@ -90,29 +83,14 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
   if (rest === "" && method === "PATCH") {
     try {
       const patch = await args.readJson<Record<string, unknown>>(req);
-      // Org rules (slices 3 and 11): moving homes touches the target
-      // department; the bot's own host-access switch is the org owner's
-      // alone (F3). Refusals read as a missing bot.
-      if (patch.departmentId !== undefined) {
-        const target = patch.departmentId as string | null;
-        if (
-          target !== null &&
-          !(await may(args, "change", { type: "department", departmentId: target }))
-        ) {
-          json(404, { error: "unknown profile" });
-          return true;
-        }
-      }
-      if (patch.hostAccess !== undefined) {
-        if (!(await may(args, "change", { type: "host-flag" }))) {
-          json(404, { error: "unknown profile" });
-          return true;
-        }
+      // Org rules (slices 3 and 11): refusals read as a missing bot.
+      const refusal = await orgFieldsRefusal(args, patch);
+      if (refusal !== null) {
+        json(refusal.status, { error: refusal.error });
+        return true;
       }
       const updated = await mind.profiles.update(args.owner, id, patch as never);
-      if (patch.hostAccess !== undefined || patch.departmentId !== undefined) {
-        auditedRow(args, id, patch.departmentId !== undefined ? "bot-moved" : "host-access-change");
-      }
+      auditOrgFields(args, id, patch);
       // Permission changes (approval mode, allow rules, budgets) are audited
       // as their own kind, so the Activity tab shows who relaxed what.
       if (patch.policies !== undefined || patch.toolAllowlist !== undefined) {
