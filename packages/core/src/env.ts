@@ -1,10 +1,10 @@
 /**
- * Product environment keys. Every key is `SPREISSEN_<NAME>`; the old
+ * Product environment keys. Every key is `SPRIESSEN_<NAME>`; the old
  * `ULTIV_<NAME>` spelling (from before the rename) is still read as a
  * deprecated fallback, with one warning per key per process, so an existing
  * `.env` keeps working until it is updated. The new name always wins.
  */
-export const ENV_PREFIX = "SPREISSEN_";
+export const ENV_PREFIX = "SPRIESSEN_";
 export const LEGACY_ENV_PREFIX = "ULTIV_";
 
 export type EnvSource = Readonly<Record<string, string | undefined>>;
@@ -23,7 +23,7 @@ export const warnLegacyEnv = (name: string, warn: Warn = console.warn): void => 
   warn(legacyEnvNotice(name));
 };
 
-/** Read `SPREISSEN_<name>`, else the deprecated `ULTIV_<name>` (warning once). */
+/** Read `SPRIESSEN_<name>`, else the deprecated `ULTIV_<name>` (warning once). */
 export const readEnv = (
   name: string,
   env: EnvSource = process.env,

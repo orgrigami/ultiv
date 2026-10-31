@@ -5,7 +5,7 @@
  * so ids can't be probed across owners.
  *
  * The caller's owner label comes from `args.owner` (identity.ts: the
- * `x-spreissen-user` header, `x-ultiv-user` as fallback, "guest" without one).
+ * `x-spriessen-user` header, `x-ultiv-user` as fallback, "guest" without one).
  * A real sign-in later swaps that source; these checks stay as they are.
  */
 import type { RouteArgs } from "./types.ts";

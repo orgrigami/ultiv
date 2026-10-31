@@ -29,7 +29,7 @@ const retried: string[] = [];
 const call = async (owner: string, method: string, path: string) => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spreissen-user": owner },
+    headers: { "content-type": "application/json", "x-spriessen-user": owner },
   });
   return { status: response.status, json: (await response.json()) as any };
 };

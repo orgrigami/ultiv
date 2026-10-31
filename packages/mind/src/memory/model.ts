@@ -2,7 +2,7 @@
  * Memory v2 data model: the doc families (one per tier), the fact
  * constructor, the hash that powers exact dedupe, the retention limits and
  * the environment flags. Storage stays pi-durable docs — no new database.
- * Rollback: `SPREISSEN_MEMORY_V2=off` sends every caller back to the v1 seam.
+ * Rollback: `SPRIESSEN_MEMORY_V2=off` sends every caller back to the v1 seam.
  */
 import { createHash } from "node:crypto";
 import { defineDocFamily } from "@earendil-works/pi-durable";
@@ -17,7 +17,7 @@ import type {
 } from "@spriessen/contracts";
 
 /**
- * The v1 store (`ultiv.memory`) — kept only for the `SPREISSEN_MEMORY_V2=off`
+ * The v1 store (`ultiv.memory`) — kept only for the `SPRIESSEN_MEMORY_V2=off`
  * rollback surfaces. The mirror is gone (2026-10-28) and nothing migrates
  * into it; removing the doc family is a separate, owner-approved commit.
  */
@@ -127,7 +127,7 @@ export const LIMITS = {
 } as const;
 
 export const flags = {
-  /** SPREISSEN_MEMORY_V2=off brings the v1 code path back, unchanged. */
+  /** SPRIESSEN_MEMORY_V2=off brings the v1 code path back, unchanged. */
   v2: (): boolean => readEnv("MEMORY_V2") !== "off",
   /** Model extraction; off = deterministic fallback only. */
   extract: (): boolean => process.env.MEMORY_EXTRACT !== "off",

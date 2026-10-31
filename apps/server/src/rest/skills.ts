@@ -4,7 +4,7 @@
  * with its parked proposals, owner edits (origin "owner"), enable/disable,
  * undo (`revert`), the version history and restore, delete, and the
  * accept/reject verdicts on evolution proposals.
- * Owner-scoped via `x-spreissen-user` like every route; every mutation lands in
+ * Owner-scoped via `x-spriessen-user` like every route; every mutation lands in
  * the audit trail under kind "skills".
  */
 import { errorOf, type RouteArgs } from "./types.ts";

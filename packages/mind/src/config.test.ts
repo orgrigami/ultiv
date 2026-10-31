@@ -11,8 +11,8 @@ const parse = <A>(
 describe("product env keys", () => {
   beforeEach(() => resetLegacyEnvWarnings());
 
-  it("read SPREISSEN_MODEL", async () => {
-    expect(await parse(defaultModel, { SPREISSEN_MODEL: "a/b" })).toEqual(Option.some("a/b"));
+  it("read SPRIESSEN_MODEL", async () => {
+    expect(await parse(defaultModel, { SPRIESSEN_MODEL: "a/b" })).toEqual(Option.some("a/b"));
   });
 
   it("still read the deprecated ULTIV_ names", async () => {
@@ -25,7 +25,7 @@ describe("product env keys", () => {
   });
 
   it("prefer the new name, and are none when neither is set", async () => {
-    expect(await parse(defaultModel, { SPREISSEN_MODEL: "new/m", ULTIV_MODEL: "old/m" })).toEqual(
+    expect(await parse(defaultModel, { SPRIESSEN_MODEL: "new/m", ULTIV_MODEL: "old/m" })).toEqual(
       Option.some("new/m"),
     );
     expect(await parse(defaultModel, {})).toEqual(Option.none());

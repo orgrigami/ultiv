@@ -49,8 +49,8 @@ Open http://localhost:5173 and create your first bot. **Settings** shows a quick
 The model list comes from [models.dev](https://models.dev). The server downloads it on first start, keeps a copy in `apps/server/var/models-dev.json`, and checks for updates once a day, so new models show up without a restart or an upgrade. Only models that can chat and call tools are listed.
 
 - **Turning a provider on:** set its key in `.env` under the name models.dev uses for it. The provider pages on models.dev show the variable, e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KENARI_API_KEY`.
-- **The default model:** `SPREISSEN_MODEL=provider/model`, e.g. `anthropic/claude-sonnet-4-6`. Without it, new chats use `kenari/deepseek-v4-1-flash` when Kenari is set up, otherwise the first model in the list.
-- **Fewer providers in the picker:** `SPREISSEN_PROVIDERS=anthropic,kenari` lists only those, even if other keys are set. OpenRouter alone adds about 300 models, so this helps.
+- **The default model:** `SPRIESSEN_MODEL=provider/model`, e.g. `anthropic/claude-sonnet-4-6`. Without it, new chats use `kenari/deepseek-v4-1-flash` when Kenari is set up, otherwise the first model in the list.
+- **Fewer providers in the picker:** `SPRIESSEN_PROVIDERS=anthropic,kenari` lists only those, even if other keys are set. OpenRouter alone adds about 300 models, so this helps.
 - **Kenari stays fresher than models.dev:** the gateway's own `https://kenari.id/v1/models` listing is fetched alongside models.dev (cached in `apps/server/var/kenari-models.json`, revalidated every 6 hours) and **replaces** the Kenari model set — models already live on the gateway appear, retired ones drop. `KENARI_MODELS_URL=off` disables it; `MODELS_DEV_URL=off` keeps the whole catalog offline.
 - **Models models.dev doesn't have, or a local server:** add them to `apps/server/var/models.local.json`, in the same format as models.dev. The file is read on every catalog refresh. This adds an Ollama server:
 
@@ -72,7 +72,7 @@ The model list comes from [models.dev](https://models.dev). The server downloads
   }
   ```
 
-  A provider with no key (`"env": []`) only loads when it's listed in `SPREISSEN_PROVIDERS`, so list it there along with the others you use.
+  A provider with no key (`"env": []`) only loads when it's listed in `SPRIESSEN_PROVIDERS`, so list it there along with the others you use.
 
 - **Refreshing by hand:** `POST /api/models/refresh`. `GET /api/models/catalog` shows where the list came from, when, and the current default.
 
@@ -87,8 +87,8 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 | Key                                      | What it's for                                                                                                  |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | A provider key                           | Chat and generation. See [Models](#models). You need at least one to have conversations.                       |
-| `SPREISSEN_MODEL`                        | Default model as `provider/model`                                                                              |
-| `SPREISSEN_PROVIDERS`                    | Only these providers, comma separated                                                                          |
+| `SPRIESSEN_MODEL`                        | Default model as `provider/model`                                                                              |
+| `SPRIESSEN_PROVIDERS`                    | Only these providers, comma separated                                                                          |
 | `TYPESAFE_API_KEY` / `TYPESAFE_BASE_URL` | Jev, the decision model, and where to reach it                                                                 |
 | `VAULT_KEY`                              | Turns the vault on. Use a long random secret, e.g. `printf 'VAULT_KEY=%s\n' "$(openssl rand -hex 32)" >> .env` |
 | `TINYFISH_API_KEY`                       | Live web search and fetch for bots                                                                             |
@@ -96,9 +96,9 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @spriessen/server#push:keys`                                            |
 
-Product keys start with `SPREISSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the `x-ultiv-user` and `x-ultiv-token` headers, which are still accepted next to `x-spreissen-user` and `x-spreissen-token`.
+Product keys start with `SPRIESSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the `x-ultiv-user` and `x-ultiv-token` headers, which are still accepted next to `x-spriessen-user` and `x-spriessen-token`.
 
-`.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `SPREISSEN_MAX_RUNNING_TASKS` (background tasks one bot can run at once, default 3), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `SPREISSEN_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
+`.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `SPRIESSEN_MAX_RUNNING_TASKS` (background tasks one bot can run at once, default 3), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `SPRIESSEN_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
 
 Back up `VAULT_KEY` somewhere other than this machine. If you lose it or change it, every saved vault item becomes unreadable, and there's no key rotation yet.
 
@@ -133,7 +133,7 @@ In every mode, these always come to you as a card: a credential's first use on a
 
 ## Security
 
-- **There's no login yet.** The server takes the user from the `x-spreissen-user` header, and requests without it count as `guest`. Data is partitioned by owner: every REST route that touches owner data checks it in one helper (`apps/server/src/rest/owner-scope.ts`), and another owner's item looks exactly like a missing one. The identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Spreissen on a machine and network you control.
+- **There's no login yet.** The server takes the user from the `x-spriessen-user` header, and requests without it count as `guest`. Data is partitioned by owner: every REST route that touches owner data checks it in one helper (`apps/server/src/rest/owner-scope.ts`), and another owner's item looks exactly like a missing one. The identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Spreissen on a machine and network you control.
 - **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
 - **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval, or follow the bot's [approval mode](#approval-modes). Some always ask, whatever the mode or the allow list says: using a credential on a new host for the first time, a connector's first use, changing connectors, and `secret_request`. For `bash_host`, "Always allow" saves only the exact script on the card (removable in the bot's Access tab), and Jev never decides it, but fully automatic mode runs it.
 - **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.

@@ -28,7 +28,7 @@ const call = async (owner: string | null, method: string, path: string, body?: u
     method,
     headers: {
       "content-type": "application/json",
-      ...(owner !== null ? { "x-spreissen-user": owner } : {}),
+      ...(owner !== null ? { "x-spriessen-user": owner } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
@@ -199,7 +199,7 @@ describe("bot state, audit and artifacts are owner-scoped", () => {
     const upload = await fetch(`${base}/api/artifacts?name=a.md&sessionId=${ids.a.session}`, {
       method: "POST",
       body: "# a",
-      headers: { "x-spreissen-user": "owner-a" },
+      headers: { "x-spriessen-user": "owner-a" },
     });
     const art = (await upload.json()) as { id: string };
     expect(upload.status).toBe(200);
@@ -211,7 +211,7 @@ describe("bot state, audit and artifacts are owner-scoped", () => {
     const intoForeign = await fetch(`${base}/api/artifacts?name=b.md&sessionId=${ids.a.session}`, {
       method: "POST",
       body: "# b",
-      headers: { "x-spreissen-user": "owner-b" },
+      headers: { "x-spriessen-user": "owner-b" },
     });
     expect(intoForeign.status).toBe(404);
     expect((await call("owner-a", "GET", `/api/artifacts/${art.id}/meta`)).status).toBe(200);

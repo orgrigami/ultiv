@@ -2,7 +2,7 @@
  * Identity: the principal seam. Chord stamps every link (and every REST
  * request, via the header) with a principal; the registry, conversations and
  * tasks scope themselves under its owner label. There is no IdP yet —
- * `x-spreissen-user` IS the identity — but every key and registry row is
+ * `x-spriessen-user` IS the identity — but every key and registry row is
  * owner-partitioned HERE, in one file, so a real authenticator later only
  * replaces `principalFromHeaders` and the WebSocket callback.
  */
@@ -10,7 +10,7 @@ import { AGENT_OWNER } from "@spriessen/mind";
 
 export type Principal = { kind: "guest" } | { kind: "user"; id: string } | { kind: "server" };
 
-export const USER_HEADER = "x-spreissen-user";
+export const USER_HEADER = "x-spriessen-user";
 /** The pre-rename header, still accepted when the new one is absent. */
 export const LEGACY_USER_HEADER = "x-ultiv-user";
 

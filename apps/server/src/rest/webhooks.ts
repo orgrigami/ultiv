@@ -74,7 +74,7 @@ export async function webhookRoutes(
   if (path.startsWith("/hooks/") && method === "POST") {
     const token =
       args.url.searchParams.get("token") ??
-      req.headers["x-spreissen-token"] ??
+      req.headers["x-spriessen-token"] ??
       req.headers["x-ultiv-token"] ??
       "";
     const body = (await args.readBody(req)).toString("utf8");

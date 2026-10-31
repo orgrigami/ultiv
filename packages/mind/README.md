@@ -41,7 +41,7 @@ conversation→profile index):
   parent bot steers a running task with `task_message` (arrives as
   `[from parent]`); a long task posts rare progress lines to its owner with
   `notify_owner` (one per 2 min, 280 chars); at most
-  `SPREISSEN_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
+  `SPRIESSEN_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
   pill above the composer. `tasks.listen` hears each task settle.
 - `mailbox` — bot-to-bot messages through contextual rooms. Each request has
   a deadline, `MAILBOX_DEADLINE_MS` (default 15 minutes); an unanswered one

@@ -30,8 +30,8 @@ process.env.MODELS_DEV_URL = "off";
 process.env.MODELS_DEV_CACHE = join(scratchArtifacts, "models-dev.json");
 process.env.MODELS_OVERLAY = join(scratchArtifacts, "models.local.json");
 process.env.KENARI_MODELS_CACHE = join(scratchArtifacts, "kenari-models.json");
-process.env.SPREISSEN_PROVIDERS = "smoke-local";
-process.env.SPREISSEN_MODEL = "kenari/deepseek-v4-1-flash";
+process.env.SPRIESSEN_PROVIDERS = "smoke-local";
+process.env.SPRIESSEN_MODEL = "kenari/deepseek-v4-1-flash";
 writeFileSync(
   process.env.MODELS_OVERLAY,
   JSON.stringify({
@@ -109,13 +109,13 @@ expect(
 // Fresh install: the workspace starts EMPTY — no default Ultius bot exists,
 // and there is no main bot until the first one is spawned.
 const freshProfiles = await call("GET", "/api/profiles", undefined, {
-  "x-spreissen-user": "smoker",
+  "x-spriessen-user": "smoker",
 });
 expect(
   "fresh install has no default bot",
   freshProfiles.status === 200 && freshProfiles.json.length === 0,
 );
-const freshMain = await call("GET", "/api/main", undefined, { "x-spreissen-user": "smoker" });
+const freshMain = await call("GET", "/api/main", undefined, { "x-spriessen-user": "smoker" });
 expect("fresh install has no main bot", freshMain.json.profileId === null);
 
 // A bare session needs a bot to attach to: refused with the remedy.
@@ -124,7 +124,7 @@ const bareSession = await call(
   "/api/sessions",
   { title: "s" },
   {
-    "x-spreissen-user": "smoker",
+    "x-spriessen-user": "smoker",
   },
 );
 expect(
@@ -136,7 +136,7 @@ const bootBot = await call(
   "/api/profiles",
   // onboard: false — no seeded main chat, so owner-scoping counts stay exact.
   { name: "Boot", onboard: false },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect("profile create", bootBot.status === 200);
 
@@ -144,12 +144,12 @@ const created = await call(
   "POST",
   "/api/sessions",
   { title: "s", profileId: bootBot.json.id },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect("session create", created.status === 200 && created.json.owner === "smoker");
-const mine = await call("GET", "/api/sessions", undefined, { "x-spreissen-user": "smoker" });
+const mine = await call("GET", "/api/sessions", undefined, { "x-spriessen-user": "smoker" });
 const others = await call("GET", "/api/sessions", undefined, {
-  "x-spreissen-user": "someone-else",
+  "x-spriessen-user": "someone-else",
 });
 expect("owner scoping", mine.json.length === 1 && others.json.length === 0);
 
@@ -206,7 +206,7 @@ const hook = await call(
   "POST",
   "/api/webhooks",
   { sessionId: created.json.id },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect(
   "webhook create + bad token is 401",
@@ -233,7 +233,7 @@ const schemaHook = await call(
     name: "deploys",
     schema: { type: "object", required: ["event"], properties: { event: { type: "string" } } },
   },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect("webhook with schema", schemaHook.status === 200 && schemaHook.json.schema !== null);
 const schemaReject = await call(
@@ -253,20 +253,20 @@ const testOk = await call(
   "POST",
   `/api/webhooks/${schemaHook.json.id}/test`,
   { payload: { event: "probe" } },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 const testBad = await call(
   "POST",
   `/api/webhooks/${schemaHook.json.id}/test`,
   { payload: { nope: true } },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 // Owner scoping: another owner can't test-fire it (same 404 as a missing id).
 const testForeign = await call(
   "POST",
   `/api/webhooks/${schemaHook.json.id}/test`,
   { payload: {} },
-  { "x-spreissen-user": "someone-else" },
+  { "x-spriessen-user": "someone-else" },
 );
 expect("webhook test-fire is owner-scoped", testForeign.status === 404);
 expect(
@@ -278,7 +278,7 @@ const receipts = await call(
   "GET",
   `/api/routines/events?routine=${schemaHook.json.id}`,
   undefined,
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect(
   "routine receipts recorded",
@@ -291,13 +291,13 @@ expect(
 const badCron = await call("POST", "/api/cron", { sessionId: "s", schedule: "nope", prompt: "x" });
 expect("cron rejects bad schedule", badCron.status === 400);
 // Sensors: the registry answers even with no calendar configured (offline).
-const sensorsList = await call("GET", "/api/sensors", undefined, { "x-spreissen-user": "smoker" });
+const sensorsList = await call("GET", "/api/sensors", undefined, { "x-spriessen-user": "smoker" });
 expect("sensor registry listed", sensorsList.status === 200 && Array.isArray(sensorsList.json));
 const cron = await call(
   "POST",
   "/api/cron",
   { sessionId: created.json.id, schedule: "*/5 * * * *", prompt: "tick" },
-  { "x-spreissen-user": "smoker" },
+  { "x-spriessen-user": "smoker" },
 );
 expect(
   "cron create previews next fires",
@@ -306,17 +306,17 @@ expect(
 expect(
   "cron create + delete",
   cron.status === 200 &&
-    (await call("DELETE", `/api/cron/${cron.json.id}`, undefined, { "x-spreissen-user": "smoker" }))
+    (await call("DELETE", `/api/cron/${cron.json.id}`, undefined, { "x-spriessen-user": "smoker" }))
       .json.ok === true,
 );
 
 const task = await call("POST", "/api/tasks", { prompt: "background check" });
 expect("task spawn", task.status === 200 && task.json.status === "running");
-const audit = await call("GET", "/api/audit", undefined, { "x-spreissen-user": "smoker" });
+const audit = await call("GET", "/api/audit", undefined, { "x-spriessen-user": "smoker" });
 expect("audit tail", audit.status === 200 && Array.isArray(audit.json));
 
 // Profiles: the workspace now contains exactly the bots that were spawned.
-const headers = { "x-spreissen-user": "smoker" };
+const headers = { "x-spriessen-user": "smoker" };
 const profilesListed = await call("GET", "/api/profiles", undefined, headers);
 expect(
   "profile list shows only spawned bots",

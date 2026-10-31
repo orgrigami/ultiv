@@ -20,7 +20,7 @@ server.registerTool(
     content: [
       {
         type: "text" as const,
-        text: `leak=${process.env.SPREISSEN_HOST_SECRET ?? "none"} cwd=${process.cwd()}`,
+        text: `leak=${process.env.SPRIESSEN_HOST_SECRET ?? "none"} cwd=${process.cwd()}`,
       },
     ],
   }),

@@ -96,7 +96,7 @@ export class Tasks extends Context.Service<Tasks, TasksService>()("spreissen/min
 
 const TITLE_CHARS = 40;
 
-/** Running tasks one bot may have at once (env SPREISSEN_MAX_RUNNING_TASKS overrides). */
+/** Running tasks one bot may have at once (env SPRIESSEN_MAX_RUNNING_TASKS overrides). */
 export const MAX_RUNNING_TASKS = Math.max(1, Number(readEnv("MAX_RUNNING_TASKS")) || 3);
 
 /** The refusal a spawn over the cap gets, naming what is running. */

@@ -58,7 +58,7 @@ paths and links, plus the wrong owner),
 
 ## Owner scoping
 
-There's no sign-in yet: the owner label is the `x-spreissen-user` header
+There's no sign-in yet: the owner label is the `x-spriessen-user` header
 (`x-ultiv-user` still accepted), and a request without one is `guest`, which is
 how the web app runs single-user. Every REST route that reads or changes owner
 data asks one helper, `apps/server/src/rest/owner-scope.ts`
@@ -106,7 +106,7 @@ real REST handler, plus a no-header guest run) and the owner check in
 ## Webhook tokens are stored as hashes
 
 A webhook URL is `/hooks/<id>?token=<token>` (or the token in an
-`x-spreissen-token` header; `x-ultiv-token` is still read). The token is the
+`x-spriessen-token` header; `x-ultiv-token` is still read). The token is the
 only thing that authenticates a sender, so the server keeps just its hash.
 
 - **Stored:** `tokenHash` = `sha256:<64 hex>` of the token, in the

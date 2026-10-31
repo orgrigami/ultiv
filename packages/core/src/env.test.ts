@@ -4,9 +4,9 @@ import { legacyEnvNotice, readEnv, resetLegacyEnvWarnings } from "./env.ts";
 describe("readEnv", () => {
   beforeEach(() => resetLegacyEnvWarnings());
 
-  it("reads the SPREISSEN_ name", () => {
+  it("reads the SPRIESSEN_ name", () => {
     const warnings: string[] = [];
-    expect(readEnv("MODEL", { SPREISSEN_MODEL: "a/b" }, (m) => warnings.push(m))).toBe("a/b");
+    expect(readEnv("MODEL", { SPRIESSEN_MODEL: "a/b" }, (m) => warnings.push(m))).toBe("a/b");
     expect(warnings).toEqual([]);
   });
 
@@ -16,13 +16,19 @@ describe("readEnv", () => {
     expect(readEnv("MODEL", env, (m) => warnings.push(m))).toBe("old/model");
     expect(readEnv("MODEL", env, (m) => warnings.push(m))).toBe("old/model");
     expect(warnings).toEqual([legacyEnvNotice("MODEL")]);
-    expect(warnings[0]).toContain("SPREISSEN_MODEL");
+    expect(warnings[0]).toContain("SPRIESSEN_MODEL");
   });
 
   it("prefers the new name when both are set, without a warning", () => {
     const warnings: string[] = [];
-    const env = { SPREISSEN_PROVIDERS: "new", ULTIV_PROVIDERS: "old" };
+    const env = { SPRIESSEN_PROVIDERS: "new", ULTIV_PROVIDERS: "old" };
     expect(readEnv("PROVIDERS", env, (m) => warnings.push(m))).toBe("new");
+    expect(warnings).toEqual([]);
+  });
+
+  it("ignores the short-lived misspelt SPREISSEN_ name (clean cut, no fallback)", () => {
+    const warnings: string[] = [];
+    expect(readEnv("MODEL", { SPREISSEN_MODEL: "a/b" }, (m) => warnings.push(m))).toBeUndefined();
     expect(warnings).toEqual([]);
   });
 

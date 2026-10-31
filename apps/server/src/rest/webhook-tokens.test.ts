@@ -26,7 +26,7 @@ const call = async (owner: string | null, method: string, path: string, body?: u
     method,
     headers: {
       "content-type": "application/json",
-      ...(owner !== null ? { "x-spreissen-user": owner } : {}),
+      ...(owner !== null ? { "x-spriessen-user": owner } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });

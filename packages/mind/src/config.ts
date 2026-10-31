@@ -8,7 +8,7 @@
 import { Config } from "effect";
 import { ENV_PREFIX, LEGACY_ENV_PREFIX, warnLegacyEnv } from "@spriessen/core";
 
-/** Single grep-able fallbacks (SPREISSEN_MODEL is the source of truth for the default model). */
+/** Single grep-able fallbacks (SPRIESSEN_MODEL is the source of truth for the default model). */
 export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
 export const JEV_FALLBACK_MODEL = "jev-latest";
 export const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai";
@@ -17,7 +17,7 @@ export const KENARI_MODELS_DEFAULT_URL = "https://kenari.id/v1/models";
 export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
 
 /**
- * A product key: `SPREISSEN_<name>`, else the deprecated `ULTIV_<name>`
+ * A product key: `SPRIESSEN_<name>`, else the deprecated `ULTIV_<name>`
  * (warned once per process, see `readEnv` in @spriessen/core).
  */
 export const productString = (name: string): Config.Config<string> =>

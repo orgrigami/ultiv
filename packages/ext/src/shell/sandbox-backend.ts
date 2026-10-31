@@ -33,7 +33,7 @@ const VM_MEMORY_MIB = 512;
 const DEFAULT_IMAGE = "ultiv-sandbox:latest";
 
 /**
- * The image for new VMs: `SPREISSEN_SANDBOX_IMAGE` (or the deprecated
+ * The image for new VMs: `SPRIESSEN_SANDBOX_IMAGE` (or the deprecated
  * `ULTIV_SANDBOX_IMAGE`) when set, else the built-in tag. The built-in tag and
  * the VM names keep the old `ultiv-` prefix on purpose: they name an image
  * already loaded on the owner's machine and VMs that hold workspace state.

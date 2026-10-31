@@ -148,7 +148,7 @@ confirmed there is nothing left to migrate. Writes are v2-only; the old
 `POST /api/memory/v1/cleanup` sweep is gone with it. The v1
 `ultiv.memory` doc family stays exported only for the rollback surfaces.
 
-- Rollback: `SPREISSEN_MEMORY_V2=off` brings back the v1 code path. This is
+- Rollback: `SPRIESSEN_MEMORY_V2=off` brings back the v1 code path. This is
   a fallback for the v2 seam, not a full return to v1 — facts written
   while off land in the v1 docs and do not appear in v2 reads.
 - Mirror: REMOVED 2026-10-28 (owner-approved end of the 14-day soak, commit
@@ -160,7 +160,7 @@ confirmed there is nothing left to migrate. Writes are v2-only; the old
 
 | Flag                  | Default     | Effect                                        |
 | --------------------- | ----------- | --------------------------------------------- |
-| `SPREISSEN_MEMORY_V2` | on          | `off` = v1-seam fallback, NOT a full rollback |
+| `SPRIESSEN_MEMORY_V2` | on          | `off` = v1-seam fallback, NOT a full rollback |
 | `MEMORY_EXTRACT`      | on          | `off` = deterministic extraction only         |
 | `MEMORY_EMBEDDINGS`   | off         | embeddings; prefer local Ollama if ever on    |
 | `MEMORY_TIDY_CRON`    | `0 9 * * 0` | tidy schedule (croner, Asia/Jakarta)          |

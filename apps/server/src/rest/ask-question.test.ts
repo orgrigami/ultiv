@@ -28,7 +28,7 @@ let calls = 0;
 const call = async (method: string, path: string, body?: unknown, user = "owner-a") => {
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json", "x-spreissen-user": user },
+    headers: { "content-type": "application/json", "x-spriessen-user": user },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   return { status: response.status, json: (await response.json()) as any };

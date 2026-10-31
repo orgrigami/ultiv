@@ -82,7 +82,7 @@ one wake carrying every payload, each with its own receipt.
 
 - **Bearer tokens never reach the entity.** Tools and tool outputs carry the
   id/path and the accounting; the owner reads the token in the app.
-  Senders SHOULD use the `x-spreissen-token` header (the old `x-ultiv-token`
+  Senders SHOULD use the `x-spriessen-token` header (the old `x-ultiv-token`
   is still accepted) over the `?token=` query
   form — query strings end up in access logs. Test-fire
   (`POST /api/webhooks/:id/test`, owner) validates a probe payload against

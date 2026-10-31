@@ -35,14 +35,14 @@ const MAX_OUTPUT_CHARS = 20_000;
 const HOME = "/home";
 const EXEC_TIMEOUT_MS = 180_000;
 const HOST_TIMEOUT_MS = 120_000;
-const CWD_MARKER = "__SPREISSEN_CWD__";
+const CWD_MARKER = "__SPRIESSEN_CWD__";
 
 export interface BashOptions {
   /** Workspace root; default ARTIFACTS_DIR. */
   readonly root?: string;
   /** Profile-scope resolver; when set, each conversation works in its profile's tree. */
   readonly holder?: ScopeHolder;
-  /** OCI image for the microVM; default `ultiv-sandbox:latest`, `SPREISSEN_SANDBOX_IMAGE` overrides. */
+  /** OCI image for the microVM; default `ultiv-sandbox:latest`, `SPRIESSEN_SANDBOX_IMAGE` overrides. */
   readonly image?: string;
   /**
    * Backend factory override, keyed by the scope's absolute workspace dir.
@@ -55,7 +55,7 @@ export interface BashOptions {
 
 /** Appends an exit-code-preserving exec-boundary marker that reports $PWD. */
 const wrapScript = (script: string): string =>
-  `${script}\n__spreissen_rc=$?; echo "${CWD_MARKER}$PWD" 1>&2; exit $__spreissen_rc`;
+  `${script}\n__spriessen_rc=$?; echo "${CWD_MARKER}$PWD" 1>&2; exit $__spriessen_rc`;
 
 const truncate = (text: string): string => {
   if (text.length <= MAX_OUTPUT_CHARS) return text;
