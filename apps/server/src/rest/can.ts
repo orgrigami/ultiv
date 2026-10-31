@@ -1,11 +1,11 @@
 /**
  * The ONE permission decision. Every REST route, the approval decide path
  * and the host-access seam ask here instead of comparing owner labels or
- * roles themselves. The org (departments, members, roles) rides in the
- * optional `view`: the org owner passes everything, org admins pass org
- * level, a department admin passes only inside its own department — that
- * matrix grows in slice 3; this file stays the only place that compares
- * labels.
+ * roles themselves. The org rides in the optional `view`: the org owner
+ * passes everything; org admins pass org level; a department admin passes
+ * only inside its own department; a member works their department but never
+ * touches roles, membership or settings; a viewer reads, never writes. This
+ * file stays the only place that compares labels or roles.
  */
 import type { HomeRef } from "@spriessen/contracts";
 import { AGENT_OWNER } from "@spriessen/mind";
@@ -16,17 +16,25 @@ export type Action = "view" | "change" | "remove" | "decide";
 
 /**
  * What it is asked of. Bot-owned data carries the owner label its row is
- * filed under; `account` is owner-level state (audit, needs-you, sign-in
- * settings); `host` is the capability to run things on the server's own
- * machine (`bash_host`, later other host-running tools). The org kinds:
- * `org-settings` and `member` are org-level state; `department` is one
- * department's own state; `department-summary` is its read-only digest;
- * `approval` is deciding a pending card on a chat; `shared-folder` and `vm`
- * are the open-reach surfaces (every bot may reach any home's).
+ * filed under and the `home` its bot lives in (absent on legacy call sites:
+ * only the filing account reaches it); `account` is owner-level state
+ * (audit, needs-you, sign-in settings); `host` is the capability to run
+ * things on the server's own machine. Org kinds: `org-settings` and
+ * `member` are org-level state; `department` is one department's own state;
+ * `department-summary` its read-only digest; `approval` deciding a pending
+ * card; `shared-folder` and `vm` are the open-reach surfaces (every bot may
+ * reach any home's).
  */
 export type Resource =
   | {
-      readonly type: "bot" | "chat" | "record" | "artifact" | "file";
+      readonly type: "bot" | "record" | "artifact" | "file";
+      readonly owner: string;
+      readonly id: string;
+      readonly home?: HomeRef;
+    }
+  | {
+      /** A chat is private to the account that started it, whatever the roles. */
+      readonly type: "chat";
       readonly owner: string;
       readonly id: string;
     }
@@ -57,7 +65,6 @@ export interface OrgView {
 
 /** The org-level role of `actor`: "owner", "admin", or null. */
 export const orgLevelOf = (actor: string, view: OrgView | undefined): "owner" | "admin" | null => {
-  if (actor === OWNER_ID && (view === undefined || view.org === null)) return "owner";
   if (view === undefined) return actor === OWNER_ID ? "owner" : null;
   if (view.org !== null && view.org.owner === actor) return "owner";
   const role = view.members.find(
@@ -65,6 +72,32 @@ export const orgLevelOf = (actor: string, view: OrgView | undefined): "owner" | 
   )?.role;
   return role === "owner" ? "owner" : role === "admin" ? "admin" : null;
 };
+
+/** The highest role `actor` holds in `departmentId` (null = org level). */
+const roleAt = (
+  actor: string,
+  view: OrgView,
+  departmentId: string | null,
+): "admin" | "member" | "viewer" | null => {
+  if (departmentId === null) {
+    const org = orgLevelOf(actor, view);
+    if (org === "owner") return "admin";
+    return org === "admin" ? "admin" : null;
+  }
+  const role = view.members.find(
+    (member) => member.accountId === actor && member.departmentId === departmentId,
+  )?.role;
+  return role === "admin"
+    ? "admin"
+    : role === "member"
+      ? "member"
+      : role === "viewer"
+        ? "viewer"
+        : null;
+};
+
+/** Write actions on bot-owned resources: everything but decide (cards route separately). */
+const resourceWrites: readonly Action[] = ["view", "change", "remove"];
 
 /**
  * Whether `actor` (a principal's owner label: the signed-in account, or a
@@ -79,26 +112,54 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
     case "account":
     case "host":
     case "org-settings":
+      // Host-access flag changes alone are the org owner's (slice 11, F3);
+      // the rest of the org-level state is owner and admins.
+      return level !== null;
     case "member":
-      // Host access belongs to the owner's bots for now: every bot runs under
-      // the account's authority. The flags arrive in slice 11.
+      // Roles and membership: org owner and org admins, never a department
+      // role and never a plain member.
       return level !== null;
     case "department":
+      // A department's own state: its admins, plus the org level.
+      return (
+        level !== null ||
+        (view !== undefined && roleAt(actor, view, resource.departmentId) === "admin")
+      );
     case "department-summary":
-      // Slice 3 narrows this to the department's own admins; today the org
-      // level administers every department.
-      return level !== null;
+      // Org level, or the department's own admins; members and viewers of
+      // the department get no digest (counts, bots, activity are metadata).
+      return (
+        level !== null ||
+        (view !== undefined && roleAt(actor, view, resource.departmentId) === "admin")
+      );
     case "approval":
-      // Deciding a card is not reading the chat (slice 4 keeps contents
-      // private); the routing matrix lands in slice 6.
+      // Deciding a card is not reading the chat; the routing matrix lands in
+      // slice 6 (department admins for their department's bots).
       return actor === resource.owner || level !== null;
+    case "chat":
+      // Chat privacy: private to whoever started it, whatever the roles. The
+      // org owner and org admins see summaries, never chat contents.
+      return actor === resource.owner;
     case "shared-folder":
     case "vm":
       // Open reach: every bot reaches every home. The audit rows land with
       // the resources themselves in Phase 4.
       return true;
-    default:
-      return actor === resource.owner;
+    default: {
+      // Bot-owned resources: the filing account, then the role ladder.
+      if (actor === resource.owner) return true;
+      if (view === undefined || resource.home === undefined) return false;
+      if (level !== null) return true; // org level spans departments
+      const home = resource.home;
+      const role =
+        home.kind === "department"
+          ? roleAt(actor, view, home.departmentId)
+          : roleAt(actor, view, null);
+      if (role === "admin") return true;
+      if (role === "member") return resourceWrites.includes(action);
+      if (role === "viewer") return action === "view";
+      return false;
+    }
   }
 };
 

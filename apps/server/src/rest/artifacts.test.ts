@@ -40,6 +40,7 @@ const fakeArgs = (
         list: async () => [{ id: "p1" }],
         get: async (_owner: string, id: string) => (id === "p1" ? { id: "p1" } : undefined),
       },
+      org: { view: async () => undefined },
     },
     req: { method: options.method ?? "GET" } as IncomingMessage,
     res: {

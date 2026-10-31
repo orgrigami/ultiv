@@ -143,4 +143,61 @@ describe("org routes", () => {
     expect(await call("PATCH", "/api/org/departments/ghost", { name: "X" })).toEqual(missing);
     expect(await call("DELETE", "/api/org/departments/ghost")).toEqual(missing);
   });
+
+  it("a department admin of one department is refused in another, like a missing item", async () => {
+    const made = await call("POST", "/api/org/departments", { name: "West" });
+    const x = made.json as { id: string };
+    const other = await call("POST", "/api/org/departments", { name: "East" });
+    const y = other.json as { id: string };
+    // Seed roles on the REAL department ids (the account labels are
+    // throwaway; only the signed-in owner exists on the wire today).
+    await handle.mind.org.setMember({ accountId: "admin-x", role: "admin", departmentId: x.id });
+    await handle.mind.org.setMember({ accountId: "admin-y", role: "admin", departmentId: y.id });
+    const refusal = { status: 404, json: { error: "unknown department" } };
+    // admin-x patches East: refused with the missing-item answer.
+    const answer = await callAs("admin-x", "PATCH", `/api/org/departments/${y.id}`, { name: "X" });
+    expect(answer).toEqual(refusal);
+    // admin-x patches West (their own): allowed.
+    expect(
+      (await callAs("admin-x", "PATCH", `/api/org/departments/${x.id}`, { name: "W" })).status,
+    ).toBe(200);
+    // A plain member is refused everywhere.
+    await handle.mind.org.setMember({ accountId: "mate-x", role: "member", departmentId: x.id });
+    expect(await callAs("mate-x", "PATCH", `/api/org/departments/${x.id}`, { name: "W" })).toEqual(
+      refusal,
+    );
+  });
 });
+
+/** Ask the org routes as a role actor, through the same handler code path. */
+async function callAs(
+  owner: string,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<{ status: number; json: unknown }> {
+  const { orgRoutes } = await import("./org.ts");
+  let status = 0;
+  let payload: unknown = null;
+  const json = (code: number, out: unknown): void => {
+    status = code;
+    payload = out;
+  };
+  const url = new URL(path, "http://localhost");
+  const req = { method, url: path } as unknown as import("node:http").IncomingMessage;
+  const raw = body === undefined ? "" : JSON.stringify(body);
+  const args = {
+    mind: handle.mind,
+    scheduler: { refresh: async () => {}, stop: () => {} },
+    req,
+    res: {} as import("node:http").ServerResponse,
+    url,
+    owner,
+    path: url.pathname,
+    json,
+    readJson: async <T>() => JSON.parse(raw) as T,
+    readBody: async () => Buffer.from(raw),
+  } as unknown as import("./types.ts").RouteArgs;
+  await orgRoutes(args);
+  return { status, json: payload };
+}

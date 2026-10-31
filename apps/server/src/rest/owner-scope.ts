@@ -2,30 +2,45 @@
  * Owner scoping: the ONE place REST decides whether the caller owns a bot, a
  * session or a routine record. Every check is `can()` applied to a resource;
  * a record the caller doesn't own is answered exactly like a record that
- * doesn't exist, so ids can't be probed across accounts.
+ * doesn't exist, so ids can't be probed across accounts or roles.
  */
+import { homeOf } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
-import { can, type Action } from "./can.ts";
+import { can, type Action, type OrgView } from "./can.ts";
 
 /** The actor every REST route acts as: the signed-in account. */
 const actorOf = (args: RouteArgs): string => args.owner;
 
-const ask = (args: RouteArgs, action: Action, owner: string, id: string): boolean =>
-  can(actorOf(args), action, { type: "record", owner, id });
+/** The org view a role-aware decision needs (empty on a fresh install). */
+const viewOf = async (args: RouteArgs): Promise<OrgView | undefined> => {
+  const view = await args.mind.org.view();
+  return view;
+};
 
-/** A bot (profile) id the caller owns: the row exists and can() confirms it. */
+const ask = async (args: RouteArgs, action: Action, owner: string, id: string): Promise<boolean> =>
+  can(actorOf(args), action, { type: "record", owner, id }, await viewOf(args));
+
+/** A bot (profile) id the caller may reach: the row exists and can() confirms it. */
 export const ownsProfile = async (args: RouteArgs, profileId: string): Promise<boolean> => {
-  const row = await args.mind.profiles.get(args.owner, profileId);
-  return (
-    row !== undefined && can(actorOf(args), "view", { type: "bot", owner: row.owner, id: row.id })
+  const [row, view] = await Promise.all([
+    args.mind.profiles.get(args.owner, profileId),
+    viewOf(args),
+  ]);
+  if (row === undefined) return false;
+  return can(
+    actorOf(args),
+    "view",
+    { type: "bot", owner: row.owner, id: row.id, home: homeOf(row) },
+    view,
   );
 };
 
 /** A chat session id the caller owns: the row exists and can() confirms it. */
 export const ownsSession = async (args: RouteArgs, sessionId: string): Promise<boolean> => {
-  const row = await args.mind.profiles.rowOf(sessionId);
+  const [row, view] = await Promise.all([args.mind.profiles.rowOf(sessionId), viewOf(args)]);
   return (
-    row !== undefined && can(actorOf(args), "view", { type: "chat", owner: row.owner, id: row.id })
+    row !== undefined &&
+    can(actorOf(args), "view", { type: "chat", owner: row.owner, id: row.id }, view)
   );
 };
 
@@ -55,7 +70,7 @@ export const ownsRecord = async (
 ): Promise<boolean> => {
   const row = await args.mind.profiles.rowOf(record.sessionId);
   return row !== undefined
-    ? ask(args, "view", row.owner, record.sessionId)
+    ? await ask(args, "view", row.owner, record.sessionId)
     : ownsProfile(args, record.profile);
 };
 
