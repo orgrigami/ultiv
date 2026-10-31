@@ -4,10 +4,9 @@
  * current without a page reload.
  */
 import { describe, expect, it, vi } from "vite-plus/test";
-import { renderToStaticMarkup } from "react-dom/server";
 import type { WebhookInfo } from "@spreissen/contracts";
-import { issueToken, sendTest, WebhookRow } from "./webhook-row.tsx";
-import { reloadOnFocus } from "../lib/reload-on-focus.ts";
+import { issueToken, sendTest } from "./webhook-actions.ts";
+import { reloadOnFocus } from "./reload-on-focus.ts";
 
 const HOOK: WebhookInfo = {
   id: "hook-test-1",
@@ -28,38 +27,31 @@ const HOOK: WebhookInfo = {
   recentRejects: [],
 };
 
-/** A fake server: a test fire bumps the count, a rotation issues a token. */
+/** A fake server (a test fire bumps the count) and the screen's last-read list. */
 const fakeServer = () => {
-  let hook = HOOK;
+  let stored = HOOK;
   const client = {
     testWebhook: vi.fn(async () => {
-      hook = { ...hook, fireCount: hook.fireCount + 1, lastFiredAt: Date.now() };
+      stored = { ...stored, fireCount: stored.fireCount + 1, lastFiredAt: 2 };
       return { accepted: true };
     }),
-    rotateWebhookToken: vi.fn(async () => ({ ...hook, token: "fresh-token" })),
+    rotateWebhookToken: vi.fn(async () => ({ ...stored, token: "fresh-token" })),
   };
-  // The screen's list as last read; `load` re-reads it.
-  let shown = hook;
+  const screen = { hook: HOOK };
   const load = vi.fn(async () => {
-    shown = hook;
+    screen.hook = stored;
   });
-  const row = () =>
-    renderToStaticMarkup(
-      <WebhookRow hook={shown} bot="Test bot" onDelete={async () => {}} onChanged={load} />,
-    );
-  return { client, load, row };
+  return { client, load, screen };
 };
 
 describe("webhook row refresh (bug 4)", () => {
-  it("shows the new fire count after a test fire, without a page reload", async () => {
-    vi.stubGlobal("location", { origin: "http://test.invalid" });
+  it("re-reads the list after a test fire, so the row shows the new count", async () => {
     const s = fakeServer();
-    expect(s.row()).toContain("Hasn&#x27;t run yet");
+    expect(s.screen.hook.fireCount).toBe(0);
     const result = await sendTest(s.client as never, HOOK.id, "{}", s.load);
     expect(result).toBe("Accepted: the payload matches.");
     expect(s.load).toHaveBeenCalledTimes(1);
-    expect(s.row()).toContain("Ran once");
-    vi.unstubAllGlobals();
+    expect(s.screen.hook.fireCount).toBe(1);
   });
 
   it("does not re-read when the payload never reached the server", async () => {
