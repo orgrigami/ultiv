@@ -62,7 +62,10 @@ request needs a session, loopback included.
   sign-in screen offers "Use a passkey" whenever one exists for the site's
   origin. The rp id and origin come from the request's own Host, so
   localhost and the tailnet HTTPS facet each register their own working
-  passkey. The passcode stays as the fallback and cannot be removed.
+  passkey. WebAuthn only runs in a secure context, so a plain-HTTP LAN
+  address gets no "Add a passkey" button in Settings (it says why). The
+  passcode stays as the fallback and cannot be removed. Sign-out in
+  Settings returns the device to the sign-in screen at once.
   Adding and removing a passkey are audited (`passkey-added`,
   `passkey-removed`, kind `auth`).
   Forgotten passcodes: the recovery command (see README) resets the passcode

@@ -37,8 +37,7 @@ function PasscodeForm({
     if (passcode === "" || busy) return;
     setBusy(true);
     setError(null);
-    const result: { ok: boolean; error: string | null } =
-      mode === "setup" ? await setPasscode(passcode) : await signIn(passcode);
+    const result = mode === "setup" ? await setPasscode(passcode) : await signIn(passcode);
     setBusy(false);
     if (result.ok) {
       setPasscodeValue("");
@@ -48,18 +47,25 @@ function PasscodeForm({
     }
   };
   return (
-    <form onSubmit={(event) => void submit(event)} className="flex w-64 flex-col gap-3">
+    <form onSubmit={(event) => void submit(event)} className="flex w-full flex-col gap-3">
       <label className="text-sm" htmlFor="passcode">
         {mode === "setup" ? "Choose a passcode" : "Passcode"}
       </label>
       <Input
         id="passcode"
         type="password"
+        aria-describedby={mode === "setup" ? "passcode-hint" : undefined}
+        aria-invalid={error !== null || undefined}
         value={passcode}
         onChange={(event) => setPasscodeValue(event.target.value)}
         autoFocus
         autoComplete={mode === "setup" ? "new-password" : "current-password"}
       />
+      {mode === "setup" && (
+        <p id="passcode-hint" className="text-muted-foreground text-xs">
+          At least 8 characters.
+        </p>
+      )}
       {error !== null && (
         <p role="alert" className="text-destructive text-sm">
           {error}
@@ -86,7 +92,9 @@ function PasskeyButton({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   return (
     <div className="flex flex-col gap-1">
+      {/* type="button": inside the passcode form, a bare button would submit it too. */}
       <Button
+        type="button"
         variant="outline"
         disabled={busy}
         onClick={() => {
@@ -99,6 +107,7 @@ function PasskeyButton({ onDone }: { onDone: () => void }) {
           });
         }}
       >
+        {busy && <Spinner />}
         Use a passkey
       </Button>
       {error !== null && (
@@ -135,7 +144,9 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
     };
   }, [recheck]);
 
-  if (failed) {
+  // A failed recheck while signed in (a blip on window focus) keeps the app
+  // mounted; only a first load or a signed-out gate shows the retry screen.
+  if (failed && status?.session !== true) {
     return (
       <Centered>
         <p className="text-sm">The server isn't reachable right now.</p>
@@ -156,7 +167,7 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
   const mode = status.passcodeSet ? "sign-in" : status.bootstrap ? "setup" : null;
   return (
     <Centered>
-      <div className="flex flex-col items-start gap-4">
+      <div className="flex w-full max-w-xs flex-col items-start gap-4">
         <span className="text-title">{BRAND.name}</span>
         {mode !== null ? (
           <PasscodeForm
@@ -165,7 +176,7 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
             onDone={() => void recheck()}
           />
         ) : (
-          <p className="text-muted-foreground max-w-72 text-sm">
+          <p className="text-muted-foreground text-sm">
             This server needs its passcode set first. Open it on the host itself (localhost) to
             choose one, then sign in here.
           </p>
@@ -177,6 +188,8 @@ export function SignInGate({ children }: { children: React.ReactNode }) {
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-dvh w-full flex-col items-center justify-center gap-4">{children}</div>
+    <div className="flex h-dvh w-full flex-col items-center justify-center gap-4 px-6">
+      {children}
+    </div>
   );
 }

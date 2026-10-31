@@ -18,11 +18,22 @@ import { PushToggle } from "@/components/push-toggle";
 import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { Button } from "@/components/ui/button";
-import { ErrorState } from "@/components/ui/empty-state";
+import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import type { AuditEvent } from "@spriessen/contracts";
 import { api, type ServerCheck } from "@/lib/api";
-import { addPasskey, passkeys, removePasskey, signOut, type PasskeyRow } from "@/lib/auth";
+import {
+  addPasskey,
+  passkeys,
+  passkeysSupported,
+  removePasskey,
+  signOut,
+  UNAUTHORIZED_EVENT,
+  type PasskeyRow,
+} from "@/lib/auth";
+import { authEventText } from "@/lib/auth-text";
 import { APPROVAL_MODES, MODE_CHIP } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";
 
@@ -88,7 +99,7 @@ function SettingsPage() {
         <SectionHeader title="Appearance" />
         <ThemeSwitch />
       </section>
-      <section aria-label="Sign-in" className="Sign-in-section flex flex-col gap-2">
+      <section aria-label="Sign-in" className="flex flex-col gap-2">
         <SectionHeader title="Sign-in" />
         <SignOutRow />
         <PasskeyManager />
@@ -104,115 +115,190 @@ function SettingsPage() {
  * as the fallback whatever happens here.
  */
 function PasskeyManager() {
-  const [keys, setKeys] = useState<PasskeyRow[]>([]);
+  const [keys, setKeys] = useState<PasskeyRow[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const reload = useCallback((): void => {
-    void passkeys().then(setKeys);
+  const [busy, setBusy] = useState<string | null>(null);
+  const supported = passkeysSupported();
+  const reload = useCallback(async (): Promise<void> => {
+    try {
+      setKeys(await passkeys());
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
   }, []);
-  useEffect(() => {
-    reload();
-  }, [reload]);
-  const add = (): void => {
+  useEffect(() => void reload(), [reload]);
+  const add = async (): Promise<void> => {
     setError(null);
-    void addPasskey().then((result) => {
-      if (result.ok) reload();
-      else setError(result.error ?? "That didn't work.");
-    });
+    setBusy("add");
+    const result = await addPasskey();
+    setBusy(null);
+    if (result.ok) await reload();
+    else setError(result.error ?? "That didn't work.");
+  };
+  const remove = async (id: string): Promise<void> => {
+    setError(null);
+    setBusy(id);
+    const removed = await removePasskey(id);
+    setBusy(null);
+    if (!removed) setError("Couldn't remove that passkey. Try again.");
+    await reload();
   };
   return (
     <div className={card}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm">Passkeys</p>
-        <Button size="sm" onClick={add}>
-          Add a passkey
-        </Button>
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm">Passkeys</span>
+          <span className="text-muted-foreground text-xs">
+            {supported
+              ? "Sign in without typing the passcode. The passcode still works."
+              : "This browser can't use passkeys here. They need HTTPS or localhost."}
+          </span>
+        </span>
+        {supported && (
+          <Button size="sm" disabled={busy !== null} onClick={() => void add()}>
+            {busy === "add" && <Spinner />}
+            Add a passkey
+          </Button>
+        )}
       </div>
       {error !== null && (
-        <p role="alert" className="text-destructive text-xs">
-          {error}
-        </p>
+        <div className="px-3 py-2.5">
+          <ErrorState message={error} />
+        </div>
       )}
-      {keys.length > 0 && (
-        <ul className="flex flex-col gap-1">
-          {keys.map((key) => (
-            <li
-              key={key.id}
-              className="text-muted-foreground flex items-center justify-between gap-2 text-xs"
-            >
-              <span className="truncate font-mono">{key.id.slice(0, 24)}…</span>
+      {loadError && keys === null ? (
+        <div className="px-3 py-2.5">
+          <ErrorState message="Couldn't load the passkeys." onRetry={() => void reload()} />
+        </div>
+      ) : keys === null ? (
+        <SkeletonRows
+          label="Loading passkeys"
+          rows={1}
+          className="px-3 py-2.5"
+          rowClassName="h-8 rounded-lg"
+        />
+      ) : keys.length === 0 ? (
+        <EmptyState className="px-3 py-2.5 text-xs">No passkeys yet.</EmptyState>
+      ) : (
+        <ul aria-label="Passkeys" className="divide-border flex flex-col divide-y">
+          {keys.map((key, index) => (
+            <li key={key.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
+              <KeyRoundIcon className="text-muted-foreground size-4 shrink-0" />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm">Passkey {index + 1}</span>
+                <span className="text-muted-foreground truncate text-xs">
+                  Added {stamp(key.createdAt)}
+                </span>
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => void removePasskey(key.id).then(reload)}
+                disabled={busy !== null}
+                aria-label={`Remove passkey ${index + 1}`}
+                onClick={() => void remove(key.id)}
               >
+                {busy === key.id && <Spinner />}
                 Remove
               </Button>
             </li>
           ))}
         </ul>
       )}
-      <p className="text-muted-foreground text-xs">
-        Unlocks without typing the passcode. The passcode stays as the fallback.
-      </p>
     </div>
   );
 }
 
+const stamp = (at: number): string =>
+  new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+
 /** The recent sign-in rows (this account only, newest first). */
 function SecurityLog() {
-  const [events, setEvents] = useState<Awaited<ReturnType<typeof api.auditKind>>>([]);
-  useEffect(() => {
-    void api
-      .auditKind("auth")
-      .then(setEvents)
-      .catch(() => undefined);
+  const [events, setEvents] = useState<AuditEvent[] | null>(null);
+  const [error, setError] = useState(false);
+  const load = useCallback(async (): Promise<void> => {
+    try {
+      setEvents((await api.auditKind("auth")).slice().reverse());
+      setError(false);
+    } catch {
+      setError(true);
+    }
   }, []);
-  const stamp = (at: number): string =>
-    new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  useEffect(() => void load(), [load]);
   return (
     <div className={card}>
-      <p className="text-sm">Recent sign-in activity</p>
-      {events.length === 0 ? (
-        <p className="text-muted-foreground text-xs">Nothing recorded yet.</p>
+      <p className="px-3 py-2.5 text-sm">Recent sign-in activity</p>
+      {error && events === null ? (
+        <div className="px-3 py-2.5">
+          <ErrorState message="Couldn't load sign-in activity." onRetry={() => void load()} />
+        </div>
+      ) : events === null ? (
+        <SkeletonRows
+          label="Loading sign-in activity"
+          rows={2}
+          className="px-3 py-2.5"
+          rowClassName="h-5 rounded-md"
+        />
+      ) : events.length === 0 ? (
+        <EmptyState className="px-3 py-2.5 text-xs">Nothing recorded yet.</EmptyState>
       ) : (
-        <ul className="flex flex-col gap-1">
-          {events
-            .slice()
-            .reverse()
-            .map((event, index) => (
-              <li key={`${event.at}-${index}`} className="text-muted-foreground text-xs">
-                {stamp(event.at)} · {event.name}
-                {event.ok ? "" : ` (${event.error ?? "refused"})`}
-              </li>
-            ))}
+        <ul aria-label="Recent sign-in activity" className="flex flex-col gap-1.5 px-3 py-2.5">
+          {events.map((event, index) => (
+            <li key={`${event.at}-${index}`} className="flex items-start gap-2 text-xs">
+              <Mark
+                kind={event.ok !== false ? "done" : "attention"}
+                tone={event.ok !== false ? "ok" : "signal"}
+                className="mt-0.5 size-3.5 shrink-0"
+              />
+              <span className="min-w-0 flex-1">
+                {authEventText(event.name, event.ok, event.error)}
+              </span>
+              <time
+                dateTime={new Date(event.at).toISOString()}
+                className="text-muted-foreground shrink-0 tabular-nums"
+              >
+                {stamp(event.at)}
+              </time>
+            </li>
+          ))}
         </ul>
       )}
     </div>
   );
 }
 
-/** Sign out of this server on this device; the gate takes over. */
+/** Sign out of this server on this device; the sign-in gate takes over. */
 function SignOutRow() {
-  const [done, setDone] = useState(false);
-  if (done) {
-    return (
-      <div className={card}>
-        <p className="text-sm">Signed out. Reload to sign back in.</p>
-      </div>
-    );
-  }
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const out = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    const result = await signOut();
+    setBusy(false);
+    if (result.ok) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    else setError(result.error ?? "Couldn't sign out. Try again.");
+  };
   return (
-    <div className={`${card} flex items-center justify-between gap-3`}>
-      <p className="text-sm">End this device's session.</p>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          void signOut().then(() => setDone(true));
-        }}
-      >
-        Sign out
-      </Button>
+    <div className={card}>
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-sm">This device</span>
+          <span className="text-muted-foreground text-xs">
+            Signed in. Signing out ends this device's session.
+          </span>
+        </span>
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => void out()}>
+          {busy && <Spinner />}
+          Sign out
+        </Button>
+      </div>
+      {error !== null && (
+        <div className="px-3 py-2.5">
+          <ErrorState message={error} />
+        </div>
+      )}
     </div>
   );
 }
