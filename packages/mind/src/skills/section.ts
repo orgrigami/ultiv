@@ -15,7 +15,7 @@ import type { ProfilesService } from "../profiles/profiles.ts";
 import type { TasksService } from "../tasks/tasks.ts";
 import { evolveTool } from "./evolve.ts";
 import { installTool } from "./install.ts";
-import { learningOn, learnTool, MAX_LEARNED_PER_TURN } from "./learn.ts";
+import { learningOn, learnTool, MAX_LEARNED_PER_TURN, skillWriteGuard } from "./learn.ts";
 import type { SkillsService } from "./service.ts";
 import { skillTools } from "./tools.ts";
 
@@ -96,7 +96,18 @@ export const skillsExtension = (deps: {
         );
   };
   const tools: readonly Tool[] = [
-    ...skillTools(deps.skills, deps.profiles),
+    ...skillTools(deps.skills, deps.profiles, {
+      writeGuard:
+        deps.converse === undefined
+          ? undefined
+          : skillWriteGuard({
+              profiles: deps.profiles,
+              converse: deps.converse,
+              audit: deps.audit,
+              untrustedTool: deps.untrustedTool,
+              approvals: deps.approvals,
+            }),
+    }),
     installTool(deps.skills, deps.profiles),
     evolveTool(deps.skills, deps.profiles, deps.tasks),
     ...(deps.converse !== undefined

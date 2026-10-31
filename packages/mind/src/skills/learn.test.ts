@@ -198,7 +198,7 @@ describe("skill_learn", () => {
     const { learn } = rig([user("learn from this")], done);
     const saved = await learn(LESSON);
     expect(saved.isError).toBe(true);
-    expect(saved.text).toContain(`${MAX_LEARNED_PER_TURN} skills learned this turn`);
+    expect(saved.text).toContain(`${MAX_LEARNED_PER_TURN} skills saved this turn`);
     // Saves from an earlier turn, or another chat, don't count.
     const earlier = Array.from({ length: 3 }, () => event(SKILL_LEARN, INPUT_AT - 1));
     const other = Array.from({ length: 3 }, () => event(SKILL_LEARN, INPUT_AT + 3, "c9"));

@@ -79,14 +79,25 @@ Because it isn't gated, the refusals are the safety:
   allowlists, "without asking"): those live in the owner's settings only;
 - no secrets or vault values: key shapes, cards, IDs, codes, and any
   address, number or 4-word run a vault tool returned this turn;
-- at most 3 learned saves a turn; built-ins can't be written;
+- at most 3 skill saves a turn, `skill_learn` and `skill_write` counted
+  together; built-ins can't be written;
 - a per-bot switch, `policies.learnSkills` (default on; the bot page's
   Access tab, "Learns skills on its own"). Off refuses `skill_learn` and
-  drops the rule from the prompt; the bot can still `skill_write` when asked.
+  drops the rule from the prompt.
+
+`skill_write` runs the same checks (one shared gate, `skillGate` in
+`learn.ts`, so the two can't drift), over the body and every reference
+file. The content rules refuse it the same way. Where `skill_learn` refuses
+for who is asking, `skill_write` asks the owner with an approval card
+instead: when learning is off, or when the turn wasn't the owner's
+(routine, task, webhook, sensor, another bot). That card is owner-only: no
+auto-approve rule, Jev or YOLO answers it. On the owner's own turn with
+learning on, a clean write needs no card.
 
 No replay or evaluation runs on a learned save (`skill_evolve` is the
 separate, explicit loop). Tests: `packages/mind/src/skills/learn.test.ts`
-(including the planted-instruction case) and
+(including the planted-instruction case),
+`packages/mind/src/skills/write-guard.test.ts` and
 `apps/server/src/rest/learn-switch.test.ts`.
 
 ## Evolution
@@ -107,7 +118,7 @@ nothing is lost. Built-ins never evolve: copy one first.
 | `skill_list`    | read  | full sheet: name, description, origin, version, enabled         |
 | `skill_load`    | read  | full instructions into context; refuses disabled skills         |
 | `skill_file`    | read  | one reference file inside a skill                               |
-| `skill_write`   | open  | create or update; `files` sets the complete reference set       |
+| `skill_write`   | open  | create or update; `files` sets the reference set; learn checks  |
 | `skill_learn`   | open  | save a lesson on its own, with the learning refusals above      |
 | `skill_delete`  | gated | remove one of the bot's skills                                  |
 | `skill_install` | gated | install from https: raw SKILL.md text or a .tar.gz skill folder |

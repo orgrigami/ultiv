@@ -1,9 +1,11 @@
 /**
  * The skill tools as native parts of the agent loop: list, load, read a
  * reference file, write (create or update), delete (gated), and propose
- * (park a change for the owner). Writes are ungated like artifact writes:
- * a bot growing its own craft in its own namespace is what memory writes
- * already are, one tier up. Deletes are gated like artifact deletes.
+ * (park a change for the owner). A write on the owner's own turn is ungated,
+ * but runs skill_learn's checks first (the `writeGuard` the skills extension
+ * passes in, learn.ts `skillWriteGuard`): outside or approval text is
+ * refused, and learning off or a turn the owner didn't start asks the owner.
+ * Deletes are gated like artifact deletes.
  * skill_install and skill_evolve live beside this file.
  */
 import { Type } from "typebox";
@@ -148,7 +150,21 @@ const WriteParams = Type.Object({
   ),
 });
 
-const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
+/** Refusal text, or undefined to go ahead (it may wait on the owner first). */
+export type SkillWriteGuard = (
+  input: {
+    readonly name: string;
+    readonly body: string;
+    readonly files?: readonly { readonly path: string; readonly content: string }[] | undefined;
+  },
+  api: { readonly conversationId: unknown; readonly callId: unknown },
+) => Promise<string | undefined>;
+
+const writeTool = (
+  skills: SkillsService,
+  profiles: ProfilesService,
+  guard: SkillWriteGuard | undefined,
+): Tool =>
   defineTool({
     name: "skill_write",
     description:
@@ -181,6 +197,8 @@ const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
         }
         body = serializeSkillDoc(args.name, args.description, body);
       }
+      const refused = await guard?.({ name: args.name, body, files: args.files }, api);
+      if (refused !== undefined) return text(refused, true);
       const existing = await skills.read(owner, profileId, args.name);
       const meta = await skills.write(owner, profileId, {
         name: args.name,
@@ -275,11 +293,15 @@ const text = (value: string, isError = false) =>
     : { output: [{ type: "text" as const, text: value }] };
 
 /** The core skill tools, in registry order. */
-export const skillTools = (skills: SkillsService, profiles: ProfilesService): readonly Tool[] => [
+export const skillTools = (
+  skills: SkillsService,
+  profiles: ProfilesService,
+  options: { readonly writeGuard?: SkillWriteGuard | undefined } = {},
+): readonly Tool[] => [
   listTool(skills, profiles),
   loadTool(skills, profiles),
   fileTool(skills, profiles),
-  writeTool(skills, profiles),
+  writeTool(skills, profiles, options.writeGuard),
   deleteTool(skills, profiles),
   proposeTool(skills, profiles),
 ];

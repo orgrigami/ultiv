@@ -15,13 +15,19 @@
  *   owner's settings, never in text);
  * - secrets and vault values (key shapes, cards, IDs, codes, and contact
  *   details the vault tools returned);
- * - more than 3 learned saves in one turn, and any save when the bot's
- *   learning switch is off (`policies.learnSkills: false`; default on).
+ * - more than 3 skill saves in one turn (skill_learn and skill_write share
+ *   the cap), and any learned save when the bot's learning switch is off
+ *   (`policies.learnSkills: false`; default on).
+ * skill_write runs the same checks through `skillGate`, so the two can't
+ * drift: whatever skill_learn refuses for its content, skill_write refuses
+ * too; where skill_learn refuses for who is asking (learning off, a turn
+ * not from the owner), skill_write asks the owner with an approval card.
  * No replay or evaluation runs: skill_evolve is the separate, explicit loop.
  */
 import { Effect } from "effect";
 import { Type } from "typebox";
 import { defineTool, type Tool } from "@spriessen/ext";
+import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import {
@@ -37,6 +43,7 @@ import type { SkillsService } from "./service.ts";
 import { skillsScope } from "./tools.ts";
 
 export const SKILL_LEARN = "skill_learn";
+export const SKILL_WRITE = "skill_write";
 /** Learned saves one turn may make. */
 export const MAX_LEARNED_PER_TURN = 3;
 export const MAX_LESSON_CHARS = 120;
@@ -77,7 +84,7 @@ export interface TurnContext {
   readonly vault: readonly string[];
   /** Outside-content tools that ran this turn per the audit trail. */
   readonly outsideCalls: number;
-  /** Learned saves already made this turn. */
+  /** Skill saves (skill_learn or skill_write) already made this turn. */
   readonly learned: number;
 }
 
@@ -157,7 +164,9 @@ export const turnContext = async (
     outside,
     vault,
     outsideCalls: events.filter((event) => isOutside(String(event.name))).length,
-    learned: events.filter((event) => event.name === SKILL_LEARN && event.ok).length,
+    learned: events.filter(
+      (event) => (event.name === SKILL_LEARN || event.name === SKILL_WRITE) && event.ok,
+    ).length,
   };
 };
 
@@ -198,12 +207,63 @@ const tokensOf = (text: string): Set<string> => {
   return found;
 };
 
+/** What the shared check says about one skill save. */
+export type SkillGate =
+  | { readonly kind: "ok" }
+  | { readonly kind: "refuse"; readonly reason: string }
+  /** skill_write only: the owner decides on a card. */
+  | { readonly kind: "ask"; readonly reason: string };
+
+const LEARNING_OFF =
+  "learning is off for this bot: your owner turned it off; ask before writing skills";
+
+/**
+ * The one check both skill-writing tools run. Content rules (cap, unreadable
+ * outside content, secrets, approval talk, vault values, copied or planted
+ * outside text) refuse either tool. Who-is-asking rules refuse skill_learn
+ * and send skill_write to the owner: learning off, or a turn the owner didn't
+ * start (for skill_learn, cron and task turns are its own work and pass).
+ */
+export const skillGate = (
+  tool: "learn" | "write",
+  text: string,
+  turn: TurnContext,
+  learning: boolean,
+): SkillGate => {
+  const ownWork = turn.origin === "owner" || turn.origin === "cron" || turn.origin === "task";
+  if (tool === "learn") {
+    if (!learning) return { kind: "refuse", reason: LEARNING_OFF };
+    if (!ownWork)
+      return {
+        kind: "refuse",
+        reason: `refused: this turn came from outside (${turn.origin}); skills are learned from your owner's turns and your own scheduled work`,
+      };
+  }
+  const content = contentRefusal(text, turn);
+  if (content !== null) return { kind: "refuse", reason: content };
+  if (tool === "write" && !learning)
+    return {
+      kind: "ask",
+      reason: "Learning is off for this bot, so this skill write needs your OK.",
+    };
+  if (tool === "write" && turn.origin !== "owner")
+    return {
+      kind: "ask",
+      reason: `This turn wasn't started by you (${turn.origin}), so this skill write needs your OK.`,
+    };
+  return { kind: "ok" };
+};
+
 /** Why this text can't be learned this turn, or null when it can. */
 export const learnRefusal = (body: string, turn: TurnContext): string | null => {
-  if (turn.origin !== "owner" && turn.origin !== "cron" && turn.origin !== "task")
-    return `refused: this turn came from outside (${turn.origin}); skills are learned from your owner's turns and your own scheduled work`;
+  const gate = skillGate("learn", body, turn, true);
+  return gate.kind === "refuse" ? gate.reason : null;
+};
+
+/** The content rules alone (see skillGate). */
+const contentRefusal = (body: string, turn: TurnContext): string | null => {
   if (turn.learned >= MAX_LEARNED_PER_TURN)
-    return `refused: ${MAX_LEARNED_PER_TURN} skills learned this turn already; learn more on a later turn`;
+    return `refused: ${MAX_LEARNED_PER_TURN} skills saved this turn already; save more on a later turn`;
   if (turn.outsideCalls > turn.outside.length)
     return "refused: this turn read outside content I can't check; learn it on a turn that didn't";
   const secret = secretIn(body);
@@ -233,6 +293,63 @@ export const learnRefusal = (body: string, turn: TurnContext): string | null => 
 /** Whether this bot learns skills on its own (default on). */
 export const learningOn = (profiles: ProfilesService, conversationId: string): boolean =>
   profiles.profileOf(conversationId)?.policies.learnSkills !== false;
+
+/** What learning reads per call: the transcript, the audit trail, MCP taint. */
+export interface LearnDeps {
+  readonly profiles: ProfilesService;
+  readonly converse: ConverseService;
+  readonly audit?: AuditService | undefined;
+  readonly untrustedTool?: ((name: string) => boolean) | undefined;
+}
+
+/** One skill_write as the gate sees it: the body and every reference file. */
+export interface SkillWriteInput {
+  readonly name: string;
+  readonly body: string;
+  readonly files?: readonly { readonly path: string; readonly content: string }[] | undefined;
+}
+
+/**
+ * skill_write's guard: the same gate as skill_learn over the body and every
+ * reference file. Returns a refusal for the model, or undefined to write. An
+ * "ask" parks an owner-only card (no auto-approve rule, Jev or YOLO answers
+ * it); without an approval surface it refuses.
+ */
+export const skillWriteGuard =
+  (deps: LearnDeps & { readonly approvals?: ApprovalsService | undefined }) =>
+  async (
+    input: SkillWriteInput,
+    api: { readonly conversationId: unknown; readonly callId: unknown },
+  ): Promise<string | undefined> => {
+    const conversationId = String(api.conversationId);
+    const callId = String(api.callId);
+    const turn = await turnContext(deps, conversationId);
+    const text = [input.body, ...(input.files ?? []).map((f) => `${f.path}\n${f.content}`)].join(
+      "\n",
+    );
+    const gate = skillGate("write", text, turn, learningOn(deps.profiles, conversationId));
+    if (gate.kind === "ok") return undefined;
+    if (gate.kind === "refuse") return gate.reason;
+    if (deps.approvals === undefined) return `refused: ${gate.reason} There is no one to ask here.`;
+    const approved = await Effect.runPromise(
+      deps.approvals.request(
+        conversationId,
+        callId,
+        {
+          callId,
+          name: SKILL_WRITE,
+          description: gate.reason,
+          input: { name: input.name, body: input.body, files: input.files ?? [] },
+        },
+        { owner: true },
+      ),
+    );
+    if (approved) return undefined;
+    return (
+      deps.approvals.noteFor(conversationId, callId) ??
+      "not approved: your owner said no to this skill write (or didn't answer); don't retry, tell them what wasn't saved"
+    );
+  };
 
 const fail = (text: string) => ({
   output: [{ type: "text" as const, text }],
@@ -271,10 +388,7 @@ export const learnTool = (deps: {
       const conversationId = String(api.conversationId);
       const resolved = skillsScope(deps.profiles, conversationId);
       if ("refused" in resolved) return fail(resolved.refused);
-      if (!learningOn(deps.profiles, conversationId))
-        return fail(
-          "learning is off for this bot: your owner turned it off; ask before writing skills",
-        );
+      if (!learningOn(deps.profiles, conversationId)) return fail(LEARNING_OFF);
       if (!slugOk(args.name))
         return fail(`"${args.name}" is not a skill name (lowercase-and-hyphens)`);
       const lesson = args.lesson.replace(/\s+/g, " ").trim().slice(0, MAX_LESSON_CHARS);
@@ -288,8 +402,8 @@ export const learnTool = (deps: {
       if (body.length > MAX_SKILL_CHARS)
         return fail(`the skill is over ${MAX_SKILL_CHARS} characters`);
       const turn = await turnContext(deps, conversationId);
-      const refusal = learnRefusal(`${body}\n${lesson}`, turn);
-      if (refusal !== null) return fail(refusal);
+      const gate = skillGate("learn", `${body}\n${lesson}`, turn, true);
+      if (gate.kind !== "ok") return fail(gate.reason);
       const { owner, profileId } = resolved.scope;
       const existing = await deps.skills.read(owner, profileId, args.name);
       try {

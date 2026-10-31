@@ -46,7 +46,10 @@ through `resolveInside(root, ...parts)` from `@spriessen/core`
 - `skill_learn` writes skills with no approval, so it refuses instead: turns
   from outside, text copied from outside content this turn, approval and
   permission talk, secrets and vault values, more than 3 a turn, and any
-  save when the bot's learning switch is off. See docs/SKILLS.md.
+  save when the bot's learning switch is off. `skill_write` runs the same
+  checks (one shared gate); where `skill_learn` refuses for who is asking,
+  `skill_write` asks the owner on an owner-only card instead. See
+  docs/SKILLS.md.
 
 Tests: `packages/core/src/safe-path.test.ts`,
 `packages/ext/src/path-confinement.test.ts`,
