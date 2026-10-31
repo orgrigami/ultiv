@@ -259,6 +259,16 @@ export class AuthStore {
     return row;
   }
 
+  /**
+   * Whether a session still stands, WITHOUT sliding its expiry: the socket
+   * sweep asks this, and an idle open tab must not keep a session alive.
+   */
+  sessionLive(id: string): boolean {
+    this.load();
+    const row = this.sessions.get(id);
+    return row !== undefined && Date.now() - row.lastSeenAt <= SESSION_TTL_MS;
+  }
+
   deleteSession(id: string): void {
     this.load();
     if (!this.sessions.delete(id)) return;

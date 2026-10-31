@@ -4,7 +4,11 @@
  * refetch over the REST they already use; a reconnect raises `sync` so every
  * open screen catches up. No polling anywhere.
  */
+import { UNAUTHORIZED_EVENT } from "./auth.ts";
 import { reconnectDelay } from "./chord.ts";
+
+/** The close code the server uses when the socket's session has ended. */
+export const SIGNED_OUT_CLOSE = 4401;
 
 export type LiveKind =
   | "sync"
@@ -56,8 +60,11 @@ const connect = (): void => {
       // A malformed frame is dropped; REST stays the source of truth.
     }
   };
-  socket.onclose = () => {
+  socket.onclose = (event) => {
     socket = null;
+    // Signed out elsewhere (or expired): bring the sign-in gate back now,
+    // rather than leaving a screen that quietly stops updating.
+    if (event.code === SIGNED_OUT_CLOSE) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     if (closed) return;
     const delay = reconnectDelay(attempt);
     attempt += 1;

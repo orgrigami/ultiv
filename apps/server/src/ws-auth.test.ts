@@ -1,8 +1,8 @@
 /**
- * WebSocket auth: an upgrade without a valid session is refused; with one it
- * connects; an expired session is dropped; and a session that belongs to a
- * DIFFERENT install (the Phase 0 gap: someone who knows another owner's
- * session id) is refused too. Uses the real stack on an ephemeral port.
+ * WebSocket auth: an upgrade without a valid session is refused (before a
+ * passcode exists too); with one it connects; an expired or signed-out
+ * session is refused; and a socket that is already open is closed once its
+ * session ends. Uses the real stack on an ephemeral port.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -99,6 +99,38 @@ describe("websocket auth", () => {
     const fresh = again.headers.get("set-cookie")?.split(";")[0] ?? "";
     expect(fresh).not.toBe("");
     expect(await wsProbe(fresh)).toBe("open");
+  });
+
+  it("closes sockets that are already open once their session ends", async () => {
+    const signIn = await fetch(`${base}/api/auth/sign-in`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ passcode: "ws-auth-passcode" }),
+    });
+    const mine = signIn.headers.get("set-cookie")?.split(";")[0] ?? "";
+    const openOn = (path: string): Promise<WebSocket> =>
+      new Promise((resolve, reject) => {
+        const socket = new WebSocket(`ws://127.0.0.1:${port}${path}`, {
+          headers: { cookie: mine },
+        });
+        socket.once("open", () => resolve(socket));
+        socket.once("error", reject);
+      });
+    const closedWith = (socket: WebSocket): Promise<number> =>
+      new Promise((resolve) => socket.once("close", (code) => resolve(code)));
+    const chord = await openOn("/chord");
+    const live = await openOn("/push");
+    const chordClosed = closedWith(chord);
+    const liveClosed = closedWith(live);
+
+    expect(stack.sweepSockets()).toBe(0); // still signed in: nothing closes
+    await fetch(`${base}/api/auth/sign-out`, {
+      method: "POST",
+      headers: { cookie: mine, "content-type": "application/json" },
+    });
+    expect(stack.sweepSockets()).toBe(2);
+    expect(await chordClosed).toBe(4401);
+    expect(await liveClosed).toBe(4401);
   });
 
   it("drops an expired session", async () => {

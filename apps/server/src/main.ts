@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, type WebSocket } from "ws";
 import { Ping } from "@spriessen/contracts";
 import { artifactsDir, copyArtifact, resolveInside } from "@spriessen/ext";
 import { httpPlugin } from "@spriessen/ext";
@@ -28,6 +28,7 @@ import { authorize } from "./auth/guard.ts";
 import { LIVE_PATH, liveConnections, liveHub } from "./live.ts";
 import { watchRunningTasks } from "./live-tasks.ts";
 import { AuthStore } from "./auth/store.ts";
+import { socketSessions } from "./auth/socket-sessions.ts";
 import { createRestHandler } from "./rest.ts";
 import { serveSession } from "./session.ts";
 
@@ -135,6 +136,7 @@ export async function buildStack(options?: {
   serveSession(host, mind);
 
   const auth = new AuthStore();
+  const sockets = socketSessions(auth);
   const http = createServer(createRestHandler({ mind, scheduler, push, auth }));
   // noServer: the http server's one upgrade handler routes by path (the
   // chord links here, the live event socket in slice 10).
@@ -159,16 +161,25 @@ export async function buildStack(options?: {
       return;
     }
     const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    // Each open socket is tied to its session, so signing out closes it.
+    const sessionId = access.kind === "session" ? access.sessionId : undefined;
+    const tracked = (client: WebSocket): WebSocket => {
+      if (sessionId !== undefined) sockets.track(client, sessionId);
+      return client;
+    };
     if (path === LIVE_PATH) {
-      liveWss.handleUpgrade(req, socket, head, (client) => liveWss.emit("connection", client, req));
+      liveWss.handleUpgrade(req, socket, head, (client) =>
+        liveWss.emit("connection", tracked(client), req),
+      );
       return;
     }
     // Everything else is a chord link.
-    wss.handleUpgrade(req, socket, head, (client) => wss.emit("connection", client, req));
+    wss.handleUpgrade(req, socket, head, (client) => wss.emit("connection", tracked(client), req));
   });
 
   const close = async () => {
     for (const stop of liveStops) stop?.();
+    sockets.stop();
     push.stop();
     memoryTidy.stop();
     scheduler.stop();
@@ -186,7 +197,7 @@ export async function buildStack(options?: {
     ]);
     await handle.close();
   };
-  return { host, mind, http, scheduler, sensorLoop, close };
+  return { host, mind, http, scheduler, sensorLoop, sweepSockets: sockets.sweep, close };
 }
 
 const isMain =

@@ -146,7 +146,12 @@ run on the server's own machine) belongs to the account's bots today; the
 act consults it through `openMind`'s `authz.hostAccess`, and a refusal comes
 back to the bot before any approval card exists. The WebSocket accepts
 only upgrades with a valid session (`apps/server/src/main.ts`); a link
-without one is refused at the handshake.
+without one is refused at the handshake. An open socket (chord or `/push`)
+is tied to the session it opened under and closed with code 4401 within
+seconds of that session ending (sign-out, expiry, a passcode change,
+recovery), so a signed-out tab stops receiving anything
+(`apps/server/src/auth/socket-sessions.ts`); the web client answers 4401
+by showing the sign-in gate.
 
 ### Migration of pre-sign-in data
 
