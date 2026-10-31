@@ -17,22 +17,49 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { BUSY_LABEL, Meta, RawValue, RoutineRow, runs, when } from "@/components/routine-rows";
 
+type WebhookApi = Pick<typeof api, "testWebhook" | "rotateWebhookToken">;
+
+/**
+ * Send a test payload and say what happened. Once the server has answered,
+ * `onChanged` re-reads the list so the row's counts are current.
+ */
+export async function sendTest(
+  client: WebhookApi,
+  id: string,
+  payload: string,
+  onChanged: () => Promise<void>,
+): Promise<string> {
+  let result: string;
+  try {
+    const outcome = await client.testWebhook(id, JSON.parse(payload) as unknown);
+    result = outcome.accepted
+      ? "Accepted: the payload matches."
+      : `Turned away: ${outcome.detail ?? "the payload doesn't match the expected format"}`;
+  } catch (cause) {
+    return cause instanceof Error ? cause.message : String(cause);
+  }
+  await onChanged();
+  return result;
+}
+
+/** Issue a new token; after it, `onChanged` re-reads the list. */
+export async function issueToken(
+  client: WebhookApi,
+  id: string,
+  onChanged: () => Promise<void>,
+): Promise<string | null> {
+  const rotated = await client.rotateWebhookToken(id);
+  await onChanged();
+  return rotated.token ?? null;
+}
+
 /** Send a test payload through the real ingress checks. */
-function TestFire({ hook }: { hook: WebhookInfo }) {
+function TestFire({ hook, onChanged }: { hook: WebhookInfo; onChanged: () => Promise<void> }) {
   const [payload, setPayload] = useState("{}");
   const [result, setResult] = useState<string | null>(null);
   const run = async (): Promise<void> => {
     setResult(null);
-    try {
-      const outcome = await api.testWebhook(hook.id, JSON.parse(payload) as unknown);
-      setResult(
-        outcome.accepted
-          ? "Accepted: the payload matches."
-          : `Turned away: ${outcome.detail ?? "the payload doesn't match the expected format"}`,
-      );
-    } catch (cause) {
-      setResult(cause instanceof Error ? cause.message : String(cause));
-    }
+    setResult(await sendTest(api, hook.id, payload, onChanged));
   };
   return (
     <form
@@ -74,15 +101,14 @@ function OneTimeUrl({ id, token }: { id: string; token: string }) {
 }
 
 /** Issue a new token (the old one stops working) and show its URL once. */
-function NewToken({ hook }: { hook: WebhookInfo }) {
+function NewToken({ hook, onChanged }: { hook: WebhookInfo; onChanged: () => Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const rotate = async (): Promise<void> => {
     setError(null);
     try {
-      const rotated = await api.rotateWebhookToken(hook.id);
-      setToken(rotated.token ?? null);
+      setToken(await issueToken(api, hook.id, onChanged));
       setConfirming(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -115,10 +141,13 @@ export function WebhookRow({
   hook,
   bot,
   onDelete,
+  onChanged,
 }: {
   hook: WebhookInfo;
   bot: string;
   onDelete: () => Promise<void>;
+  /** Re-reads the list (after a test fire or a new token). Row state survives it. */
+  onChanged: () => Promise<void>;
 }) {
   const rejected = hook.rejectedAuth + hook.rejectedSchema + hook.rejectedRate + hook.rejectedSize;
   return (
@@ -149,7 +178,7 @@ export function WebhookRow({
             shown={`${location.origin}/hooks/${hook.id.slice(0, 8)}…?token=•••`}
           />
           <p>The token was shown once, when it was made. Lost it? Issue a new one.</p>
-          <NewToken hook={hook} />
+          <NewToken hook={hook} onChanged={onChanged} />
           {rejected > 0 && (
             <p>
               Turned away: wrong token {hook.rejectedAuth}, wrong format {hook.rejectedSchema}, too
@@ -162,7 +191,7 @@ export function WebhookRow({
               {hook.recentRejects[0] !== undefined && `: ${hook.recentRejects[0].detail}`}
             </p>
           )}
-          <TestFire hook={hook} />
+          <TestFire hook={hook} onChanged={onChanged} />
         </div>
       </DevDetails>
     </RoutineRow>

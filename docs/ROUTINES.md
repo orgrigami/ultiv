@@ -52,6 +52,9 @@ Every fire writes a receipt BEFORE delivery is attempted, then settles it:
 Lookup: `GET /api/routines/events?routine=<id>&source=cron|webhook|test&limit=N`.
 Schedules expose `fireCount` / `lastFiredAt`; webhooks expose counters plus
 `rejectsLast24h` via the receipt log. "Did it actually fire?" is a lookup.
+The Routines screen re-reads these when it opens, when the window regains
+focus, and right after a webhook's **Send test** or **New token** (no polling
+loop; a one-time token URL or test payload being read stays on screen).
 
 ## Webhooks — one-way, ack-then-process
 

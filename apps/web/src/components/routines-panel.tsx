@@ -24,6 +24,7 @@ import { CreateWebhook, WebhookRow } from "@/components/webhook-row";
 import { Mark } from "@/components/state-mark";
 import { api } from "@/lib/api";
 import { formatFull, formatWhen } from "@/lib/format";
+import { reloadOnFocus } from "@/lib/reload-on-focus";
 
 const SOURCE_LABEL: Record<string, string> = {
   cron: "Schedule",
@@ -99,7 +100,11 @@ export function RoutinesContent({
       setError(cause instanceof Error ? cause.message : String(cause));
     }
   }, []);
-  useEffect(() => void load(), [load]);
+  // On mount (a page visit) and when the window regains focus.
+  useEffect(() => {
+    void load();
+    return reloadOnFocus(window, load);
+  }, [load]);
 
   const active = profiles.filter(
     (profile) => profile.archivedAt === null && (botId === undefined || profile.id === botId),
@@ -144,6 +149,7 @@ export function RoutinesContent({
             hook={hook}
             bot={bot(hook.profile)}
             onDelete={remove(() => api.removeWebhook(hook.id))}
+            onChanged={load}
           />
         ))}
       </Section>
