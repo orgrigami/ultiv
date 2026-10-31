@@ -85,6 +85,16 @@ export async function buildStack(options?: {
     );
     for (const move of storageMove.moves) console.log(`owners: ${move}`);
   }
+  // What the migration could NOT move must be visible, not silent.
+  if (migration.memorySkipped > 0) {
+    console.warn(
+      `owners: ${migration.memorySkipped} memory store(s) kept under the old label ` +
+        `(the account already had content there); see docs/SECURITY.md`,
+    );
+  }
+  for (const kept of storageMove.conflicts) {
+    console.warn(`owners: kept under the old label (the account already has one): ${kept}`);
+  }
   // The attention last-mile: dead-letters and disabled jobs must ARRIVE.
   wireEscalationPager(mind);
   // The live socket: task and approval changes are pushed as signals (the

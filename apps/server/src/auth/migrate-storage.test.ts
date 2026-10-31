@@ -93,6 +93,65 @@ describe("migrateStorage", () => {
     expect(report.folders.join("\n")).toContain("merged");
   });
 
+  it("relabels the owner stored inside MCP records and vault items", () => {
+    seed(
+      dirs.mcp,
+      "label-a",
+      "servers.json",
+      JSON.stringify([{ id: "srv-1", owner: "label-a", name: "one" }]),
+    );
+    seed(
+      dirs.vault,
+      "label-a",
+      "items/item-1.json",
+      JSON.stringify({ info: { id: "item-1", owner: "label-a" }, sealed: "opaque" }),
+    );
+    const report = move("owner", ["label-a"]);
+    const servers = JSON.parse(
+      readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8"),
+    ) as { owner: string }[];
+    expect(servers.map((row) => row.owner)).toEqual(["owner"]);
+    const item = JSON.parse(
+      readFileSync(join(dirs.vault, "owner", "items", "item-1.json"), "utf8"),
+    ) as { info: { owner: string }; sealed: string };
+    expect(item.info.owner).toBe("owner");
+    expect(item.sealed).toBe("opaque");
+    expect(report.records).toBe(2);
+  });
+
+  it("merges two servers.json files instead of dropping the arriving one", () => {
+    seed(
+      dirs.mcp,
+      "label-b",
+      "servers.json",
+      JSON.stringify([
+        { id: "srv-1", owner: "label-b", name: "same id: the account's copy wins" },
+        { id: "srv-2", owner: "label-b", name: "two" },
+      ]),
+    );
+    const report = move("owner", ["label-b"]);
+    const servers = JSON.parse(
+      readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8"),
+    ) as { id: string; owner: string; name: string }[];
+    expect(servers.map((row) => row.id)).toEqual(["srv-1", "srv-2"]);
+    expect(servers.find((row) => row.id === "srv-1")?.name).toBe("one");
+    expect(servers.every((row) => row.owner === "owner")).toBe(true);
+    expect(report.conflicts).toEqual([]);
+  });
+
+  it("leaves bot-owned and other labels' sidecars alone, and reports kept collisions", () => {
+    seed(dirs.artifacts, "owner", "bot-4/by-bot.json", JSON.stringify({ owner: "agent" }));
+    seed(dirs.artifacts, "owner", "bot-4/unowned.json", JSON.stringify({ owner: null }));
+    seed(dirs.artifacts, "label-c", "bot-4/clash.json", JSON.stringify({ owner: "label-c" }));
+    seed(dirs.artifacts, "owner", "bot-4/clash.json", JSON.stringify({ owner: "owner" }));
+    const report = move("owner", ["label-c"]);
+    const at = (name: string): unknown =>
+      JSON.parse(readFileSync(join(dirs.artifacts, "owner", "bot-4", name), "utf8"));
+    expect(at("by-bot.json")).toEqual({ owner: "agent" });
+    expect(at("unowned.json")).toEqual({ owner: null });
+    expect(report.conflicts).toEqual([join(dirs.artifacts, "label-c", "bot-4", "clash.json")]);
+  });
+
   it("the dry run reports without touching anything", () => {
     seed(dirs.artifacts, "smoker", "bot-3/x.json", JSON.stringify({ owner: "smoker" }));
     const plan = migrateStorage({ to: "owner", from: ["smoker"], dirs, dryRun: true });

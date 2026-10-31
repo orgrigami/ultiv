@@ -163,16 +163,22 @@ main-bot entry, task, room and mailbox record with such a label to
 `ultiv.session-map` entry pointing at the SAME conversation, so no
 transcript is orphaned), and copies each v2 memory family's content to the
 account's family keys. On disk, the per-owner folders (artifacts, skills,
-bot files, MCP work dirs, vault) and the artifact sidecars' owner fields
-move with them (`apps/server/src/auth/migrate-storage.ts`). Rows stamped
-`agent` (bot-spawned task sentinel) never move. It is repeatable and logs
-a count when anything moved.
+bot files, MCP work dirs, vault) move with them, and so do the owner
+fields stored inside files: artifact sidecars, MCP server records (the
+connector access check compares that field, so a stale one would lock the
+connector) and vault items (`apps/server/src/auth/migrate-storage.ts`).
+Rows, sidecars and push entries stamped `agent` never move. A folder that
+already exists under the account is merged: the account's file wins a name
+clash (two `servers.json` lists are joined by server id) and each kept-back
+file is logged as a warning; so is a memory family the account already had
+content in (the old label's copy stays on its old key). It is repeatable
+and logs a count when anything moved.
 
 - **Dry run:** `vpr @spriessen/server#owners:dry-run` (server stopped)
   prints what a boot would move, changing nothing.
 - **Rollback:** rows keep nothing of the old label behind, but the old
-  conversation keys, memory family keys and push subscriptions stay in
-  place untouched; the folder move is a rename. Rolling the CODE back
+  conversation keys and memory family keys stay in place untouched; push
+  subscriptions are moved, not copied; the folder move is a rename. Rolling the CODE back
   restores the old labels' reachability only for data that was never
   moved — a moved row reads `owner`. For a controlled rollback, restore
   the data folder from backup (`var/`, plus `AUTH_DIR` if the passcode
