@@ -36,7 +36,7 @@ const setUp = async (allowlist: string[] | null = null) => {
   rig = makeRig();
   const registry = createRegistry();
   const approvals = makeApprovals();
-  const audit = makeAudit(join(mkdtempSync(join(tmpdir(), "spreissen-audit-")), "audit.jsonl"));
+  const audit = makeAudit(join(mkdtempSync(join(tmpdir(), "spriessen-audit-")), "audit.jsonl"));
   const profiles = {
     scopeOf: () => ({ owner: OWNER, profileId: "p1" }),
     profileOf: () => ({ id: "p1", toolAllowlist: allowlist }),

@@ -12,7 +12,7 @@ process.env.VAULT_KEY = "test-vault-key";
 
 const dirs: string[] = [];
 const tempRoot = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "spreissen-vault-"));
+  const dir = mkdtempSync(join(tmpdir(), "spriessen-vault-"));
   dirs.push(dir);
   return dir;
 };

@@ -154,7 +154,7 @@ const connectOnce = async (
   let first: unknown;
   for (const kind of plan) {
     const client = new Client(
-      { name: "spreissen", version: "0.1.0" },
+      { name: "spriessen", version: "0.1.0" },
       { listChanged: { tools: { autoRefresh: false, onChanged: () => onToolsChanged() } } },
     );
     const built = buildTransport(kind, record, got.secrets, { cwd: deps.workDir, oauth });

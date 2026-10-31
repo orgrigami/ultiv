@@ -14,7 +14,7 @@ const KEYS = { p256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA", auth: "tBHItJI5s
 const FCM = "https://fcm.googleapis.com/fcm/send/abc123";
 const dirs: string[] = [];
 const scratch = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "spreissen-push-"));
+  const dir = mkdtempSync(join(tmpdir(), "spriessen-push-"));
   dirs.push(dir);
   return dir;
 };

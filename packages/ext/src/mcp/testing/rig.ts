@@ -50,7 +50,7 @@ export interface Rig {
 
 export const makeRig = (): Rig => {
   process.env.VAULT_KEY ??= "test-vault-key";
-  const root = mkdtempSync(join(tmpdir(), "spreissen-mcp-"));
+  const root = mkdtempSync(join(tmpdir(), "spriessen-mcp-"));
   const vault = makeVaultStore(join(root, "vault"));
   const manager = makeMcpManager({
     config: makeMcpConfigStore(join(root, "mcp")),

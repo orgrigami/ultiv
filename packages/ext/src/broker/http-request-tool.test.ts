@@ -28,7 +28,7 @@ let rig: Rig;
 let root: string;
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), "spreissen-broker-"));
+  root = mkdtempSync(join(tmpdir(), "spriessen-broker-"));
   // An echo server: whatever reached it (auth included) comes back in the body.
   const server = await startServer((seen, res) => {
     res.setHeader("content-type", "application/json");

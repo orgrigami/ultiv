@@ -16,7 +16,7 @@ described in RFC 0001 §9 — now shipped. Storage stays pi-durable docs in
 | Proposals | `ultiv.mem.proposals` | Tidy suggestions; nothing changes until the owner accepts                 |
 
 The stored record names keep the `ultiv.` prefix from before the product was
-renamed to Spreissen. They are internal storage names, not branding, and
+renamed to Spriessen. They are internal storage names, not branding, and
 renaming them would mean migrating the owner's data, so they stay.
 
 All are `scope: "session"`, family docs keyed `owner:<o>` (owner store) or

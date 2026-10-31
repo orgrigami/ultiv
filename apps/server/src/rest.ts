@@ -214,6 +214,6 @@ async function route(args: RouteArgs): Promise<void> {
   if (await approvalRoutes(args)) return;
   if (await secretRoutes(args)) return;
   if (await pushRoutes(args)) return;
-  if (path === "/" || path === "/api/health") return json(200, { app: "spreissen", ok: true });
+  if (path === "/" || path === "/api/health") return json(200, { app: "spriessen", ok: true });
   json(404, { error: `no route: ${method} ${path}` });
 }

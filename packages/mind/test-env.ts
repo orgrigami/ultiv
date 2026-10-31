@@ -11,5 +11,5 @@ export const offlineCatalogEnv: Record<string, string> = {
   MODELS_DEV_URL: "off",
   MODELS_DEV_CACHE: "var/test-catalog-absent/models-dev.json",
   MODELS_OVERLAY: "var/test-catalog-absent/models.local.json",
-  BOT_FILES_DIR: join(tmpdir(), "spreissen-test-bot-files"),
+  BOT_FILES_DIR: join(tmpdir(), "spriessen-test-bot-files"),
 };

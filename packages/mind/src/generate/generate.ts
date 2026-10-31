@@ -55,7 +55,7 @@ export interface GenerateService {
 }
 
 export class Generate extends Context.Service<Generate, GenerateService>()(
-  "spreissen/mind/Generate",
+  "spriessen/mind/Generate",
 ) {}
 
 const textOf = (message: AssistantMessage): string =>

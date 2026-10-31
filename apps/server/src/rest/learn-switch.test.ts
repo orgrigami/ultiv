@@ -13,7 +13,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 
-const scratch = mkdtempSync(join(tmpdir(), "spreissen-learn-switch-"));
+const scratch = mkdtempSync(join(tmpdir(), "spriessen-learn-switch-"));
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 

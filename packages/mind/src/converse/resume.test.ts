@@ -41,7 +41,7 @@ describe("a turn cut by a restart (faux model)", () => {
     models.setProvider(faux.provider);
     faux.setResponses([silent, fauxAssistantMessage(fauxText("picked up after the restart"))]);
     const model = faux.getModel();
-    const dir = mkdtempSync(join(tmpdir(), "spreissen-resume-"));
+    const dir = mkdtempSync(join(tmpdir(), "spriessen-resume-"));
     const path = join(dir, "harness.db");
     const open = async () =>
       Harness.open(await openNodeSqliteStorage(path), { models, registry: createRegistry() }, ctx);

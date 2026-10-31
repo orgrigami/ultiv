@@ -165,7 +165,7 @@ export interface ConverseService {
 }
 
 export class Converse extends Context.Service<Converse, ConverseService>()(
-  "spreissen/mind/Converse",
+  "spriessen/mind/Converse",
 ) {}
 
 /** Durable session-key -> conversation mapping (kind preserved: pre-existing SQLite data). */

@@ -44,7 +44,7 @@ const renderWith = (files: ReturnType<typeof botFiles>) => {
 
 describe("identity section with bot files", () => {
   it("renders Persona, then Instructions, then the rest", async () => {
-    const files = botFiles(mkdtempSync(join(tmpdir(), "spreissen-prompt-")));
+    const files = botFiles(mkdtempSync(join(tmpdir(), "spriessen-prompt-")));
     files.save(bot, "instructions", "Check the calendar before you book.", {
       by: "owner",
       reason: "Rules",
@@ -60,7 +60,7 @@ describe("identity section with bot files", () => {
   });
 
   it("an Instructions edit changes the next turn's system prompt", async () => {
-    const files = botFiles(mkdtempSync(join(tmpdir(), "spreissen-prompt-")));
+    const files = botFiles(mkdtempSync(join(tmpdir(), "spriessen-prompt-")));
     const render = renderWith(files);
     const before = await render();
     expect(before).not.toContain("Reply in haiku.");
@@ -69,7 +69,7 @@ describe("identity section with bot files", () => {
   });
 
   it("empty Instructions add no block", async () => {
-    const files = botFiles(mkdtempSync(join(tmpdir(), "spreissen-prompt-")));
+    const files = botFiles(mkdtempSync(join(tmpdir(), "spriessen-prompt-")));
     expect(await renderWith(files)()).not.toContain(INSTRUCTIONS_RULE);
   });
 });

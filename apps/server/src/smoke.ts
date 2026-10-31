@@ -13,8 +13,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 process.env.VAULT_KEY = "smoke-vault-key";
-const scratchVault = mkdtempSync(join(tmpdir(), "spreissen-smoke-vault-"));
-const scratchArtifacts = mkdtempSync(join(tmpdir(), "spreissen-smoke-artifacts-"));
+const scratchVault = mkdtempSync(join(tmpdir(), "spriessen-smoke-vault-"));
+const scratchArtifacts = mkdtempSync(join(tmpdir(), "spriessen-smoke-artifacts-"));
 process.env.ARTIFACTS_DIR = scratchArtifacts;
 // Skill stores stay hermetic too.
 process.env.SKILLS_DIR = join(scratchArtifacts, "skills");

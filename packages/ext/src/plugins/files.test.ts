@@ -8,8 +8,8 @@ import { writeArtifactBytes } from "./artifacts.ts";
 import { filesPlugin, treePath } from "./files.ts";
 import { createScopeHolder } from "./vault.ts";
 
-const root = mkdtempSync(join(tmpdir(), "spreissen-files-"));
-const outside = mkdtempSync(join(tmpdir(), "spreissen-files-outside-"));
+const root = mkdtempSync(join(tmpdir(), "spriessen-files-"));
+const outside = mkdtempSync(join(tmpdir(), "spriessen-files-outside-"));
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });
   rmSync(outside, { recursive: true, force: true });

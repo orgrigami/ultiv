@@ -7,7 +7,7 @@ The live UI colors are tokens in `apps/web/src/index.css`.
 
 ## Name
 
-**Spreissen**, written as the lowercase wordmark **spreissen** beside the
+**Spriessen**, written as the lowercase wordmark **spriessen** beside the
 mark. It replaced the earlier working name on 2026-10-31. The wordmark is set
 in the UI font at the same size and weight as before; it is longer, so the
 sidebar lockup gives it the room.
@@ -56,7 +56,7 @@ motion.
 
 ## Voice
 
-Spreissen talks like a calm, capable colleague who keeps you posted. Say what
+Spriessen talks like a calm, capable colleague who keeps you posted. Say what
 happened and what you can do next, in plain words and short sentences: "Nova
 finished the trip notes", "Atlas wants to run bash", "Couldn't reach the
 server. Retrying…". Name the bot, not the system. Lead with the outcome,

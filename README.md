@@ -1,8 +1,8 @@
-# Spreissen
+# Spriessen
 
 Your bots, on your own server. Chat with them, follow their work and approve what needs you.
 
-Spreissen is a self-hosted web app for running AI bots on your own machine. Each bot gets its own persona, memory, files, tools, schedules and audit log. Bots can talk to you, talk to each other, and do things on your computer when you approve them.
+Spriessen is a self-hosted web app for running AI bots on your own machine. Each bot gets its own persona, memory, files, tools, schedules and audit log. Bots can talk to you, talk to each other, and do things on your computer when you approve them.
 
 It runs on any model provider [models.dev](https://models.dev) knows about: Anthropic, OpenAI, Google, OpenRouter, DeepSeek, Kenari and a couple hundred more, or a model running on your own machine. Provider keys stay on the server in `.env`. The credentials bots use live in a local encrypted vault that the model never reads.
 
@@ -133,7 +133,7 @@ In every mode, these always come to you as a card: a credential's first use on a
 
 ## Security
 
-- **There's no login yet.** The server takes the user from the `x-spriessen-user` header, and requests without it count as `guest`. Data is partitioned by owner: every REST route that touches owner data checks it in one helper (`apps/server/src/rest/owner-scope.ts`), and another owner's item looks exactly like a missing one. The identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Spreissen on a machine and network you control.
+- **There's no login yet.** The server takes the user from the `x-spriessen-user` header, and requests without it count as `guest`. Data is partitioned by owner: every REST route that touches owner data checks it in one helper (`apps/server/src/rest/owner-scope.ts`), and another owner's item looks exactly like a missing one. The identity code lives in one file (`apps/server/src/identity.ts`) so a real sign-in can replace it later. Until then, run Spriessen on a machine and network you control.
 - **Secrets don't reach the model.** Bots refer to vault items by name or ask for one with `secret_request`. You type the value into a masked field, it goes to the server, and it's stored sealed. It never shows up in transcripts, audit logs or notifications.
 - **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval, or follow the bot's [approval mode](#approval-modes). Some always ask, whatever the mode or the allow list says: using a credential on a new host for the first time, a connector's first use, changing connectors, and `secret_request`. For `bash_host`, "Always allow" saves only the exact script on the card (removable in the bot's Access tab), and Jev never decides it, but fully automatic mode runs it.
 - **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
@@ -150,7 +150,7 @@ packages/core       tagged errors and the bridge between promises and Effect
 packages/ext        tools, plugins, registry, vault, credential broker, shells
 packages/mind       the bots themselves: models, converse, decide, act, generate, tasks, profiles, routines, memory
 packages/contracts  TypeBox chord contracts shared by server and web
-packages/about      the built-in skills every bot gets: Spreissen's own docs, as Agent Skills
+packages/about      the built-in skills every bot gets: Spriessen's own docs, as Agent Skills
 ```
 
 It's a pnpm monorepo written with Effect. Each profile is one bot running in a shared runtime. Sessions replicate over chord; the registries (sessions, models, artifacts, webhooks, cron, audit) are plain REST.

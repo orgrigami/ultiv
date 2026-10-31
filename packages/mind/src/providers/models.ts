@@ -76,10 +76,10 @@ export interface ModelCatalogService {
 }
 
 export class ModelCatalog extends Context.Service<ModelCatalog, ModelCatalogService>()(
-  "spreissen/mind/ModelCatalog",
+  "spriessen/mind/ModelCatalog",
 ) {}
 
-export class MindModels extends Context.Service<MindModels, Models>()("spreissen/mind/Models") {}
+export class MindModels extends Context.Service<MindModels, Models>()("spriessen/mind/Models") {}
 
 export interface CatalogOptions {
   /** models.dev URL; null = never fetch. */

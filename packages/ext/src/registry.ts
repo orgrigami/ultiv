@@ -21,7 +21,7 @@ export interface RegistryService {
 }
 
 export class Registry extends Context.Service<Registry, RegistryService>()(
-  "spreissen/ext/Registry",
+  "spriessen/ext/Registry",
 ) {}
 
 interface RegistryState {

@@ -46,7 +46,7 @@ describe("Tasks (offline, MemoryStorage)", () => {
     expect(settled?.status).toBe("failed");
     expect(settled?.error ?? "").not.toBe("");
     // A sentence for Needs you, never the bare error tag.
-    expect(settled?.error).not.toMatch(/spreissen\//);
+    expect(settled?.error).not.toMatch(/spriessen\//);
     expect(settled?.error).toMatch(/[.!?…]$/);
     // The parent is woken with the outcome as a new admitted input.
     const transcript = await until(

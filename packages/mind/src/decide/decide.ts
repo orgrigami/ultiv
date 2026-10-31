@@ -90,7 +90,7 @@ export interface DecideService {
   ) => Effect.Effect<JevAnswer[], DecideError>;
 }
 
-export class Decide extends Context.Service<Decide, DecideService>()("spreissen/mind/Decide") {}
+export class Decide extends Context.Service<Decide, DecideService>()("spriessen/mind/Decide") {}
 
 type Answers = Record<string, NoulResponse | ChoiceResponse | ScoreResponse | undefined>;
 

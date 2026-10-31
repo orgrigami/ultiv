@@ -19,7 +19,7 @@ const event = (at: number, name: string): AuditEvent => ({
 
 const dirs: string[] = [];
 const tempFile = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "spreissen-audit-"));
+  const dir = mkdtempSync(join(tmpdir(), "spriessen-audit-"));
   dirs.push(dir);
   return join(dir, "audit.jsonl");
 };

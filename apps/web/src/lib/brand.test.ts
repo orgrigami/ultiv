@@ -6,11 +6,11 @@ const read = (path: string): string => readFileSync(new URL(path, import.meta.ur
 
 describe("brand", () => {
   it("names the app once", () => {
-    expect(BRAND.name).toBe("Spreissen");
+    expect(BRAND.name).toBe("Spriessen");
     expect(BRAND.wordmark).toBe(BRAND.name.toLowerCase());
-    expect(pageTitle()).toBe("Spreissen");
-    expect(pageTitle("  ")).toBe("Spreissen");
-    expect(pageTitle("Past chats")).toBe("Past chats · Spreissen");
+    expect(pageTitle()).toBe("Spriessen");
+    expect(pageTitle("  ")).toBe("Spriessen");
+    expect(pageTitle("Past chats")).toBe("Past chats · Spriessen");
   });
 
   it("keeps hype out of the copy", () => {

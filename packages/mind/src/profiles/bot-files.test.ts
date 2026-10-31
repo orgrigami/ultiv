@@ -27,7 +27,7 @@ const row = (id: string, persona: string, owner = "owner-a"): ProfileInfo => ({
   archivedAt: null,
 });
 
-const scratch = (): string => mkdtempSync(join(tmpdir(), "spreissen-bot-files-"));
+const scratch = (): string => mkdtempSync(join(tmpdir(), "spriessen-bot-files-"));
 
 describe("bot files migration", () => {
   const rows = [

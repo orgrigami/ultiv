@@ -59,7 +59,7 @@ async function subscriptionRoutes(args: RouteArgs, method: string): Promise<bool
   if (path === "/api/push/test" && method === "POST") {
     const outcome = await push.notifier.notify(
       args.owner,
-      { title: "Spreissen notifications are on", body: "This is a test.", url: "/", tag: "test" },
+      { title: "Spriessen notifications are on", body: "This is a test.", url: "/", tag: "test" },
       { ignoreVisible: true },
     );
     json(200, { outcome });

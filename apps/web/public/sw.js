@@ -1,5 +1,5 @@
 /*
- * Spreissen service worker: a minimal offline shell plus Web Push.
+ * Spriessen service worker: a minimal offline shell plus Web Push.
  *
  * Caching rule: only the static offline page and the app icon are ever
  * cached (at install). Nothing fetched at runtime is stored: no API
@@ -66,7 +66,7 @@ self.addEventListener("push", (event) => {
   } catch {
     data = {};
   }
-  const title = typeof data.title === "string" ? data.title : "Spreissen";
+  const title = typeof data.title === "string" ? data.title : "Spriessen";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: typeof data.body === "string" ? data.body : "",

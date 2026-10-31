@@ -1,6 +1,6 @@
-# Spreissen design direction
+# Spriessen design direction
 
-Spreissen is a small crew of bots that do real work for one person: they chat,
+Spriessen is a small crew of bots that do real work for one person: they chat,
 run tasks, keep memory, and ask before anything risky. This note says how
 the app should look and feel, and which flows we keep tuning. It is short on
 purpose. The tokens live in `apps/web/src/index.css`, the brand in
@@ -55,7 +55,7 @@ settled without leaving the chat. The header stays narrow enough for 390 px.
 
 ## Brand
 
-The product is **Spreissen** (lowercase wordmark **spreissen**); it replaced
+The product is **Spriessen** (lowercase wordmark **spriessen**); it replaced
 the earlier working name on 2026-10-31, the owner's decision. The identity
 stays: a lowercase rounded wordmark, a soft amber gumdrop mark with two eyes
 and a sprout (a small growing thing), generated bot characters and a warm

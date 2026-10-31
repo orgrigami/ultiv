@@ -157,7 +157,7 @@ export interface ApprovalsService {
 }
 
 export class Approvals extends Context.Service<Approvals, ApprovalsService>()(
-  "spreissen/mind/Approvals",
+  "spriessen/mind/Approvals",
 ) {}
 
 export const makeApprovals = (

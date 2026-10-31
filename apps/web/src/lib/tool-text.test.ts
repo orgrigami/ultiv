@@ -199,13 +199,13 @@ describe("presentationOf", () => {
   });
 
   it("searches get their query, fetches their host", () => {
-    const search = presentationOf(step({ input: { query: "spreissen monorepo" } }));
+    const search = presentationOf(step({ input: { query: "spriessen monorepo" } }));
     const fetch = presentationOf(
       step({ name: "web_fetch", input: { url: "https://example.com/docs?a=1" } }),
     );
     if (search.kind !== "human" || fetch.kind !== "human") return fail();
     expect(search.view.done).toBe("Searched the web");
-    expect(search.view.detail).toBe("spreissen monorepo");
+    expect(search.view.detail).toBe("spriessen monorepo");
     expect(fetch.view.done).toBe("Read a web page");
     expect(fetch.view.detail).toBe("example.com");
   });

@@ -92,7 +92,7 @@ export interface TasksService {
   readonly attach: (binder: TaskBinder) => Promise<void>;
 }
 
-export class Tasks extends Context.Service<Tasks, TasksService>()("spreissen/mind/Tasks") {}
+export class Tasks extends Context.Service<Tasks, TasksService>()("spriessen/mind/Tasks") {}
 
 const TITLE_CHARS = 40;
 
@@ -212,7 +212,7 @@ const runTask = (rt: TaskRuntime, task: TaskInfo, prompt: string): void => {
       );
     } catch (cause) {
       // The owner reads this in Needs you: a sentence, not the bare tag
-      // ("spreissen/External"). The full cause goes to the server log.
+      // ("spriessen/External"). The full cause goes to the server log.
       console.error(`task ${task.id} failed:`, cause);
       const error = ownerErrorText(cause).slice(0, 500);
       await Effect.runPromise(

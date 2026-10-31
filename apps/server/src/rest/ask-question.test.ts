@@ -14,7 +14,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind, questionTools } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 
-const scratch = mkdtempSync(join(tmpdir(), "spreissen-ask-"));
+const scratch = mkdtempSync(join(tmpdir(), "spriessen-ask-"));
 process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 

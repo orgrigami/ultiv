@@ -139,7 +139,7 @@ export interface MindService {
   readonly describe: () => MindDescription;
 }
 
-export class Mind extends Context.Service<Mind, MindService>()("spreissen/mind/Mind") {}
+export class Mind extends Context.Service<Mind, MindService>()("spriessen/mind/Mind") {}
 
 export interface MindOptions {
   /** Durable storage override; default is SQLite at HARNESS_DB (tests pass MemoryStorage). */

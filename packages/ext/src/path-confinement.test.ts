@@ -21,7 +21,7 @@ import { makeVaultStore } from "./vault.ts";
 
 let scratch = "";
 const fresh = (): { root: string; outside: string } => {
-  scratch = mkdtempSync(join(tmpdir(), "spreissen-confine-"));
+  scratch = mkdtempSync(join(tmpdir(), "spriessen-confine-"));
   const root = join(scratch, "root");
   const outside = join(scratch, "outside");
   mkdirSync(root);

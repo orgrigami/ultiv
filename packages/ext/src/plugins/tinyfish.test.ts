@@ -86,7 +86,7 @@ describe("tinyfish connector", () => {
       Effect.match(invoke(tinyfishConnector, "search", { query: "q" }), {
         onSuccess: () => "unexpected success",
         onFailure: (error) =>
-          error._tag === "spreissen/External" ? String(error.cause) : error._tag,
+          error._tag === "spriessen/External" ? String(error.cause) : error._tag,
       }),
     );
     expect(outcome).toContain("403");

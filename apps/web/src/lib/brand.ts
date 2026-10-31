@@ -7,9 +7,9 @@
 
 export const BRAND = {
   /** In sentences and titles. */
-  name: "Spreissen",
+  name: "Spriessen",
   /** The lowercase wordmark beside the mark. */
-  wordmark: "spreissen",
+  wordmark: "spriessen",
   tagline: "Your bots, on your own server.",
   /** The manifest and store-style description: what it is, plainly. */
   description: "Chat with your bots, follow their work and approve what needs you.",
@@ -23,7 +23,7 @@ export const BRAND = {
   },
 } as const;
 
-/** "Past chats · Spreissen": every screen's document title. */
+/** "Past chats · Spriessen": every screen's document title. */
 export function pageTitle(screen?: string | undefined): string {
   const trimmed = screen?.trim() ?? "";
   return trimmed === "" ? BRAND.name : `${trimmed} · ${BRAND.name}`;

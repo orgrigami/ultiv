@@ -11,7 +11,7 @@ Scope: `@spriessen/mind`, `@spriessen/ext`, `packages/contracts`, `apps/server`,
 
 ## 1. Summary
 
-Spreissen grows a layer above sessions: **profiles**. A profile is a user-defined AI entity —
+Spriessen grows a layer above sessions: **profiles**. A profile is a user-defined AI entity —
 its own name, persona, persistent chat, sessions, artifacts, credentials scope, and (later)
 memories. Entities communicate with each other through an asynchronous, durable **mailbox**
 carried on per-pair **DM threads**, and act on external services through a **vault** that

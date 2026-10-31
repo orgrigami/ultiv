@@ -2,19 +2,19 @@ import { describe, expect, it } from "vite-plus/test";
 import { Data } from "effect";
 
 // The kernel error shapes as `./errors.ts` defines them (same tags, same fields).
-class NotFound extends Data.TaggedError("spreissen/NotFound")<{ readonly what: string }> {}
-class InvalidInput extends Data.TaggedError("spreissen/InvalidInput")<{
+class NotFound extends Data.TaggedError("spriessen/NotFound")<{ readonly what: string }> {}
+class InvalidInput extends Data.TaggedError("spriessen/InvalidInput")<{
   readonly reason: string;
 }> {}
-class Duplicate extends Data.TaggedError("spreissen/Duplicate")<{
+class Duplicate extends Data.TaggedError("spriessen/Duplicate")<{
   readonly kind: string;
   readonly id: string;
 }> {}
-class Unavailable extends Data.TaggedError("spreissen/Unavailable")<{
+class Unavailable extends Data.TaggedError("spriessen/Unavailable")<{
   readonly faculty: string;
   readonly why: string;
 }> {}
-class External extends Data.TaggedError("spreissen/External")<{
+class External extends Data.TaggedError("spriessen/External")<{
   readonly op: string;
   readonly cause: unknown;
 }> {}
@@ -23,10 +23,10 @@ import { ownerErrorText, scrubSecrets } from "./error-text.ts";
 describe("ownerErrorText (bug 2: the failed-turn banner)", () => {
   it("reads an External with an op and an Error cause as a sentence, not the tag", () => {
     const error = new External({ op: "submit", cause: new Error("connection reset by peer") });
-    expect(String(error)).toBe("spreissen/External");
+    expect(String(error)).toBe("spriessen/External");
     const text = ownerErrorText(error);
     expect(text).toBe("Sending the message failed: connection reset by peer.");
-    expect(text).not.toContain("spreissen/");
+    expect(text).not.toContain("spriessen/");
   });
 
   it("turns the engine's unanswered reasons into plain words", () => {

@@ -41,7 +41,7 @@ describe("parked tasks (faux model)", () => {
     faux.setResponses([silent, fauxAssistantMessage(fauxText("back again"))]);
     const model = faux.getModel();
     // A file, as in production: closing the harness closes its storage.
-    const dir = mkdtempSync(join(tmpdir(), "spreissen-parked-"));
+    const dir = mkdtempSync(join(tmpdir(), "spriessen-parked-"));
     const path = join(dir, "harness.db");
     const open = async () =>
       Harness.open(

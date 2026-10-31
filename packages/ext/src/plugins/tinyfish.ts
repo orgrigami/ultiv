@@ -167,10 +167,10 @@ export const tinyfishConnector: Connector = defineConnector({
 });
 
 const describeError = (error: ActionError | NotFound): string => {
-  if (error._tag === "spreissen/AuthMissing")
+  if (error._tag === "spriessen/AuthMissing")
     return `web egress is not configured: set ${error.env}`;
-  if (error._tag === "spreissen/InvalidInput") return `invalid input: ${error.reason}`;
-  if (error._tag === "spreissen/NotFound") return `unknown action: ${error.what}`;
+  if (error._tag === "spriessen/InvalidInput") return `invalid input: ${error.reason}`;
+  if (error._tag === "spriessen/NotFound") return `unknown action: ${error.what}`;
   return `web egress failed (${error.op}): ${String(error.cause).slice(0, 200)}`;
 };
 

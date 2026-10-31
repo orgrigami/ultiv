@@ -160,11 +160,17 @@ Delight: one radius scale, press and send states, skeletons, character empty
 states, and a Cmd/Ctrl-K quick switcher with N and ? shortcuts.
 Remaining: sign-in, push instead of poll, and the per-bot notification switch.
 
-**Rename to Spreissen** (2026-10-31): DONE — the product name, wordmark
-(`spreissen`), titles, manifest, notifications and server banner;
+**Rename to Spriessen** (2026-10-31): DONE — the product name, wordmark
+(`spriessen`), titles, manifest, notifications and server banner;
 `@spriessen/*` packages; `SPRIESSEN_*` env keys with the old `ULTIV_*` names
 read as a deprecated fallback; `x-spriessen-user` / `x-spriessen-token` with
-the old headers still accepted; device keys move to `spreissen.*` on first
+the old headers still accepted; device keys move to `spriessen.*` on first
 read; the offline cache is renamed and the old one cleared. Stored record
 names, tool ids, the vault salt and the sandbox image keep the old prefix for
 compatibility (see AGENTS.md, Naming).
+
+**Spelling fixed to Spriessen** (2026-10-31): DONE — the first pass spelt it
+with "ei"; every name, package, env key, header, device key, the built-in
+skill and the docs now use "ie". The misspelt env keys and headers are not
+read (clean cut); saved device keys and a bot's built-in-skill switch carry
+over.

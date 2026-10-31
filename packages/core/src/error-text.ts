@@ -1,7 +1,7 @@
 /**
  * One readable sentence for the owner out of any error a turn can fail with
  * (the chat's error banner, `lastError`). Effect tagged errors carry an empty
- * `message`, so `String(error)` was just the tag ("spreissen/External"). This
+ * `message`, so `String(error)` was just the tag ("spriessen/External"). This
  * reads the known fields (`reason`, `what`, `why`, `op`, an inner `cause`)
  * and the engine's unanswered reasons, never anything else of the error, and
  * scrubs secret-looking values. The full error still goes to the server log.

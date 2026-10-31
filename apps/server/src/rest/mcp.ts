@@ -119,7 +119,7 @@ export async function mcpRoutes(args: RouteArgs): Promise<boolean> {
       return await serverRoute(args, decodeURIComponent(path.slice("/api/mcp/servers/".length)));
     }
   } catch (cause) {
-    const status = (cause as { _tag?: string })._tag === "spreissen/NotFound" ? 404 : 400;
+    const status = (cause as { _tag?: string })._tag === "spriessen/NotFound" ? 404 : 400;
     json(status, { error: errorOf(cause).slice(0, 300) });
     return true;
   }

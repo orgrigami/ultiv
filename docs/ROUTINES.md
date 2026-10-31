@@ -19,7 +19,7 @@ dropped, a rotated key indistinguishable from a quiet day.
 | Rate-limit token buckets                        | **no** (in-memory, restart resets)        | server process                        |
 | Debounce windows                                | **no** (payloads already receipted first) | server process                        |
 
-The `ultiv.` record names predate the rename to Spreissen and are kept on
+The `ultiv.` record names predate the rename to Spriessen and are kept on
 purpose: they name data already on disk.
 
 ## Attention: escalations must ARRIVE

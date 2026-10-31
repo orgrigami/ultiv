@@ -129,7 +129,7 @@ describe("webhook token hashing", () => {
   });
 
   it("leaves no plaintext token anywhere in a SQLite store after sealing", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "spreissen-hook-seal-"));
+    const dir = mkdtempSync(join(tmpdir(), "spriessen-hook-seal-"));
     const file = join(dir, "throwaway.sqlite");
     try {
       const { handle, mind, sessionId } = await open(await openNodeSqliteStorage(file));

@@ -9,7 +9,7 @@ describe("resolveInside", () => {
   let root: string;
   let outside: string;
   beforeEach(() => {
-    scratch = mkdtempSync(join(tmpdir(), "spreissen-path-"));
+    scratch = mkdtempSync(join(tmpdir(), "spriessen-path-"));
     root = join(scratch, "root");
     outside = join(scratch, "outside");
     mkdirSync(join(root, "a"), { recursive: true });
@@ -82,7 +82,7 @@ describe("isSafeSegment", () => {
   });
 
   it("accepts a child whose name merely starts with two dots", () => {
-    const base = mkdtempSync(join(tmpdir(), "spreissen-dots-"));
+    const base = mkdtempSync(join(tmpdir(), "spriessen-dots-"));
     try {
       expect(resolveInside(base, "..notes")).toMatch(/\.\.notes$/);
     } finally {

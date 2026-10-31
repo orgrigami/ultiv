@@ -26,7 +26,7 @@ export interface AuditService {
   readonly setHooks: (hooks: { readonly onEscalation?: (event: AuditEvent) => void }) => void;
 }
 
-export class Audit extends Context.Service<Audit, AuditService>()("spreissen/mind/Audit") {}
+export class Audit extends Context.Service<Audit, AuditService>()("spriessen/mind/Audit") {}
 
 const MAX_LINE_CHARS = 4_000;
 

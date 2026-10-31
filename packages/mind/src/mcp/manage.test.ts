@@ -35,7 +35,7 @@ const setUp = async (secretTimeoutMs = 5_000, fakeOpts?: Parameters<typeof start
   rig = makeRig();
   const registry = createRegistry();
   const approvals = makeApprovals();
-  const auditPath = join(mkdtempSync(join(tmpdir(), "spreissen-audit-")), "audit.jsonl");
+  const auditPath = join(mkdtempSync(join(tmpdir(), "spriessen-audit-")), "audit.jsonl");
   const audit = makeAudit(auditPath);
   const bindings = makeBindingStore(join(rig.root, "vault"));
   const profiles = {

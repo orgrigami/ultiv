@@ -73,7 +73,7 @@ describe("Identity plugin", () => {
 });
 
 describe("bash gating", () => {
-  const dir = mkdtempSync(join(tmpdir(), "spreissen-act-bash-"));
+  const dir = mkdtempSync(join(tmpdir(), "spriessen-act-bash-"));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
   const bashTool = (): Tool => {
     const capability = bashPlugin({ root: dir, backend: (_d, home) => localShellBackend(home) })

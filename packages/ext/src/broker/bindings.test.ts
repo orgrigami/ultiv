@@ -75,7 +75,7 @@ describe("credential bindings", () => {
   });
 
   it("enforces methods and hosts, and resets first-use approvals when hosts change", () => {
-    const root = mkdtempSync(join(tmpdir(), "spreissen-bind-"));
+    const root = mkdtempSync(join(tmpdir(), "spriessen-bind-"));
     dirs.push(root);
     const store = makeBindingStore(root);
     const binding = store.put("harry", "item1", input());

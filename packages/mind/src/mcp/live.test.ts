@@ -9,7 +9,7 @@ import { openMind } from "../entity.ts";
 describe("Connectors on a running mind", () => {
   it("adds and removes a server's tools without a restart", async () => {
     const fake = await startHttpFake();
-    const dir = mkdtempSync(join(tmpdir(), "spreissen-mcp-live-"));
+    const dir = mkdtempSync(join(tmpdir(), "spriessen-mcp-live-"));
     const handle = await openMind({ storage: new MemoryStorage(), mcp: { dir } });
     const { mind } = handle;
     const before = mind.describe().tools;

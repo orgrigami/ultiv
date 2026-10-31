@@ -6,35 +6,35 @@
 import { Data } from "effect";
 
 /** A lookup found nothing registered (or stored) under that identity. */
-export class NotFound extends Data.TaggedError("spreissen/NotFound")<{
+export class NotFound extends Data.TaggedError("spriessen/NotFound")<{
   readonly what: string;
 }> {}
 
 /** A value failed validation before it reached any boundary. */
-export class InvalidInput extends Data.TaggedError("spreissen/InvalidInput")<{
+export class InvalidInput extends Data.TaggedError("spriessen/InvalidInput")<{
   readonly reason: string;
 }> {}
 
 /** The same identity was registered twice (plugin id, tool name, connector id). */
-export class Duplicate extends Data.TaggedError("spreissen/Duplicate")<{
+export class Duplicate extends Data.TaggedError("spriessen/Duplicate")<{
   readonly kind: string;
   readonly id: string;
 }> {}
 
 /** A capability is not wired (typically: its key is not configured). */
-export class Unavailable extends Data.TaggedError("spreissen/Unavailable")<{
+export class Unavailable extends Data.TaggedError("spriessen/Unavailable")<{
   readonly faculty: string;
   readonly why: string;
 }> {}
 
 /** An external integration is required but its credentials are absent. */
-export class AuthMissing extends Data.TaggedError("spreissen/AuthMissing")<{
+export class AuthMissing extends Data.TaggedError("spriessen/AuthMissing")<{
   readonly connector: string;
   readonly env: string;
 }> {}
 
 /** An external call failed; `cause` carries the original error. */
-export class External extends Data.TaggedError("spreissen/External")<{
+export class External extends Data.TaggedError("spriessen/External")<{
   readonly op: string;
   readonly cause: unknown;
 }> {}
