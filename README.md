@@ -1,5 +1,7 @@
 # Ultiv
 
+Your bots, on your own server. Chat with them, follow their work and approve what needs you.
+
 Ultiv is a self-hosted web app for running AI bots on your own machine. Each bot gets its own persona, memory, files, tools, schedules and audit log. Bots can talk to you, talk to each other, and do things on your computer when you approve them.
 
 It runs on any model provider [models.dev](https://models.dev) knows about: Anthropic, OpenAI, Google, OpenRouter, DeepSeek, Kenari and a couple hundred more, or a model running on your own machine. Provider keys stay on the server in `.env`. The credentials bots use live in a local encrypted vault that the model never reads.
@@ -27,7 +29,7 @@ Open http://localhost:5173 and create your first bot. **Settings** shows a quick
 
 ## What it does
 
-- **One place for everything.** The phone tab bar and the desktop rail both show Chat, Needs you, Crew and Settings. Needs you lists pending approvals, failed tasks, routines that gave up and memory tidy suggestions, and each one opens where you can act on it. Crew lists your bots; each bot has a profile with Overview, Memory, Routines, Access, Files and Activity tabs. New chat and past chats are in the chat's … menu.
+- **One place for everything.** The phone tab bar and the desktop sidebar both show Chat, Past chats, Needs you, Crew and Settings, so an old chat is one tap away. The sidebar also keeps your recent chats and a Find box (Cmd/Ctrl-K) that jumps to any bot, chat or screen; N starts a new chat and ? lists the shortcuts. Needs you lists pending approvals, failed tasks, routines that gave up and memory tidy suggestions, and you can approve or deny right there. On a wide screen, a task, a file or a bot's memory opens in a work pane beside the chat. Crew lists your bots; each one has its own character and a profile with Memory, Routines, Access, Files and Activity tabs that show their counts.
 - **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
 - **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
 - **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and asks first, unless the bot is in fully automatic mode.

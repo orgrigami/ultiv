@@ -30,18 +30,18 @@ Chat with steering (default) and redirect (stop at safe point); per-session mode
 
 ## Brand Commitments
 
-Product name "ultiv". Entity names are product content, not chrome: Jev (decision faculty) and the owner's bots (e.g. Rook); a fresh install has none. The incumbent pure-neutral-gray visual world is explicitly replaced as of 2026-10-30 by the owner's redesign brief; no other visual assets or identity marks are binding.
+Product name "Ultiv" (wordmark "ultiv"), defined once in `src/lib/brand.ts` with the amber sprout mark and the voice guide in `docs/design/brand.md`: plain, short, warm, no hype. Each bot has its own generated character (`src/lib/avatar.ts`); entity names are product content, not chrome: Jev (decision faculty) and the owner's bots (e.g. Rook); a fresh install has none. The 2026-10-31 redesign (`docs/design/direction.md`) sets the current look: dark by default, soft rounded surfaces, one warm accent.
 
 ## Evidence on Hand
 
-Working product with real data: live bots with transcripts, tool traces, tasks, rooms, skills, vault items, audit tails (owner's dev server on 5173/8787). Screenshots of the current UI and of reference interfaces the owner admires (Claude desktop app: labeled sidebar, unified bot panel, account menu) were provided with the brief at /private/tmp/claude-502/-Users-htw-workspace-ultiv/78ecd273-083f-425a-9fbd-1755bd674101/images/. No marketing site, no testimonial or benchmark claims; none may be invented.
+Working product with real data: live bots with transcripts, tool traces, tasks, rooms, skills, vault items, audit tails (owner's dev server on 5173/8787). The owner shared screenshots of reference interfaces with each redesign brief (2026-10-30, 2026-10-31); what was taken from them is written down in `docs/design/direction.md`. No marketing site, no testimonial or benchmark claims; none may be invented.
 
 ## Product Principles
 
 1. The crew is the product: every surface presents entities (bots) and their state, never raw session plumbing.
 2. Autonomy must be legible: what a bot is doing right now, what it spent, what it waits on — always one glance away, in chat, tasks, and the nav.
 3. Trust through provenance: approvals, audit, memory proposals, and skill origins are first-class UI, never buried.
-4. One owner, deep use: density, speed, and keyboard-Grade craft over marketing gloss; built to be stared at for hours in the dark.
+4. One owner, deep use: speed, keyboard-grade craft (Cmd/Ctrl-K, N, ?) and small moments of delight over marketing gloss; built to be stared at for hours in the dark.
 5. Same substance on every width: phone and desktop are the same product at two densities, not two features sets.
 
 ## Accessibility & Inclusion

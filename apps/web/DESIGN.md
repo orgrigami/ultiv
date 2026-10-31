@@ -43,11 +43,12 @@ typography:
     fontWeight: 400
     letterSpacing: "0.02em"
 rounded:
-  sm: "0.3125rem"
-  md: "0.4375rem"
-  lg: "0.5rem"
-  xl: "0.75rem"
-  2xl: "1rem"
+  sm: "0.375rem"
+  md: "0.5469rem"
+  lg: "0.625rem"
+  xl: "0.9375rem"
+  2xl: "1.25rem"
+  3xl: "1.5625rem"
 spacing:
   row: "0.375rem"
   field: "0.625rem"
@@ -93,7 +94,7 @@ components:
 
 **Creative North Star: "A quiet dark workspace for a crew of AI entities"**
 
-ultiv is the owner's workspace for a crew of autonomous entities: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, quiet sans prose. Bots are named entities, distinguished by their names and a uniform neutral avatar; every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture (the composer, the tab bar); the identity is the nav rail, the roster, the readouts.
+ultiv is the owner's workspace for a crew of autonomous entities: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, quiet sans prose. Bots are named entities, each with its own small character drawn from its id (a soft creature in one of six hues); every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture (the composer, the tab bar); the identity is the nav rail, the roster, the readouts.
 
 The system is built for one person reading for hours in the dark: calm, high density, tabular numbers everywhere anything is counted, and exactly one red light reserved for what demands the owner. Chrome floats translucent over the transcript so prose stays continuous; tool activity rides above it as a numbered overlay layer, never mixed into the prose. Expansion always explains (shaped bodies, definition lists, receipts one click away) and never dumps raw JSON at the owner when a lens knows the call.
 
@@ -101,7 +102,7 @@ The system is built for one person reading for hours in the dark: calm, high den
 
 - Four lightness elevation tiers on one blue-black hue; depth by tier, not by shadow
 - Two typographic voices: Geist Mono for measured data (readouts, accounting), Geist Sans for prose and labels
-- Uniform neutral bot avatars: initials on a raised neutral surface, hairline ring
+- One deterministic character per bot: the same id always draws the same creature; still when idle, it looks around while the bot works and hops once when it needs you
 - One disciplined signal light: red only for what demands the owner, amber only for live work, green only for what settled
 - State read through a small vocabulary of drawn SVG marks, one consistent stroke
 - Hairline borders, plain language everywhere, no glow anywhere
@@ -158,7 +159,7 @@ A warm-ink-on-cold-ground system: blue-black tiers carry the space, a single war
 
 ## Layout
 
-The app fills the dynamic viewport; the page itself never scrolls — every screen scrolls inside its own container (`html, body { height: 100%; overflow: hidden }`). Desktop (sm+) is primary: a fixed 16rem nav rail on the left (wordmark row, crew roster, labeled system links, per-bot recents, owner block at the bottom), the center column free for the transcript. Non-chat pages scroll in a `max-w-3xl` column (24px gutters at sm+, 12px on phones, safe-area padding top and bottom). Phones swap the rail for a fixed bottom tab bar (4rem + safe-area: Crew, Routines, a raised 3rem Chat circle, Tools, More) and set `--chat-bottom` so the floating composer clears it.
+The app fills the dynamic viewport; the page itself never scrolls — every screen scrolls inside its own container (`html, body { height: 100%; overflow: hidden }`). Desktop (sm+) is primary: a fixed 16rem nav rail on the left (wordmark row, New chat, Find, the five sections with the crew roster under Crew, a Recents list of chats, Settings at the bottom), the center column free for the transcript, and on `lg+` a floating work pane on the right for a task, a file, memory or Needs you. Non-chat pages scroll in a `max-w-3xl` column (24px gutters at sm+, 12px on phones, safe-area padding top and bottom). Phones swap the rail for a fixed bottom tab bar (4rem + safe-area: Chat, Past chats, Needs you, Crew, Settings) and set `--chat-bottom` so the floating composer clears it; the work pane becomes a full-height sheet.
 
 Spacing rhythm is tight and token-led: rows breathe in 6px steps, fields pad 10px, sections separate at 16px. Row targets are 36px on pointer-fine devices and a minimum 44px (`pointer-coarse:min-h-11`) on touch.
 
@@ -174,13 +175,13 @@ Depth is tonal first: four lightness tiers on one blue-black hue — rail (0.146
 
 ## Shapes
 
-Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale derived from it — `sm` 5px, `md` 7px, `lg` 8px, `xl` 12px, `2xl` 16px. Rows, buttons, cards, inputs and code blocks live at `lg`; expanded bodies and user messages round to `xl`; avatars, marks and the Chat circle are circles; small inline chips may clamp to 10–12px. Form language is rectilinear and thin: 1px hairline borders on everything contained, no double borders (a card inside a card keeps one seam), no pill-shaped containers except the floating composer itself. Section seams are plain hairlines (`border-t`).
+Radius grows from one base: `--radius: 0.625rem` (10px), with the Tailwind scale derived from it — `sm` 6px, `md` 9px, `lg` 10px, `xl` 15px, `2xl` 20px, `3xl` 25px. Buttons, inputs and code blocks live at `lg`; cards, list groups and rows at `2xl`; sheets, the work pane, the quick switcher and empty states at `3xl`; avatars, marks, tab pills, the header pill and the composer are round. Surfaces are soft, borders stay thin: 1px hairlines on everything contained, no double borders (a card inside a card keeps one seam). Section seams are plain hairlines (`border-t`).
 
 ## Components
 
 ### Buttons
 
-- **Shape:** rounded-lg (8px), heights 2rem default / 1.75rem sm / 1.5rem xs; icons square.
+- **Shape:** rounded-lg (10px), heights 2rem default / 1.75rem sm / 1.5rem xs; icons square.
 - **Primary:** warm ivory fill, dark ink text, hover at 80% opacity.
 - **Ghost:** transparent, hover fills to `--muted`; the default for quiet chrome (copy buttons, icon triggers).
 - **Outline:** hairline border on ground, hover fills to `--muted`; destructive variant is a 10–20% signal tint with signal text, never a solid red fill.
@@ -200,7 +201,7 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 
 ### Cards / Containers
 
-- **Corner Style:** rounded-lg (8px); expanded bodies rounded-xl.
+- **Corner Style:** rounded-lg (10px); expanded bodies rounded-xl (15px).
 - **Background:** tier tokens only — card, popover, muted at 70% for the owner's message card.
 - **Border:** 1px hairline; error notes tint border/background/text to signal (25% / 5% / full).
 - **Internal Padding:** 10–14px; cards stay border-only, no shadow.
@@ -214,13 +215,16 @@ Radius grows from one base: `--radius: 0.5rem` (8px), with the Tailwind scale de
 
 ### Navigation
 
-- **Nav rail (sm+):** 16rem, rail-black tier, right hairline. Crew rows: 28px neutral avatar, name, right-aligned state mark (signal attention, breathing amber working); active row fills `--sidebar-accent`. System links: icon + label at 36px height, `aria-current` fills accent. The wordmark row reads connection state as a mark + readout ("connected" green / "connecting" muted / "disconnected" red).
-- **Tab bar (phones):** 65% translucent ground, blur, top hairline; raised 3rem primary Chat circle; current tab ivory, rest muted.
+- **Nav rail (sm+):** 16rem, rail-black tier, right hairline. Crew rows: the bot's character, name, right-aligned state mark (signal attention, breathing amber working); active row fills `--sidebar-accent`. System links: icon + label at 36px height, `aria-current` fills accent. The wordmark row reads connection state as a mark + readout ("connected" green / "connecting" muted / "disconnected" red).
+- **Tab bar (phones):** 65% translucent ground, blur, top hairline; five equal tabs, the Needs you count on its bell; current tab ivory, rest muted.
 - **Page header:** display title, optional muted lead, closed by a hairline.
 
 ### Signature Surfaces
 
-- **Bot avatar:** round initials plate on a neutral raised tier (`bg-secondary`, hairline ring). No images are stored; the name carries identity.
+- **Bot character:** a creature on a plate tinted with its own hue (`lib/avatar.ts` picks body, eyes, mouth, top and hue from the id's hash; `components/bot-avatar.tsx` draws it). No images are stored. Sizes from 24px (rows, bubbles' header) to the 96–112px profile hero. Idle costs nothing: it moves only on hover, while its bot works (`mood="thinking"`) or once when it needs you (`mood="alert"`), and never under reduced motion.
+- **Profile hero:** the character big and centered, name, role, then round Open chat / Edit; under it pill tabs with live counts and, on Overview, file-style cards (tinted icon tile, title, one line, chevron).
+- **Work pane:** a 3xl floating panel beside the chat on `lg+` (a sheet below), with Back through up to four opened things and Close; Escape closes it.
+- **Quick switcher:** Cmd/Ctrl-K opens a 3xl panel near the top: one field, results grouped Actions · Go to · Bots · Past chats, arrow keys and Enter. N starts a new chat, ? shows the shortcut sheet.
 - **Composer pill:** `.chrome-float` bar — round "+" (quick prompts), the message box, round send arrow that joins a Stop while the bot works; a "Redirect now" pill rides above it mid-turn.
 - **Wordmark row:** "ultiv" at 15px/600 tracking-tight beside the connection mark and readout, the app's own status line.
 

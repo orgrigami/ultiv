@@ -42,16 +42,16 @@ We take the spirit only. No names, mascots or layouts are copied.
 
 ## Nav model
 
-| Width                | Chrome                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------- |
-| Phone (< 640 px)     | Bottom tab bar: Chat · Past chats · Needs you · Crew · Settings. Work opens as a full-screen sheet. |
-| Tablet (640–1023 px) | Left sidebar with the same five, New chat and Recents. Work opens as a sheet.                       |
-| Desktop (≥ 1024 px)  | Sidebar · chat · collapsible work pane on the right.                                                |
+| Width                | Chrome                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| Phone (< 640 px)     | Bottom tab bar: Chat · Past chats · Needs you · Crew · Settings. Work opens as a full-screen sheet.       |
+| Tablet (640–1023 px) | Left sidebar with the same five, New chat and Recents. Work opens as a sheet.                             |
+| Desktop (≥ 1024 px)  | Sidebar · chat · a work pane on the right that opens when there is work to show and closes with ✕ or Esc. |
 
 The bot switcher is the floating avatar pill in the chat header at every
-width. Needs you has a badge everywhere, and the chat header carries a
-"needs you" chip when another bot is waiting, so an approval can be settled
-without leaving the chat.
+width. Needs you has a badge everywhere, and a "needs you" pill floats above
+the composer when another chat or bot is waiting, so an approval can be
+settled without leaving the chat. The header stays narrow enough for 390 px.
 
 ## Brand
 
@@ -69,6 +69,6 @@ Tap counts on a phone, from the Chat tab, before → after this redesign:
 | -------------------------- | --------------------------- | ---------------------------------------------- |
 | Send a message             | 2 (focus, send)             | 2                                              |
 | Switch bot                 | 2 (pill, bot)               | 2 (desktop: 1 in the sidebar, or ⌘K)           |
-| Approve another bot's card | 3 (Needs you, row, Approve) | 2 (needs chip or tab, Approve inline)          |
+| Approve another bot's card | 3 (Needs you, row, Approve) | 2 (Needs you pill or tab, Approve inline)      |
 | See what a bot is doing    | 2 (task pill, task)         | 1 (task pill opens the work)                   |
 | Find an old chat           | 3 (…, Past chats, row)      | 2 (Past chats tab, row; desktop: 1 in Recents) |

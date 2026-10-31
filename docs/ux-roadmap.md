@@ -142,3 +142,17 @@ as tokens in `index.css`; the 44 px tap-target audit (pattern 12 leftover)
 passes on the new screens at 390.
 Remaining: the shared card grammar (proposal section 3), push instead of poll,
 sign-in, and the per-bot notification switch.
+
+**Milestone 2 — Redesign** (2026-10-31, `docs/design/direction.md`): DONE —
+Past chats is its own tab (five: Chat · Past chats · Needs you · Crew ·
+Settings) and a Recents list in the sidebar; New chat sits in the chat header
+and the sidebar (N). On desktop a work pane opens beside the chat for tasks,
+files, memory and Needs you (a sheet on phones). Approvals settle inline in
+Needs you with a short "Approved" confirmation, and a pill above the composer
+says when another chat needs you. Rebrand: one brand module
+(`lib/brand.ts`), the amber sprout mark, icons and a voice guide
+(`docs/design/brand.md`). Every bot has a deterministic character. The
+profile has a centered hero, pill tabs with live counts and file-style cards.
+Delight: one radius scale, press and send states, skeletons, character empty
+states, and a Cmd/Ctrl-K quick switcher with N and ? shortcuts.
+Remaining: sign-in, push instead of poll, and the per-bot notification switch.
