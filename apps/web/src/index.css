@@ -96,6 +96,17 @@
   --signal: oklch(0.55 0.2 32);
   --signal-foreground: oklch(0.99 0 0);
   --hairline: oklch(0.235 0.018 275 / 14%);
+  /* The brand mark keeps its colors in both themes (brand.ts has the hex). */
+  --brand-amber: oklch(0.82 0.12 78);
+  --brand-ink: oklch(0.166 0.012 275);
+  /* Character bodies: six soft hues at one lightness, eyes in ink. */
+  --char-1: oklch(0.8 0.12 78);
+  --char-2: oklch(0.76 0.12 30);
+  --char-3: oklch(0.78 0.11 160);
+  --char-4: oklch(0.76 0.1 235);
+  --char-5: oklch(0.74 0.11 295);
+  --char-6: oklch(0.77 0.11 350);
+  --char-ink: oklch(0.2 0.015 275);
 
   --background: var(--gray-2);
   --foreground: var(--gray-12);
@@ -149,6 +160,13 @@
   --signal: oklch(0.72 0.18 33);
   --signal-foreground: oklch(0.18 0.03 30);
   --hairline: oklch(1 0 0 / 8.5%);
+  --char-1: oklch(0.82 0.12 78);
+  --char-2: oklch(0.76 0.13 30);
+  --char-3: oklch(0.8 0.11 160);
+  --char-4: oklch(0.77 0.1 235);
+  --char-5: oklch(0.75 0.12 295);
+  --char-6: oklch(0.78 0.12 350);
+  --char-ink: oklch(0.166 0.012 275);
 
   --background: var(--gray-2);
   --foreground: var(--gray-12);
@@ -348,6 +366,59 @@ svg.lucide {
 @media (prefers-reduced-motion: reduce) {
   .settle-in,
   .settle-mark {
+    animation: none;
+  }
+}
+
+/* Characters (the brand mark, bot avatars): a blink on hover or focus, one
+   look-around when thinking, a hop when something needs you. All of it is
+   transform-only and stops entirely under reduced motion; nothing loops
+   while idle. */
+.char-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.brand-mark:hover .char-eyes,
+.char:hover .char-eyes,
+:focus-visible > .char .char-eyes,
+.char[data-blink] .char-eyes {
+  animation: char-blink 180ms ease-in-out;
+}
+.char[data-mood="thinking"] .char-eyes {
+  animation: char-look 1.6s ease-in-out infinite;
+}
+.char[data-mood="alert"] {
+  animation: char-hop 420ms cubic-bezier(0.3, 1.5, 0.5, 1) 2;
+}
+@keyframes char-blink {
+  50% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes char-look {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-1.6px);
+  }
+  70% {
+    transform: translateX(1.6px);
+  }
+}
+@keyframes char-hop {
+  50% {
+    transform: translateY(-12%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .char-eyes,
+  .char,
+  .brand-mark:hover .char-eyes,
+  .char:hover .char-eyes,
+  .char[data-mood] .char-eyes,
+  .char[data-mood="alert"] {
     animation: none;
   }
 }

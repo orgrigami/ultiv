@@ -29,6 +29,7 @@ import { aboveComposer, useChatScroll } from "@/lib/use-chat-scroll";
 import { api } from "@/lib/api";
 import { useOpenWork } from "@/lib/work-pane";
 import { NeedsPill } from "@/components/needs-pill";
+import { useDocumentTitle } from "@/components/page";
 import { prepareForUpload, uploadNameOf } from "@/lib/image";
 import { useStagedAttachments, type Staged } from "@/components/composer-attachments";
 
@@ -229,6 +230,7 @@ export function SessionView({
   };
 
   const announcement = useAnnouncement(bot?.name, transcript, pending);
+  useDocumentTitle(bot?.name);
 
   // Frameless: the chat is the page. The transcript fills it and scrolls
   // UNDER the translucent header and composer, which float on top.

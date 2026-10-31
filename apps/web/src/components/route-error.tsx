@@ -41,7 +41,7 @@ export function RouteError({ error, reset }: { error: unknown; reset: () => void
       : String(error ?? "unknown error");
   return (
     <Shell
-      title="Something went wrong"
+      title="This screen didn't load"
       words="Only this screen failed. Reloading usually fixes it; if it keeps happening, the error line below has the details."
       detail={detail}
     >

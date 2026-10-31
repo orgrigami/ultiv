@@ -3,6 +3,7 @@
  * a test. Explains, in plain words, why it can't be turned on here (not
  * https, iPhone not installed, blocked, server not set up).
  */
+import { BRAND } from "@/lib/brand";
 import { BellIcon, BellOffIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +68,7 @@ export function PushToggle() {
         <p className="text-muted-foreground">
           Get a notification on this device when a task finishes or fails, a bot needs your
           approval, a routine gets a reply, or a message between bots times out. Nothing is sent
-          while Ultiv is open on screen.
+          while {BRAND.name} is open on screen.
         </p>
         {blocker !== null ? (
           <p className="text-muted-foreground">{blocker}</p>

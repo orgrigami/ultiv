@@ -187,7 +187,7 @@ function EscalationRow({ event, bot }: { event: AuditEvent; bot: string }) {
       <Mark kind="attention" tone="signal" label="Needs your attention" className="mt-1 size-3.5" />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="text-signal break-words first-letter:uppercase">
-          {event.error ?? "Something went wrong"}
+          {event.error ?? "The run failed"}
         </span>
         <span className="text-muted-foreground text-xs">
           {[

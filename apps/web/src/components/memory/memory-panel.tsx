@@ -213,7 +213,7 @@ function MemoryStatus({
       )}
       {status === "error" && (
         <div className="mt-4">
-          <ErrorState message={error ?? "Something went wrong."} onRetry={() => void load()} />
+          <ErrorState message={error ?? "Couldn't load memory."} onRetry={() => void load()} />
         </div>
       )}
     </>

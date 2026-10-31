@@ -14,8 +14,14 @@
         font:
           16px/1.5 system-ui,
           sans-serif;
-        background: Canvas;
-        color: CanvasText;
+        background: #f5f4f0;
+        color: #24252d;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0d0e14;
+          color: #ece7de;
+        }
       }
       main {
         max-width: 22rem;
@@ -25,13 +31,13 @@
       img {
         width: 64px;
         height: 64px;
-        border-radius: 14px;
+        border-radius: 16px;
       }
       button {
         min-height: 44px;
         padding: 0 1.25rem;
         font: inherit;
-        border-radius: 10px;
+        border-radius: 999px;
         border: 1px solid currentColor;
         background: transparent;
         color: inherit;
@@ -42,7 +48,7 @@
     <main>
       <img src="/icons/icon-192.png" alt="" />
       <h1>You're offline</h1>
-      <p>Ultiv needs a connection to your server. Check your network or tailnet, then try again.</p>
+      <p>Ultiv can't reach your server right now. Check your network or tailnet, then try again.</p>
       <button type="button" onclick="location.reload()">Try again</button>
     </main>
   </body>

@@ -7,6 +7,7 @@
  * five. Both mark the current section with aria-current and show the Needs
  * you count.
  */
+import { BrandLockup } from "@/components/brand-mark";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellDotIcon,
@@ -144,7 +145,7 @@ function Wordmark() {
   const phase = sessions.phase;
   return (
     <div className="flex items-center gap-2 px-3 pt-1 pb-2">
-      <span className="text-[0.9375rem] font-semibold tracking-tight">ultiv</span>
+      <BrandLockup />
       <span
         className="readout text-muted-foreground flex items-center gap-1.5"
         title={phase === "live" ? "Connected" : "Reconnecting"}
