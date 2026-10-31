@@ -424,6 +424,15 @@ export const api = {
     send<{ ok: boolean }>(`/api/sensors/${encodeURIComponent(id)}`, "DELETE"),
   routineEvents: (limit?: number): Promise<RoutineEvent[]> =>
     getJson<RoutineEvent[]>(`/api/routines/events?limit=${limit ?? 30}`),
+  /**
+   * One bot's audit tail (read-only; its Crew profile Activity tab). The
+   * server filters by profile after taking the tail, so read the widest
+   * window and keep this bot's newest `limit` here.
+   */
+  auditOf: async (profileId: string, limit = 50): Promise<AuditEvent[]> =>
+    (
+      await getJson<AuditEvent[]>(`/api/audit?limit=1000&profile=${encodeURIComponent(profileId)}`)
+    ).slice(-limit),
   audit: (limit?: number): Promise<AuditEvent[]> =>
     getJson<AuditEvent[]>(`/api/audit?limit=${limit ?? 200}`),
   /** Jev's decisions in one chat (approval mode 'jev'), newest last. */

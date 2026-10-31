@@ -119,7 +119,13 @@ export function ModelFields({
  * each got there when an approval card was answered with "Always allow".
  * Removing one returns the tool to the bot's approval mode immediately.
  */
-function AutoApproveField({ bot, refresh }: { bot: ProfileInfo; refresh: () => Promise<void> }) {
+export function AutoApproveField({
+  bot,
+  refresh,
+}: {
+  bot: ProfileInfo;
+  refresh: () => Promise<void>;
+}) {
   const tools = bot.policies.autoApprove;
   const [busyTool, setBusyTool] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

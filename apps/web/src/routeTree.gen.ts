@@ -19,6 +19,8 @@ import { Route as SkillsRouteImport } from './routes/skills'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as VaultRouteImport } from './routes/vault'
 import { Route as CSessionIdRouteImport } from './routes/c.$sessionId'
+import { Route as CrewIndexRouteImport } from './routes/crew.index'
+import { Route as CrewBotIdRouteImport } from './routes/crew.$botId'
 import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +73,16 @@ const CSessionIdRoute = CSessionIdRouteImport.update({
   path: '/c/$sessionId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CrewIndexRoute = CrewIndexRouteImport.update({
+  id: '/crew/',
+  path: '/crew/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrewBotIdRoute = CrewBotIdRouteImport.update({
+  id: '/crew/$botId',
+  path: '/crew/$botId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
   id: '/sessions/$sessionId',
   path: '/sessions/$sessionId',
@@ -88,7 +100,9 @@ export interface FileRoutesByFullPath {
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
+  '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/crew/': typeof CrewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,7 +115,9 @@ export interface FileRoutesByTo {
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
+  '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/crew': typeof CrewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,7 +131,9 @@ export interface FileRoutesById {
   '/tools': typeof ToolsRoute
   '/vault': typeof VaultRoute
   '/c/$sessionId': typeof CSessionIdRoute
+  '/crew/$botId': typeof CrewBotIdRoute
   '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/crew/': typeof CrewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,7 +148,9 @@ export interface FileRouteTypes {
     | '/tools'
     | '/vault'
     | '/c/$sessionId'
+    | '/crew/$botId'
     | '/sessions/$sessionId'
+    | '/crew/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -143,7 +163,9 @@ export interface FileRouteTypes {
     | '/tools'
     | '/vault'
     | '/c/$sessionId'
+    | '/crew/$botId'
     | '/sessions/$sessionId'
+    | '/crew'
   id:
     | '__root__'
     | '/'
@@ -156,7 +178,9 @@ export interface FileRouteTypes {
     | '/tools'
     | '/vault'
     | '/c/$sessionId'
+    | '/crew/$botId'
     | '/sessions/$sessionId'
+    | '/crew/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,7 +194,9 @@ export interface RootRouteChildren {
   ToolsRoute: typeof ToolsRoute
   VaultRoute: typeof VaultRoute
   CSessionIdRoute: typeof CSessionIdRoute
+  CrewBotIdRoute: typeof CrewBotIdRoute
   SessionsSessionIdRoute: typeof SessionsSessionIdRoute
+  CrewIndexRoute: typeof CrewIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -245,6 +271,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/crew/': {
+      id: '/crew/'
+      path: '/crew'
+      fullPath: '/crew/'
+      preLoaderRoute: typeof CrewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crew/$botId': {
+      id: '/crew/$botId'
+      path: '/crew/$botId'
+      fullPath: '/crew/$botId'
+      preLoaderRoute: typeof CrewBotIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sessions/$sessionId': {
       id: '/sessions/$sessionId'
       path: '/sessions/$sessionId'
@@ -266,7 +306,9 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsRoute: ToolsRoute,
   VaultRoute: VaultRoute,
   CSessionIdRoute: CSessionIdRoute,
+  CrewBotIdRoute: CrewBotIdRoute,
   SessionsSessionIdRoute: SessionsSessionIdRoute,
+  CrewIndexRoute: CrewIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

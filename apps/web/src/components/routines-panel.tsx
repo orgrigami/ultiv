@@ -38,7 +38,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = 
   rejected: "destructive",
 };
 
-interface Routines {
+export interface Routines {
   cron: CronJobInfo[];
   webhooks: WebhookInfo[];
   sensors: SensorInfo[];
@@ -61,9 +61,34 @@ async function loadRoutines(): Promise<Routines> {
   return { cron, webhooks, sensors, events, escalations };
 }
 
-/** The routines content, shown on the /routines page. */
-export function RoutinesContent({ profiles }: { profiles: ProfileInfo[] }) {
-  const [data, setData] = useState<Routines | null>(null);
+/** Keep only what belongs to one bot (receipts follow their routine). */
+export function routinesOf(data: Routines, botId: string): Routines {
+  const cron = data.cron.filter((job) => job.profile === botId);
+  const webhooks = data.webhooks.filter((hook) => hook.profile === botId);
+  const sensors = data.sensors.filter((sensor) => sensor.profile === botId);
+  const ids = new Set([...cron, ...webhooks, ...sensors].map((routine) => routine.id));
+  return {
+    cron,
+    webhooks,
+    sensors,
+    events: data.events.filter((event) => ids.has(event.routineId)),
+    escalations: data.escalations.filter((event) => event.profile === botId),
+  };
+}
+
+/**
+ * The routines content: every bot's on the /routines page, or one bot's on
+ * its Crew profile when `botId` is set.
+ */
+export function RoutinesContent({
+  profiles,
+  botId,
+}: {
+  profiles: ProfileInfo[];
+  botId?: string | undefined;
+}) {
+  const [all, setData] = useState<Routines | null>(null);
+  const data = all === null || botId === undefined ? all : routinesOf(all, botId);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -76,7 +101,9 @@ export function RoutinesContent({ profiles }: { profiles: ProfileInfo[] }) {
   }, []);
   useEffect(() => void load(), [load]);
 
-  const active = profiles.filter((profile) => profile.archivedAt === null);
+  const active = profiles.filter(
+    (profile) => profile.archivedAt === null && (botId === undefined || profile.id === botId),
+  );
   const bot = (id: string | null): string =>
     profiles.find((profile) => profile.id === id)?.name ?? "A removed bot";
   const remove = (action: () => Promise<unknown>) => async () => {

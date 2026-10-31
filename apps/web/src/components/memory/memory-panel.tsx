@@ -1,7 +1,9 @@
 /**
  * What a bot remembers, in tabs: Facts, People & things, Core, Tidy, Files
  * (spec §13.2). The shell owns loading and refresh; each tab owns its own
- * writes and their errors.
+ * writes and their errors. The same body renders in the dialog (MemoryPanel)
+ * and inline on a bot's Crew profile (MemoryContent), where Files is its own
+ * profile tab.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorState } from "@/components/ui/empty-state";
@@ -35,24 +37,32 @@ export interface MemoryData {
   kv: { key: string; value: string; updatedAt: number }[];
 }
 
-function tabItems(openCount: number): { id: MemoryTabId; label: string; badge?: number }[] {
-  return [
+const ALL_TABS: readonly MemoryTabId[] = ["facts", "people", "core", "tidy", "files"];
+
+function tabItems(
+  openCount: number,
+  only: readonly MemoryTabId[],
+): { id: MemoryTabId; label: string; badge?: number }[] {
+  const items: { id: MemoryTabId; label: string; badge?: number }[] = [
     { id: "facts", label: t.TABS.facts },
     { id: "people", label: t.TABS.people },
     { id: "core", label: t.TABS.core },
     { id: "tidy", label: t.TABS.tidy, ...(openCount > 0 ? { badge: openCount } : {}) },
     { id: "files", label: t.TABS.files },
   ];
+  return items.filter((item) => only.includes(item.id));
 }
 
 function TabStrip({
   tab,
   onTab,
   openCount,
+  tabs,
 }: {
   tab: MemoryTabId;
   onTab: (next: MemoryTabId) => void;
   openCount: number;
+  tabs: readonly MemoryTabId[];
 }) {
   return (
     <div
@@ -60,7 +70,7 @@ function TabStrip({
       aria-label="Memory sections"
       className="border-border mt-3 flex gap-1 overflow-x-auto border-b pb-1"
     >
-      {tabItems(openCount).map((item) => (
+      {tabItems(openCount, tabs).map((item) => (
         <button
           key={item.id}
           type="button"
@@ -97,7 +107,9 @@ function MemoryBody({
   reload,
   refreshError,
   initialQuery,
+  tabs = ALL_TABS,
 }: {
+  tabs?: readonly MemoryTabId[] | undefined;
   data: MemoryData;
   tab: MemoryTabId;
   onTab: (next: MemoryTabId) => void;
@@ -117,7 +129,9 @@ function MemoryBody({
   };
   return (
     <>
-      <TabStrip tab={tab} onTab={onTab} openCount={data.openCount} />
+      {tabs.length > 1 && (
+        <TabStrip tab={tab} onTab={onTab} openCount={data.openCount} tabs={tabs} />
+      )}
       {refreshError !== null && (
         <ErrorState
           message={`Refresh failed: ${refreshError}`}
@@ -127,8 +141,8 @@ function MemoryBody({
       )}
       <div
         id={`memory-tabpanel-${tab}`}
-        role="tabpanel"
-        aria-labelledby={`memory-tab-${tab}`}
+        role={tabs.length > 1 ? "tabpanel" : undefined}
+        aria-labelledby={tabs.length > 1 ? `memory-tab-${tab}` : undefined}
         className="mt-3 flex flex-col gap-2"
       >
         {tab === "facts" && <FactsTab {...tabProps} />}
@@ -142,44 +156,11 @@ function MemoryBody({
   );
 }
 
-export function MemoryPanel({
-  profileId,
-  name,
-  children,
-  open: controlledOpen,
-  onOpenChange,
-  initialQuery,
-}: {
-  profileId: string;
-  name: string;
-  /** The trigger; omit it and drive `open` instead (e.g. from a menu item). */
-  children?: React.ReactElement | undefined;
-  open?: boolean | undefined;
-  onOpenChange?: ((open: boolean) => void) | undefined;
-  /** Pre-fills the Facts tab's search (a memory chip deep link). */
-  initialQuery?: string | undefined;
-}) {
-  const [ownOpen, setOwnOpen] = useState(false);
-  const open = controlledOpen ?? ownOpen;
-  const setOpen = (next: boolean): void => {
-    setOwnOpen(next);
-    onOpenChange?.(next);
-  };
+/** Loads a bot's memory (both stores, files, KV state) while `enabled`. */
+function useMemoryData(profileId: string, enabled: boolean) {
   const [data, setData] = useState<MemoryData | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<MemoryTabId>("facts");
-  const titleRef = useRef<HTMLHeadingElement | null>(null);
-
-  // Focus the title, not the first fact's Forget button.
-  useEffect(() => {
-    if (open) {
-      const id = window.setTimeout(() => titleRef.current?.focus(), 50);
-      return () => window.clearTimeout(id);
-    }
-    return undefined;
-  }, [open]);
-
   const load = useCallback(async (): Promise<void> => {
     setStatus((current) => (current === "ready" ? "ready" : "loading"));
     try {
@@ -208,8 +189,104 @@ export function MemoryPanel({
   }, [profileId]);
 
   useEffect(() => {
-    if (open) void load();
-  }, [open, load]);
+    if (enabled) void load();
+  }, [enabled, load]);
+  return { data, status, error, load };
+}
+
+/** Loading and error lines shared by the dialog and the inline view. */
+function MemoryStatus({
+  status,
+  error,
+  load,
+}: {
+  status: "idle" | "loading" | "ready" | "error";
+  error: string | null;
+  load: () => Promise<void>;
+}) {
+  return (
+    <>
+      {status === "loading" && (
+        <p className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
+          <Spinner /> Loading memory…
+        </p>
+      )}
+      {status === "error" && (
+        <div className="mt-4">
+          <ErrorState message={error ?? "Something went wrong."} onRetry={() => void load()} />
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The memory view inline (a Crew profile tab); `tabs` limits the sections. */
+export function MemoryContent({
+  profileId,
+  name,
+  tabs = ALL_TABS,
+}: {
+  profileId: string;
+  name: string;
+  tabs?: readonly MemoryTabId[];
+}) {
+  const { data, status, error, load } = useMemoryData(profileId, true);
+  const [tab, setTab] = useState<MemoryTabId>(tabs[0] ?? "facts");
+  return (
+    <div className="flex flex-col">
+      <MemoryStatus status={status} error={error} load={load} />
+      {data !== null && status === "ready" && (
+        <MemoryBody
+          data={data}
+          tab={tab}
+          onTab={setTab}
+          profileId={profileId}
+          name={name}
+          reload={load}
+          refreshError={error}
+          tabs={tabs}
+        />
+      )}
+    </div>
+  );
+}
+
+export function MemoryPanel({
+  profileId,
+  name,
+  children,
+  open: controlledOpen,
+  onOpenChange,
+  initialQuery,
+}: {
+  profileId: string;
+  name: string;
+  /** The trigger; omit it and drive `open` instead (e.g. from a menu item). */
+  children?: React.ReactElement | undefined;
+  open?: boolean | undefined;
+  onOpenChange?: ((open: boolean) => void) | undefined;
+  /** Pre-fills the Facts tab's search (a memory chip deep link). */
+  initialQuery?: string | undefined;
+}) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = controlledOpen ?? ownOpen;
+  const setOpen = (next: boolean): void => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
+  const [tab, setTab] = useState<MemoryTabId>("facts");
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+
+  // Focus the title, not the first fact's Forget button.
+  useEffect(() => {
+    if (open) {
+      const id = window.setTimeout(() => titleRef.current?.focus(), 50);
+      return () => window.clearTimeout(id);
+    }
+    return undefined;
+  }, [open]);
+
+  const { data, status, error, load } = useMemoryData(profileId, open);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -218,16 +295,7 @@ export function MemoryPanel({
         <DialogTitle ref={titleRef} tabIndex={-1} className="outline-none">
           {t.panelTitle(name)}
         </DialogTitle>
-        {status === "loading" && (
-          <p className="text-muted-foreground mt-4 flex items-center gap-2 text-sm">
-            <Spinner /> Loading memory…
-          </p>
-        )}
-        {status === "error" && (
-          <div className="mt-4">
-            <ErrorState message={error ?? "Something went wrong."} onRetry={() => void load()} />
-          </div>
-        )}
+        <MemoryStatus status={status} error={error} load={load} />
         {data !== null && status === "ready" && (
           <MemoryBody
             data={data}

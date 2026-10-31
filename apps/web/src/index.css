@@ -26,6 +26,8 @@
   --color-chart-1: var(--chart-1);
   --color-live: var(--live);
   --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-warning: var(--warning);
   --color-ok: var(--ok);
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -75,6 +77,8 @@
   --destructive: oklch(0.55 0.21 27);
   --live: oklch(0.62 0.13 70);
   --signal: oklch(0.55 0.2 30);
+  --signal-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.52 0.13 65);
   --ok: oklch(0.58 0.12 158);
   --border: oklch(0.235 0.018 275 / 14%);
   --input: oklch(0.235 0.018 275 / 16%);
@@ -113,6 +117,8 @@
   --destructive: oklch(0.65 0.2 25);
   --live: oklch(0.8 0.125 75);
   --signal: oklch(0.71 0.185 33);
+  --signal-foreground: oklch(0.18 0.03 30);
+  --warning: oklch(0.8 0.14 75);
   --ok: oklch(0.75 0.11 160);
   --border: oklch(1 0 0 / 8.5%);
   --input: oklch(1 0 0 / 13%);
