@@ -1,7 +1,7 @@
 /**
  * The file card: one row for a bot-shared file, everywhere it appears — chat
  * transcript (artifact_write steps, bot reply links), the Files tab, the task
- * sheet. Preview opens the shared dialog; Download rides the server's ?dl=1
+ * work. Preview opens the work pane (a dialog outside the app shell); Download rides the server's ?dl=1
  * content disposition, so the filename survives the save.
  */
 import { useEffect, useState, type ComponentType } from "react";
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { FilePreviewDialog } from "@/components/file-preview";
 import { api } from "@/lib/api";
+import { useOpenWork } from "@/lib/work-pane";
 import {
   formatBytes,
   kindLabel,
@@ -75,6 +76,9 @@ function useFileInfo(file: FileRef): Info {
 export function FileCard({ file, className }: { file: FileRef; className?: string }) {
   const { file: known, missing } = useFileInfo(file);
   const [target, setTarget] = useState<FileRef | null>(null);
+  const openWork = useOpenWork();
+  const preview = (): void =>
+    openWork === null ? setTarget(known) : openWork({ kind: "file", file: known });
   const kind = previewKindOf(known.mime, known.name);
   const Icon = ICONS[kind];
   return (
@@ -100,7 +104,7 @@ export function FileCard({ file, className }: { file: FileRef; className?: strin
         <button
           type="button"
           aria-label={`Preview ${known.name}`}
-          onClick={() => setTarget(known)}
+          onClick={preview}
           className={ACTION}
         >
           <EyeIcon className="size-4" />

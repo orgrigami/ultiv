@@ -1,18 +1,33 @@
 /**
  * The files an owner attached to an input, rendered inside the message
- * bubble: images show a thumbnail that opens the file preview dialog, other
+ * bubble: images show a thumbnail that opens the file in the work pane, other
  * files render a standard file card. Refs only — bytes live behind
  * /api/artifacts/:id, never in the transcript state.
  */
 import { useState } from "react";
 import type { AttachmentRef } from "@ultiv/contracts";
 import { api } from "@/lib/api";
+import { useOpenWork } from "@/lib/work-pane";
 import { FileCard } from "./file-card.tsx";
 import { FilePreviewDialog } from "./file-preview.tsx";
 
 /** Thumbnails for images (open the preview), file cards for everything else. */
 export function AttachmentChips({ attachments }: { attachments: readonly AttachmentRef[] }) {
   const [open, setOpen] = useState<AttachmentRef | undefined>(undefined);
+  const openWork = useOpenWork();
+  const preview = (ref: AttachmentRef): void => {
+    if (openWork === null) setOpen(ref);
+    else
+      openWork({
+        kind: "file",
+        file: {
+          id: ref.id,
+          name: ref.name,
+          mime: ref.mime,
+          ...(ref.bytes !== undefined ? { bytes: ref.bytes } : {}),
+        },
+      });
+  };
   return (
     <span className="mt-1 flex flex-wrap items-end gap-1.5">
       {attachments.map((ref) =>
@@ -21,7 +36,7 @@ export function AttachmentChips({ attachments }: { attachments: readonly Attachm
             key={ref.id}
             type="button"
             className="focus-visible:ring-ring/50 block overflow-hidden rounded-lg border border-border/70 focus-visible:ring-2 focus-visible:outline-none"
-            onClick={() => setOpen(ref)}
+            onClick={() => preview(ref)}
             aria-label={`Open ${ref.name}`}
             title={ref.name}
           >

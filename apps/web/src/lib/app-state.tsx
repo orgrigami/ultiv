@@ -39,32 +39,31 @@ export interface AppState {
   /** Re-read the unpolled Needs you inputs (tidy counts, escalations). */
   reloadNeeds: () => Promise<void>;
   dismissNeed: (id: string) => void;
+  /** Every task the owner can see (polled), for the work pane's fresh status. */
+  tasks: readonly TaskRow[];
+  /** Re-read waiting approvals now (after one is settled outside its chat). */
+  reloadApprovals: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | null>(null);
 
-function useApprovals(): readonly PendingApprovalRow[] {
+function useApprovals(): [readonly PendingApprovalRow[], () => Promise<void>] {
   const [approvals, setApprovals] = useState<readonly PendingApprovalRow[]>([]);
+  const load = useCallback(async (): Promise<void> => {
+    try {
+      setApprovals(await api.pendingApprovals());
+      pollRecovered("approvals-poll");
+    } catch (cause) {
+      // Keep the last known set, but say the badges may be stale.
+      pollFailed("approvals-poll", "Approval badges may be out of date", cause);
+    }
+  }, []);
   useEffect(() => {
-    let alive = true;
-    const load = async (): Promise<void> => {
-      try {
-        const pending = await api.pendingApprovals();
-        if (alive) setApprovals(pending);
-        pollRecovered("approvals-poll");
-      } catch (cause) {
-        // Keep the last known set, but say the badges may be stale.
-        pollFailed("approvals-poll", "Approval badges may be out of date", cause);
-      }
-    };
     void load();
     const timer = setInterval(() => void load(), 5_000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, []);
-  return approvals;
+    return () => clearInterval(timer);
+  }, [load]);
+  return [approvals, load];
 }
 
 function useTasks(): readonly TaskRow[] {
@@ -112,7 +111,7 @@ function useNeedsExtra(): [NeedsYouExtra | null, () => Promise<void>] {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const sessions = useSessions();
-  const approvals = useApprovals();
+  const [approvals, reloadApprovals] = useApprovals();
   const tasks = useTasks();
   const [extra, reloadNeeds] = useNeedsExtra();
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(readDismissed);
@@ -185,6 +184,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         needsCount: needs.length,
         reloadNeeds,
         dismissNeed,
+        tasks,
+        reloadApprovals,
       }}
     >
       {children}

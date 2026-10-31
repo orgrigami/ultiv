@@ -294,6 +294,64 @@ svg.lucide {
   font-variant-numeric: tabular-nums;
 }
 
+/* Skeleton: a placeholder bar with a slow sheen; flat under reduced motion. */
+.skeleton {
+  display: block;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in oklab, var(--foreground) 6%, transparent) 50%,
+        transparent 100%
+      )
+      0 0 / 200% 100% no-repeat,
+    var(--muted);
+  animation: sheen 1.4s ease-in-out infinite;
+}
+@keyframes sheen {
+  from {
+    background-position:
+      150% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -50% 0,
+      0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* A settled decision: the row eases in and its mark pops once. */
+.settle-in {
+  animation: settle-in 180ms ease-out both;
+}
+.settle-mark {
+  animation: settle-pop 200ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes settle-pop {
+  from {
+    transform: scale(0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settle-in,
+  .settle-mark {
+    animation: none;
+  }
+}
+
 /* Press feedback: a tap sinks the control to 98% for a beat. */
 .press {
   transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1.2);

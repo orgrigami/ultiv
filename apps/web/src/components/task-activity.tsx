@@ -1,27 +1,23 @@
 /**
- * A background task's sheet: header (title, status, elapsed, Stop, close),
+ * A background task's work, shown in the work pane: status, elapsed and Stop,
  * the brief folded to two lines, the steps as a friendly timeline that
  * follows the newest step, any approval waiting on it, the result card and
- * the files it made. Full height on phones so nothing floats over it.
+ * the files it made.
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { TaskInfo } from "@ultiv/contracts";
 import { ArrowDownIcon } from "lucide-react";
 import { FileCard } from "@/components/file-card";
 import { ApprovalCard } from "@/components/approval-card";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { BriefRow } from "@/components/task-sheet/brief-row";
 import { ResultCard } from "@/components/task-sheet/result-card";
-import { SheetHeader } from "@/components/task-sheet/sheet-header";
+import { TaskStatusRow } from "@/components/task-sheet/sheet-header";
 import { Timeline } from "@/components/task-sheet/timeline";
 import { useFollow } from "@/components/task-sheet/use-follow";
 import { useTaskActivity } from "@/components/task-sheet/use-task-activity";
 import type { ArtifactRow } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { timelineOf } from "@/lib/task-steps";
-
-const SHEET =
-  "flex flex-col overflow-hidden p-0 pt-4 sm:p-0 sm:pt-4 h-[calc(100dvh-max(0.75rem,env(safe-area-inset-top)))] max-h-none sm:h-[85dvh]";
 
 function Files({ files }: { files: readonly ArtifactRow[] }) {
   if (files.length === 0) return null;
@@ -35,8 +31,8 @@ function Files({ files }: { files: readonly ArtifactRow[] }) {
   );
 }
 
-function SheetBody({ task, open }: { task: TaskInfo; open: boolean }) {
-  const { activity, files, error, load, decide } = useTaskActivity(task, open);
+export function TaskWork({ task }: { task: TaskInfo }) {
+  const { activity, files, error, load, decide } = useTaskActivity(task, true);
   const running = task.status === "running";
   const items = useMemo(
     () =>
@@ -47,7 +43,9 @@ function SheetBody({ task, open }: { task: TaskInfo; open: boolean }) {
   const follow = useFollow(lastKey);
   return (
     <>
-      <SheetHeader task={task} onChanged={() => void load()} />
+      <div className="border-border/60 border-b px-4 pb-3">
+        <TaskStatusRow task={task} onChanged={() => void load()} />
+      </div>
       <div
         ref={follow.ref}
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
@@ -59,7 +57,11 @@ function SheetBody({ task, open }: { task: TaskInfo; open: boolean }) {
           </p>
         )}
         {activity === null && error === null ? (
-          <p className="text-muted-foreground text-sm">Loading…</p>
+          <div aria-label="Loading steps" className="flex flex-col gap-2">
+            <span className="skeleton h-4 w-3/4" />
+            <span className="skeleton h-4 w-1/2" />
+            <span className="skeleton h-4 w-2/3" />
+          </div>
         ) : (
           <Timeline items={items} running={running} />
         )}
@@ -91,23 +93,5 @@ function SheetBody({ task, open }: { task: TaskInfo; open: boolean }) {
         </button>
       )}
     </>
-  );
-}
-
-export function TaskActivityDialog({
-  task,
-  children,
-}: {
-  task: TaskInfo;
-  children: React.ReactElement;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={children} />
-      <DialogContent showCloseButton={false} className={SHEET}>
-        <SheetBody task={task} open={open} />
-      </DialogContent>
-    </Dialog>
   );
 }

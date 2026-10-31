@@ -256,8 +256,42 @@ function InlineBody({ file, kind }: { file: FileRef; kind: PreviewKind }) {
   );
 }
 
-export function FilePreviewDialog({ file, onClose }: { file: FileRef; onClose: () => void }) {
+/** The preview itself (no frame): the work pane and the dialog both show this. */
+export function FilePreviewBody({ file }: { file: FileRef }) {
   const kind = previewKindOf(file.mime, file.name);
+  return kind === "text" ? (
+    file.bytes !== undefined && file.bytes > TEXT_PREVIEW_CHARS ? (
+      <TooLarge name={file.name} />
+    ) : (
+      <TextPreview file={file} />
+    )
+  ) : kind === "markdown" ? (
+    <MarkdownPreview file={file} />
+  ) : kind === "csv" ? (
+    <DelimitedPreview file={file} />
+  ) : (
+    <InlineBody file={file} kind={kind} />
+  );
+}
+
+/** "Text file · 2 KB" under a file's name. */
+export const fileSubtitle = (file: FileRef): string =>
+  `${kindLabel(file.mime, file.name)}${file.bytes === undefined ? "" : ` · ${formatBytes(file.bytes)}`}`;
+
+export function FileDownload({ file }: { file: FileRef }) {
+  return (
+    <a
+      href={api.artifactUrl(file.id, true)}
+      aria-label={`Download ${file.name}`}
+      className={buttonVariants({ variant: "outline", size: "sm" })}
+    >
+      <DownloadIcon data-icon="inline-start" /> Download
+    </a>
+  );
+}
+
+/** The dialog form, for surfaces outside the app shell. */
+export function FilePreviewDialog({ file, onClose }: { file: FileRef; onClose: () => void }) {
   return (
     <Dialog
       open
@@ -269,33 +303,12 @@ export function FilePreviewDialog({ file, onClose }: { file: FileRef; onClose: (
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <DialogTitle className="truncate">{file.name}</DialogTitle>
-            <p className="text-muted-foreground mt-0.5 text-xs">
-              {kindLabel(file.mime, file.name)}
-              {file.bytes === undefined ? "" : ` · ${formatBytes(file.bytes)}`}
-            </p>
+            <p className="text-muted-foreground mt-0.5 text-xs">{fileSubtitle(file)}</p>
           </div>
-          <a
-            href={api.artifactUrl(file.id, true)}
-            aria-label={`Download ${file.name}`}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <DownloadIcon data-icon="inline-start" /> Download
-          </a>
+          <FileDownload file={file} />
         </div>
         <div className="mt-4">
-          {kind === "text" ? (
-            file.bytes !== undefined && file.bytes > TEXT_PREVIEW_CHARS ? (
-              <TooLarge name={file.name} />
-            ) : (
-              <TextPreview file={file} />
-            )
-          ) : kind === "markdown" ? (
-            <MarkdownPreview file={file} />
-          ) : kind === "csv" ? (
-            <DelimitedPreview file={file} />
-          ) : (
-            <InlineBody file={file} kind={kind} />
-          )}
+          <FilePreviewBody file={file} />
         </div>
       </DialogContent>
     </Dialog>

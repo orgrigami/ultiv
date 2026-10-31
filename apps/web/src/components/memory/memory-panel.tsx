@@ -225,10 +225,13 @@ export function MemoryContent({
   profileId,
   name,
   tabs = ALL_TABS,
+  initialQuery,
 }: {
   profileId: string;
   name: string;
   tabs?: readonly MemoryTabId[];
+  /** Pre-fills the Facts tab's search (a memory chip deep link). */
+  initialQuery?: string | undefined;
 }) {
   const { data, status, error, load } = useMemoryData(profileId, true);
   const [tab, setTab] = useState<MemoryTabId>(tabs[0] ?? "facts");
@@ -245,6 +248,7 @@ export function MemoryContent({
           reload={load}
           refreshError={error}
           tabs={tabs}
+          initialQuery={initialQuery}
         />
       )}
     </div>

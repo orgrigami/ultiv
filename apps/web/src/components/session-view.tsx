@@ -19,7 +19,6 @@ import { ApprovalCard, type Decide, type DecideOutcome } from "@/components/appr
 import { ErrorNote } from "@/components/tool-bodies";
 import { ChatSkeleton, EmptyChat, StatusRow } from "@/components/chat-states";
 import { Composer } from "@/components/composer";
-import { MemoryPanel } from "@/components/memory/memory-panel";
 import { QueuedChips } from "@/components/queued-chips";
 import { ChatHeader, type ChatBot, type LinkState } from "@/components/chat-header";
 import { TranscriptItems } from "@/components/transcript-items";
@@ -28,6 +27,8 @@ import type { JevNotice } from "@/lib/jev-text";
 import { turnActivity } from "@/lib/queue-text";
 import { aboveComposer, useChatScroll } from "@/lib/use-chat-scroll";
 import { api } from "@/lib/api";
+import { useOpenWork } from "@/lib/work-pane";
+import { NeedsPill } from "@/components/needs-pill";
 import { prepareForUpload, uploadNameOf } from "@/lib/image";
 import { useStagedAttachments, type Staged } from "@/components/composer-attachments";
 
@@ -202,12 +203,12 @@ export function SessionView({
     staged.clearKeys,
     sessionId,
   );
-  // The bot's Memory panel, opened from the switcher or a memory chip.
-  const [memory, setMemory] = useState<{ open: boolean; query: string }>({
-    open: false,
-    query: "",
-  });
-  const openMemory = (query: string): void => setMemory({ open: true, query });
+  // The bot's memory opens in the work pane, from the switcher or a memory chip.
+  const openWork = useOpenWork();
+  const openMemory = (query: string): void => {
+    if (bot?.id !== undefined)
+      openWork?.({ kind: "memory", profileId: bot.id, name: bot.name, query });
+  };
   const hasBot = bot?.id !== undefined;
   // Control failures (model/effort/stop) are reported above the composer.
   const [controlError, setControlError] = useState<string | null>(null);
@@ -330,6 +331,7 @@ export function SessionView({
           style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
         >
           {tasks}
+          <NeedsPill sessionId={sessionId} botId={bot?.id} />
           {lastError !== null && <ErrorNote message={lastError} />}
           {controlError !== null && <ErrorNote message={`Couldn't apply that: ${controlError}`} />}
           <Composer
@@ -353,15 +355,6 @@ export function SessionView({
           />
         </footer>
       </section>
-      {bot?.id !== undefined && (
-        <MemoryPanel
-          profileId={bot.id}
-          name={bot.name}
-          open={memory.open}
-          onOpenChange={(open) => setMemory((current) => ({ ...current, open }))}
-          initialQuery={memory.query}
-        />
-      )}
     </>
   );
 }

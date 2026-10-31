@@ -40,6 +40,8 @@ export interface NeedsItem {
   at: number | null;
   target: NeedsTarget;
   dismissable: boolean;
+  /** The waiting call itself, so the approval can be settled right here. */
+  approval?: PendingApprovalRow | undefined;
 }
 
 const RANK: Record<NeedsKind, number> = { approval: 0, "failed-task": 1, escalation: 2, tidy: 3 };
@@ -78,6 +80,7 @@ export function needsYouItems(input: {
           ? { kind: "session", sessionId }
           : { kind: "bot-chat", botId: row.profile },
       dismissable: false,
+      approval: row,
     });
   }
 
@@ -164,4 +167,29 @@ export function writeDismissed(ids: ReadonlySet<string>): void {
   } catch {
     // Private mode or a full quota: the dismissal lasts this visit only.
   }
+}
+
+/**
+ * What needs the owner somewhere other than the chat on screen: this chat's
+ * own approvals already show inline, and memory suggestions can wait for the
+ * Needs you tab, so neither nags from the chat.
+ */
+export function needsElsewhere(
+  items: readonly NeedsItem[],
+  here: { sessionId?: string | undefined; botId?: string | undefined },
+): NeedsItem[] {
+  return items.filter((item) => {
+    if (item.kind === "tidy") return false;
+    if (item.kind !== "approval") return true;
+    const target = item.target;
+    if (target.kind === "session") return target.sessionId !== here.sessionId;
+    if (target.kind === "bot-chat") return target.botId !== here.botId;
+    return true;
+  });
+}
+
+/** "Nova wants to run bash" alone, "2 things need you" for more. */
+export function needsPillLabel(items: readonly NeedsItem[]): string {
+  if (items.length === 1) return items[0]!.title;
+  return `${items.length} things need you`;
 }

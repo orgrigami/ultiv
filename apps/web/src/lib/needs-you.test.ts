@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { AuditEvent, ProfileInfo, TaskRow } from "@ultiv/contracts";
 import type { PendingApprovalRow } from "./api";
-import { NEEDS_YOU_LIMIT, needsYouItems } from "./needs-you.ts";
+import { NEEDS_YOU_LIMIT, needsElsewhere, needsPillLabel, needsYouItems } from "./needs-you.ts";
 
 const NOW = 1_800_000_000_000;
 const HOUR = 3_600_000;
@@ -142,5 +142,37 @@ describe("needsYouItems", () => {
   it("stays a short list", () => {
     const approvals = Array.from({ length: 30 }, (_, i) => approval({ callId: `c${i}` }));
     expect(needsYouItems({ ...base, approvals })).toHaveLength(NEEDS_YOU_LIMIT);
+  });
+});
+
+describe("needsElsewhere", () => {
+  const items = needsYouItems({
+    ...base,
+    approvals: [
+      approval({ sessionId: "s-here", callId: "c1" }),
+      approval({ conversationId: "conv-2", profile: "b", callId: "c2" }),
+    ],
+    tasks: [task()],
+    extra: { tidy: [{ profile: "a", open: 2 }], escalations: [], chats: {} },
+  });
+
+  it("carries the waiting call so it can be settled from the list", () => {
+    expect(items[0]?.approval?.callId).toBe("c1");
+  });
+
+  it("drops this chat's own approvals and memory suggestions", () => {
+    const rest = needsElsewhere(items, { sessionId: "s-here", botId: "a" });
+    expect(rest.map((item) => item.id)).toEqual(["approval:conv-2:c2", "task:t1"]);
+  });
+
+  it("drops the open bot's main-chat approval too", () => {
+    const rest = needsElsewhere(items, { sessionId: "other", botId: "b" });
+    expect(rest.map((item) => item.kind)).toEqual(["approval", "failed-task"]);
+    expect(rest[0]?.id).toBe("approval:conv-1:c1");
+  });
+
+  it("labels one item by itself and more by count", () => {
+    expect(needsPillLabel(items.slice(1, 2))).toBe("Bot b wants to run bash");
+    expect(needsPillLabel(items.slice(0, 3))).toBe("3 things need you");
   });
 });
