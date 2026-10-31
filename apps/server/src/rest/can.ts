@@ -43,6 +43,7 @@ export type Resource =
   | { readonly type: "org-settings" }
   | { readonly type: "member" }
   | { readonly type: "grant"; readonly home: HomeRef }
+  | { readonly type: "template"; readonly departmentId: string }
   | { readonly type: "department"; readonly departmentId: string }
   | { readonly type: "department-summary"; readonly departmentId: string }
   | {
@@ -127,16 +128,19 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
       // role and never a plain member.
       return level !== null;
     case "department":
+    case "template":
     case "grant": {
-      // A department's own state, and grants over a home's resources: the
-      // org level, or that home's own admins (an org-home grant is org
-      // level's to give).
+      // A department's own state, its templates, and grants over its
+      // resources: the org level, or that home's own admins (an org-home
+      // grant is org level's to give).
       const deptId =
         resource.type === "department"
           ? resource.departmentId
-          : resource.home.kind === "department"
-            ? resource.home.departmentId
-            : null;
+          : resource.type === "template"
+            ? resource.departmentId
+            : resource.home.kind === "department"
+              ? resource.home.departmentId
+              : null;
       return (
         level !== null ||
         (view !== undefined && deptId !== null && roleAt(actor, view, deptId) === "admin")
