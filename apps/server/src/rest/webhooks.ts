@@ -1,7 +1,7 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
 import { listWebhooks, removeWebhook, rotateWebhookToken } from "@spreissen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
-import { findOwned, ownedRecords, ownsSession } from "./owner-scope.ts";
+import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
 
 export async function webhookRoutes(
@@ -24,13 +24,14 @@ export async function webhookRoutes(
       json(400, { error: "sessionId is required" });
       return true;
     }
-    if (!(await ownsSession(args, body.sessionId))) {
+    const target = await ownedTarget(args, body.sessionId);
+    if (target === undefined) {
       json(404, { error: "unknown session" });
       return true;
     }
     try {
       const webhook = await mind.webhooks.create({
-        sessionId: body.sessionId,
+        sessionId: target,
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.schema !== undefined ? { schema: body.schema } : {}),
       });

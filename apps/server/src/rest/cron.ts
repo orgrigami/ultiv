@@ -1,7 +1,7 @@
 /** Cron routes: the registry, profile-stamped and rendered in the profile's timezone. */
 import { isValidJobStart, nextFireTimes } from "@spreissen/mind";
 import { createCronJob, listCronJobs, removeCronJob } from "../cron.ts";
-import { findOwned, ownedRecords, ownsSession } from "./owner-scope.ts";
+import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 export async function cronRoutes(
@@ -33,12 +33,13 @@ export async function cronRoutes(
       });
       return true;
     }
-    if (!(await ownsSession(args, body.sessionId))) {
+    const target = await ownedTarget(args, body.sessionId);
+    if (target === undefined) {
       json(404, { error: "unknown session" });
       return true;
     }
     const job = await createCronJob(mind.converse, mind.profiles, {
-      sessionId: body.sessionId,
+      sessionId: target,
       schedule: body.schedule ?? "",
       ...(body.once !== undefined && body.once !== null ? { once: body.once } : {}),
       prompt: body.prompt,

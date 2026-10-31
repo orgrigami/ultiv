@@ -18,6 +18,17 @@ export const ownsProfile = async (args: RouteArgs, profileId: string): Promise<b
 export const ownsSession = async (args: RouteArgs, sessionId: string): Promise<boolean> =>
   (await args.mind.profiles.rowOf(sessionId))?.owner === args.owner;
 
+/**
+ * Where a routine the caller creates should deliver: a session they own, or,
+ * when the id names a bot they own, that bot's main chat (the app's pickers
+ * list bots, not sessions). Anything else is undefined ("unknown session").
+ */
+export const ownedTarget = async (args: RouteArgs, id: string): Promise<string | undefined> => {
+  if (await ownsSession(args, id)) return id;
+  if (!(await ownsProfile(args, id))) return undefined;
+  return (await args.mind.profiles.ensureMain(args.owner, id)).id;
+};
+
 /** The ids of every bot the caller owns. */
 export const ownedProfileIds = async (args: RouteArgs): Promise<ReadonlySet<string>> =>
   new Set((await args.mind.profiles.list(args.owner)).map((profile) => profile.id));

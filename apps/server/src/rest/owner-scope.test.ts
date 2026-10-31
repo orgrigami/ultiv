@@ -237,3 +237,29 @@ describe("single-user mode (no header) still works", () => {
     });
   });
 });
+
+describe("routine targets", () => {
+  it("a bot id the caller owns delivers into that bot's main chat; anyone else's is unknown", async () => {
+    const hook = await call("owner-a", "POST", "/api/webhooks", { sessionId: ids.a.bot });
+    expect(hook.status).toBe(200);
+    expect(hook.json.sessionId).toBe(ids.a.session);
+    expect(hook.json.profile).toBe(ids.a.bot);
+    const job = await call("owner-a", "POST", "/api/cron", {
+      sessionId: ids.a.bot,
+      schedule: "0 9 * * *",
+      prompt: "tick",
+    });
+    expect(job.status).toBe(200);
+    expect(job.json.sessionId ?? job.json.job?.sessionId).toBe(ids.a.session);
+    for (const [path, body] of [
+      ["/api/webhooks", { sessionId: ids.a.bot }],
+      ["/api/cron", { sessionId: ids.a.bot, schedule: "0 9 * * *", prompt: "tick" }],
+    ] as const) {
+      const foreign = await call("owner-b", "POST", path, body);
+      expect(foreign, path).toEqual(
+        await call("owner-b", "POST", path, { ...body, sessionId: "no-such-bot" }),
+      );
+      expect(foreign.status, path).toBe(404);
+    }
+  });
+});
