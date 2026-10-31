@@ -1,6 +1,7 @@
 /**
  * The slim chat bar: a round back button, the bot as a centred avatar+name
- * pill that switches bots at every width, and a round "…" that opens the
+ * pill that switches bots at every width with the approval-mode chip beside
+ * it, and a round "…" that opens the
  * session details (new chat, past chats, model, effort, spend, connection).
  * Details live in the popover so the messages get the room.
  */
@@ -10,7 +11,7 @@ import { ChevronLeftIcon, EllipsisIcon, HistoryIcon, SquarePenIcon } from "lucid
 import type { ModelInfo, ProfileApprovalMode, ThinkingLevel, UsageSummary } from "@ultiv/contracts";
 import { linkLabel, type ChatBot, type LinkState } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
-import { APPROVAL_MODE_OPTIONS } from "@/components/bot-dialog";
+import { ApprovalModeChip } from "@/components/approval-mode-control";
 import { BotSwitcher } from "@/components/bot-switcher";
 import { ModelOptions } from "@/components/model-options";
 import { Button } from "@/components/ui/button";
@@ -54,25 +55,21 @@ function ChatActions({ botId }: { botId: string | undefined }) {
   );
 }
 
-/** Model, effort, approvals, this session's spend and the link state. */
+/** Model, effort, this session's spend and the link state. */
 function SessionDetails({
   link,
   usage,
   model,
   effort,
   models,
-  approvalMode,
   onConfigure,
-  onApprovalMode,
 }: {
   link: LinkState;
   usage: UsageSummary | null;
   model: string | null;
   effort: ThinkingLevel | null;
   models: ModelInfo[];
-  approvalMode: ProfileApprovalMode;
   onConfigure: (model: string | null, effort: ThinkingLevel | null) => void;
-  onApprovalMode: (mode: ProfileApprovalMode) => void;
 }) {
   const selected = models.find((candidate) => candidate.id === model);
   const efforts = selected?.efforts ?? (["off", "low", "high", "max"] as const);
@@ -107,20 +104,6 @@ function SessionDetails({
           {efforts.map((level) => (
             <option key={level} value={level}>
               {level}
-            </option>
-          ))}
-        </Select>
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className="section-label">Approvals</span>
-        <Select
-          className="w-full"
-          value={approvalMode}
-          onChange={(event) => onApprovalMode(event.target.value as ProfileApprovalMode)}
-        >
-          {APPROVAL_MODE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
             </option>
           ))}
         </Select>
@@ -185,8 +168,17 @@ export function ChatHeader({
       ) : (
         <span />
       )}
-      <div className="flex min-w-0 justify-center">
+      <div className="flex min-w-0 items-center justify-center gap-1.5">
         <BotSwitcher name={name} currentId={bot?.id} onMemory={onMemory} />
+        {bot !== undefined && (
+          <ApprovalModeChip
+            botName={name}
+            mode={approvalMode}
+            onChange={async (next) => {
+              onApprovalMode(next);
+            }}
+          />
+        )}
       </div>
       <Popover.Root>
         <Popover.Trigger
@@ -206,9 +198,7 @@ export function ChatHeader({
                 model={model}
                 effort={effort}
                 models={models}
-                approvalMode={approvalMode}
                 onConfigure={onConfigure}
-                onApprovalMode={onApprovalMode}
               />
             </Popover.Popup>
           </Popover.Positioner>

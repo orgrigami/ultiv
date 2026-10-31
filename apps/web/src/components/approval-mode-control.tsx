@@ -101,7 +101,7 @@ export function ApprovalModeChip({
                 onValueChange={(value: ProfileApprovalMode) => request(value)}
               >
                 {APPROVAL_MODES.map((value) => (
-                  <Menu.RadioItem key={value} value={value} className={itemClass}>
+                  <Menu.RadioItem key={value} value={value} closeOnClick className={itemClass}>
                     <span className="flex size-4 shrink-0 items-center pt-0.5">
                       <Menu.RadioItemIndicator>
                         <CheckIcon className="size-4" />
