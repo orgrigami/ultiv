@@ -18,6 +18,7 @@ import {
   artifactsPlugin,
   bashPlugin,
   filesPlugin,
+  graphPlugin,
   calendarConfigured,
   calendarPlugin,
   createScopeHolder,
@@ -444,13 +445,13 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         holder,
         () => wiring.converseRef.current,
       );
-      // First-party faculties ride always (temporal, artifacts); the vault and
-      // TinyFish live-web egress and Jev install only when keys are present.
+      // First-party faculties ride always; vault, TinyFish and Jev only with their keys.
       const base = [
         temporalPlugin(),
         artifactsPlugin({ holder }),
         bashPlugin({ holder }),
         filesPlugin({ holder }),
+        graphPlugin(),
         ...(calendarConfigured() ? [calendarPlugin()] : []),
         ...(emailConfigured() ? [emailPlugin()] : []),
         ...(vaultStore !== null ? [vaultPlugin(vaultStore, holder)] : []),
