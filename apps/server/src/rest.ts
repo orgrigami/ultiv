@@ -232,6 +232,11 @@ async function route(args: RouteArgs): Promise<void> {
   if (await approvalRoutes(args)) return;
   if (await secretRoutes(args)) return;
   if (await pushRoutes(args)) return;
-  if (path === "/" || path === "/api/health") return json(200, { app: "spriessen", ok: true });
+  if (path === "/" || path === "/api/health") {
+    // Health is read-only: other methods fall through to the 404 below.
+    return method === "GET" || method === "HEAD"
+      ? json(200, { app: "spriessen", ok: true })
+      : json(404, { error: `no route: ${method} ${path}` });
+  }
   json(404, { error: `no route: ${method} ${path}` });
 }

@@ -99,7 +99,11 @@ const mergeInto = (from: string, target: string): void => {
   for (const entry of readdirSync(from)) {
     const source = join(from, entry);
     const targetPath = join(target, entry);
-    if (statSync(source).isDirectory() && existsSync(targetPath) && statSync(targetPath).isDirectory()) {
+    if (
+      statSync(source).isDirectory() &&
+      existsSync(targetPath) &&
+      statSync(targetPath).isDirectory()
+    ) {
       mergeInto(source, targetPath);
       continue;
     }
