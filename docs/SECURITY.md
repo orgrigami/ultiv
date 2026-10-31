@@ -34,3 +34,48 @@ Tests: `packages/core/src/safe-path.test.ts`,
 `packages/mind/src/skills/confinement.test.ts`, and the
 "artifact routes stay inside the artifacts folder" block in
 `apps/server/src/rest/artifacts.test.ts`.
+
+## Owner scoping
+
+There's no sign-in yet: the owner label is the `x-spreissen-user` header
+(`x-ultiv-user` still accepted), and a request without one is `guest`, which is
+how the web app runs single-user. Every REST route that reads or changes owner
+data asks one helper, `apps/server/src/rest/owner-scope.ts`
+(`ownsProfile`, `ownsSession`, `ownsRecord`, `ownedRecords`, `findOwned`).
+When a real sign-in arrives, only the source of `args.owner`
+(`apps/server/src/identity.ts`) changes; the checks stay.
+
+Another owner's item is answered exactly like a missing one (a 404 with the
+same body, an empty list, or `{ ok: false }`), so ids can't be probed.
+
+Scoped by this helper:
+
+| Route                                                           | Rule                                                                              |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `GET /api/cron`, `GET /api/sensors`, `GET /api/webhooks`        | only records whose session (or, if the session is gone, bot) the caller owns      |
+| `POST /api/cron`, `POST /api/webhooks`                          | the `sessionId` must be the caller's (404 `unknown session` otherwise)            |
+| `DELETE /api/cron/:id`, `/api/sensors/:id`, `/api/webhooks/:id` | `{ ok: false }` for another owner's id, as for a missing one                      |
+| `POST /api/webhooks/:id/test`                                   | 404 `unknown webhook`, as for a missing one                                       |
+| `GET /api/routines/events`                                      | receipts of the caller's own routines only                                        |
+| `GET /api/state`, `DELETE /api/state/:bot/:key`                 | the bot must be the caller's (empty list / `{ ok: false }`)                       |
+| `GET /api/audit`                                                | events of the caller's own bots; unattributed (`profile: null`) events are hidden |
+| `GET /api/artifacts?profile=`                                   | another owner's bot lists as empty                                                |
+| `POST /api/artifacts?sessionId=`                                | the session must be the caller's                                                  |
+| `GET`/`DELETE /api/artifacts/:id`                               | another owner's artifact is 404 `unknown artifact` (was 403)                      |
+| `DELETE /api/artifacts`                                         | clears only the caller's own legacy-root artifacts                                |
+
+Already scoped before, by their own owner checks: sessions, profiles and
+memory, mailbox, rooms, skills, tasks, approvals and needs-you, memory v2,
+vault, bindings, MCP connectors, push and secrets.
+
+Left as they are, on purpose:
+
+- `POST /hooks/:id` is the public webhook ingress; the token is the auth.
+- `/api/models*`, `/api/health` and `/api/server-check` hold no owner data.
+- Legacy flat-root artifacts with `owner: null` (from before per-owner
+  folders) stay readable by everyone, as before.
+- Fire receipts of a deleted routine can't be attributed and stay hidden.
+
+Tests: `apps/server/src/rest/owner-scope.test.ts` (owner-a / owner-b over the
+real REST handler, plus a no-header guest run) and the owner check in
+`vp run smoke`.

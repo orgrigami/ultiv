@@ -35,7 +35,12 @@ const fakeArgs = (
   // The dispatcher feeds routes url.pathname (query excluded) as `path`.
   const path = new URL(`http://x${target}`).pathname;
   const args = {
-    mind: { profiles: { list: async () => [{ id: "p1" }] } },
+    mind: {
+      profiles: {
+        list: async () => [{ id: "p1" }],
+        get: async (_owner: string, id: string) => (id === "p1" ? { id: "p1" } : undefined),
+      },
+    },
     req: { method: options.method ?? "GET" } as IncomingMessage,
     res: {
       writeHead: (status: number, headers: Record<string, string>) => {
@@ -123,14 +128,14 @@ describe("GET /api/artifacts/:id/meta", () => {
     expect(json.body).toMatchObject({ id: info.id, name: "report.md", mime: "text/markdown" });
   });
 
-  it("404s unknown ids and 403s other owners' artifacts", async () => {
+  it("404s unknown ids and other owners' artifacts alike", async () => {
     dir = mkdtempSync(join(tmpdir(), "spreissen-rest-artifacts-"));
     const info = writeArtifact(dir, { name: "secret.md", content: "s", owner: "someone" });
     process.env["ARTIFACTS_DIR"] = dir;
     const missing = await get("/api/artifacts/nope/meta");
     expect(missing.json).toMatchObject({ status: 404, body: { error: "unknown artifact" } });
     const foreign = await get(`/api/artifacts/${info.id}/meta`, "someone-else");
-    expect(foreign.json).toMatchObject({ status: 403, body: { error: "not your artifact" } });
+    expect(foreign.json).toEqual(missing.json);
   });
 });
 
@@ -194,8 +199,12 @@ describe("artifact routes stay inside the artifacts folder", () => {
 
   it("refuses a profile filter or owner label that climbs out", async () => {
     seed();
-    await expect(get("/api/artifacts?profile=..%2F..%2F..")).rejects.toThrow(PathEscapeError);
-    await expect(get("/api/artifacts?profile=%2Ftmp")).rejects.toThrow(PathEscapeError);
+    // A profile that isn't the caller's bot never reaches the filesystem.
+    expect((await get("/api/artifacts?profile=..%2F..%2F..")).json).toEqual({
+      status: 200,
+      body: [],
+    });
+    expect((await get("/api/artifacts?profile=%2Ftmp")).json).toEqual({ status: 200, body: [] });
     await expect(get("/api/artifacts", "../..")).rejects.toThrow(PathEscapeError);
   });
 

@@ -1,6 +1,7 @@
 /** Cron routes: the registry, profile-stamped and rendered in the profile's timezone. */
 import { isValidJobStart, nextFireTimes } from "@spreissen/mind";
 import { createCronJob, listCronJobs, removeCronJob } from "../cron.ts";
+import { findOwned, ownedRecords, ownsSession } from "./owner-scope.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 export async function cronRoutes(
@@ -11,7 +12,7 @@ export async function cronRoutes(
   const method = req.method ?? "GET";
   if (path === "/api/cron" && method === "GET") {
     const profile = queryOr(args, "profile");
-    const jobs = await listCronJobs(mind.converse);
+    const jobs = await ownedRecords(args, await listCronJobs(mind.converse));
     json(200, profile !== undefined ? jobs.filter((job) => job.profile === profile) : jobs);
     return true;
   }
@@ -30,6 +31,10 @@ export async function cronRoutes(
       json(400, {
         error: "sessionId, prompt and a valid schedule (cron or future `once`) are required",
       });
+      return true;
+    }
+    if (!(await ownsSession(args, body.sessionId))) {
+      json(404, { error: "unknown session" });
       return true;
     }
     const job = await createCronJob(mind.converse, mind.profiles, {
@@ -53,8 +58,11 @@ export async function cronRoutes(
     return true;
   }
   if (path.startsWith("/api/cron/") && method === "DELETE") {
-    const removed = await removeCronJob(mind.converse, segment("/api/cron/"));
-    await scheduler.refresh();
+    const id = segment("/api/cron/");
+    // Another owner's job answers like a missing one: { ok: false }.
+    const mine = await findOwned(args, await listCronJobs(mind.converse), id);
+    const removed = mine !== undefined && (await removeCronJob(mind.converse, id));
+    if (removed) await scheduler.refresh();
     json(200, { ok: removed });
     return true;
   }

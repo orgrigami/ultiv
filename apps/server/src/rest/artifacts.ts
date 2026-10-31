@@ -8,7 +8,6 @@ import { Effect } from "effect";
 import {
   artifactFile,
   artifactsDir,
-  clearArtifacts,
   deleteArtifact,
   listArtifacts,
   MAX_UPLOAD_BYTES,
@@ -18,6 +17,7 @@ import {
   searchArtifacts,
   writeArtifactBytes,
 } from "@spreissen/ext";
+import { ownsProfile, ownsSession } from "./owner-scope.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 /** Every directory the owner's artifacts may live in: their profile dirs + the legacy root. */
@@ -48,6 +48,10 @@ const findArtifact = async (
   return undefined;
 };
 
+/**
+ * Legacy flat-root artifacts carry `owner: null` and stay visible to everyone
+ * (single-user era). Another owner's artifact answers 404, like a missing one.
+ */
 const ownedBy = (info: { owner: string | null }, owner: string): boolean =>
   info.owner === null || info.owner === owner;
 
@@ -73,7 +77,7 @@ const serveMeta = async (args: RouteArgs, id: string): Promise<boolean> => {
     return true;
   }
   if (!ownedBy(found.info, args.owner)) {
-    args.json(403, { error: "not your artifact" });
+    args.json(404, { error: "unknown artifact" });
     return true;
   }
   args.json(200, found.info);
@@ -88,7 +92,7 @@ const serveRaw = async (args: RouteArgs, id: string): Promise<boolean> => {
     return true;
   }
   if (!ownedBy(found.info, args.owner)) {
-    args.json(403, { error: "not your artifact" });
+    args.json(404, { error: "unknown artifact" });
     return true;
   }
   const download = queryOr(args, "dl") === "1";
@@ -123,7 +127,14 @@ export async function artifactRoutes(
     const filter: { conversationId?: string; query?: string } = {};
     if (conversationId !== undefined) filter.conversationId = conversationId;
     if (q !== undefined) filter.query = q;
-    const items = (await dirsOf(args, profile)).flatMap((dir) => searchArtifacts(dir, filter));
+    // Another owner's bot lists like a bot with no artifacts.
+    if (profile !== undefined && !(await ownsProfile(args, profile))) {
+      json(200, []);
+      return true;
+    }
+    const items = (await dirsOf(args, profile))
+      .flatMap((dir) => searchArtifacts(dir, filter))
+      .filter((item) => ownedBy(item, args.owner));
     const deduped = new Map(items.map((item) => [item.id, item]));
     json(
       200,
@@ -135,6 +146,10 @@ export async function artifactRoutes(
     const name = queryOr(args, "name") ?? "upload.bin";
     const mime = queryOr(args, "mime") ?? mimeOfName(name);
     const sessionId = queryOr(args, "sessionId");
+    if (sessionId !== undefined && !(await ownsSession(args, sessionId))) {
+      json(404, { error: "unknown session" });
+      return true;
+    }
     const row = sessionId !== undefined ? await mind.profiles.rowOf(sessionId) : undefined;
     const conversationId =
       sessionId !== undefined
@@ -166,7 +181,12 @@ export async function artifactRoutes(
       json(403, { error: "clearing the workspace requires an identified user" });
       return true;
     }
-    json(200, { ok: true, cleared: clearArtifacts(artifactsDir()) });
+    // Only the caller's own legacy-root artifacts; other owners' and the
+    // ownerless legacy ones stay.
+    const root = artifactsDir();
+    const mine = listArtifacts(root).filter((info) => info.owner === args.owner);
+    const cleared = mine.filter((info) => deleteArtifact(root, info.id)).length;
+    json(200, { ok: true, cleared });
     return true;
   }
   if (path.startsWith("/api/artifacts/") && method === "GET") {
@@ -183,12 +203,11 @@ export async function artifactRoutes(
       return true;
     }
     if (!ownedBy(found.info, args.owner)) {
-      json(403, { error: "not your artifact" });
+      json(404, { error: "unknown artifact" });
       return true;
     }
     json(200, { ok: deleteArtifact(found.dir, found.info.id) });
     return true;
   }
-  void listArtifacts;
   return false;
 }

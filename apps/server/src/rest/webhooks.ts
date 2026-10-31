@@ -1,6 +1,7 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
 import { listWebhooks, removeWebhook } from "@spreissen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
+import { findOwned, ownedRecords, ownsSession } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
 
 export async function webhookRoutes(
@@ -10,7 +11,7 @@ export async function webhookRoutes(
   const { req, mind, path, json } = args;
   const method = req.method ?? "GET";
   if (path === "/api/webhooks" && method === "GET") {
-    json(200, await listWebhooks(mind.converse));
+    json(200, await ownedRecords(args, await listWebhooks(mind.converse)));
     return true;
   }
   if (path === "/api/webhooks" && method === "POST") {
@@ -21,6 +22,10 @@ export async function webhookRoutes(
     }>(req);
     if (body.sessionId === undefined || body.sessionId.trim() === "") {
       json(400, { error: "sessionId is required" });
+      return true;
+    }
+    if (!(await ownsSession(args, body.sessionId))) {
+      json(404, { error: "unknown session" });
       return true;
     }
     try {
@@ -36,7 +41,9 @@ export async function webhookRoutes(
     return true;
   }
   if (path.startsWith("/api/webhooks/") && method === "DELETE") {
-    json(200, { ok: await removeWebhook(mind.converse, segment("/api/webhooks/")) });
+    const id = segment("/api/webhooks/");
+    const mine = await findOwned(args, await listWebhooks(mind.converse), id);
+    json(200, { ok: mine !== undefined && (await removeWebhook(mind.converse, id)) });
     return true;
   }
   // Test-fire: probe the schema without delivering — the debugger that key
@@ -45,7 +52,10 @@ export async function webhookRoutes(
     const id = segment("/api/webhooks/").slice(0, -"/test".length);
     try {
       const body = await args.readJson<{ payload?: unknown }>(req);
-      json(200, await testWebhook(mind, id, body.payload ?? {}));
+      // Another owner's webhook gets the same 404 testWebhook gives a missing id.
+      const mine = await findOwned(args, await listWebhooks(mind.converse), id);
+      if (mine === undefined) throw new Error("unknown webhook");
+      json(200, await testWebhook(mind, mine.id, body.payload ?? {}));
     } catch (cause) {
       json(404, { error: String(cause).slice(0, 200) });
     }

@@ -201,7 +201,12 @@ const tiny = (modelList.json as { id: string; input?: string[] }[]).find(
 );
 expect("models carry input modalities", tiny !== undefined && Array.isArray(tiny.input));
 
-const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id });
+const hook = await call(
+  "POST",
+  "/api/webhooks",
+  { sessionId: created.json.id },
+  { "x-spreissen-user": "smoker" },
+);
 expect(
   "webhook create + bad token is 401",
   hook.status === 200 && (await call("POST", `/hooks/${hook.json.id}?token=x`, "b")).status === 401,
@@ -219,11 +224,16 @@ expect(
 );
 
 // Schema gate: mismatched payloads are 422 pre-ack; matching ones pass.
-const schemaHook = await call("POST", "/api/webhooks", {
-  sessionId: created.json.id,
-  name: "deploys",
-  schema: { type: "object", required: ["event"], properties: { event: { type: "string" } } },
-});
+const schemaHook = await call(
+  "POST",
+  "/api/webhooks",
+  {
+    sessionId: created.json.id,
+    name: "deploys",
+    schema: { type: "object", required: ["event"], properties: { event: { type: "string" } } },
+  },
+  { "x-spreissen-user": "smoker" },
+);
 expect("webhook with schema", schemaHook.status === 200 && schemaHook.json.schema !== null);
 const schemaReject = await call(
   "POST",
@@ -238,12 +248,26 @@ const schemaAccept = await call(
 );
 expect("schema match is acked", schemaAccept.status === 200);
 // Test-fire: the schema debugger — no delivery, receipted evidence.
-const testOk = await call("POST", `/api/webhooks/${schemaHook.json.id}/test`, {
-  payload: { event: "probe" },
-});
-const testBad = await call("POST", `/api/webhooks/${schemaHook.json.id}/test`, {
-  payload: { nope: true },
-});
+const testOk = await call(
+  "POST",
+  `/api/webhooks/${schemaHook.json.id}/test`,
+  { payload: { event: "probe" } },
+  { "x-spreissen-user": "smoker" },
+);
+const testBad = await call(
+  "POST",
+  `/api/webhooks/${schemaHook.json.id}/test`,
+  { payload: { nope: true } },
+  { "x-spreissen-user": "smoker" },
+);
+// Owner scoping: another owner can't test-fire it (same 404 as a missing id).
+const testForeign = await call(
+  "POST",
+  `/api/webhooks/${schemaHook.json.id}/test`,
+  { payload: {} },
+  { "x-spreissen-user": "someone-else" },
+);
+expect("webhook test-fire is owner-scoped", testForeign.status === 404);
 expect(
   "test-fire validates schema",
   testOk.status === 200 && testOk.json.accepted === true && testBad.json.accepted === false,
@@ -268,23 +292,26 @@ expect("cron rejects bad schedule", badCron.status === 400);
 // Sensors: the registry answers even with no calendar configured (offline).
 const sensorsList = await call("GET", "/api/sensors", undefined, { "x-spreissen-user": "smoker" });
 expect("sensor registry listed", sensorsList.status === 200 && Array.isArray(sensorsList.json));
-const cron = await call("POST", "/api/cron", {
-  sessionId: created.json.id,
-  schedule: "*/5 * * * *",
-  prompt: "tick",
-});
+const cron = await call(
+  "POST",
+  "/api/cron",
+  { sessionId: created.json.id, schedule: "*/5 * * * *", prompt: "tick" },
+  { "x-spreissen-user": "smoker" },
+);
 expect(
   "cron create previews next fires",
   cron.status === 200 && Array.isArray(cron.json.next) && cron.json.next.length === 3,
 );
 expect(
   "cron create + delete",
-  cron.status === 200 && (await call("DELETE", `/api/cron/${cron.json.id}`)).json.ok === true,
+  cron.status === 200 &&
+    (await call("DELETE", `/api/cron/${cron.json.id}`, undefined, { "x-spreissen-user": "smoker" }))
+      .json.ok === true,
 );
 
 const task = await call("POST", "/api/tasks", { prompt: "background check" });
 expect("task spawn", task.status === 200 && task.json.status === "running");
-const audit = await call("GET", "/api/audit");
+const audit = await call("GET", "/api/audit", undefined, { "x-spreissen-user": "smoker" });
 expect("audit tail", audit.status === 200 && Array.isArray(audit.json));
 
 // Profiles: the workspace now contains exactly the bots that were spawned.

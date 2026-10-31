@@ -11,6 +11,8 @@ import { isPathEscape } from "@spreissen/ext";
 import type { CronScheduler } from "./cron.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
+import { ownedProfileIds, ownsProfile } from "./rest/owner-scope.ts";
+import { ownedRoutineIds } from "./rest/owned-routines.ts";
 import { approvalRoutes } from "./rest/approvals.ts";
 import { secretRoutes } from "./rest/secrets.ts";
 import { artifactRoutes } from "./rest/artifacts.ts";
@@ -147,10 +149,13 @@ async function route(args: RouteArgs): Promise<void> {
     const profile = queryOr(args, "profile");
     const conversation = queryOr(args, "conversation");
     const kind = queryOr(args, "kind");
-    // Narrow filters read a wider window, then keep the newest `capped`.
-    const narrow = conversation !== undefined || kind !== undefined;
+    // Filters read a wider window, then keep the newest `capped`.
+    // Only events of the caller's own bots; unmapped (profile null) events
+    // can't be attributed to an owner, so they stay hidden.
+    const mine = await ownedProfileIds(args);
     const events = mind.audit
-      .tail(narrow ? 5_000 : capped)
+      .tail(5_000)
+      .filter((event) => event.profile !== null && mine.has(event.profile))
       .filter((event) => profile === undefined || event.profile === profile)
       .filter((event) => conversation === undefined || event.conversationId === conversation)
       .filter((event) => kind === undefined || event.kind === kind)
@@ -162,23 +167,24 @@ async function route(args: RouteArgs): Promise<void> {
     const limit = Number(args.url.searchParams.get("limit") ?? "100");
     const routine = queryOr(args, "routine");
     const source = queryOr(args, "source");
-    return json(
-      200,
-      await mind.receipts.list({
-        ...(routine !== undefined ? { routineId: routine } : {}),
-        ...(source !== undefined
-          ? { source: source as "cron" | "webhook" | "sensor" | "test" }
-          : {}),
-        limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 400) : 100,
-      }),
-    );
+    const capped = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 400) : 100;
+    // Receipts of the caller's own routines only (another owner's reads as none).
+    const mine = await ownedRoutineIds(args);
+    if (routine !== undefined && !mine.has(routine)) return json(200, []);
+    const events = await mind.receipts.list({
+      ...(routine !== undefined ? { routineId: routine } : {}),
+      ...(source !== undefined ? { source: source as "cron" | "webhook" | "sensor" | "test" } : {}),
+      limit: routine !== undefined ? capped : 400,
+    });
+    return json(200, events.filter((event) => mine.has(event.routineId)).slice(0, capped));
   }
   // A bot's durable KV state: the owner can read (and curate) what its bots
   // wrote — the "what does it think it already did" store.
   if (path === "/api/state" && method === "GET") {
     const profile = queryOr(args, "profile");
     if (profile === undefined) return json(400, { error: "profile is required" });
-    return json(200, await mind.state.list(profile));
+    // Another owner's bot reads like a bot with no state.
+    return json(200, (await ownsProfile(args, profile)) ? await mind.state.list(profile) : []);
   }
   if (path.startsWith("/api/state/") && method === "DELETE") {
     const rest = segment("/api/state/");
@@ -186,6 +192,7 @@ async function route(args: RouteArgs): Promise<void> {
     if (slash <= 0) return json(400, { error: "path is /api/state/<profileId>/<key>" });
     const profile = rest.slice(0, slash);
     const key = decodeURIComponent(rest.slice(slash + 1));
+    if (!(await ownsProfile(args, profile))) return json(200, { ok: false });
     return json(200, { ok: await mind.state.delete(profile, key) });
   }
   if (await profileRoutes(args)) return;
