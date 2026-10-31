@@ -27,6 +27,13 @@
  * globs). The action text is data, not instructions: a pattern only ever
  * matches text.
  *
+ * - `"bash_host:=<script>"` — an EXACT entry, the only rule the privileged
+ *   host shell accepts besides the owner's bare grant. It approves a call
+ *   whose `script` is character-for-character the stored text and nothing
+ *   else: no wildcards, no prefix match, no other field. "Always allow this
+ *   exact command on this computer" on a bash_host card saves one. Jev
+ *   still never decides bash_host; this is the owner's own rule.
+ *
  * Floors still outrank the list — the hook checks `isApprovalFloor` before
  * consulting this matcher, so no entry (bare or patterned) ever waves a
  * first-use credential/connector or `secret_request` call through.
@@ -177,11 +184,47 @@ export const parseAutoApproveEntry = (entry: string): { tool: string; pattern?: 
 const MAX_WILDCARDS = 4;
 
 export const validAutoApproveEntry = (entry: string): boolean =>
-  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) && (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS;
+  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
+  // An exact entry is compared as a string, never compiled: wildcards are literal there.
+  (exactScriptOf(entry) !== undefined || (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS);
+
+/** Tools whose only list entries are a bare grant or an EXACT entry (no globs). */
+export const EXACT_ONLY: readonly string[] = JEV_NEVER_DECIDES;
+
+/** The marker after `tool:` that makes an entry an exact match. */
+const EXACT_MARK = "=";
+
+/** An exact entry stores the whole script; longer than this isn't saved. */
+export const MAX_EXACT_SCRIPT_CHARS = 2000;
+
+/** The exact entry for one call's script (`bash_host:=<script>`). */
+export const exactEntry = (tool: string, script: string): string =>
+  `${tool}:${EXACT_MARK}${script}`;
+
+/** The stored script of an exact entry for an exact-only tool, or undefined. */
+export const exactScriptOf = (entry: string): { tool: string; script: string } | undefined => {
+  const { tool, pattern } = parseAutoApproveEntry(entry);
+  return EXACT_ONLY.includes(tool) && pattern?.startsWith(EXACT_MARK) === true
+    ? { tool, script: pattern.slice(EXACT_MARK.length) }
+    : undefined;
+};
+
+/**
+ * The one script an exact entry can match: the input must be exactly
+ * `{ script: string }` — any other field (or shape) and nothing matches.
+ */
+export const exactScriptInput = (input: unknown): string | undefined => {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
+  const keys = Object.keys(input);
+  const script = (input as Record<string, unknown>)["script"];
+  return keys.length === 1 && typeof script === "string" ? script : undefined;
+};
 
 /** How the list matches one call. */
 export type AutoApproveMatch =
   | { readonly kind: "none" }
+  /** An exact entry for an exact-only tool (bash_host) matched the whole script. */
+  | { readonly kind: "exact" }
   /** A bare tool name matched — the owner's whole-tool grant, no sub-action checks. */
   | { readonly kind: "bare" }
   /**
@@ -202,7 +245,11 @@ export const NEVER_PATTERN_MATCHED: readonly string[] = JEV_NEVER_DECIDES;
  */
 export const mayAutoApprove = (entries: readonly string[], request: ApprovalRequest): boolean => {
   const match = matchAutoApprove(entries, request);
-  return match.kind === "bare" || (match.kind === "pattern" && match.destructive === undefined);
+  return (
+    match.kind === "bare" ||
+    match.kind === "exact" ||
+    (match.kind === "pattern" && match.destructive === undefined)
+  );
 };
 
 /**
@@ -235,7 +282,9 @@ export const matchAutoApprove = (
   request: ApprovalRequest,
 ): AutoApproveMatch => {
   let bare = false;
+  let exact = false;
   let pattern = false;
+  const script = EXACT_ONLY.includes(request.name) ? exactScriptInput(request.input) : undefined;
   const texts = actionTextsOf(request.input);
   // Never-pattern-matched tools (bash_host) are excluded HERE, so a caller
   // reading `kind` directly cannot re-open the host shell by forgetting the
@@ -245,9 +294,11 @@ export const matchAutoApprove = (
     const { tool, pattern: glob } = parseAutoApproveEntry(entry);
     if (tool !== request.name) continue;
     if (glob === undefined) bare = true;
+    else if (script !== undefined && exactScriptOf(entry)?.script === script) exact = true;
     else if (!pattern && mayPattern && globMatch(glob, texts)) pattern = true;
   }
   if (bare) return { kind: "bare" };
+  if (exact) return { kind: "exact" };
   if (pattern) return { kind: "pattern", destructive: destructiveOf(request.name, request.input) };
   return { kind: "none" };
 };

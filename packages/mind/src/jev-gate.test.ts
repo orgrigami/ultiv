@@ -154,6 +154,18 @@ describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
     expect(await bare.outcome(call("bash_host", { script: "git status" }))).toBe(true);
   });
 
+  it("an exact bash_host rule runs that script only; Jev is never asked for bash_host", async () => {
+    for (const mode of ["manual", "jev"] as const) {
+      const r = rig({ mode, autoApprove: ["bash_host:=git status"], probability: 0.99 });
+      expect(await r.outcome(call("bash_host", { script: "git status" })), mode).toBe(true);
+      expect(await r.outcome(call("bash_host", { script: "git status; rm -rf x" })), mode).toBe(
+        "card",
+      );
+      expect(await r.outcome(call("bash_host", { script: "git push" })), mode).toBe("card");
+      expect(r.asked, mode).toEqual([]);
+    }
+  });
+
   it("floors go to the card; nothing was judged or escalated", async () => {
     const r = rig({
       mode: "manual",

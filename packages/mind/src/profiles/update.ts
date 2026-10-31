@@ -5,7 +5,12 @@
  */
 import { InvalidInput } from "@spreissen/core";
 import type { ProfileApprovalMode, ProfileCreate, ProfileInfo } from "@spreissen/contracts";
-import { validAutoApproveEntry } from "../auto-approve.ts";
+import {
+  exactEntry,
+  exactScriptOf,
+  MAX_EXACT_SCRIPT_CHARS,
+  validAutoApproveEntry,
+} from "../auto-approve.ts";
 import { validTimezone } from "./docs.ts";
 
 /** Field limits, shared with create. */
@@ -46,9 +51,15 @@ export const validatePatch = (
       });
     }
     for (const entry of autoApprove) {
-      if (entry.length > PROFILE_LIMITS.autoApproveEntryChars) {
+      // An exact bash_host entry holds a whole script, compared as a string.
+      const exact = exactScriptOf(entry);
+      const max =
+        exact !== undefined
+          ? exactEntry(exact.tool, "").length + MAX_EXACT_SCRIPT_CHARS
+          : PROFILE_LIMITS.autoApproveEntryChars;
+      if (entry.length > max) {
         throw new InvalidInput({
-          reason: `autoApprove entry too long: ${entry.length} chars (max ${PROFILE_LIMITS.autoApproveEntryChars})`,
+          reason: `autoApprove entry too long: ${entry.length} chars (max ${max})`,
         });
       }
       if (!validAutoApproveEntry(entry)) {

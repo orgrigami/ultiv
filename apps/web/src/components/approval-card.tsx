@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
 import { SecretCard, secretAskOf } from "@/components/secure/secret-card";
-import { canAlwaysAllow, describeTool, hintOf } from "@/lib/approval-text";
+import { alwaysAllowText, canAlwaysAllow, describeTool, hintOf } from "@/lib/approval-text";
 import { cn } from "@/lib/utils";
 
 export interface DecideOutcome {
@@ -203,9 +203,9 @@ function DecisionCard({
                     className={item}
                     onClick={() => void decide("always", () => onDecide(true, true))}
                   >
-                    Always allow
+                    {alwaysAllowText(name).title}
                     <span className="text-muted-foreground text-xs">
-                      Approve now and stop asking before it does this again.
+                      {alwaysAllowText(name).detail}
                     </span>
                   </Menu.Item>
                 )}

@@ -4,9 +4,12 @@ import { Effect } from "effect";
 import { NotFound } from "@spreissen/core";
 import type { ProfileInfo } from "@spreissen/contracts";
 import {
-  NEVER_PATTERN_MATCHED,
   actionTextsOf,
+  EXACT_ONLY,
+  exactEntry,
+  exactScriptInput,
   globEscape,
+  MAX_EXACT_SCRIPT_CHARS,
   mayAutoApprove,
 } from "../auto-approve.ts";
 import {
@@ -90,6 +93,33 @@ export const lifecycleOps = (
   ctx: ProfilesContext,
 ): Pick<ProfilesService, "setArchived" | "allowTool" | "remove"> => {
   const { converse } = ctx;
+  /** Add entries to one profile's autoApprove list (deduplicated); returns them. */
+  const saveEntries = async (
+    owner: string,
+    profileId: string,
+    entries: string[],
+  ): Promise<string[]> => {
+    await run(
+      commitProfiles(converse, (all) =>
+        all.map((row) =>
+          row.id === profileId && row.owner === owner
+            ? {
+                ...row,
+                policies: {
+                  ...row.policies,
+                  autoApprove: [...new Set([...row.policies.autoApprove, ...entries])],
+                },
+              }
+            : row,
+        ),
+      ),
+    );
+    // The gate reads the per-conversation copy: refresh it so the rule
+    // applies from the next call, not only after a restart.
+    const next = await ctx.self().get(owner, profileId);
+    if (next !== undefined) refreshCopies(ctx.index.profiles, next);
+    return entries;
+  };
   return {
     setArchived: (owner, id, archived) =>
       run(
@@ -110,12 +140,27 @@ export const lifecycleOps = (
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
-      // The privileged host shell is never granted from a card — bash.ts is
-      // explicit that it must never be always-allowed, and a pattern for it
-      // is authored via REST only. The call stays gated.
-      if (NEVER_PATTERN_MATCHED.includes(tool)) {
-        console.warn(`always-allow on ${tool}: refused, the host shell stays gated`);
-        return [];
+      // The privileged host shell is never granted as a whole or by pattern
+      // from a card: "Always allow" saves THIS exact script only
+      // (`bash_host:=<script>`), so a different script still asks. Nothing is
+      // saved when the call isn't a plain `{ script }` or the script is too
+      // long to keep; the call stays gated. The script itself is never logged.
+      if (EXACT_ONLY.includes(tool)) {
+        const script = exactScriptInput(input);
+        const entry = script === undefined ? undefined : exactEntry(tool, script);
+        const full = current.policies.autoApprove.length >= PROFILE_LIMITS.autoApproveEntries;
+        if (
+          script === undefined ||
+          script === "" ||
+          script.length > MAX_EXACT_SCRIPT_CHARS ||
+          entry === undefined ||
+          (full && !current.policies.autoApprove.includes(entry)) ||
+          !mayAutoApprove([entry], { callId: "always", name: tool, input })
+        ) {
+          console.warn(`always-allow on ${tool}: not saved as an exact rule, the call stays gated`);
+          return [];
+        }
+        return saveEntries(owner, profileId, [entry]);
       }
       // "Always allow" on a card that a tool:pattern entry just refused must
       // not silently widen the profile to the whole tool: when the list
@@ -145,22 +190,7 @@ export const lifecycleOps = (
         }
         entries = [candidate];
       }
-      await run(
-        commitProfiles(converse, (all) =>
-          all.map((row) =>
-            row.id === profileId && row.owner === owner
-              ? {
-                  ...row,
-                  policies: {
-                    ...row.policies,
-                    autoApprove: [...new Set([...row.policies.autoApprove, ...entries])],
-                  },
-                }
-              : row,
-          ),
-        ),
-      );
-      return entries;
+      return saveEntries(owner, profileId, entries);
     },
     remove: async (owner, id) => {
       const rows = await run(readSessions(converse));

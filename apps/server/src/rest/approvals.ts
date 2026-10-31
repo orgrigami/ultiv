@@ -62,7 +62,8 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
           args.owner,
           scope.profileId,
           waiting.name,
-          waiting.input,
+          // The rule covers what actually runs: an edited input, when given.
+          body.input !== undefined ? body.input : waiting.input,
         );
       } catch (cause) {
         console.warn("always-allow rule save failed:", cause);

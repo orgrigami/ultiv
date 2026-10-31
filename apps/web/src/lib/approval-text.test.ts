@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
-import { canAlwaysAllow, describeTool, hintOf } from "./approval-text.ts";
+import {
+  alwaysAllowText,
+  canAlwaysAllow,
+  describeAllowEntry,
+  describeTool,
+  hintOf,
+} from "./approval-text.ts";
 
 describe("describeTool", () => {
   it("words known tools plainly", () => {
@@ -52,5 +58,24 @@ describe("hintOf", () => {
   it("truncates long values and ignores non-objects", () => {
     expect(hintOf({ text: "x".repeat(80) })).toBe(`${"x".repeat(57)}…`);
     expect(hintOf("nope")).toBeNull();
+  });
+});
+
+describe("always allow for the host shell", () => {
+  it("offers the exact-command rule on bash_host cards", () => {
+    expect(canAlwaysAllow("bash_host")).toBe(true);
+    expect(alwaysAllowText("bash_host").title).toBe(
+      "Always allow this exact command on this computer",
+    );
+    expect(alwaysAllowText("bash").title).toBe("Always allow");
+  });
+
+  it("lists an exact rule by its script in the Access tab", () => {
+    expect(describeAllowEntry("bash_host:=git status")).toEqual({
+      label: "bash_host exactly: git status",
+      full: "bash_host exactly:\ngit status",
+    });
+    expect(describeAllowEntry("bash:git *").label).toBe("bash:git *");
+    expect(describeAllowEntry("bash").label).toBe("bash");
   });
 });

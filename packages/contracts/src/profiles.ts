@@ -28,7 +28,9 @@ export const ProfilePoliciesSchema = Type.Object({
    * call's command/action text (`*` any run, `?` one char — wildcards cannot
    * cross a `;`/`&&`/`|` boundary; else literal, case-sensitive). A pattern
    * match that looks destructive is refused to the normal gate, and
-   * `bash_host` never pattern-matches. Floors (first-use
+   * `bash_host` never pattern-matches: its only rule besides a bare grant is
+   * an exact one, `bash_host:=<script>`, matching that script and nothing
+   * else ("Always allow this exact command on this computer"). Floors (first-use
    * credential/connector, `secret_request`) outrank every entry.
    */
   autoApprove: Type.Array(Type.String()),

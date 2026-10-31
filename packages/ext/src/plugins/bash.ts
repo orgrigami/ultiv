@@ -13,8 +13,9 @@
  *    policies.autoApprove lists `bash`.
  * 2. `bash_host` — a privileged shell that runs DIRECTLY on the host
  *    computer running this server. No sandbox, no isolation, the whole
- *    filesystem is reachable. Gated per call, always: never list
- *    `bash_host` in policies.autoApprove.
+ *    filesystem is reachable. Gated per call: the only list entries for
+ *    it are the owner's own, and "Always allow" on its card saves just
+ *    that exact script (`bash_host:=<script>`, see auto-approve.ts).
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";

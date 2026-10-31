@@ -13,6 +13,7 @@ import { ModelOptions } from "@/components/model-options";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { describeAllowEntry } from "@/lib/approval-text";
 import { useApp } from "@/lib/app-state";
 import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spreissen/contracts";
 
@@ -150,11 +151,16 @@ export function AutoApproveField({
       <span>Always allowed</span>
       <div className="flex flex-wrap gap-1">
         {tools.map((tool) => (
-          <Badge key={tool} variant="secondary" className="h-6 pr-1">
-            {tool}
+          <Badge
+            key={tool}
+            variant="secondary"
+            className="h-6 max-w-full pr-1"
+            title={describeAllowEntry(tool).full}
+          >
+            <span className="truncate font-mono">{describeAllowEntry(tool).label}</span>
             <button
               type="button"
-              aria-label={`Stop always allowing ${tool}`}
+              aria-label={`Stop always allowing ${describeAllowEntry(tool).label}`}
               disabled={busyTool !== null}
               className="rounded-full p-0.5 hover:bg-foreground/10 disabled:opacity-50"
               onClick={() => {
@@ -167,8 +173,8 @@ export function AutoApproveField({
         ))}
       </div>
       <span className="text-muted-foreground text-xs">
-        Tools approved with "Always allow" skip the approval gate. Removing one puts it back under
-        this bot's approval mode.
+        Tools approved with "Always allow" skip the approval gate. A host-shell rule covers only
+        that exact script. Removing one puts it back under this bot's approval mode.
       </span>
       {error !== null && <p className="text-destructive text-sm">{error}</p>}
     </div>

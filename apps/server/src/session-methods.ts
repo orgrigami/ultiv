@@ -90,7 +90,9 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       const profile = mind.profiles.profileOf(id);
       if (profile !== undefined) {
         try {
-          stored = await mind.profiles.allowTool(owner, profile.id, waiting.name, waiting.input);
+          // The rule covers what actually runs: an edited input, when given.
+          const runs = input !== undefined ? input : waiting.input;
+          stored = await mind.profiles.allowTool(owner, profile.id, waiting.name, runs);
         } catch (error) {
           console.warn("always-allow rule save failed:", error);
         }

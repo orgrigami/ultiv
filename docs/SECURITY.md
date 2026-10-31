@@ -1,6 +1,6 @@
 # Security notes
 
-How the server keeps files, owners and webhook tokens apart. Each section
+How the server keeps files, owners, webhook tokens and the host shell apart. Each section
 names the one helper that enforces it, so a later change has one place to edit.
 
 ## File paths stay inside their folder
@@ -127,3 +127,37 @@ a rollback every sealed webhook refuses all calls (`401`); the hash can't be
 turned back into the token. To recover after a rollback, delete and
 re-create the affected webhooks (or roll forward again, where New token
 works). No data is lost either way: the rows, receipts and counters stay.
+
+## The host shell's "Always allow"
+
+`bash_host` runs a script directly on the computer the server runs on, so a
+whole-tool or wildcard rule for it is never saved from a card. Its card
+offers **Always allow this exact command on this computer** instead:
+
+- The rule is stored in the bot's existing allow list
+  (`policies.autoApprove`) as `bash_host:=<script>`.
+- It matches a later call only when the call's input is exactly
+  `{ script }` and the script is the identical string. No globs (a `*` in
+  the stored script is literal), no prefixes, no trimming, no other fields.
+  A different script, even one extra space, gets a card as before.
+- An exact match is approved even if the script looks destructive: the
+  owner approved that very text. Glob (`tool:pattern`) rules keep their
+  destructive check.
+- The same script can behave differently in a different working directory
+  (bash_host keeps its directory between calls); the rule is about the
+  text, as asked.
+- Scripts longer than 2,000 characters, empty scripts and calls with any
+  other input shape aren't saved; the call stays gated and the decision
+  still goes through.
+- The rule shows in the bot's **Access** tab by its script, and the ✕ on it
+  removes it (a policies patch); the next call of that script asks again.
+- Jev never decides `bash_host` (`JEV_NEVER_DECIDES`) and fully automatic
+  (yolo) mode is unchanged. Old `bash_host:<glob>` entries stay inert.
+- When a card's input was edited before approving, the rule covers the
+  edited input that actually ran, not the original proposal.
+
+Tests: `packages/mind/src/exact-allow.test.ts`, the exact-rule case in
+`packages/mind/src/jev-gate.test.ts`, and
+`apps/server/src/rest/bash-host-always.test.ts` (server saves the rule over
+REST, same script runs without a card, other scripts still ask, removing it
+brings the card back).

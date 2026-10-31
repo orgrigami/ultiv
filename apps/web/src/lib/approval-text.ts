@@ -163,10 +163,43 @@ export const isConnectorChange = (name: string): boolean =>
 
 /**
  * Cards "Always allow" may not cover: a credential's or connector's first
- * use, connector changes and secure inputs are asked every time.
+ * use, connector changes and secure inputs are asked every time. The host
+ * shell (`bash_host`) is covered only for the exact script on the card (see
+ * `alwaysAllowText`).
  */
 export const canAlwaysAllow = (name: string): boolean =>
   name !== "http_request (first use of a credential)" &&
   !name.startsWith("mcp (first use of ") &&
   !isConnectorChange(name) &&
   name !== "secret_request";
+
+/** Tools whose "Always allow" saves only the exact script on the card. */
+const EXACT_ONLY_TOOLS: readonly string[] = ["bash_host"];
+
+/** The "Always allow" menu item's label and explanation for one card. */
+export const alwaysAllowText = (name: string): { title: string; detail: string } =>
+  EXACT_ONLY_TOOLS.includes(name)
+    ? {
+        title: "Always allow this exact command on this computer",
+        detail: "Runs this same script again without asking. Any other script still asks.",
+      }
+    : {
+        title: "Always allow",
+        detail: "Approve now and stop asking before it does this again.",
+      };
+
+/**
+ * How the Access tab shows one always-allow entry: exact host-shell rules
+ * (`bash_host:=<script>`) show their script, everything else as stored.
+ */
+export const describeAllowEntry = (entry: string): { label: string; full: string } => {
+  const exact = /^([A-Za-z0-9_-]+):=([\s\S]*)$/.exec(entry);
+  if (exact === null || !EXACT_ONLY_TOOLS.includes(exact[1] ?? ""))
+    return { label: entry, full: entry };
+  const script = (exact[2] ?? "").replace(/\s+/g, " ").trim();
+  const short = script.length > 48 ? `${script.slice(0, 47)}…` : script;
+  return {
+    label: `${exact[1]} exactly: ${short}`,
+    full: `${exact[1]} exactly:\n${exact[2] ?? ""}`,
+  };
+};
