@@ -249,3 +249,15 @@ export const orgService = (converse: ConverseService): OrgService => {
     },
   };
 };
+
+/**
+ * The department Instructions text a profile inherits (empty for an org
+ * bot): the resolver the identity section renders before the bot's own.
+ */
+export const departmentInstructionsOf =
+  (converse: ConverseService) =>
+  async (profile: { readonly departmentId?: string | null }): Promise<string> => {
+    if (typeof profile.departmentId !== "string" || profile.departmentId === "") return "";
+    const state = await readOrgState(converse);
+    return state.departments.find((row) => row.id === profile.departmentId)?.instructions ?? "";
+  };

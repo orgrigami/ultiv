@@ -62,13 +62,31 @@ export const instructionsBlock = (text: string): string =>
     : `\n\nYour instructions, as your owner wrote them (what you do, your rules, workflows ` +
       `and when to ask first):\n${text.trim()}\n${INSTRUCTIONS_RULE}`;
 
-export const personaFor = (me: ProfileInfo, files?: BotFilesService): string => {
+/**
+ * The department's standing Instructions, inherited by its bots and rendered
+ * BEFORE the bot's own (which can refine or override). Same rule line: the
+ * app's approval rules outrank this text too.
+ */
+export const departmentInstructionsBlock = (text: string): string =>
+  text.trim() === ""
+    ? ""
+    : `\n\nYour department's standing instructions (your own instructions below may ` +
+      `refine them):\n${text.trim()}\n${INSTRUCTIONS_RULE}`;
+
+export const personaFor = (
+  me: ProfileInfo,
+  files?: BotFilesService,
+  /** The department's standing instructions, resolved by the caller; empty for an org bot. */
+  departmentText?: string,
+): string => {
   const intro =
     `You are ${me.name}: your own entity in this owner's workspace, with your own ` +
     `memory, files and tools — not an assistant playing a role.`;
   const description = me.description !== "" ? `\n\nYour role: ${me.description}` : "";
   const personaText = files !== undefined ? files.read(me, "persona").text : me.persona;
   const persona = personaText !== "" ? `\n\n${personaText}` : "";
+  // Department Instructions come before the bot's own; an org bot has none.
+  const department = departmentInstructionsBlock(departmentText ?? "");
   const instructions =
     files !== undefined ? instructionsBlock(files.read(me, "instructions").text) : "";
   // Legacy rows may predate the field: no zone, no line (the rules say to ask).
@@ -79,7 +97,7 @@ export const personaFor = (me: ProfileInfo, files?: BotFilesService): string => 
   const identity =
     `\n\nAsked who or what you are, answer as ${me.name} (plus your role in a sentence, ` +
     `if useful). ${MODEL_SILENCE}`;
-  return `${intro}${description}${persona}${instructions}${zone}${identity}${VOICE}${OPERATING_RULES}`;
+  return `${intro}${description}${persona}${department}${instructions}${zone}${identity}${VOICE}${OPERATING_RULES}`;
 };
 
 /**
@@ -125,7 +143,12 @@ export const memoryCoreExtension = (memory: MemoryService, profiles: ProfilesSer
   });
 
 /** The identity extension: profile persona + roster, or the substrate baseline. */
-export const profilesExtension = (profiles: ProfilesService, baselineName: string): Extension =>
+export const profilesExtension = (
+  profiles: ProfilesService,
+  baselineName: string,
+  /** The department Instructions resolver (the org's); absent in bare tests. */
+  departmentInstructions?: (profile: ProfileInfo) => Promise<string>,
+): Extension =>
   defineExtension({
     name: "ultiv.profiles",
     sections: [
@@ -134,8 +157,13 @@ export const profilesExtension = (profiles: ProfilesService, baselineName: strin
         render: async (input) => {
           const me = profiles.profileOf(String(input.conversationId));
           if (me === undefined) return baseline(baselineName);
-          const siblings = await profiles.list(me.owner);
-          return personaFor(me, profiles.files) + roster(me, siblings);
+          const [siblings, departmentText] = await Promise.all([
+            profiles.list(me.owner),
+            departmentInstructions === undefined
+              ? Promise.resolve("")
+              : departmentInstructions(me).catch(() => ""),
+          ]);
+          return personaFor(me, profiles.files, departmentText) + roster(me, siblings);
         },
       },
     ],

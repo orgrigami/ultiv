@@ -58,7 +58,7 @@ import { botCreateTools } from "./profiles/bot-create.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
-import { orgService, type OrgService } from "./org/service.ts";
+import { departmentInstructionsOf, orgService, type OrgService } from "./org/service.ts";
 import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
 import { type MemoryService } from "./memory/memory.ts";
@@ -325,6 +325,7 @@ const mindLayerRaw = (
         audit,
         approvals,
         skills: skillsRef,
+        departmentInstructions: departmentInstructionsOf(converse),
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
         ...routines,

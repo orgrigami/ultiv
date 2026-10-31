@@ -66,6 +66,10 @@ interface Faculties {
   readonly untrustedTool?: (name: string) => boolean;
   /** bots_list / bot_info: read-only sibling discovery, in the allowlist universe. */
   readonly botTools: readonly ToolRegistration[];
+  /** The department Instructions resolver, for the identity section (slice 7). */
+  readonly departmentInstructions?: (profile: {
+    readonly departmentId?: string | null;
+  }) => Promise<string>;
   /** The skills faculty: built-in and self-written procedures, per profile. */
   readonly skills?: SkillsService;
 }
@@ -79,7 +83,7 @@ export const installFaculties = (
   const { webhooks, state, sensors, history } = f;
   piRegistry.install(act.extension());
   piRegistry.install(codemodeExtension());
-  piRegistry.install(profilesExtension(profiles, ENTITY_NAME));
+  piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.departmentInstructions));
   piRegistry.install(memoryCoreExtension(memory, profiles));
   if (f.skills !== undefined) {
     piRegistry.install(
