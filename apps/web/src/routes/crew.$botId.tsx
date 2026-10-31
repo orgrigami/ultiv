@@ -565,6 +565,9 @@ const KIND_LABEL: Record<AuditEvent["kind"], string> = {
   adjudication: "Jev",
   memory: "Memory",
   skills: "Skills",
+  auth: "Sign-in",
+  permission: "Access",
+  vault: "Vault",
 };
 
 /** Read-only: the newest 50 audit events for this bot, newest first. */

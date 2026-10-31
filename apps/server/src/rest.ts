@@ -85,7 +85,7 @@ export const createRestHandler = (deps: RestDeps) => {
         if (!contentTypeAllowed(req.method ?? "GET", url.pathname, req)) {
           return json(415, { error: "send JSON (content-type: application/json)" });
         }
-        if (await handleAuthRoutes(req, res, deps.auth)) return;
+        if (await handleAuthRoutes(req, res, deps.auth, deps.mind.audit)) return;
       }
       const args: RouteArgs = {
         mind: deps.mind,
@@ -108,6 +108,9 @@ export const createRestHandler = (deps: RestDeps) => {
     );
   };
 };
+
+/** Event kinds that belong to the account itself (no bot profile). */
+const OWNER_LEVEL_KINDS: ReadonlySet<string> = new Set(["auth", "permission", "vault"]);
 
 async function route(args: RouteArgs): Promise<void> {
   const { req, path, mind, json } = args;
@@ -169,11 +172,16 @@ async function route(args: RouteArgs): Promise<void> {
     const kind = queryOr(args, "kind");
     // Filters read a wider window, then keep the newest `capped`.
     // Only events of the caller's own bots; unmapped (profile null) events
-    // can't be attributed to an owner, so they stay hidden.
+    // can't be attributed to an owner, so they stay hidden — except the
+    // owner-level kinds, which exist exactly for the account's own view.
     const mine = await ownedProfileIds(args);
     const events = mind.audit
       .tail(5_000)
-      .filter((event) => event.profile !== null && mine.has(event.profile))
+      .filter(
+        (event) =>
+          (event.profile !== null && mine.has(event.profile)) ||
+          (event.profile === null && OWNER_LEVEL_KINDS.has(event.kind)),
+      )
       .filter((event) => profile === undefined || event.profile === profile)
       .filter((event) => conversation === undefined || event.conversationId === conversation)
       .filter((event) => kind === undefined || event.kind === kind)

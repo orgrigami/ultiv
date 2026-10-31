@@ -464,6 +464,9 @@ export const api = {
     ).slice(-limit),
   audit: (limit?: number): Promise<AuditEvent[]> =>
     getJson<AuditEvent[]>(`/api/audit?limit=${limit ?? 200}`),
+  /** Owner-level events of one kind (sign-in rows in Settings). */
+  auditKind: (kind: "auth" | "permission" | "vault", limit = 30): Promise<AuditEvent[]> =>
+    getJson<AuditEvent[]>(`/api/audit?limit=${limit}&kind=${kind}`),
   /** Jev's decisions in one chat (approval mode 'jev'), newest last. */
   adjudications: (conversationId: string): Promise<AuditEvent[]> =>
     getJson<AuditEvent[]>(

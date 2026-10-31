@@ -18,6 +18,12 @@ export const AuditEventSchema = Type.Object({
     Type.Literal("memory"),
     /** Human REST acts on skills (edit, enable, remove, revert, proposal verdicts). */
     Type.Literal("skills"),
+    /** Sign-in (success and refusal), sign-out, passcode set/change, recovery. */
+    Type.Literal("auth"),
+    /** Permission changes: approval-mode and policy patches, allow rules. */
+    Type.Literal("permission"),
+    /** A vault item was READ (masked metadata only; never the secret). */
+    Type.Literal("vault"),
   ]),
   conversationId: Type.String(),
   /** The profile the acting conversation belongs to; null when unmapped. */
@@ -27,6 +33,12 @@ export const AuditEventSchema = Type.Object({
   durationMs: Type.Union([Type.Number(), Type.Null()]),
   ok: Type.Union([Type.Boolean(), Type.Null()]),
   error: Type.Union([Type.String(), Type.Null()]),
+  /** `permission` events: which policy keys a patch touched. */
+  permission: Type.Optional(
+    Type.Object({
+      keys: Type.Array(Type.String()),
+    }),
+  ),
   /** `credential` events: which item, where, and the outcome — never the secret. */
   credential: Type.Optional(
     Type.Object({

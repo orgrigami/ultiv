@@ -75,6 +75,28 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
     try {
       const patch = await args.readJson<Record<string, unknown>>(req);
       const updated = await mind.profiles.update(args.owner, id, patch as never);
+      // Permission changes (approval mode, allow rules, budgets) are audited
+      // as their own kind, so the Activity tab shows who relaxed what.
+      if (patch.policies !== undefined || patch.toolAllowlist !== undefined) {
+        mind.audit.record({
+          at: Date.now(),
+          kind: "permission",
+          conversationId: "",
+          profile: id,
+          callId: null,
+          name: "permission-change",
+          durationMs: null,
+          ok: true,
+          error: null,
+          ...(patch.policies !== undefined
+            ? {
+                permission: {
+                  keys: Object.keys(patch.policies as Record<string, unknown>),
+                },
+              }
+            : {}),
+        });
+      }
       // The per-bot model preference and tool set are durable agent state: a
       // change applies to every existing conversation too (main, sessions,
       // room seats), not just future ones.

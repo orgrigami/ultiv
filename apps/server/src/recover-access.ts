@@ -11,6 +11,8 @@
  */
 import { randomBytes } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { makeAudit } from "@spriessen/mind";
+import { authEvent } from "./auth/routes.ts";
 import { AuthStore } from "./auth/store.ts";
 
 /** Reset the passcode (generated when not given) and drop all sessions. */
@@ -20,6 +22,18 @@ export const recoverAccess = (options?: { readonly passcode?: string }): string 
       ? options.passcode
       : randomBytes(12).toString("base64url");
   new AuthStore().reset(passcode);
+  // The recovery is an audit row in the same trail the server writes, so the
+  // owner can see it happened (and when).
+  try {
+    const audit = makeAudit(
+      process.env.AUDIT_LOG?.trim() !== "" && process.env.AUDIT_LOG !== undefined
+        ? process.env.AUDIT_LOG
+        : "var/audit.jsonl",
+    );
+    audit.record(authEvent(Date.now(), "recovery", true));
+  } catch {
+    // An unwritable audit trail must not block regaining access.
+  }
   return passcode;
 };
 

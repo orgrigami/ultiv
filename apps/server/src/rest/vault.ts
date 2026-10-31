@@ -50,8 +50,23 @@ export async function vaultRoutes(
   }
   if (path.startsWith("/api/vault/") && method === "GET") {
     const item = mind.vault?.get(args.owner, segment("/api/vault/"));
-    if (item === undefined) json(404, { error: "unknown vault item" });
-    else json(200, item);
+    if (item === undefined) {
+      json(404, { error: "unknown vault item" });
+    } else {
+      // A read is an event: masked metadata only, never a secret value.
+      mind.audit.record({
+        at: Date.now(),
+        kind: "vault",
+        conversationId: "",
+        profile: null,
+        callId: null,
+        name: "vault-read",
+        durationMs: null,
+        ok: true,
+        error: null,
+      });
+      json(200, item);
+    }
     return true;
   }
   if (path.startsWith("/api/vault/") && method === "DELETE") {

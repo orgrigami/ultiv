@@ -91,8 +91,42 @@ function SettingsPage() {
       <section aria-label="Sign-in" className="flex flex-col gap-2">
         <SectionHeader title="Sign-in" />
         <SignOutRow />
+        <SecurityLog />
       </section>
     </Page>
+  );
+}
+
+/** The recent sign-in rows (this account only, newest first). */
+function SecurityLog() {
+  const [events, setEvents] = useState<Awaited<ReturnType<typeof api.auditKind>>>([]);
+  useEffect(() => {
+    void api
+      .auditKind("auth")
+      .then(setEvents)
+      .catch(() => undefined);
+  }, []);
+  const stamp = (at: number): string =>
+    new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <div className={card}>
+      <p className="text-sm">Recent sign-in activity</p>
+      {events.length === 0 ? (
+        <p className="text-muted-foreground text-xs">Nothing recorded yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {events
+            .slice()
+            .reverse()
+            .map((event, index) => (
+              <li key={`${event.at}-${index}`} className="text-muted-foreground text-xs">
+                {stamp(event.at)} · {event.name}
+                {event.ok ? "" : ` (${event.error ?? "refused"})`}
+              </li>
+            ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
