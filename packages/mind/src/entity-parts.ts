@@ -88,6 +88,8 @@ export const installFaculties = (
         tasks,
         ...(f.approvals !== undefined ? { approvals: f.approvals } : {}),
         ...(f.audit !== undefined ? { audit: f.audit } : {}),
+        converse: f.converse,
+        untrustedTool: f.untrustedTool,
       }),
     );
   }

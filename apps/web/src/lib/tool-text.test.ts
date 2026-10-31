@@ -288,3 +288,43 @@ describe("artifact_write file card", () => {
     }
   });
 });
+
+describe("skill_learn", () => {
+  it("quotes the lesson and carries the undo target only for a finished save", () => {
+    const input = { name: "invoice-filing", lesson: "file invoices by supplier", body: "x" };
+    const done = presentationOf(
+      step({
+        name: "skill_learn",
+        input,
+        output: "learned: file invoices by supplier",
+        details: {
+          profile: "bot-1",
+          skill: "invoice-filing",
+          version: 3,
+          lesson: "file invoices by supplier",
+        },
+      }),
+    );
+    expect(done.kind).toBe("human");
+    if (done.kind !== "human") return;
+    expect(done.view.done).toBe("Learned a skill");
+    expect(done.view.detail).toBe("invoice-filing");
+    expect(done.view.body).toBe("learned: file invoices by supplier");
+    expect(done.view.learned).toEqual({
+      profile: "bot-1",
+      skill: "invoice-filing",
+      version: 3,
+      lesson: "file invoices by supplier",
+    });
+    const refused = presentationOf(
+      step({
+        name: "skill_learn",
+        input,
+        status: "error",
+        output: "refused: copies outside content",
+      }),
+    );
+    expect(refused.kind === "human" && refused.view.done).toBe("Didn't learn a skill");
+    expect(refused.kind === "human" && refused.view.learned).toBeUndefined();
+  });
+});

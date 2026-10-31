@@ -37,6 +37,7 @@ import { RoutinesContent } from "@/components/routines-panel";
 import { Mark } from "@/components/state-mark";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
@@ -452,6 +453,16 @@ function AccessTab({ bot }: { bot: ProfileInfo }) {
     }
   };
   const sandboxed = bot.policies.sandbox !== false;
+  const learns = bot.policies.learnSkills !== false;
+  const setLearning = async (learnSkills: boolean): Promise<void> => {
+    try {
+      await api.updateProfile(bot.id, { policies: { learnSkills } });
+      setError(null);
+      await refreshAll();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
   return (
     <div className="flex flex-col gap-4">
       <SectionHeader title="Who approves its steps" />
@@ -493,6 +504,23 @@ function AccessTab({ bot }: { bot: ProfileInfo }) {
           )}
         </Fact>
       </dl>
+      <SectionHeader title="Learning" />
+      <label className="bg-card flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5">
+        <Checkbox
+          className="mt-0.5"
+          checked={learns}
+          onCheckedChange={(checked) => void setLearning(checked === true)}
+          aria-label="Learns skills on its own"
+        />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm">Learns skills on its own</span>
+          <span className="text-muted-foreground text-xs">
+            {learns
+              ? `${bot.name} saves what a turn taught it as a skill without asking. You see "learned: …" in the chat and can undo it there or in Skills. It never copies web pages, documents or mail, secrets, or approval rules into a skill.`
+              : `Off. ${bot.name} doesn't save skills on its own; it can still write one when you ask.`}
+          </span>
+        </span>
+      </label>
       <p className="text-muted-foreground text-sm">
         Apps and saved logins are shared by the crew. Manage them in{" "}
         <Link to="/tools" className="text-foreground underline underline-offset-4">

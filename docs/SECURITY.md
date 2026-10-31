@@ -43,6 +43,11 @@ through `resolveInside(root, ...parts)` from `@spreissen/core`
   are dependency-free and capped: 25 MB in, 50 MB inflated, 2M characters
   out, 100k per call. No OCR; encrypted PDFs are refused.
 
+- `skill_learn` writes skills with no approval, so it refuses instead: turns
+  from outside, text copied from outside content this turn, approval and
+  permission talk, secrets and vault values, more than 3 a turn, and any
+  save when the bot's learning switch is off. See docs/SKILLS.md.
+
 Tests: `packages/core/src/safe-path.test.ts`,
 `packages/ext/src/path-confinement.test.ts`,
 `packages/ext/src/plugins/files.test.ts` (each tool against `../`, absolute

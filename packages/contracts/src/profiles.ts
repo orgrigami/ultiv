@@ -45,6 +45,12 @@ export const ProfilePoliciesSchema = Type.Object({
    * created before the toggle existed read as true.
    */
   sandbox: Type.Optional(Type.Boolean()),
+  /**
+   * Whether this bot saves what it learns as skills on its own (skill_learn,
+   * no approval, one-tap undo). Default true; false refuses skill_learn and
+   * drops the learning rule from its prompt. Older bots read as true.
+   */
+  learnSkills: Type.Optional(Type.Boolean()),
   /** Model turns per day across the profile; null = uncapped. */
   dailyTurnBudget: Type.Union([Type.Number(), Type.Null()]),
   /** This profile may distill into the owner-level memory store (the memory keeper). */

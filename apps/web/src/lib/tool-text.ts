@@ -6,6 +6,7 @@
  */
 import type { ToolStep } from "@spreissen/contracts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
+import { learnedOf, type LearnedRef } from "./learned.ts";
 
 export type ToolFamily =
   | "memory"
@@ -107,6 +108,8 @@ export type ToolView = {
   readonly artifact?: FileRef | undefined;
   /** The expanded view's shaped body; absent means raw receipts. */
   readonly structured?: ToolBodyData | undefined;
+  /** A skill this call learned on its own, for the one-tap undo (skill_learn). */
+  readonly learned?: LearnedRef | undefined;
 };
 
 export type ToolPresentation =
@@ -240,6 +243,10 @@ const FIELDS: Record<string, readonly (readonly [string, string, boolean?])[]> =
     ["description", "Does what"],
   ],
   skill_delete: [["name", "Skill"]],
+  skill_learn: [
+    ["name", "Skill"],
+    ["lesson", "Learned"],
+  ],
   skill_install: [
     ["url", "From", true],
     ["name", "As"],
@@ -653,6 +660,31 @@ const skillFileView = (step: ToolStep): ToolView => {
   };
 };
 
+/** A skill learned on its own: the lesson quoted, with the undo beside it. */
+const learnView = (step: ToolStep): ToolView => {
+  const input = recordOf(step.input);
+  const learned = step.status === "done" ? learnedOf(step.details) : undefined;
+  const lesson = flatOf(input.lesson);
+  const skill = clip(flatOf(input.name), 40);
+  if (learned === undefined) {
+    return {
+      family: "skill",
+      done: step.status === "error" ? "Didn't learn a skill" : "Learned a skill",
+      live: "Learning a skill…",
+      detail: skill,
+    };
+  }
+  return {
+    family: "skill",
+    done: "Learned a skill",
+    live: "Learning a skill…",
+    detail: learned.skill,
+    body: `learned: ${learned.lesson || lesson || learned.skill}`,
+    tags: [`version ${learned.version}`],
+    learned,
+  };
+};
+
 /** The owner-facing lens on one tool call. */
 export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentation {
   if (HIDDEN.has(step.name)) return { kind: "hidden" };
@@ -674,6 +706,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: fetchView(step) };
     case "skill_file":
       return { kind: "human", view: skillFileView(step) };
+    case "skill_learn":
+      return { kind: "human", view: learnView(step) };
     case "task_spawn":
       return { kind: "human", view: taskView(step) };
     case "bash":

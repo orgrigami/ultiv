@@ -5,7 +5,7 @@
  * receipts one click away. Every tool renders in owner words; a tool no lens
  * knows takes a humanized title and raw receipts as its body.
  */
-import { memo, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import {
   BrainIcon,
   CalendarClockIcon,
@@ -27,7 +27,9 @@ import type { ToolStep } from "@spreissen/contracts";
 import { FileCard } from "@/components/file-card";
 import { ErrorNote, FoldText, Receipts, ToolBody, TypedOutput } from "@/components/tool-bodies";
 import { Mark } from "@/components/state-mark";
+import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
+import { undoStateOf, type LearnedRef } from "@/lib/learned";
 import type { JevNotice } from "@/lib/jev-text";
 import {
   DURATION_FLOOR_MS,
@@ -151,6 +153,46 @@ function Body({
   );
 }
 
+type UndoStep = "idle" | "busy" | "undone" | "changed" | "failed";
+
+const UNDO_NOTES: Record<Exclude<UndoStep, "idle" | "busy">, string> = {
+  undone: "Undone",
+  changed: "Changed since; restore a version from the bot's Skills",
+  failed: "Couldn't undo; try the bot's Skills",
+};
+
+/** One-tap undo for a skill the bot learned on its own: only while it's still current. */
+function LearnedUndo({ learned }: { learned: LearnedRef }) {
+  const [step, setStep] = useState<UndoStep>("idle");
+  const undo = async (): Promise<void> => {
+    setStep("busy");
+    try {
+      const history = await api.skillVersions(learned.profile, learned.skill);
+      const state = undoStateOf(history, learned.version);
+      if (state === "undo") await api.skillRevert(learned.profile, learned.skill);
+      setStep(state === "undo" ? "undone" : state);
+    } catch {
+      setStep("failed");
+    }
+  };
+  return (
+    <div className="text-muted-foreground/80 mb-1 ml-[3.75rem] pl-3 text-xs">
+      {step === "idle" || step === "busy" ? (
+        <button
+          type="button"
+          disabled={step === "busy"}
+          onClick={() => void undo()}
+          className="hover:text-foreground inline-flex min-h-6 cursor-pointer items-center underline-offset-2 hover:underline disabled:cursor-default disabled:opacity-60"
+        >
+          {step === "busy" ? "Undoing…" : "Undo"}
+        </button>
+      ) : (
+        <span role="status">{UNDO_NOTES[step]}</span>
+      )}
+    </div>
+  );
+}
+
 /** A recalled list (facts, a room transcript) as plain rows, not JSON. */
 function Lines({ lines }: { lines: readonly string[] }) {
   return (
@@ -206,6 +248,7 @@ export const ToolTrace = memo(function ToolTrace({
         />
       </TraceCollapsibleTrigger>
       {human?.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}
+      {human?.learned !== undefined && <LearnedUndo learned={human.learned} />}
       {human?.artifact !== undefined && (
         <FileCard file={human.artifact} className="mt-1 mb-1 ml-[3.75rem] max-w-prose" />
       )}

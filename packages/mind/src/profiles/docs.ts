@@ -83,6 +83,8 @@ export const defaultPolicies = (): ProfilePolicies => ({
   approvalTimeout: "deny",
   // The sandboxed bash tool is on unless the bot opts out (per-bot toggle).
   sandbox: true,
+  // Automatic skill learning is on unless the owner turns it off (per bot).
+  learnSkills: true,
   dailyTurnBudget: null,
   memoryKeeper: false,
 });

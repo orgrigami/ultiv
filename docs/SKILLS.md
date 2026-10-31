@@ -53,6 +53,41 @@ plus up to 16 enabled skills (name + clipped description; `skill_list`
 beyond), plus the trust rule. Sections re-render per request, so writes,
 installs, disables and accepted proposals are live by the bot's next turn.
 
+## Learning on its own
+
+`skill_learn` (`packages/mind/src/skills/learn.ts`) is how a bot keeps what
+a turn taught it without asking: a procedure it just worked out, or the
+owner correcting how it does a thing. There's no approval card; the owner
+sees "learned: <lesson>" in the chat with a one-tap Undo (only while that
+version is still the newest; otherwise the bot's Skills page restores any
+version). Each save is a version by `learning`, with the turn
+(`conversation#call`) and `learned: <lesson>` as its reason. The prompt
+section carries the learning rule while learning is on.
+
+Because it isn't gated, the refusals are the safety:
+
+- the turn must be the owner's, a routine's or a task's; webhook, sensor,
+  bot-to-bot and unknown turns are refused;
+- nothing copied from outside content this turn: any 8-word run from a web
+  page, search, request, mail, calendar, room, document
+  (`extract_document_text`), file, artifact, history, skill file, shell
+  output or MCP tool result, and any address, link, handle or long number
+  from it that the owner didn't type themselves. If an outside tool ran but
+  its result can't be read back, the save is refused (fails closed);
+- nothing about approvals or permissions (approval modes, YOLO, always-allow,
+  allowlists, "without asking"): those live in the owner's settings only;
+- no secrets or vault values: key shapes, cards, IDs, codes, and any
+  address, number or 4-word run a vault tool returned this turn;
+- at most 3 learned saves a turn; built-ins can't be written;
+- a per-bot switch, `policies.learnSkills` (default on; the bot page's
+  Access tab, "Learns skills on its own"). Off refuses `skill_learn` and
+  drops the rule from the prompt; the bot can still `skill_write` when asked.
+
+No replay or evaluation runs on a learned save (`skill_evolve` is the
+separate, explicit loop). Tests: `packages/mind/src/skills/learn.test.ts`
+(including the planted-instruction case) and
+`apps/server/src/rest/learn-switch.test.ts`.
+
 ## Evolution
 
 `skill_evolve` runs the loop as a background task (the bot's own, so it
@@ -72,6 +107,7 @@ nothing is lost. Built-ins never evolve: copy one first.
 | `skill_load`    | read  | full instructions into context; refuses disabled skills         |
 | `skill_file`    | read  | one reference file inside a skill                               |
 | `skill_write`   | open  | create or update; `files` sets the complete reference set       |
+| `skill_learn`   | open  | save a lesson on its own, with the learning refusals above      |
 | `skill_delete`  | gated | remove one of the bot's skills                                  |
 | `skill_install` | gated | install from https: raw SKILL.md text or a .tar.gz skill folder |
 | `skill_propose` | open  | park a change for the owner (proposals inbox)                   |
