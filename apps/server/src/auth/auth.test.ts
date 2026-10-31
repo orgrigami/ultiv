@@ -92,6 +92,20 @@ describe("passcode sign-in", () => {
     expect(health.status).toBe(200);
   });
 
+  it("before a passcode exists, loopback reaches only the set-passcode step", async () => {
+    // Bootstrap is one step, not a free pass: reads and writes stay closed.
+    for (const [method, path, body] of [
+      ["GET", "/api/sessions", undefined],
+      ["GET", "/api/profiles", undefined],
+      ["POST", "/api/profiles", { name: "owner-a bot" }],
+      ["GET", "/api/vault", undefined],
+    ] as const) {
+      const reply = await call(method, path, body);
+      expect(reply.status, `${method} ${path}`).toBe(401);
+      expect(reply.json).toEqual({ error: "sign in required" });
+    }
+  });
+
   it("refuses passcode setup from a proxied request, allows it from loopback", async () => {
     const remote = await call(
       "POST",

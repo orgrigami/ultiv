@@ -28,7 +28,7 @@ export const sessionKey = (owner: string, id: string): string => `${owner}:${id}
  */
 const RESERVED_OWNERS: readonly string[] = [AGENT_OWNER];
 
-/** The principal of a signed-in session (and of the loopback bootstrap). */
+/** The principal of a signed-in session. */
 export const principalOfAccount = (): Principal => ({ kind: "user", id: OWNER_ID });
 
 /**

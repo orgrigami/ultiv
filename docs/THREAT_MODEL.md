@@ -26,9 +26,9 @@ the map of trust.
   account. The gate is one module (`apps/server/src/auth/`, the session
   cookie) and one decision helper (`can()` in `apps/server/src/rest/can.ts`);
   what an actor cannot access answers exactly like a missing item, so ids
-  cannot be probed. Before a passcode is set, only loopback requests may use
-  the app (one-time bootstrap); afterwards every request needs a session,
-  loopback included.
+  cannot be probed. Before a passcode is set, a loopback request can only
+  set the first passcode (one-time bootstrap); every other request needs a
+  session, loopback included.
 - **Bots and tasks**: their own conversation (pi-durable, durable-scoped),
   their profile's persona and Instructions files, their memory partitions
   (`ultiv.mem.*` doc families per `owner`/profile), their files tree
@@ -90,9 +90,9 @@ the map of trust.
   origin cannot be used with credentials). SameSite=Strict plus the
   JSON-content-type rule on state changes are the CSRF defence. A stricter
   same-origin policy would tighten this; not planned.
-- **The loopback bootstrap**: before a passcode exists, loopback requests act
-  as the owner. A second local user or process on the machine could set the
-  passcode first. Proxied requests (tailnet serve) are never treated as
+- **The loopback bootstrap**: before a passcode exists, a loopback request
+  can set it (and nothing else). A second local user or process on the
+  machine could set the passcode first. Proxied requests (tailnet serve) are never treated as
   loopback (`x-forwarded-*` present), so the LAN path is the sign-in-required
   answer.
 - **Recovery is physical**: anyone who can run a command on the host can

@@ -146,9 +146,7 @@ export async function buildStack(options?: {
     principal: async (request) => {
       // The upgrade IS the credential check: no valid session, no link.
       const access = authorize(request, auth);
-      return access.kind === "session" || access.kind === "bootstrap"
-        ? principalOfAccount()
-        : undefined;
+      return access.kind === "session" ? principalOfAccount() : undefined;
     },
   });
   http.on("upgrade", (req, socket, head) => {

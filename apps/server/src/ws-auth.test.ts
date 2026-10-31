@@ -39,6 +39,8 @@ const wsProbe = (extraCookie: string | undefined): Promise<"open" | "refused"> =
   });
 
 let port = 0;
+/** What an anonymous loopback socket got BEFORE any passcode existed. */
+let beforeSetup: "open" | "refused" = "open";
 
 beforeAll(async () => {
   stack = await buildStack({
@@ -54,6 +56,7 @@ beforeAll(async () => {
   const address = stack.http.address();
   port = typeof address === "object" && address !== null ? address.port : 0;
   base = `http://127.0.0.1:${port}`;
+  beforeSetup = await wsProbe(undefined);
   const set = await fetch(`${base}/api/auth/passcode`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -69,6 +72,10 @@ afterAll(async () => {
 });
 
 describe("websocket auth", () => {
+  it("refuses an anonymous loopback socket even before a passcode exists", () => {
+    expect(beforeSetup).toBe("refused");
+  });
+
   it("refuses an upgrade without a session and accepts one with it", async () => {
     expect(await wsProbe(undefined)).toBe("refused");
     expect(await wsProbe("spriessen_session=not-a-real-session")).toBe("refused");

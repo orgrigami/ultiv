@@ -5,8 +5,11 @@ names the one helper that enforces it, so a later change has one place to edit.
 
 ## Sign-in (passcode and sessions)
 
-Until a passcode is set, only an unproxied loopback request may use the app
-(one-time bootstrap: setting the first passcode happens at the machine). A
+Until a passcode is set, the only thing anyone can do is the one-time
+"set passcode" step, and only from an unproxied loopback request (setting
+the first passcode happens at the machine; it signs that browser in). The
+rest of the API and every socket answer the sign-in refusal, loopback
+included. A
 proxied request — tailscale serve, any reverse proxy — is never loopback
 (`x-forwarded-*` present), so the LAN and the tailnet get the
 sign-in-required answer from the start. After a passcode exists, every

@@ -1,10 +1,10 @@
 /**
  * The request gate: ONE decision for every HTTP surface (REST here, the
- * WebSocket upgrades in slice 6). Public routes pass; everything else needs a
- * valid session cookie — except the one-time bootstrap, where no passcode
- * exists yet and an unproxied loopback request may set it. A proxied request
- * (tailscale serve, any reverse proxy) is never the bootstrap: the LAN and
- * the tailnet get the sign-in-required answer.
+ * WebSocket upgrades in main.ts). Public routes pass; everything else needs a
+ * valid session cookie, loopback included. Before a passcode exists the only
+ * thing a loopback request can do is the one-time "set passcode" step, which
+ * lives on a public route and re-checks loopback itself (auth/routes.ts); the
+ * rest of the API and every socket stay closed until that step signs in.
  *
  * Cross-site defence stays layered: SameSite=Strict keeps the cookie off
  * cross-site requests, and every state-changing /api route must speak JSON
@@ -13,12 +13,11 @@
  */
 import type { IncomingMessage } from "node:http";
 import type { AuthStore } from "./store.ts";
-import { isLoopback, sessionCookieOf } from "./http.ts";
+import { sessionCookieOf } from "./http.ts";
 
 export type Access =
   | { readonly kind: "public" }
   | { readonly kind: "session"; readonly sessionId: string }
-  | { readonly kind: "bootstrap" }
   | { readonly kind: "refuse"; readonly status: number; readonly body: { error: string } };
 
 /**
@@ -68,7 +67,6 @@ export const authorize = (req: IncomingMessage, store: AuthStore): Access => {
     const row = store.session(cookie);
     if (row !== undefined) return { kind: "session", sessionId: cookie };
   }
-  if (!store.passcodeSet) return isLoopback(req) ? { kind: "bootstrap" } : refused();
   return refused();
 };
 
