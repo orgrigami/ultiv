@@ -6,6 +6,13 @@
  * `{ answer }` and continues the same turn; dismissing tells the bot to carry
  * on with its own judgement. While it waits, the turn's deadlines pause (the
  * pending approval counts as waiting on the owner).
+ *
+ * The card never silently disappears: the tool is replay-safe (asking has no
+ * side effect), so a server restart re-runs it and the same question parks a
+ * fresh card instead of the call reading "interrupted". And a message the
+ * owner sends instead of tapping resolves the card as declined
+ * (`releaseQuestions`), so the turn goes on and reads that message next
+ * rather than waiting a day behind the card.
  */
 import { Duration, Effect } from "effect";
 import { Type } from "typebox";
@@ -41,6 +48,28 @@ const DISMISSED =
   "the owner dismissed the question or did not answer in time; carry on with your best " +
   "judgement and say what you assumed — do not ask the same question again";
 
+/** The tool result when the owner wrote a message instead of tapping the card. */
+export const OWNER_REPLIED =
+  "the owner didn't use the card; they sent you a message instead, which comes next — " +
+  "read it as their answer and go on (do not ask the same question again)";
+
+/**
+ * Decline every question waiting in this conversation because the owner sent
+ * a message instead. Other approval cards are left alone. Returns how many
+ * questions were released.
+ */
+export const releaseQuestions = (
+  approvals: Pick<ApprovalsService, "pendingFor" | "decide">,
+  conversationId: string,
+): number => {
+  const waiting = approvals
+    .pendingFor(conversationId)
+    .filter((request) => request.name === ASK_USER_QUESTION);
+  for (const request of waiting)
+    approvals.decide(conversationId, request.callId, false, OWNER_REPLIED);
+  return waiting.length;
+};
+
 const Option = Type.Object({
   label: Type.String({ minLength: 1, maxLength: 80, description: "What the owner taps." }),
   detail: Type.Optional(
@@ -65,6 +94,9 @@ const toolOf = (deps: QuestionDeps) =>
       ),
     }),
     callers: ["model"],
+    // Asking has no side effect: after a restart the call runs again and the
+    // card comes back, instead of the question being lost as "interrupted".
+    replay: "safe",
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
       if (deps.profiles.scopeOf(conversationId) === undefined)

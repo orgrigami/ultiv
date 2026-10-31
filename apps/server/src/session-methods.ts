@@ -7,7 +7,7 @@ import type { Ctx, Host } from "@earendil-works/chord";
 import type { Conversation, UserInput } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import type { SendMode, ThinkingLevel } from "@spriessen/contracts";
-import { redirectTurn, stopTurn, type MindService } from "@spriessen/mind";
+import { redirectTurn, releaseQuestions, stopTurn, type MindService } from "@spriessen/mind";
 import { buildInputContent } from "./input-content.ts";
 import { ownerErrorText } from "./error-text.ts";
 import type { Principal } from "./identity.ts";
@@ -173,6 +173,10 @@ export function inputMethod(scope: MethodScope) {
           : await Effect.runPromise(
               mind.converse.submit(chat, content, whenBusy ?? "steer", undefined, built?.entry),
             );
+      // A message sent while the bot waits on its own question is the owner's
+      // answer: release the card so the turn reads the message now instead of
+      // queueing it behind a question that would wait a day.
+      if (whenBusy !== "redirect") releaseQuestions(mind.approvals, String(chat.id));
       settle({ ...scope, conversation: chat, submission, text });
     } catch (error) {
       inFlight.finish();
