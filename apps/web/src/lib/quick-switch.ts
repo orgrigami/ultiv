@@ -1,11 +1,11 @@
 /**
- * The quick switcher's model (Cmd/Ctrl-K): one list of bots, past chats,
- * screens and actions, ranked by how well the typed text matches, and the
+ * The quick switcher's model (Cmd/Ctrl-K): one list of bots, departments,
+ * past chats, screens and actions, ranked by how well the typed text matches, and the
  * desktop shortcuts that open things (Cmd/Ctrl-K, N, ?). Pure, so the
  * matching and the key rules are tested without a browser.
  */
 
-export type QuickKind = "action" | "screen" | "bot" | "chat";
+export type QuickKind = "action" | "screen" | "department" | "bot" | "chat";
 
 export interface QuickItem {
   id: string;
@@ -20,11 +20,18 @@ export interface QuickItem {
 }
 
 /** Group order when nothing is typed, and the tie-break when scores match. */
-const KIND_ORDER: Record<QuickKind, number> = { action: 0, screen: 1, bot: 2, chat: 3 };
+const KIND_ORDER: Record<QuickKind, number> = {
+  action: 0,
+  screen: 1,
+  department: 2,
+  bot: 3,
+  chat: 4,
+};
 
 export const KIND_LABEL: Record<QuickKind, string> = {
   action: "Actions",
   screen: "Go to",
+  department: "Departments",
   bot: "Bots",
   chat: "Past chats",
 };

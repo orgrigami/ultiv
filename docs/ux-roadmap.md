@@ -199,4 +199,5 @@ departments, and Remove (warns, offers Export first and Move them all to the
 org; bots are never deleted with it). New bot asks "Which department?"; a
 profile's Manage starts with "Move to…" (the main bot stays in the org); the
 pill and the profile show a bot's home. The Crew page has New department and
-an "Across departments" list from the reach audit.
+an "Across departments" list from the reach audit, and Cmd/Ctrl-K finds
+departments and "New department".

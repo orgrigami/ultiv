@@ -1,5 +1,5 @@
 /**
- * Cmd/Ctrl-K: one box that finds any bot, past chat, screen or action and
+ * Cmd/Ctrl-K: one box that finds any bot, department, past chat, screen or action and
  * opens it with Enter. N starts a new chat and ? shows every shortcut. Bare
  * keys never fire while typing in a field. The ranking lives in
  * lib/quick-switch.ts; this file is the dialog and the key listener.
@@ -9,6 +9,7 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   BellDotIcon,
   BotIcon,
+  Building2Icon,
   CalendarClockIcon,
   HistoryIcon,
   KeyRoundIcon,
@@ -27,6 +28,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
 import { useNewChat, useOpenChat } from "@/components/app-nav";
+import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
 import { useApp } from "@/lib/app-state";
 import { pastChats } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
@@ -40,6 +42,7 @@ import {
 } from "@/lib/quick-switch";
 import { QuickSwitchContext } from "@/lib/quick-switch-context";
 import { setThemeChoice } from "@/lib/theme";
+import { useOrg } from "@/lib/use-org";
 import { cn } from "@/lib/utils";
 
 interface Entry extends QuickItem {
@@ -109,8 +112,11 @@ const SCREENS: readonly {
   },
 ];
 
-function useEntries(close: () => void, showHelp: () => void): Entry[] {
+const countBots = (count: number): string => (count === 1 ? "1 bot" : `${count} bots`);
+
+function useEntries(close: () => void, showHelp: () => void, newDepartment: () => void): Entry[] {
   const { sessions, mainId } = useApp();
+  const { view } = useOrg();
   const navigate = useNavigate();
   const newChat = useNewChat();
   const openChat = useOpenChat();
@@ -157,6 +163,26 @@ function useEntries(close: () => void, showHelp: () => void): Entry[] {
         showHelp();
       },
     },
+    {
+      id: "new-department",
+      kind: "action",
+      title: "New department",
+      icon: Building2Icon,
+      keywords: ["org", "team", "group"],
+      run: () => {
+        close();
+        newDepartment();
+      },
+    },
+    ...(view?.departments ?? []).map((department): Entry => ({
+      id: `department-${department.id}`,
+      kind: "department",
+      title: department.name,
+      detail: `${countBots(bots.filter((bot) => bot.departmentId === department.id).length)} · Instructions, VM, access`,
+      icon: Building2Icon,
+      keywords: ["department"],
+      run: () => go(`/crew/dept/${department.id}`),
+    })),
     ...SCREENS.map((screen): Entry => ({
       id: `screen-${screen.id}`,
       kind: "screen",
@@ -207,11 +233,19 @@ function Kbd({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Switcher({ onClose, showHelp }: { onClose: () => void; showHelp: () => void }) {
+function Switcher({
+  onClose,
+  showHelp,
+  newDepartment,
+}: {
+  onClose: () => void;
+  showHelp: () => void;
+  newDepartment: () => void;
+}) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
-  const entries = useEntries(onClose, showHelp);
+  const entries = useEntries(onClose, showHelp, newDepartment);
   // A few dozen rows: ranking on each render is cheaper than memoising closures.
   const rows = rankItems(entries, query) as Entry[];
   const current = Math.min(active, Math.max(0, rows.length - 1));
@@ -357,6 +391,7 @@ function Floating({
 export function QuickSwitchProvider({ children }: { children: React.ReactNode }) {
   const [switcher, setSwitcher] = useState(false);
   const [help, setHelp] = useState(false);
+  const [newDepartment, setNewDepartment] = useState(false);
   const newChat = useNewChat();
   const startNew = useRef(newChat.start);
   startNew.current = newChat.start;
@@ -389,11 +424,18 @@ export function QuickSwitchProvider({ children }: { children: React.ReactNode })
     <QuickSwitchContext.Provider value={controls}>
       {children}
       <Floating open={switcher} onOpenChange={setSwitcher} label="Quick switcher">
-        {switcher && <Switcher onClose={() => setSwitcher(false)} showHelp={() => setHelp(true)} />}
+        {switcher && (
+          <Switcher
+            onClose={() => setSwitcher(false)}
+            showHelp={() => setHelp(true)}
+            newDepartment={() => setNewDepartment(true)}
+          />
+        )}
       </Floating>
       <Floating open={help} onOpenChange={setHelp} label="Keyboard shortcuts">
         <ShortcutSheet />
       </Floating>
+      <NewDepartmentDialog open={newDepartment} onOpenChange={setNewDepartment} />
     </QuickSwitchContext.Provider>
   );
 }
