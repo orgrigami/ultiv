@@ -9,6 +9,7 @@ import { Effect } from "effect";
 import type { SendMode, ThinkingLevel } from "@spreissen/contracts";
 import { redirectTurn, stopTurn, type MindService } from "@spreissen/mind";
 import { buildInputContent } from "./input-content.ts";
+import { ownerErrorText } from "./error-text.ts";
 import type { Principal } from "./identity.ts";
 import {
   safeChange,
@@ -176,7 +177,7 @@ export function inputMethod(scope: MethodScope) {
     } catch (error) {
       inFlight.finish();
       console.error("input failed:", error);
-      safeChange(cells.lastError, ctx, () => String(error));
+      safeChange(cells.lastError, ctx, () => ownerErrorText(error));
       safeChange(cells.phase, ctx, () => "error");
       throw error;
     }

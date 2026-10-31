@@ -23,6 +23,7 @@ import type {
   UsageSummary,
 } from "@spreissen/contracts";
 import { isStopped, type MindService } from "@spreissen/mind";
+import { ownerErrorText } from "./error-text.ts";
 import type { Principal } from "./identity.ts";
 
 export type SessionCells = {
@@ -140,7 +141,7 @@ export function settle(args: SettleArgs): void {
         return;
       }
       console.error("agent turn failed:", error);
-      safeChange(cells.lastError, ctx, () => String(error));
+      safeChange(cells.lastError, ctx, () => ownerErrorText(error));
       safeChange(cells.phase, ctx, () => "error");
     }
   });
