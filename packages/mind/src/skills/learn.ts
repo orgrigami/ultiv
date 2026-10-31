@@ -29,6 +29,7 @@ import { Type } from "typebox";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
+import type { TasksService } from "../tasks/tasks.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import {
   BASE_UNTRUSTED_TOOLS,
@@ -86,7 +87,24 @@ export interface TurnContext {
   readonly outsideCalls: number;
   /** Skill saves (skill_learn or skill_write) already made this turn. */
   readonly learned: number;
+  /**
+   * This conversation is a background task whose spawning (or steering)
+   * turn had outside content: the whole task counts as outside.
+   */
+  readonly outsideTask?: boolean;
 }
+
+/**
+ * Whether a turn counts as outside for what it hands on (a spawned or
+ * steered task inherits it): not the owner's or a routine's (a task-result
+ * wake relays background output), outside content read, or itself an
+ * outside task.
+ */
+export const turnIsOutside = (turn: TurnContext): boolean =>
+  (turn.origin !== "owner" && turn.origin !== "cron") ||
+  turn.outside.length > 0 ||
+  turn.outsideCalls > 0 ||
+  turn.outsideTask === true;
 
 interface Message {
   readonly role?: string;
@@ -113,9 +131,19 @@ export const turnContext = async (
     readonly converse: ConverseService;
     readonly audit?: AuditService | undefined;
     readonly untrustedTool?: ((name: string) => boolean) | undefined;
+    /** To read the task row's outside mark when this is a task's conversation. */
+    readonly tasks?: Pick<TasksService, "taskOf"> | undefined;
   },
   conversationId: string,
 ): Promise<TurnContext> => {
+  // Unreadable registry: fail closed (as if an outside task).
+  const outsideTask =
+    deps.tasks === undefined
+      ? false
+      : await Effect.runPromise(deps.tasks.taskOf(conversationId)).then(
+          (task) => task?.outside === true,
+          () => true,
+        );
   const entries = await Effect.runPromise(deps.converse.entriesOf(conversationId, 60)).then(
     (records) => records as readonly { readonly model?: readonly Message[] }[],
     () => [] as const,
@@ -167,6 +195,7 @@ export const turnContext = async (
     learned: events.filter(
       (event) => (event.name === SKILL_LEARN || event.name === SKILL_WRITE) && event.ok,
     ).length,
+    outsideTask,
   };
 };
 
@@ -233,6 +262,12 @@ export const skillGate = (
   const ownWork = turn.origin === "owner" || turn.origin === "cron" || turn.origin === "task";
   if (tool === "learn") {
     if (!learning) return { kind: "refuse", reason: LEARNING_OFF };
+    if (turn.outsideTask === true)
+      return {
+        kind: "refuse",
+        reason:
+          "refused: this background task was started or steered from a turn with outside content, so it doesn't learn skills on its own",
+      };
     if (!ownWork)
       return {
         kind: "refuse",
@@ -245,6 +280,12 @@ export const skillGate = (
     return {
       kind: "ask",
       reason: "Learning is off for this bot, so this skill write needs your OK.",
+    };
+  if (tool === "write" && turn.outsideTask === true)
+    return {
+      kind: "ask",
+      reason:
+        "This background task was started or steered from a turn with outside content, so this skill write needs your OK.",
     };
   if (tool === "write" && turn.origin !== "owner")
     return {
@@ -300,6 +341,7 @@ export interface LearnDeps {
   readonly converse: ConverseService;
   readonly audit?: AuditService | undefined;
   readonly untrustedTool?: ((name: string) => boolean) | undefined;
+  readonly tasks?: Pick<TasksService, "taskOf"> | undefined;
 }
 
 /** One skill_write as the gate sees it: the body and every reference file. */
@@ -356,13 +398,7 @@ const fail = (text: string) => ({
   isError: true as const,
 });
 
-export const learnTool = (deps: {
-  readonly skills: SkillsService;
-  readonly profiles: ProfilesService;
-  readonly converse: ConverseService;
-  readonly audit?: AuditService | undefined;
-  readonly untrustedTool?: ((name: string) => boolean) | undefined;
-}): Tool =>
+export const learnTool = (deps: LearnDeps & { readonly skills: SkillsService }): Tool =>
   defineTool({
     name: SKILL_LEARN,
     description:

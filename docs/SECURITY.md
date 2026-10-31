@@ -48,8 +48,9 @@ through `resolveInside(root, ...parts)` from `@spriessen/core`
   permission talk, secrets and vault values, more than 3 a turn, and any
   save when the bot's learning switch is off. `skill_write` runs the same
   checks (one shared gate); where `skill_learn` refuses for who is asking,
-  `skill_write` asks the owner on an owner-only card instead. See
-  docs/SKILLS.md.
+  `skill_write` asks the owner on an owner-only card instead. A background
+  task spawned or steered from an outside turn is outside for its whole run
+  (the mark is on the task row). See docs/SKILLS.md.
 
 Tests: `packages/core/src/safe-path.test.ts`,
 `packages/ext/src/path-confinement.test.ts`,

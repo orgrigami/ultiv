@@ -106,6 +106,7 @@ export const skillsExtension = (deps: {
               audit: deps.audit,
               untrustedTool: deps.untrustedTool,
               approvals: deps.approvals,
+              tasks: deps.tasks,
             }),
     }),
     installTool(deps.skills, deps.profiles),
@@ -118,6 +119,7 @@ export const skillsExtension = (deps: {
             converse: deps.converse,
             audit: deps.audit,
             untrustedTool: deps.untrustedTool,
+            tasks: deps.tasks,
           }),
         ]
       : []),

@@ -45,7 +45,17 @@ const REFUSE_NESTED =
   "refused: you are already running AS a background task — tasks cannot spawn sub-tasks (it " +
   "compounds cost). Do the work yourself in this conversation, or finish and let the parent decide.";
 
-const spawnTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
+/**
+ * Whether a conversation's current turn had outside content (learn.ts
+ * `turnIsOutside`); a spawned or steered task inherits it. Absent: clean.
+ */
+export type OutsideTurn = (conversationId: string) => Promise<boolean>;
+
+const spawnTool = (
+  tasks: TasksService,
+  profiles: ProfilesService,
+  outsideTurn: OutsideTurn | undefined,
+): Tool =>
   defineTool({
     name: "task_spawn",
     description:
@@ -70,6 +80,7 @@ const spawnTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
         await Effect.runPromise(tasks.list()),
       ).filter((task) => task.status === "running");
       if (running.length >= MAX_RUNNING_TASKS) return textReply(runningCapMessage(running), true);
+      const outside = (await outsideTurn?.(spawning).catch(() => true)) ?? false;
       const task = await Effect.runPromise(
         tasks.spawn({
           sessionId: args.sessionId ?? "",
@@ -77,6 +88,7 @@ const spawnTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
           conversationId: spawning,
           prompt: args.prompt,
           ...(args.title !== undefined ? { title: args.title } : {}),
+          ...(outside ? { outside: true } : {}),
         }),
       );
       return {
@@ -153,12 +165,16 @@ const listTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
   });
 
 /** The task tools in registry order. */
-export const taskTools = (tasks: TasksService, profiles: ProfilesService): readonly Tool[] => [
-  spawnTool(tasks, profiles),
+export const taskTools = (
+  tasks: TasksService,
+  profiles: ProfilesService,
+  options: { readonly outsideTurn?: OutsideTurn | undefined } = {},
+): readonly Tool[] => [
+  spawnTool(tasks, profiles, options.outsideTurn),
   statusTool(tasks),
   cancelTool(tasks),
   listTool(tasks, profiles),
-  messageTool(tasks, profiles),
+  messageTool(tasks, profiles, options.outsideTurn),
   notifyTool(tasks),
 ];
 

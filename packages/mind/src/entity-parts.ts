@@ -17,6 +17,7 @@ import { taskTools } from "./act/task-tools.ts";
 import { ENTITY_NAME } from "./act/identity.ts";
 import { runningTasksSection } from "./act/task-live.ts";
 import { skillsExtension } from "./skills/section.ts";
+import { turnContext, turnIsOutside } from "./skills/learn.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { AuditService } from "./audit/audit.ts";
 import type { ConverseService } from "./converse/converse.ts";
@@ -97,7 +98,15 @@ export const installFaculties = (
   piRegistry.install(
     defineExtension({
       name: "ultius.mind.tasks",
-      tools: taskTools(tasks, profiles),
+      tools: taskTools(tasks, profiles, {
+        outsideTurn: async (conversationId) =>
+          turnIsOutside(
+            await turnContext(
+              { converse: f.converse, audit: f.audit, untrustedTool: f.untrustedTool, tasks },
+              conversationId,
+            ),
+          ),
+      }),
       sections: [runningTasksSection(tasks, profiles)],
     }),
   );

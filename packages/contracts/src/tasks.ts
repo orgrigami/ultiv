@@ -35,6 +35,12 @@ export const TaskInfoSchema = Type.Object({
   title: Type.Optional(Type.String()),
   /** The bot the task runs as, kept on the row so the link survives a restart. */
   bot: Type.Optional(Type.Object({ owner: Type.String(), profileId: Type.String() })),
+  /**
+   * True when the turn that spawned or steered the task had outside content
+   * (or wasn't the owner's or a routine's): the whole task counts as outside,
+   * so it can't learn skills on its own. Sticky; absent = clean.
+   */
+  outside: Type.Optional(Type.Boolean()),
   /** Progress updates the task posted for the owner (notify_owner), oldest first. */
   updates: Type.Optional(Type.Array(TaskUpdateSchema)),
   /** The latest step of a running task, as a plain line (list responses only, never stored). */

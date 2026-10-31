@@ -117,6 +117,23 @@ describe("task_message (faux model)", () => {
     await r.harness.close(ctx);
   });
 
+  it("a steer from an outside turn marks the task row for good", async () => {
+    const r = await rig("tool");
+    await r.blocked;
+    expect((await Effect.runPromise(r.tasks.get(r.task.id)))?.outside).toBeUndefined();
+    expect(await Effect.runPromise(r.tasks.message(r.task.id, "clean", {}))).toBe("sent");
+    expect((await Effect.runPromise(r.tasks.get(r.task.id)))?.outside).toBeUndefined();
+    expect(
+      await Effect.runPromise(r.tasks.message(r.task.id, "from a page", { outside: true })),
+    ).toBe("sent");
+    expect((await Effect.runPromise(r.tasks.get(r.task.id)))?.outside).toBe(true);
+    r.release();
+    const row = await r.settled();
+    expect(row?.status).toBe("done");
+    expect(row?.outside).toBe(true);
+    await r.harness.close(ctx);
+  });
+
   it("a message sent while the task is only writing gets its own turn and result", async () => {
     const r = await rig("reply");
     await r.blocked;

@@ -69,6 +69,12 @@ Because it isn't gated, the refusals are the safety:
 
 - the turn must be the owner's, a routine's or a task's; webhook, sensor,
   bot-to-bot and unknown turns are refused;
+- a task inherits the outside mark of the turn that spawned it, for the
+  whole task: `task_spawn` (and `task_message`, which makes it stick)
+  stores `outside: true` on the task row when that turn wasn't the owner's
+  or a routine's (including a task-result wake) or read outside content.
+  An outside task can't `skill_learn`; its `skill_write` asks the owner. An
+  unreadable task registry counts as outside;
 - nothing copied from outside content this turn: any 8-word run from a web
   page, search, request, mail, calendar, room, document
   (`extract_document_text`), file, artifact, history, skill file, shell
@@ -97,7 +103,8 @@ learning on, a clean write needs no card.
 No replay or evaluation runs on a learned save (`skill_evolve` is the
 separate, explicit loop). Tests: `packages/mind/src/skills/learn.test.ts`
 (including the planted-instruction case),
-`packages/mind/src/skills/write-guard.test.ts` and
+`packages/mind/src/skills/write-guard.test.ts`,
+`packages/mind/src/skills/task-outside.test.ts` and
 `apps/server/src/rest/learn-switch.test.ts`.
 
 ## Evolution

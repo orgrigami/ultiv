@@ -4,6 +4,7 @@
  * the bot aware of what it has in flight. The section shows a stable start
  * time, not a live age, so it does not churn the prompt every request.
  */
+import type { OutsideTurn } from "./task-tools.ts";
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { PromptSection } from "@earendil-works/pi-durable";
@@ -39,7 +40,11 @@ const MessageParams = Type.Object({
   text: Type.String({ description: "The new instruction, self-contained." }),
 });
 
-export const messageTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
+export const messageTool = (
+  tasks: TasksService,
+  profiles: ProfilesService,
+  outsideTurn?: OutsideTurn,
+): Tool =>
   defineTool({
     name: "task_message",
     description:
@@ -54,10 +59,15 @@ export const messageTool = (tasks: TasksService, profiles: ProfilesService): Too
         await Effect.runPromise(tasks.list()),
       );
       const task = visible.find((candidate) => candidate.id === args.id);
+      const outside =
+        task !== undefined &&
+        ((await outsideTurn?.(String(api.conversationId)).catch(() => true)) ?? false);
       const outcome =
         task === undefined
           ? "not_running"
-          : await Effect.runPromise(tasks.message(args.id, args.text));
+          : await Effect.runPromise(
+              tasks.message(args.id, args.text, outside ? { outside: true } : undefined),
+            );
       if (outcome !== "sent") {
         const why =
           task === undefined

@@ -51,6 +51,8 @@ export interface TasksService {
     readonly prompt: string;
     /** A short title for the owner's task list (≤40 chars); optional. */
     readonly title?: string;
+    /** The spawning turn had outside content: stored on the row (see TaskInfo.outside). */
+    readonly outside?: boolean;
   }) => Effect.Effect<TaskInfo, External>;
   readonly get: (id: string) => Effect.Effect<TaskInfo | undefined, External>;
   readonly list: () => Effect.Effect<TaskList, External>;
@@ -74,7 +76,12 @@ export interface TasksService {
    * chat: the text lands at the task's next step (or right after its current
    * reply). "not_running" when the task is unknown or already settled.
    */
-  readonly message: (id: string, text: string) => Effect.Effect<"sent" | "not_running", External>;
+  readonly message: (
+    id: string,
+    text: string,
+    /** `outside`: the steering turn had outside content; the row is marked for good. */
+    options?: { readonly outside?: boolean },
+  ) => Effect.Effect<"sent" | "not_running", External>;
   /** A task's last few steps as plain lines, oldest first ([] when none). */
   readonly steps: (id: string, count?: number) => Promise<string[]>;
   /** Post a progress line into the parent chat (rate-limited; never wakes the parent). */
@@ -172,12 +179,20 @@ const drainFollowers = async (
 /** Admit a parent message into a running task's conversation (steer semantics). */
 const messageTask =
   (rt: TaskRuntime): TasksService["message"] =>
-  (id, text) =>
+  (id, text, options) =>
     Effect.gen(function* () {
       const task = yield* findTask(rt.converse, id);
       if (task === undefined || task.status !== "running" || rt.closing.has(id)) {
         return "not_running" as const;
       }
+      // Marked before the text lands, so the steered step already counts as outside.
+      if (options?.outside === true && task.outside !== true)
+        yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
+          writeTasks(
+            rt.converse,
+            tasks.map((row) => (row.id === id ? { ...row, outside: true } : row)),
+          ),
+        );
       const conversation = yield* rt.converse.ensure(taskConversationKey(id));
       const submission = yield* rt.converse.submit(conversation, `${FROM_PARENT} ${text}`, "steer");
       rt.followers.set(id, [...(rt.followers.get(id) ?? []), submission]);
@@ -303,6 +318,7 @@ const spawnTask =
         finishedAt: null,
         ...(title !== "" ? { title } : {}),
         ...(bot !== null ? { bot } : {}),
+        ...(input.outside === true ? { outside: true } : {}),
       };
       yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
         writeTasks(rt.converse, [...tasks, task]),
