@@ -15,13 +15,16 @@ import {
   readSkill,
   readSkillFile,
   removeSkill,
+  restoreSkillVersion,
   revertSkill,
   setSkillEnabled,
   skillsDir,
+  skillVersions,
   writeSkill,
 } from "./store.ts";
 import { addProposal, decideProposal, listProposals } from "./proposals.ts";
 import { MAX_SKILL_CHARS, secretIn } from "./guard.ts";
+import type { Version, VersionAuthor } from "../versions/store.ts";
 
 /** A skill update parked for the owner (skill_propose / the evolution loop). */
 export interface SkillProposeInput {
@@ -40,6 +43,10 @@ export interface SkillWriteInput {
   readonly authorProfile?: string | null;
   readonly parentVersion?: number | null;
   readonly note?: string | null;
+  /** Who saved it, for the history; defaults to owner for owner edits, else bot. */
+  readonly by?: VersionAuthor;
+  /** The turn a bot's write came from (conversation and call). */
+  readonly turn?: string;
   /** The skill's complete reference set; omitted leaves current files untouched. */
   readonly files?: readonly SkillFileIn[];
 }
@@ -63,7 +70,17 @@ export interface SkillsService {
     name: string,
     enabled: boolean,
   ) => Promise<SkillMeta | undefined>;
+  /** Undo: the version before the current one becomes current again, as a new version. */
   readonly revert: (owner: string, profile: string, name: string) => Promise<SkillMeta | undefined>;
+  /** The skill's history, oldest first ([] for built-ins and unknown names). */
+  readonly versions: (owner: string, profile: string, name: string) => Promise<readonly Version[]>;
+  /** Make version `n` current again, as a new version. */
+  readonly restore: (
+    owner: string,
+    profile: string,
+    name: string,
+    n: number,
+  ) => Promise<SkillMeta | undefined>;
   readonly propose: (
     owner: string,
     profile: string,
@@ -127,6 +144,8 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
           ...(input.parentVersion !== undefined ? { parentVersion: input.parentVersion } : {}),
           ...(input.note !== undefined ? { note: input.note } : {}),
           ...(input.files !== undefined ? { files: input.files } : {}),
+          ...(input.by !== undefined ? { by: input.by } : {}),
+          ...(input.turn !== undefined ? { turn: input.turn } : {}),
         },
         builtins,
       ),
@@ -134,6 +153,9 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
     setEnabled: async (owner, profile, name, enabled) =>
       setSkillEnabled(root, owner, profile, name, enabled, builtins),
     revert: async (owner, profile, name) => revertSkill(root, owner, profile, name, builtins),
+    versions: async (owner, profile, name) => skillVersions(root, owner, profile, name),
+    restore: async (owner, profile, name, n) =>
+      restoreSkillVersion(root, owner, profile, name, n, "owner", builtins),
     propose: async (owner, profile, input) => {
       if (input.body.length > MAX_SKILL_CHARS) {
         throw new Error(`proposal exceeds ${MAX_SKILL_CHARS} chars`);
@@ -168,6 +190,7 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
           authorProfile: decided.byProfile,
           parentVersion: decided.baseVersion,
           note: decided.note,
+          by: "owner",
         },
         builtins,
       );

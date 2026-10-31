@@ -186,6 +186,8 @@ const writeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
         name: args.name,
         body,
         ...(args.files !== undefined ? { files: args.files } : {}),
+        by: "bot",
+        turn: `${String(api.conversationId)}#${String(api.callId)}`,
         ...(existing === undefined
           ? { authorProfile: profileId }
           : { origin: existing.meta.origin, authorProfile: existing.meta.authorProfile }),

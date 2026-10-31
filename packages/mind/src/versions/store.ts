@@ -14,7 +14,7 @@ import { isSafeSegment, resolveInside } from "@spreissen/core";
 export type VersionAuthor = "owner" | "bot" | "migration" | "learning";
 
 export interface Version {
-  /** 1-based, contiguous. */
+  /** 1-based and increasing (contiguous unless a caller pins `n`, as skills do). */
   readonly n: number;
   readonly text: string;
   readonly at: number;
@@ -32,6 +32,8 @@ export interface SaveMeta {
   readonly reason: string;
   readonly turn?: string;
   readonly restoredFrom?: number;
+  /** Pin the number (never below the next one): skills keep their existing version count. */
+  readonly n?: number;
 }
 
 export const REASON_CHARS = 140;
@@ -83,7 +85,7 @@ export const appendVersion = (
   const file = fileOf(dir, name);
   const versions = historyOf(dir, name);
   const version: Version = {
-    n: (versions.at(-1)?.n ?? 0) + 1,
+    n: Math.max((versions.at(-1)?.n ?? 0) + 1, meta.n ?? 0),
     text,
     at: now,
     by: meta.by,

@@ -13,8 +13,17 @@ skills hold ways of working worth loading before similar work.
   the faculties, the procedures, and the platform contracts. Read-only,
   updated with the app; built-in files read from the package, never disk.
 - Per-bot: `{SKILLS_DIR}/{owner}/{profile}/skills/<name>/SKILL.md`
-  (default `var/skills`), metadata in `skills.index.json` beside them,
-  including the previous version's body for one-click revert. Reference
+  (default `var/skills`), metadata in `skills.index.json` beside them.
+  Every save also appends to the skill's full history in
+  `versions/<name>.versions.json` (the version store Persona and
+  Instructions use, docs/BOT-FILES.md): number, time, who (`owner`, `bot`,
+  `learning`, `migration`), a one-line reason, and for bot writes the turn
+  (`conversation#call`). Only SKILL.md is versioned; reference files are
+  not. Restore and undo append a copy, so history is never rewritten; a
+  removed skill's history stays, and a new skill by that name numbers on.
+  A skill saved before full history shows its two known versions (the
+  current one and the index's previous body) and keeps them on its next
+  save. Reference
   files (`references/`, `scripts/`, `assets/`, any layout) live beside the
   SKILL.md and are listed in the metadata.
 - Names and descriptions follow the agentskills.io spec: name matches the
@@ -71,7 +80,27 @@ nothing is lost. Built-ins never evolve: copy one first.
 ## Owner surface
 
 `GET /api/skills` returns `{ builtins, profiles, openProposals }`; detail,
-PUT (body and/or `enabled`), DELETE, `POST .../revert` and
+PUT (body and/or `enabled`), DELETE, `GET .../versions` (newest first),
+`POST .../restore` `{ version }`, `POST .../revert` (undo: the version
+before the current one becomes current) and
 `POST .../proposals/:id/accept|reject` are per-skill routes, all
-owner-scoped and audited under kind `skills`. The web page groups skills
-per bot, badges origin, renders bodies, and hosts the proposal inbox.
+owner-scoped (another owner gets the unknown-bot 404) and audited under
+kind `skills`. The web page groups skills per bot, badges origin, renders
+bodies, hosts the proposal inbox, and in each skill's dialog shows the
+versions with Restore and an Undo button once there is a second version.
+
+## Exposure (as of Phase 1)
+
+- Per bot: every read and write takes `{owner}/{profile}` from the
+  conversation's mapping (`skillsScope`), and paths go through
+  `resolveInside`. A bot can't name another bot's skills.
+- Fixed in slice 10: an absent `skills.index.json` used to return one
+  shared empty object that writes then filled, so a bot with no index of
+  its own listed (and on its next index write saved) another bot's skill
+  names and descriptions, across owners too. Bodies never leaked: they're
+  read from the bot's own folder. Listings now skip rows whose SKILL.md
+  isn't in the bot's folder, which also hides rows copied in before the fix.
+- Code: skill files (`scripts/` included) are text in the skill store and
+  never run by the app. They are not in the bash tree; a bot can only run
+  one by copying its text into its own files and running it in its
+  sandboxed bash, like any text it can read.

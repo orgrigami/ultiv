@@ -5,6 +5,7 @@
  */
 import {
   FileTextIcon,
+  HistoryIcon,
   PencilIcon,
   PlusIcon,
   PowerIcon,
@@ -32,6 +33,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { type BotFileVersion, versionLine } from "@/lib/bot-files";
 import { formatFull } from "@/lib/format";
 
 const ORIGIN_LABEL: Record<SkillOrigin, string> = {
@@ -175,6 +177,83 @@ function ReferenceFiles({
   );
 }
 
+/** A skill's history, newest first, with Restore on every older version. */
+function SkillVersions({
+  profile,
+  name,
+  current,
+  busy,
+  onRestore,
+}: {
+  profile: string;
+  name: string;
+  current: number;
+  busy: boolean;
+  onRestore: (n: number) => void;
+}) {
+  const [versions, setVersions] = useState<BotFileVersion[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let gone = false;
+    api
+      .skillVersions(profile, name)
+      .then((list) => {
+        if (!gone) setVersions(list);
+      })
+      .catch((cause: unknown) => {
+        if (!gone) setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      gone = true;
+    };
+  }, [open, profile, name, current]);
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <div>
+        <Button size="sm" variant="outline" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <HistoryIcon aria-hidden />
+          {open ? "Hide versions" : "Versions"}
+        </Button>
+      </div>
+      {open &&
+        (error !== null ? (
+          <ErrorState message={`Couldn't load the versions: ${error}`} />
+        ) : versions === null ? (
+          <SkeletonRows label="Loading the versions" rows={2} />
+        ) : (
+          <ol className="divide-border divide-y rounded-xl border" aria-label={`${name} versions`}>
+            {versions.map((version) => (
+              <li key={version.n} className="flex flex-col gap-1 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground min-w-0 text-xs break-words">
+                    {versionLine(version)}
+                  </span>
+                  {version.n === current ? (
+                    <span className="shrink-0 text-xs">Current</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => onRestore(version.n)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </div>
+                <p className="line-clamp-3 text-sm whitespace-pre-wrap">
+                  {bodyWithoutFrontmatter(version.text)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ))}
+    </div>
+  );
+}
+
 /** One parked change with its accept/reject pair. */
 function ProposalCard({
   proposal,
@@ -203,7 +282,7 @@ function ProposalCard({
   );
 }
 
-/** The footer actions: edit, enable, revert (when there is a parent), remove. */
+/** The footer actions: edit, enable, undo (after a second version), remove. */
 function ActionRow({
   meta,
   busy,
@@ -244,13 +323,13 @@ function ActionRow({
         >
           {meta.enabled ? <PowerIcon /> : <PowerOffIcon />}
         </Button>
-        {meta.parentVersion !== null && (
+        {meta.origin !== "builtin" && meta.version > 1 && (
           <Button
             variant="ghost"
             size="icon"
             disabled={busy}
-            aria-label="Revert to the previous version"
-            title="Revert to the previous version"
+            aria-label="Undo the last change"
+            title="Undo the last change"
             onClick={onRevert}
           >
             <RotateCcwIcon />
@@ -293,6 +372,7 @@ function LoadedSkill({
   onRevert,
   onDelete,
   onDecide,
+  onRestore,
 }: {
   profile: string;
   detail: SkillDetail;
@@ -303,6 +383,7 @@ function LoadedSkill({
   onRevert: () => void;
   onDelete: () => Promise<void>;
   onDecide: (proposal: SkillProposal, verdict: "accept" | "reject") => void;
+  onRestore: (n: number) => void;
 }) {
   return (
     <>
@@ -328,6 +409,15 @@ function LoadedSkill({
             />
           ))}
         </div>
+      )}
+      {detail.meta.origin !== "builtin" && (
+        <SkillVersions
+          profile={profile}
+          name={detail.meta.name}
+          current={detail.meta.version}
+          busy={busy}
+          onRestore={onRestore}
+        />
       )}
       {error !== null && (
         <div className="mt-3">
@@ -427,6 +517,7 @@ function SkillDialog({
               onClose();
             }}
             onDecide={decide}
+            onRestore={(n) => void act(() => api.skillRestore(target.profile, target.name, n))()}
           />
         )}
         {editing && detail !== null && (

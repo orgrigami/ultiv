@@ -2,8 +2,9 @@
  * The skill store: per-profile folders on disk, one index file per profile.
  * Layout: `{root}/{owner}/{profile}/skills/<name>/SKILL.md` plus any extra
  * reference files, with `skills.index.json` holding the metadata (including
- * each skill's previous version, so a revert is a file rewrite, not
- * archaeology). Built-in skills (the app's own) are merged into listings but
+ * each skill's previous version). Every save also appends to the skill's
+ * full history under `versions/` (the shared version store), which
+ * restore and undo read. Built-in skills (the app's own) are merged into listings but
  * live in the package, never on disk: they are read-only by construction.
  * Plain sync fs, like the artifacts store; throws Error with plain text the
  * tools relay.
@@ -23,6 +24,7 @@ import {
   slugOk,
 } from "./guard.ts";
 import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
+import { appendVersion, historyOf, type Version, type VersionAuthor } from "../versions/store.ts";
 
 /** A skill that ships with the app: parsed once, merged into every listing. */
 export interface BuiltinSkill {
@@ -42,7 +44,8 @@ interface ProfileIndex {
   builtins: Record<string, { enabled: boolean }>;
 }
 
-const EMPTY_INDEX: ProfileIndex = { skills: {}, builtins: {} };
+/** A new empty index each time: callers mutate what they read. */
+const emptyIndex = (): ProfileIndex => ({ skills: {}, builtins: {} });
 
 /** The store root (relative to the server's cwd, like ARTIFACTS_DIR). */
 export const skillsDir = (): string => {
@@ -65,14 +68,48 @@ const skillsOf = (root: string, owner: string, profile: string): string =>
 const indexFile = (root: string, owner: string, profile: string): string =>
   join(scopeDir(root, owner, profile), "skills.index.json");
 
+/** Each skill's full history (docs/BOT-FILES.md "Versions"), beside the index. */
+const versionsOf = (root: string, owner: string, profile: string): string =>
+  join(scopeDir(root, owner, profile), "versions");
+
+/** Who a write with no explicit author came from, by the skill's origin. */
+const authorOf = (origin: SkillOrigin): VersionAuthor => (origin === "owner" ? "owner" : "bot");
+
+const LEGACY_REASON = "Kept from before full history";
+
+/**
+ * A skill saved before full history was kept has only its index row (the
+ * current body plus one previous). Its history starts as those two.
+ */
+const legacyHistory = (stored: StoredSkill, body: string): Version[] => [
+  ...(stored.previous !== null && stored.previous.body !== ""
+    ? [
+        {
+          n: stored.previous.version,
+          text: stored.previous.body,
+          at: stored.createdAt,
+          by: "migration" as const,
+          reason: LEGACY_REASON,
+        },
+      ]
+    : []),
+  {
+    n: stored.version,
+    text: body,
+    at: stored.updatedAt,
+    by: "migration" as const,
+    reason: LEGACY_REASON,
+  },
+];
+
 const readIndex = (root: string, owner: string, profile: string): ProfileIndex => {
   const file = indexFile(root, owner, profile);
-  if (!existsSync(file)) return EMPTY_INDEX;
+  if (!existsSync(file)) return emptyIndex();
   try {
     const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<ProfileIndex>;
     return { skills: raw.skills ?? {}, builtins: raw.builtins ?? {} };
   } catch {
-    return EMPTY_INDEX;
+    return emptyIndex();
   }
 };
 
@@ -120,7 +157,10 @@ export const listSkills = (
   const builtinMetas = builtins.map((skill) =>
     builtinMeta(skill, index.builtins[skill.name]?.enabled ?? true),
   );
+  // A row whose SKILL.md isn't in this bot's folder is another bot's, copied in
+  // by the shared-empty-index bug (fixed 2026-10): never list it.
   const stored = Object.values(index.skills)
+    .filter((skill) => readStoredBody(root, owner, profile, skill.name) !== undefined)
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .map(({ previous: _previous, ...meta }) => meta);
   return [...builtinMetas, ...stored];
@@ -200,6 +240,11 @@ export interface SkillWrite {
   readonly authorProfile?: string | null;
   readonly parentVersion?: number | null;
   readonly note?: string | null;
+  /** Who saved it, for the history; defaults by origin (owner, else bot). */
+  readonly by?: VersionAuthor;
+  /** The turn a bot's or learned write came from. */
+  readonly turn?: string;
+  readonly restoredFrom?: number;
   /**
    * The skill's COMPLETE reference set: given files are written, extras on
    * disk are pruned. Undefined leaves the current files untouched.
@@ -296,6 +341,16 @@ export const writeSkill = (
     doc.name === input.name ? input.body : serializeSkillDoc(input.name, doc.description, doc.body);
   const index = readIndex(root, owner, profile);
   const existing = index.skills[input.name];
+  const history = historyOf(versionsOf(root, owner, profile), input.name);
+  const existingBody =
+    existing === undefined ? undefined : (readStoredBody(root, owner, profile, input.name) ?? "");
+  if (existing !== undefined && history.length === 0) {
+    for (const old of legacyHistory(existing, existingBody ?? "")) {
+      appendVersion(versionsOf(root, owner, profile), input.name, old.text, { ...old }, old.at);
+    }
+  }
+  // A removed skill's history stays, so a new one by that name numbers on.
+  const version = Math.max(existing?.version ?? 0, history.at(-1)?.n ?? 0) + 1;
   const now = Date.now();
   const stored: StoredSkill = {
     name: input.name,
@@ -305,7 +360,7 @@ export const writeSkill = (
     authorProfile: input.authorProfile ?? existing?.authorProfile ?? null,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
-    version: (existing?.version ?? 0) + 1,
+    version,
     enabled: existing?.enabled ?? true,
     files:
       input.files === undefined
@@ -314,18 +369,20 @@ export const writeSkill = (
     parentVersion: input.parentVersion ?? null,
     evolutionNote: input.note ?? null,
     previous:
-      existing === undefined
-        ? null
-        : {
-            version: existing.version,
-            body: readStoredBody(root, owner, profile, input.name) ?? "",
-          },
+      existing === undefined ? null : { version: existing.version, body: existingBody ?? "" },
   };
   const dir = skillsOf(root, owner, profile);
   mkdirSync(resolveInside(dir, input.name), { recursive: true });
   writeFileSync(resolveInside(dir, input.name, "SKILL.md"), body, "utf8");
   index.skills[input.name] = stored;
   writeIndex(root, owner, profile, index);
+  appendVersion(versionsOf(root, owner, profile), input.name, body, {
+    by: input.by ?? authorOf(input.origin),
+    reason: input.note ?? (existing === undefined ? "Created" : "Updated"),
+    n: version,
+    ...(input.turn !== undefined ? { turn: input.turn } : {}),
+    ...(input.restoredFrom !== undefined ? { restoredFrom: input.restoredFrom } : {}),
+  });
   const { previous: _previous, ...meta } = stored;
   return meta;
 };
@@ -375,32 +432,81 @@ export const setSkillEnabled = (
   return meta;
 };
 
-/** Restore a skill's previous body (version bumped again, lineage noted). */
-export const revertSkill = (
+/**
+ * A stored skill's history, oldest first. Built-ins and unknown names have
+ * none. A skill from before full history shows its two kept versions.
+ */
+export const skillVersions = (
   root: string,
   owner: string,
   profile: string,
   name: string,
+): Version[] => {
+  const stored = readIndex(root, owner, profile).skills[name];
+  if (stored === undefined) return [];
+  const history = historyOf(versionsOf(root, owner, profile), name);
+  return history.length > 0
+    ? history
+    : legacyHistory(stored, readStoredBody(root, owner, profile, name) ?? "");
+};
+
+/**
+ * Make version `n` current again as a new version (history is never
+ * rewritten). Only SKILL.md is versioned; reference files stay as they are.
+ */
+export const restoreSkillVersion = (
+  root: string,
+  owner: string,
+  profile: string,
+  name: string,
+  n: number,
+  by: VersionAuthor,
   builtins: readonly BuiltinSkill[],
+  reason: string = `Restored version ${n}`,
 ): SkillMeta | undefined => {
-  const index = readIndex(root, owner, profile);
-  const stored = index.skills[name];
-  if (stored === undefined || stored.previous === null || stored.previous.body === "") {
-    return undefined;
-  }
+  const stored = readIndex(root, owner, profile).skills[name];
+  const old = skillVersions(root, owner, profile, name).find((version) => version.n === n);
+  if (stored === undefined || old === undefined || old.text === "") return undefined;
   return writeSkill(
     root,
     owner,
     profile,
     {
       name,
-      body: stored.previous.body,
+      body: old.text,
       origin: stored.origin,
       sourceUrl: stored.sourceUrl,
       authorProfile: stored.authorProfile,
-      parentVersion: stored.previous.version,
-      note: `reverted from v${stored.version} to v${stored.previous.version}`,
+      parentVersion: n,
+      note: reason,
+      by,
+      restoredFrom: n,
     },
     builtins,
+  );
+};
+
+/** One-tap undo: the version before the current one becomes current again. */
+export const revertSkill = (
+  root: string,
+  owner: string,
+  profile: string,
+  name: string,
+  builtins: readonly BuiltinSkill[],
+  by: VersionAuthor = "owner",
+): SkillMeta | undefined => {
+  const history = skillVersions(root, owner, profile, name);
+  const current = history.at(-1);
+  const before = history.at(-2);
+  if (current === undefined || before === undefined) return undefined;
+  return restoreSkillVersion(
+    root,
+    owner,
+    profile,
+    name,
+    before.n,
+    by,
+    builtins,
+    `Undid version ${current.n}`,
   );
 };

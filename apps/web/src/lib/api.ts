@@ -507,6 +507,14 @@ export const api = {
         .map((part) => encodeURIComponent(part))
         .join("/")}`,
     ),
+  skillVersions: (profile: string, name: string): Promise<BotFileVersion[]> =>
+    getJson<BotFileVersion[]>(
+      `/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/versions`,
+    ),
+  skillRestore: (profile: string, name: string, version: number): Promise<unknown> =>
+    send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/restore`, "POST", {
+      version,
+    }),
   skillRevert: (profile: string, name: string): Promise<unknown> =>
     send(`/api/skills/${encodeURIComponent(profile)}/${encodeURIComponent(name)}/revert`, "POST"),
   skillProposal: (profile: string, id: string, verdict: "accept" | "reject"): Promise<unknown> =>

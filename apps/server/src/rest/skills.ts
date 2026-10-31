@@ -2,7 +2,8 @@
  * Skills REST: the owner's surface over the per-profile skill stores: the
  * overview (built-in library plus each bot's namespace), one skill's detail
  * with its parked proposals, owner edits (origin "owner"), enable/disable,
- * revert, delete, and the accept/reject verdicts on evolution proposals.
+ * undo (`revert`), the version history and restore, delete, and the
+ * accept/reject verdicts on evolution proposals.
  * Owner-scoped via `x-spreissen-user` like every route; every mutation lands in
  * the audit trail under kind "skills".
  */
@@ -78,6 +79,8 @@ export async function skillRoutes(args: RouteArgs): Promise<boolean> {
   const file = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/files\/(.+)$/);
   const proposal = path.match(/^\/api\/skills\/([^/]+)\/proposals\/([^/]+)\/(accept|reject)$/);
   const revert = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/revert$/);
+  const versions = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/versions$/);
+  const restore = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/restore$/);
   try {
     if (path === "/api/skills" && method === "GET") {
       json(200, await overview(args));
@@ -155,6 +158,31 @@ export async function skillRoutes(args: RouteArgs): Promise<boolean> {
       });
       if (!removed) return notFound(json, "skill", name);
       json(200, { ok: true });
+      return true;
+    }
+    if (versions !== null && method === "GET") {
+      const [, profileId, name] = versions;
+      if (!(await knownProfile(args, profileId))) return notFound(json, "profile", profileId);
+      const history = await args.mind.skills.versions(args.owner, profileId ?? "", name ?? "");
+      if (history.length === 0) return notFound(json, "skill with versions", name);
+      json(200, [...history].reverse());
+      return true;
+    }
+    if (restore !== null && method === "POST") {
+      const [, profileId, name] = restore;
+      if (!(await knownProfile(args, profileId))) return notFound(json, "profile", profileId);
+      const body = await args.readJson<{ version?: unknown }>(args.req);
+      if (typeof body.version !== "number" || !Number.isInteger(body.version)) {
+        json(400, { error: "send { version: <number> }" });
+        return true;
+      }
+      const n = body.version;
+      let meta: SkillMeta | undefined;
+      await audited(args, profileId ?? "", "skills.owner.restore", async () => {
+        meta = await args.mind.skills.restore(args.owner, profileId ?? "", name ?? "", n);
+      });
+      if (meta === undefined) return notFound(json, "skill version", `${name ?? ""} v${n}`);
+      json(200, meta);
       return true;
     }
     if (revert !== null && method === "POST") {
