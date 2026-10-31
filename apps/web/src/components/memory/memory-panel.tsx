@@ -80,7 +80,7 @@ function TabStrip({
           aria-controls={`memory-tabpanel-${item.id}`}
           onClick={() => onTab(item.id)}
           className={cn(
-            "focus-visible:ring-ring/50 pointer-coarse:min-h-11 flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus-visible:ring-3",
+            "focus-visible:ring-ring/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11 flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus-visible:ring-3",
             tab === item.id
               ? "bg-secondary text-secondary-foreground"
               : "text-muted-foreground hover:text-foreground",
