@@ -170,7 +170,7 @@ function LearnedUndo({ learned }: { learned: LearnedRef }) {
       const history = await api.skillVersions(learned.profile, learned.skill);
       const state = undoStateOf(history, learned.version);
       if (state === "undo") {
-        await (undoActionOf(learned.version) === "remove"
+        await (undoActionOf(history, learned.version) === "remove"
           ? api.skillRemove(learned.profile, learned.skill)
           : api.skillRevert(learned.profile, learned.skill));
       }

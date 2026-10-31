@@ -22,6 +22,10 @@ skills hold ways of working worth loading before similar work.
   (`conversation#call`). Only SKILL.md is versioned; reference files are
   not. Restore and undo append a copy, so history is never rewritten; a
   removed skill's history stays, and a new skill by that name numbers on.
+  The save that creates a skill is marked `created`, and undo never
+  reaches back past it: after learn, delete, learn, undo removes the skill
+  instead of restoring the deleted text (`POST .../revert` answers 404
+  there). The Skills page can still restore an older version by hand.
   A skill saved before full history shows its two known versions (the
   current one and the index's previous body) and keeps them on its next
   save. Reference
@@ -61,7 +65,8 @@ a turn taught it without asking: a procedure it just worked out, or the
 owner correcting how it does a thing. There's no approval card; the owner
 sees "learned: <lesson>" in the chat with a one-tap Undo (only while that
 version is still the newest; otherwise the bot's Skills page restores any
-version). Undoing a skill the save created removes it; its history stays. Each save is a version by `learning`, with the turn
+version). Undoing a skill the save created (the version marked `created`,
+or version 1) removes it; its history stays. Each save is a version by `learning`, with the turn
 (`conversation#call`) and `learned: <lesson>` as its reason. The prompt
 section carries the learning rule while learning is on.
 

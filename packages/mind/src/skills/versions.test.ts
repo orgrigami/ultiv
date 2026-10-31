@@ -111,6 +111,39 @@ describe("skill versions", () => {
     expect(again.version).toBe(3);
   });
 
+  it("learn, delete, learn: undo removes the skill and never brings back the deleted text", async () => {
+    const skills = skillsService({ root: fresh() });
+    const learn = (step: string) =>
+      skills.write("owner-a", "bot-1", {
+        name: "weekly-report",
+        body: BODY(step),
+        by: "learning",
+        note: `learned: ${step}`,
+      });
+    await learn("deleted text");
+    await skills.remove("owner-a", "bot-1", "weekly-report");
+    const again = await learn("fresh text");
+    expect(again.version).toBe(2);
+    const history = await skills.versions("owner-a", "bot-1", "weekly-report");
+    expect(history.map((v) => [v.n, v.created === true])).toEqual([
+      [1, true],
+      [2, true],
+    ]);
+    // There is nothing of this skill's own to go back to: undo is a remove.
+    expect(await skills.revert("owner-a", "bot-1", "weekly-report")).toBeUndefined();
+    expect((await skills.read("owner-a", "bot-1", "weekly-report"))?.body).toContain("fresh text");
+    await skills.remove("owner-a", "bot-1", "weekly-report");
+    expect(await skills.read("owner-a", "bot-1", "weekly-report")).toBeUndefined();
+    // A later save in the new lineage still undoes to its own previous version.
+    await learn("third");
+    await learn("fourth");
+    expect((await skills.revert("owner-a", "bot-1", "weekly-report"))?.version).toBe(5);
+    const body = (await skills.read("owner-a", "bot-1", "weekly-report"))?.body ?? "";
+    expect(body).toContain("third");
+    expect(await skills.revert("owner-a", "bot-1", "weekly-report")).toBeDefined();
+    expect((await skills.read("owner-a", "bot-1", "weekly-report"))?.body).toContain("fourth");
+  });
+
   it("the wrong person can't see or restore another owner's history", async () => {
     const skills = skillsService({ root: fresh() });
     await skills.write("owner-a", "bot-1", { name: "weekly-report", body: BODY("one") });

@@ -27,8 +27,11 @@ describe("learned steps", () => {
   });
 
   it("undoing a skill the save created removes it; later saves revert", () => {
-    expect(undoActionOf(1)).toBe("remove");
-    expect(undoActionOf(4)).toBe("revert");
+    expect(undoActionOf([v(1)], 1)).toBe("remove");
+    expect(undoActionOf([v(1), v(2), v(3), v(4)], 4)).toBe("revert");
+    // Learned, deleted, learned again: v2 created the skill anew.
+    expect(undoActionOf([v(1), { ...v(2), created: true }], 2)).toBe("remove");
+    expect(undoActionOf([v(1), { ...v(2), created: true }, v(3)], 3)).toBe("revert");
   });
 
   it("offers undo only while the learned version is the newest", () => {

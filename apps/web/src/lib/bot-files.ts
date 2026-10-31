@@ -20,6 +20,8 @@ export interface BotFileVersion {
   reason: string;
   turn?: string;
   restoredFrom?: number;
+  /** This save created the skill (anything older belongs to a removed one). */
+  created?: true;
 }
 
 export const BOT_FILE_META: Record<

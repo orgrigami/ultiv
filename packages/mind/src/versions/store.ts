@@ -25,6 +25,12 @@ export interface Version {
   readonly turn?: string;
   /** Set when this version restores an older one. */
   readonly restoredFrom?: number;
+  /**
+   * Set when this save created the thing (skills: no skill by that name
+   * existed, though a removed one's history may sit before it). Undo never
+   * reaches back across a created version.
+   */
+  readonly created?: true;
 }
 
 export interface SaveMeta {
@@ -32,6 +38,7 @@ export interface SaveMeta {
   readonly reason: string;
   readonly turn?: string;
   readonly restoredFrom?: number;
+  readonly created?: true;
   /** Pin the number (never below the next one): skills keep their existing version count. */
   readonly n?: number;
 }
@@ -92,6 +99,7 @@ export const appendVersion = (
     reason: oneLine(meta.reason),
     ...(meta.turn !== undefined ? { turn: meta.turn.slice(0, 200) } : {}),
     ...(meta.restoredFrom !== undefined ? { restoredFrom: meta.restoredFrom } : {}),
+    ...(meta.created === true ? { created: true as const } : {}),
   };
   writeAll(file, [...versions, version]);
   return version;

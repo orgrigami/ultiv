@@ -73,6 +73,20 @@ describe("skill versions REST", () => {
     expect((await call("owner-a", "GET", `/api/skills/${bot}/nothing/versions`)).status).toBe(404);
   });
 
+  it("undo can't bring back a deleted skill's text after it is saved anew", async () => {
+    const path = `/api/skills/${bot}/invoice-filing`;
+    const body = (step: string) =>
+      `---\nname: invoice-filing\ndescription: Invoices\n---\n\n${step}`;
+    expect((await call("owner-a", "PUT", path, { body: body("deleted text") })).status).toBe(200);
+    expect((await call("owner-a", "DELETE", path)).status).toBe(200);
+    expect((await call("owner-a", "PUT", path, { body: body("fresh text") })).status).toBe(200);
+    const listed = (await call("owner-a", "GET", `${path}/versions`)).json as any[];
+    expect(listed[0]).toMatchObject({ n: 2, created: true });
+    expect((await call("owner-a", "POST", `${path}/revert`)).status).toBe(404);
+    expect((await call("owner-a", "GET", path)).json.body).toContain("fresh text");
+    expect((await call("owner-b", "POST", `${path}/revert`)).status).toBe(404);
+  });
+
   it("the wrong person can't list, restore or undo", async () => {
     const path = `/api/skills/${bot}/weekly-report`;
     expect((await call("owner-b", "GET", `${path}/versions`)).status).toBe(404);

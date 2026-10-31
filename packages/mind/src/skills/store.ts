@@ -402,6 +402,7 @@ export const writeSkill = (
     n: version,
     ...(input.turn !== undefined ? { turn: input.turn } : {}),
     ...(input.restoredFrom !== undefined ? { restoredFrom: input.restoredFrom } : {}),
+    ...(existing === undefined ? { created: true as const } : {}),
   });
   const { previous: _previous, ...meta } = stored;
   return meta;
@@ -506,7 +507,12 @@ export const restoreSkillVersion = (
   );
 };
 
-/** One-tap undo: the version before the current one becomes current again. */
+/**
+ * One-tap undo: the version before the current one becomes current again,
+ * but only within the current skill's own lineage. When the current version
+ * created the skill (a removed skill's history may sit before it), there is
+ * nothing to go back to: undefined, and the caller removes the skill.
+ */
 export const revertSkill = (
   root: string,
   owner: string,
@@ -518,7 +524,9 @@ export const revertSkill = (
   const history = skillVersions(root, owner, profile, name);
   const current = history.at(-1);
   const before = history.at(-2);
-  if (current === undefined || before === undefined) return undefined;
+  if (current === undefined || before === undefined || current.created === true) return undefined;
+  const born = history.findLastIndex((version) => version.created === true);
+  if (born !== -1 && history.indexOf(before) < born) return undefined;
   return restoreSkillVersion(
     root,
     owner,

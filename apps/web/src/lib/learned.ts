@@ -25,11 +25,18 @@ export const learnedOf = (details: unknown): LearnedRef | undefined => {
 
 /**
  * How undo rolls a learned save back: a skill the save created has no
- * earlier version, so undo removes it (its history stays); otherwise it
- * restores the version before.
+ * earlier version of its own, so undo removes it (its history stays);
+ * otherwise it restores the version before. A skill learned again after a
+ * delete numbers on from the removed one, so "created" comes from the
+ * version's own mark; version 1 covers histories from before the mark.
  */
-export const undoActionOf = (version: number): "remove" | "revert" =>
-  version === 1 ? "remove" : "revert";
+export const undoActionOf = (
+  history: readonly BotFileVersion[],
+  version: number,
+): "remove" | "revert" =>
+  version === 1 || history.some((entry) => entry.n === version && entry.created === true)
+    ? "remove"
+    : "revert";
 
 export type UndoState = "undo" | "undone" | "changed";
 
