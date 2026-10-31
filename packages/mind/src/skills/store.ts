@@ -396,7 +396,17 @@ export const writeSkill = (
   writeFileSync(resolveInside(dir, input.name, "SKILL.md"), body, "utf8");
   index.skills[input.name] = stored;
   writeIndex(root, owner, profile, index);
+  // Every version carries the folder's complete file set, so restore and
+  // undo bring reference files and scripts back with the body.
+  const files: Record<string, string> = {};
+  for (const rel of stored.files) {
+    const given = input.files?.find((file) => file.path === rel);
+    const path = tryResolveInside(dir, input.name, rel);
+    files[rel] =
+      given?.content ?? (path !== undefined && existsSync(path) ? readFileSync(path, "utf8") : "");
+  }
   appendVersion(versionsOf(root, owner, profile), input.name, body, {
+    files,
     by: input.by ?? authorOf(input.origin),
     reason: input.note ?? (existing === undefined ? "Created" : "Updated"),
     n: version,
@@ -473,7 +483,9 @@ export const skillVersions = (
 
 /**
  * Make version `n` current again as a new version (history is never
- * rewritten). Only SKILL.md is versioned; reference files stay as they are.
+ * rewritten): SKILL.md and, when the version recorded them, the folder's
+ * other files (the complete set: extras are pruned). A version from before
+ * files were versioned leaves the current files as they are.
  */
 export const restoreSkillVersion = (
   root: string,
@@ -502,6 +514,9 @@ export const restoreSkillVersion = (
       note: reason,
       by,
       restoredFrom: n,
+      ...(old.files !== undefined
+        ? { files: Object.entries(old.files).map(([path, content]) => ({ path, content })) }
+        : {}),
     },
     builtins,
   );

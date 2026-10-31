@@ -31,6 +31,11 @@ export interface Version {
    * reaches back across a created version.
    */
   readonly created?: true;
+  /**
+   * Skills: the folder's other files at this version (path to text), the
+   * complete set. Absent on versions saved before files were versioned.
+   */
+  readonly files?: Readonly<Record<string, string>>;
 }
 
 export interface SaveMeta {
@@ -39,6 +44,7 @@ export interface SaveMeta {
   readonly turn?: string;
   readonly restoredFrom?: number;
   readonly created?: true;
+  readonly files?: Readonly<Record<string, string>>;
   /** Pin the number (never below the next one): skills keep their existing version count. */
   readonly n?: number;
 }
@@ -100,6 +106,7 @@ export const appendVersion = (
     ...(meta.turn !== undefined ? { turn: meta.turn.slice(0, 200) } : {}),
     ...(meta.restoredFrom !== undefined ? { restoredFrom: meta.restoredFrom } : {}),
     ...(meta.created === true ? { created: true as const } : {}),
+    ...(meta.files !== undefined ? { files: { ...meta.files } } : {}),
   };
   writeAll(file, [...versions, version]);
   return version;

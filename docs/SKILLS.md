@@ -19,8 +19,11 @@ skills hold ways of working worth loading before similar work.
   `versions/<name>.versions.json` (the version store Persona and
   Instructions use, docs/BOT-FILES.md): number, time, who (`owner`, `bot`,
   `learning`, `migration`), a one-line reason, and for bot writes the turn
-  (`conversation#call`). Only SKILL.md is versioned; reference files are
-  not. Restore and undo append a copy, so history is never rewritten; a
+  (`conversation#call`). Every file in the skill folder is versioned: each
+  version also records the complete set of reference files and scripts
+  (`files`, path to text), and restore and undo bring that set back,
+  pruning files the version didn't have. Versions saved before this carry
+  no `files` and leave the current files alone. Restore and undo append a copy, so history is never rewritten; a
   removed skill's history stays, and a new skill by that name numbers on.
   The save that creates a skill is marked `created`, and undo never
   reaches back past it: after learn, delete, learn, undo removes the skill

@@ -144,6 +144,68 @@ describe("skill versions", () => {
     expect((await skills.read("owner-a", "bot-1", "weekly-report"))?.body).toContain("fourth");
   });
 
+  it("every file in the skill folder is versioned: restore and undo bring them back", async () => {
+    const skills = skillsService({ root: fresh() });
+    const write = (step: string, files?: { path: string; content: string }[]) =>
+      skills.write("owner-a", "bot-1", {
+        name: "weekly-report",
+        body: BODY(step),
+        ...(files !== undefined ? { files } : {}),
+      });
+    const file = (rel: string) => skills.readFile("owner-a", "bot-1", "weekly-report", rel);
+    await write("one", [
+      { path: "references/format.md", content: "format one" },
+      { path: "scripts/send.sh", content: "echo one" },
+    ]);
+    await write("two", [
+      { path: "references/format.md", content: "format two" },
+      { path: "references/extra.md", content: "extra" },
+    ]);
+    await write("three"); // body only: the files carry over, and are recorded
+    const history = await skills.versions("owner-a", "bot-1", "weekly-report");
+    expect(history.map((v) => v.files)).toEqual([
+      { "references/format.md": "format one", "scripts/send.sh": "echo one" },
+      { "references/format.md": "format two", "references/extra.md": "extra" },
+      { "references/format.md": "format two", "references/extra.md": "extra" },
+    ]);
+    await skills.restore("owner-a", "bot-1", "weekly-report", 1);
+    expect(await file("references/format.md")).toBe("format one");
+    expect(await file("scripts/send.sh")).toBe("echo one");
+    expect(await file("references/extra.md")).toBeUndefined();
+    expect((await skills.read("owner-a", "bot-1", "weekly-report"))?.meta.files).toEqual([
+      "references/format.md",
+      "scripts/send.sh",
+    ]);
+    // Undo the restore: version three's files return.
+    await skills.revert("owner-a", "bot-1", "weekly-report");
+    expect(await file("references/format.md")).toBe("format two");
+    expect(await file("references/extra.md")).toBe("extra");
+    expect(await file("scripts/send.sh")).toBeUndefined();
+    // The wrong person can't restore them.
+    expect(await skills.restore("owner-b", "bot-1", "weekly-report", 1)).toBeUndefined();
+    expect(await file("references/format.md")).toBe("format two");
+  });
+
+  it("a version saved before files were versioned leaves the current files alone", async () => {
+    const dir = fresh();
+    const skills = skillsService({ root: dir });
+    await skills.write("owner-a", "bot-1", { name: "weekly-report", body: BODY("one") });
+    await skills.write("owner-a", "bot-1", {
+      name: "weekly-report",
+      body: BODY("two"),
+      files: [{ path: "references/format.md", content: "kept" }],
+    });
+    const path = join(dir, "owner-a", "bot-1", "versions", "weekly-report.versions.json");
+    const stored = JSON.parse(readFileSync(path, "utf8")) as { versions: { files?: unknown }[] };
+    delete stored.versions[0]?.files;
+    writeFileSync(path, JSON.stringify(stored));
+    await skills.restore("owner-a", "bot-1", "weekly-report", 1);
+    expect((await skills.read("owner-a", "bot-1", "weekly-report"))?.body).toContain("one");
+    expect(await skills.readFile("owner-a", "bot-1", "weekly-report", "references/format.md")).toBe(
+      "kept",
+    );
+  });
+
   it("the wrong person can't see or restore another owner's history", async () => {
     const skills = skillsService({ root: fresh() });
     await skills.write("owner-a", "bot-1", { name: "weekly-report", body: BODY("one") });
