@@ -6,8 +6,8 @@
  */
 import type { IncomingMessage } from "node:http";
 import { Value } from "typebox/value";
-import { McpServerInputSchema, type McpServerInput } from "@spreissen/contracts";
-import { defaultRedirectUrl } from "@spreissen/ext";
+import { McpServerInputSchema, type McpServerInput } from "@spriessen/contracts";
+import { defaultRedirectUrl } from "@spriessen/ext";
 import { errorOf, type RouteArgs } from "./types.ts";
 
 export const CALLBACK_PATH = "/api/mcp/oauth/callback";

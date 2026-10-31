@@ -7,8 +7,8 @@
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { PromptSection } from "@earendil-works/pi-durable";
-import type { TaskInfo } from "@spreissen/contracts";
-import { defineTool, type Tool } from "@spreissen/ext";
+import type { TaskInfo } from "@spriessen/contracts";
+import { defineTool, type Tool } from "@spriessen/ext";
 import { titleOf, type TasksService } from "../tasks/tasks.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 

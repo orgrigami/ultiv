@@ -12,7 +12,7 @@ import {
   type ConnectionTuning,
   type McpManager,
   type VaultStore,
-} from "@spreissen/ext";
+} from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

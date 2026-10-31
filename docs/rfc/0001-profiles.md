@@ -7,7 +7,7 @@ envelope schema and trust rules are live via `deliverExternal`), the notificatio
 (the approval inbox + dead-letter REST surfaces + audit escalations are the attention path), and
 profile management UI beyond the switcher/Bot Mode pin. Transcript export is not in the bundle
 (the harness has no conversation export API); sessions import as fresh chats.
-Scope: `@spreissen/mind`, `@spreissen/ext`, `packages/contracts`, `apps/server`, `apps/web`.
+Scope: `@spriessen/mind`, `@spriessen/ext`, `packages/contracts`, `apps/server`, `apps/web`.
 
 ## 1. Summary
 

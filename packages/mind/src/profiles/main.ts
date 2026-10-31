@@ -5,8 +5,8 @@
  */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { NotFound } from "@spreissen/core";
-import type { ProfileInfo, SessionInfo } from "@spreissen/contracts";
+import { NotFound } from "@spriessen/core";
+import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
 import {
   MAIN_PREFIX,
   SettingsDoc,

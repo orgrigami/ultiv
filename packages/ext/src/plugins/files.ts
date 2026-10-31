@@ -9,7 +9,7 @@
  * area" to confine to, so nothing is read or written).
  */
 import { Type } from "typebox";
-import { isPathEscape, resolveInside } from "@spreissen/core";
+import { isPathEscape, resolveInside } from "@spriessen/core";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";

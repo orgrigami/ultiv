@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { createCronJob, createSensor, openMind } from "@spreissen/mind";
+import { createCronJob, createSensor, openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spreissen-owner-scope-"));

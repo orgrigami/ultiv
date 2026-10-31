@@ -245,13 +245,13 @@ importers:
       '@earendil-works/pi-durable':
         specifier: 'catalog:'
         version: 1.4.0(@aws-sdk/credential-provider-node@3.972.88)(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(@smithy/signature-v4@5.7.4)(undici@7.30.1)(ws@8.22.0)(zod@4.6.7)
-      '@spreissen/contracts':
+      '@spriessen/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@spreissen/ext':
+      '@spriessen/ext':
         specifier: workspace:*
         version: link:../../packages/ext
-      '@spreissen/mind':
+      '@spriessen/mind':
         specifier: workspace:*
         version: link:../../packages/mind
       croner:
@@ -291,7 +291,7 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.3.0
         version: 5.3.0
-      '@spreissen/contracts':
+      '@spriessen/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@tailwindcss/typography':
@@ -378,10 +378,10 @@ importers:
       '@modelcontextprotocol/client':
         specifier: 'catalog:'
         version: 2.4.0
-      '@spreissen/contracts':
+      '@spriessen/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@spreissen/core':
+      '@spriessen/core':
         specifier: workspace:*
         version: link:../core
       effect:
@@ -412,16 +412,16 @@ importers:
       '@earendil-works/pi-durable':
         specifier: 'catalog:'
         version: 1.4.0(@aws-sdk/credential-provider-node@3.972.88)(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(@smithy/signature-v4@5.7.4)(undici@7.30.1)(ws@8.22.0)(zod@4.6.7)
-      '@spreissen/about':
+      '@spriessen/about':
         specifier: workspace:*
         version: link:../about
-      '@spreissen/contracts':
+      '@spriessen/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@spreissen/core':
+      '@spriessen/core':
         specifier: workspace:*
         version: link:../core
-      '@spreissen/ext':
+      '@spriessen/ext':
         specifier: workspace:*
         version: link:../ext
       '@typesafe-ai/sdk':

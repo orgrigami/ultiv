@@ -24,7 +24,7 @@
 import { defineExtension, GenerationTask, hook } from "@earendil-works/pi-durable";
 import type { Conversation, LiveState } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { DEADLINE_FIELDS, type ProfilePolicies } from "@spreissen/contracts";
+import { DEADLINE_FIELDS, type ProfilePolicies } from "@spriessen/contracts";
 import type { ConverseService } from "./converse.ts";
 
 /** D4 defaults. */

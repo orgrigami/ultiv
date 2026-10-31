@@ -2,7 +2,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { McpServerInfo, McpServerInput, McpState } from "@spreissen/contracts";
+import type { McpServerInfo, McpServerInput, McpState } from "@spriessen/contracts";
 import { makeVaultStore, type VaultStore } from "../../vault.ts";
 import { makeMcpConfigStore } from "../config.ts";
 import { makeMcpManager, type McpManager } from "../manager.ts";

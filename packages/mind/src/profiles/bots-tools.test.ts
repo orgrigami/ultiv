@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
-import type { ProfileInfo } from "@spreissen/contracts";
+import type { ProfileInfo } from "@spriessen/contracts";
 import type { AuditService } from "../audit/audit.ts";
 import type { TasksService } from "../tasks/tasks.ts";
 import type { ProfilesService } from "./profiles.ts";

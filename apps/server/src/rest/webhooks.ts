@@ -1,5 +1,5 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
-import { listWebhooks, removeWebhook, rotateWebhookToken } from "@spreissen/mind";
+import { listWebhooks, removeWebhook, rotateWebhookToken } from "@spriessen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
 import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";

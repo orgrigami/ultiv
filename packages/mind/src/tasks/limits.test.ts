@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import type { TaskInfo } from "@spreissen/contracts";
+import type { TaskInfo } from "@spriessen/contracts";
 import { taskTools } from "../act/task-tools.ts";
 import { openMind } from "../entity.ts";
 import { stepLine } from "./steps.ts";

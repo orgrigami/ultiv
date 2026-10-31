@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { openMind } from "@spreissen/mind";
+import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spreissen-learn-switch-"));

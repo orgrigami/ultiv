@@ -8,9 +8,9 @@
 import { Duration } from "effect";
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { InvalidInput } from "@spreissen/core";
-import type { ProfileCreate } from "@spreissen/contracts";
-import { defineTool } from "@spreissen/ext";
+import { InvalidInput } from "@spriessen/core";
+import type { ProfileCreate } from "@spriessen/contracts";
+import { defineTool } from "@spriessen/ext";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";

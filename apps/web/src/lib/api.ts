@@ -22,7 +22,7 @@ import type {
   WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
 
 /**

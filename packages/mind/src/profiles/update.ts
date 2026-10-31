@@ -3,14 +3,14 @@
  * of every conversation's profile copy. Each chat of the bot (main, reset
  * mains, sessions, task threads) gets the edited profile from its next turn.
  */
-import { InvalidInput } from "@spreissen/core";
+import { InvalidInput } from "@spriessen/core";
 import {
   deadlineProblem,
   type DeadlineField,
   type ProfileApprovalMode,
   type ProfileCreate,
   type ProfileInfo,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import {
   exactEntry,
   exactScriptOf,

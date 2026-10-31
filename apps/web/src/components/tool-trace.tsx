@@ -23,7 +23,7 @@ import {
   TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
-import type { ToolStep } from "@spreissen/contracts";
+import type { ToolStep } from "@spriessen/contracts";
 import { FileCard } from "@/components/file-card";
 import { ErrorNote, FoldText, Receipts, ToolBody, TypedOutput } from "@/components/tool-bodies";
 import { Mark } from "@/components/state-mark";

@@ -1,5 +1,5 @@
 /** Sensor routes: the registry (polling lives in the server's sensor loop). */
-import { listSensors, removeSensor } from "@spreissen/mind";
+import { listSensors, removeSensor } from "@spriessen/mind";
 import { findOwned, ownedRecords } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
 

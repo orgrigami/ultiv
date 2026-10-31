@@ -1,9 +1,9 @@
 /**
  * The Edit-bot dialog's deadline fields: checked before anything is sent, in
- * the same words the server uses (`deadlineProblem` in @spreissen/contracts).
+ * the same words the server uses (`deadlineProblem` in @spriessen/contracts).
  * Kept free of UI imports so the root test suite can run it.
  */
-import { deadlineProblem, type DeadlineField } from "@spreissen/contracts";
+import { deadlineProblem, type DeadlineField } from "@spriessen/contracts";
 
 /** What is wrong with a deadline field's text; null when it is fine or empty (the default). */
 export const deadlineFieldProblem = (

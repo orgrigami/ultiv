@@ -5,7 +5,7 @@
  */
 import { Effect } from "effect";
 import { Type } from "typebox";
-import { External } from "@spreissen/core";
+import { External } from "@spriessen/core";
 import type { Connector } from "../connector.ts";
 import { defineAction, defineConnector } from "../connector.ts";
 import { connectorCapability, definePlugin } from "../plugin.ts";

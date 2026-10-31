@@ -13,8 +13,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { InvalidInput, resolveInside } from "@spreissen/core";
-import type { McpServerInput } from "@spreissen/contracts";
+import { InvalidInput, resolveInside } from "@spriessen/core";
+import type { McpServerInput } from "@spriessen/contracts";
 
 /** One saved server: the owner's input plus identity and first-use state. */
 export type McpServerRecord = McpServerInput & {

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 import { createScopeHolder } from "../plugins/vault.ts";
 import { makeVaultStore } from "../vault.ts";
 import { makeBindingStore } from "./bindings.ts";

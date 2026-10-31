@@ -4,7 +4,7 @@
  * here mirror the server's (packages/mind entity-parts: isApprovalFloor
  * outranks every mode).
  */
-import type { ProfileApprovalMode } from "@spreissen/contracts";
+import type { ProfileApprovalMode } from "@spriessen/contracts";
 
 export const APPROVAL_MODES: readonly ProfileApprovalMode[] = ["manual", "jev", "yolo"];
 

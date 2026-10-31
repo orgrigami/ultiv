@@ -19,7 +19,7 @@ import type {
   Model,
   Models,
 } from "@earendil-works/pi-ai";
-import { External, InvalidInput, Unavailable } from "@spreissen/core";
+import { External, InvalidInput, Unavailable } from "@spriessen/core";
 import { Value } from "typebox/value";
 import type { Static, TSchema } from "typebox";
 import { MindModels, ModelCatalog } from "../providers/models.ts";

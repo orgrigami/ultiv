@@ -12,7 +12,7 @@ import type {
   ProfileApprovalMode,
   ThinkingLevel,
   UsageSummary,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import { linkLabel, type ChatBot, type LinkState } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { ApprovalModeChip } from "@/components/approval-mode-control";

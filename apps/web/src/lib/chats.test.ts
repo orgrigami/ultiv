@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ProfileInfo, SessionInfo } from "@spreissen/contracts";
+import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
 import { chatTitle, pastChats } from "./chats.ts";
 
 const bot = (id: string, name: string) => ({ id, name }) as unknown as ProfileInfo;

@@ -15,8 +15,8 @@
 import { randomUUID } from "node:crypto";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import { Context, Effect, Layer } from "effect";
-import { External, ownerErrorText, readEnv } from "@spreissen/core";
-import type { TaskInfo, TaskList } from "@spreissen/contracts";
+import { External, ownerErrorText, readEnv } from "@spriessen/core";
+import type { TaskInfo, TaskList } from "@spriessen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import { findTask, readTasks, taskConversationKey, updateTask, writeTasks } from "./store.ts";
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";

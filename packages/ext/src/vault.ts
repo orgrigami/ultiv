@@ -10,8 +10,8 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { InvalidInput, NotFound, resolveInside, tryResolveInside } from "@spreissen/core";
-import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@spreissen/contracts";
+import { InvalidInput, NotFound, resolveInside, tryResolveInside } from "@spriessen/core";
+import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@spriessen/contracts";
 
 /** The vault root (relative to the server's cwd, like HARNESS_DB). */
 export const vaultDir = (): string => {

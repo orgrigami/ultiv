@@ -3,7 +3,7 @@
  * cards: a title, an elapsed time, the one-line "what it's doing now", and
  * the pill's summary. Pure, so it is unit-tested.
  */
-import type { TaskInfo } from "@spreissen/contracts";
+import type { TaskInfo } from "@spriessen/contracts";
 
 const TITLE_CHARS = 40;
 

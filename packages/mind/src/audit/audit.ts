@@ -11,7 +11,7 @@ import { Config, Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 
 export interface AuditService {
   /** Append one event; never throws. */

@@ -10,7 +10,7 @@ import {
   waitFor,
   type HttpFake,
   type Rig,
-} from "@spreissen/ext/mcp-testing";
+} from "@spriessen/ext/mcp-testing";
 import { makeApprovals } from "../approvals.ts";
 import { makeAudit } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

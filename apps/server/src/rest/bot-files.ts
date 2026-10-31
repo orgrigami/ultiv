@@ -10,8 +10,8 @@
  * follow; Instructions are read per request, so the next turn sees them.
  * Each version records who saved it and when, so no audit line is added.
  */
-import type { ProfileInfo } from "@spreissen/contracts";
-import { BOT_FILE_LIMITS, isBotFile, type BotFile } from "@spreissen/mind";
+import type { ProfileInfo } from "@spriessen/contracts";
+import { BOT_FILE_LIMITS, isBotFile, type BotFile } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
 
 const view = (args: RouteArgs, bot: ProfileInfo, file: BotFile) => {

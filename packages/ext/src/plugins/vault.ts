@@ -4,7 +4,7 @@
  * reference class (who to email). No tool returns secret bytes: there is no
  * read path for them at the act surface, by construction.
  */
-import { resolveInside } from "@spreissen/core";
+import { resolveInside } from "@spriessen/core";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";

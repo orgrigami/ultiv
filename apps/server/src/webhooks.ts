@@ -1,6 +1,6 @@
 /**
  * Ingress + pump: the HTTP-facing half of the webhooks faculty (the registry
- * itself lives in @spreissen/mind). The contract is ONE-WAY with an immediate
+ * itself lives in @spriessen/mind). The contract is ONE-WAY with an immediate
  * ack: auth, size, rate and schema checks all happen BEFORE the ack, the
  * payload is durably receipted and queued, and the ack body carries the
  * correlation id — after that the sender walks away, so every post-ack
@@ -8,7 +8,7 @@
  * + an audit escalation). Delivery is DEBOUNCED per session: bursts that
  * land inside the window coalesce into one wake that carries every payload.
  */
-import type { MindService } from "@spreissen/mind";
+import type { MindService } from "@spriessen/mind";
 import {
   MAX_WEBHOOK_BODY_BYTES,
   checkWebhookPayload,
@@ -20,7 +20,7 @@ import {
   removeWebhooksForSessions as removeWebhooksForSessionsDoc,
   settleRoutineEvent,
   updateWebhook,
-} from "@spreissen/mind";
+} from "@spriessen/mind";
 import { deliverToSession } from "./deliver.ts";
 
 /** Purge-cascade wrapper over the mind registry (profile deletion). */

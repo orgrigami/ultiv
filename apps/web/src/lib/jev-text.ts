@@ -2,7 +2,7 @@
  * Jev's gate decisions as inline chat notices. The note prefixes mirror
  * packages/mind/src/jev-gate.ts (SPLIT_PREFIX, DESTRUCTIVE_PREFIX).
  */
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 
 export type JevKind = "approved" | "denied" | "split" | "destructive";
 

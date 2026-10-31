@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { CredentialBinding, ProfileInfo } from "@spreissen/contracts";
+import type { CredentialBinding, ProfileInfo } from "@spriessen/contracts";
 import { allowlistGaps, bindingSummary, draftOf, hostsOf, inputOf } from "./binding-text.ts";
 
 const binding: CredentialBinding = {

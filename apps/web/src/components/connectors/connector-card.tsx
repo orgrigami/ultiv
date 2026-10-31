@@ -10,7 +10,7 @@ import type {
   McpServerInput,
   ProfileInfo,
   VaultItemInfo,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

@@ -19,7 +19,7 @@ import {
 } from "@typesafe-ai/sdk";
 import { Context, Effect, Layer, Option } from "effect";
 import { ConfigError } from "effect/Config";
-import { External, Unavailable } from "@spreissen/core";
+import { External, Unavailable } from "@spriessen/core";
 import {
   TYPESAFE_DEFAULT_BASE_URL,
   typesafeApiKey,

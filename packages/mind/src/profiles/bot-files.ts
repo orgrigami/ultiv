@@ -6,8 +6,8 @@
  * update), so the field stays readable for one release and a rollback loses
  * nothing but Instructions.
  */
-import type { ProfileInfo } from "@spreissen/contracts";
-import { resolveInside } from "@spreissen/core";
+import type { ProfileInfo } from "@spriessen/contracts";
+import { resolveInside } from "@spriessen/core";
 import {
   appendVersion,
   currentOf,

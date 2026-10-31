@@ -11,8 +11,8 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveInside, tryResolveInside } from "@spreissen/core";
-import type { SkillMeta, SkillOrigin } from "@spreissen/contracts";
+import { resolveInside, tryResolveInside } from "@spriessen/core";
+import type { SkillMeta, SkillOrigin } from "@spriessen/contracts";
 import {
   MAX_DESCRIPTION_CHARS,
   MAX_SKILL_CHARS,

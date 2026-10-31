@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { ToolStep } from "@spreissen/contracts";
+import type { ToolStep } from "@spriessen/contracts";
 import { DURATION_FLOOR_MS, humanizeMs, presentationOf } from "./tool-text.ts";
 
 const step = (over: Partial<ToolStep>): ToolStep => ({

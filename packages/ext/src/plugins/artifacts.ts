@@ -19,9 +19,9 @@ import {
 import { randomUUID } from "node:crypto";
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import { ArtifactInfoSchema } from "@spreissen/contracts";
-import { isPathEscape, resolveInside, tryResolveInside } from "@spreissen/core";
-import type { ArtifactInfo } from "@spreissen/contracts";
+import { ArtifactInfoSchema } from "@spriessen/contracts";
+import { isPathEscape, resolveInside, tryResolveInside } from "@spriessen/core";
+import type { ArtifactInfo } from "@spriessen/contracts";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import type { ScopeHolder } from "./vault.ts";

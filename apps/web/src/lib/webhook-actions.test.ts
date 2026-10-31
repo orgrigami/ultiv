@@ -4,7 +4,7 @@
  * current without a page reload.
  */
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { WebhookInfo } from "@spreissen/contracts";
+import type { WebhookInfo } from "@spriessen/contracts";
 import { issueToken, sendTest } from "./webhook-actions.ts";
 import { reloadOnFocus } from "./reload-on-focus.ts";
 

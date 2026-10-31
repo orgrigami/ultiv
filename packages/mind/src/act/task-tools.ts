@@ -8,8 +8,8 @@
  */
 import { Effect } from "effect";
 import { Type } from "typebox";
-import { definePlugin, toolCapability, type Plugin, type Tool } from "@spreissen/ext";
-import { defineTool } from "@spreissen/ext";
+import { definePlugin, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
+import { defineTool } from "@spriessen/ext";
 import {
   MAX_RUNNING_TASKS,
   runningCapMessage,

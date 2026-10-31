@@ -12,8 +12,8 @@
  *   so `recover` (run on boot) re-sends it along with redelivering pending
  *   messages and re-arming deadlines.
  */
-import { NotFound } from "@spreissen/core";
-import type { MailboxEntry, RoomInfo } from "@spreissen/contracts";
+import { NotFound } from "@spriessen/core";
+import type { MailboxEntry, RoomInfo } from "@spriessen/contracts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

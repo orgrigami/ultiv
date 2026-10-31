@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Duration, Effect } from "effect";
-import type { AuditEvent, ProfileApprovalMode, TranscriptEntry } from "@spreissen/contracts";
-import { FIRST_USE_APPROVAL, type ScopeHolder } from "@spreissen/ext";
+import type { AuditEvent, ProfileApprovalMode, TranscriptEntry } from "@spriessen/contracts";
+import { FIRST_USE_APPROVAL, type ScopeHolder } from "@spriessen/ext";
 import { makeApprovals, type ApprovalRequest } from "./approvals.ts";
 import { wirePolicies } from "./entity-parts.ts";
 import {

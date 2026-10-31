@@ -5,7 +5,7 @@ import {
   type Ref,
   type WebSocketLike,
 } from "@earendil-works/chord";
-import { Session } from "@spreissen/contracts";
+import { Session } from "@spriessen/contracts";
 
 export type SessionRef = Ref<typeof Session>;
 export type GuestPrincipal = { kind: "guest" };

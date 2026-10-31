@@ -8,7 +8,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { isSafeSegment, resolveInside } from "@spreissen/core";
+import { isSafeSegment, resolveInside } from "@spriessen/core";
 
 /** Who or what saved a version. */
 export type VersionAuthor = "owner" | "bot" | "migration" | "learning";

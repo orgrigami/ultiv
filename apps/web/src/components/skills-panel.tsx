@@ -20,7 +20,7 @@ import type {
   SkillOrigin,
   SkillOverview,
   SkillProposal,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { SkillAdd, SkillEditor } from "@/components/skills-edit";

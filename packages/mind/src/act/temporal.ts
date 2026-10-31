@@ -5,8 +5,8 @@
  */
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import { definePlugin, toolCapability, type Plugin } from "@spreissen/ext";
-import { defineTool, type Tool } from "@spreissen/ext";
+import { definePlugin, toolCapability, type Plugin } from "@spriessen/ext";
+import { defineTool, type Tool } from "@spriessen/ext";
 
 const NowParams = Type.Object({
   timezone: Type.Optional(

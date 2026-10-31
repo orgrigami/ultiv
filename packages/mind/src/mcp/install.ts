@@ -10,7 +10,7 @@ import {
   type Registry,
   type ToolRegistration,
 } from "@earendil-works/pi-durable";
-import type { BindingStore, McpServerView } from "@spreissen/ext";
+import type { BindingStore, McpServerView } from "@spriessen/ext";
 import { secretTools } from "../secrets/tool.ts";
 import {
   CONNECTOR_LOAD,

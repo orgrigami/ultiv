@@ -5,7 +5,7 @@
  */
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { MailboxEntry } from "@spreissen/contracts";
+import type { MailboxEntry } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 export const MailboxDoc = defineDoc<{ items: MailboxEntry[] }>({

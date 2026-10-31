@@ -9,7 +9,7 @@ import type {
   HttpAuthPlacement,
   HttpMethod,
   ProfileInfo,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 
 export const HTTP_METHODS: HttpMethod[] = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"];
 

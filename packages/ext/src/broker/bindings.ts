@@ -6,8 +6,8 @@
  */
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { InvalidInput, resolveInside } from "@spreissen/core";
-import type { CredentialBinding, CredentialBindingInput } from "@spreissen/contracts";
+import { InvalidInput, resolveInside } from "@spriessen/core";
+import type { CredentialBinding, CredentialBindingInput } from "@spriessen/contracts";
 import { isLocalhostName } from "./net-guard.ts";
 
 export interface BindingStore {

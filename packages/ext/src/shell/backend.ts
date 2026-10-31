@@ -23,7 +23,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { resolveInside } from "@spreissen/core";
+import { resolveInside } from "@spriessen/core";
 
 export interface ShellFile {
   /** Workspace path relative to `/home`, POSIX style, no leading slash. */

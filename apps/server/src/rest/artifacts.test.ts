@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { PathEscapeError, writeArtifact } from "@spreissen/ext";
+import { PathEscapeError, writeArtifact } from "@spriessen/ext";
 import { artifactRoutes } from "./artifacts.ts";
 import type { RouteArgs } from "./types.ts";
 

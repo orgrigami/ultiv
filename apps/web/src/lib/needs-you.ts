@@ -8,7 +8,7 @@
  * others leave the list when they are settled.
  */
 import { adoptLegacyKey } from "./stored-key.ts";
-import type { AuditEvent, ProfileInfo, TaskRow } from "@spreissen/contracts";
+import type { AuditEvent, ProfileInfo, TaskRow } from "@spriessen/contracts";
 import type { PendingApprovalRow } from "./api";
 import { ASK_USER_QUESTION, questionOf, questionTitle } from "./question.ts";
 

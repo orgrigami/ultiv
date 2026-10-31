@@ -16,7 +16,7 @@ import {
   resolveInside,
   searchArtifacts,
   writeArtifactBytes,
-} from "@spreissen/ext";
+} from "@spriessen/ext";
 import { ownsProfile, ownsSession } from "./owner-scope.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 

@@ -10,7 +10,7 @@
 import { Duration, Effect } from "effect";
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import { defineTool } from "@spreissen/ext";
+import { defineTool } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";

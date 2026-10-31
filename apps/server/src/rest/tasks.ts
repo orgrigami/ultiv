@@ -6,8 +6,8 @@ import {
   runningCapMessage,
   taskConversationKey,
   tasksVisibleTo,
-} from "@spreissen/mind";
-import { projectTranscript } from "@spreissen/mind";
+} from "@spriessen/mind";
+import { projectTranscript } from "@spriessen/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
 import { queryOr, type RouteArgs } from "./types.ts";

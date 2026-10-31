@@ -1,4 +1,4 @@
-# @spreissen/ext
+# @spriessen/ext
 
 The extension platform: the standard future development plugs into.
 

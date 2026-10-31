@@ -10,7 +10,7 @@
  */
 import { createHash } from "node:crypto";
 import type { Sandbox } from "microsandbox";
-import { readEnv } from "@spreissen/core";
+import { readEnv } from "@spriessen/core";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
 export interface SandboxBackendOptions {

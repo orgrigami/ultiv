@@ -1,7 +1,7 @@
 /**
  * Wires the mind (the platform's AI entity), the chord host, and the
  * WebSocket + HTTP + REST listeners. The app is thin: transport and registry
- * REST live here; every AI capability lives in @spreissen/mind.
+ * REST live here; every AI capability lives in @spriessen/mind.
  */
 import { createServer } from "node:http";
 import { reachableUrls } from "./listen.ts";
@@ -10,15 +10,15 @@ import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { WebSocketServer } from "ws";
-import { Ping } from "@spreissen/contracts";
-import { artifactsDir, copyArtifact, resolveInside } from "@spreissen/ext";
-import { httpPlugin } from "@spreissen/ext";
+import { Ping } from "@spriessen/contracts";
+import { artifactsDir, copyArtifact, resolveInside } from "@spriessen/ext";
+import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
-import { openMind, sealWebhookTokens } from "@spreissen/mind";
+import { openMind, sealWebhookTokens } from "@spriessen/mind";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalFromRequest, type Principal } from "./identity.ts";
 import { createRestHandler } from "./rest.ts";

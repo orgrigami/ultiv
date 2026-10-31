@@ -1,14 +1,14 @@
 /**
  * Cron triggers: the server half of the schedules faculty. Jobs live in the
- * mind's durable registry doc (@spreissen/mind schedules — CRUD there, tools on
+ * mind's durable registry doc (@spriessen/mind schedules — CRUD there, tools on
  * top of it); this module arms one croner timer per enabled job, fires
  * deliveries through the same path as webhooks, and records the outcome.
  * Restarting re-arms everything from the doc. One-shot jobs (`once`) fire at
  * their epoch ms and remove themselves on success.
  */
 import { Cron } from "croner";
-import type { CronJobInfo } from "@spreissen/contracts";
-import type { MindService } from "@spreissen/mind";
+import type { CronJobInfo } from "@spriessen/contracts";
+import type { MindService } from "@spriessen/mind";
 import {
   isValidSchedule,
   listCronJobs,
@@ -17,7 +17,7 @@ import {
   removeCronJob,
   settleRoutineEvent,
   writeCronJobs,
-} from "@spreissen/mind";
+} from "@spriessen/mind";
 import { Effect } from "effect";
 import { deliverToSession } from "./deliver.ts";
 
@@ -27,7 +27,7 @@ export {
   listCronJobs,
   removeCronJob,
   removeCronJobsForSessions,
-} from "@spreissen/mind";
+} from "@spriessen/mind";
 
 const setJobOutcome = async (
   mind: MindService,

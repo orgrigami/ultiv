@@ -13,14 +13,14 @@
  */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
-import { InvalidInput, NotFound } from "@spreissen/core";
+import { InvalidInput, NotFound } from "@spriessen/core";
 import type {
   FactKind,
   FactTrust,
   MemoryEntity,
   MemoryFact,
   MemoryRecord,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";

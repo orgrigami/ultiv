@@ -4,7 +4,7 @@
  * one-line live status (avatar + what the bot is doing) that doubles as the
  * typing indicator.
  */
-import type { PendingApproval, TranscriptEntry } from "@spreissen/contracts";
+import type { PendingApproval, TranscriptEntry } from "@spriessen/contracts";
 import { presentationOf } from "@/lib/tool-text";
 import { BotAvatar, type ChatBot } from "@/components/chat-header";
 import { Mark } from "@/components/state-mark";

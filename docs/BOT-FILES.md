@@ -19,7 +19,7 @@ schema. Persona holds up to 8,000 characters and Instructions up to 16,000.
 `var/bot-files`, relative to the server's cwd like `ARTIFACTS_DIR`. Each
 file is the full version list, and the last entry is the current text.
 Paths go through the shared confinement helper (`resolveInside` in
-`@spreissen/core`). Writes go to a temp file and are renamed into place,
+`@spriessen/core`). Writes go to a temp file and are renamed into place,
 so a crash never leaves a half-written file.
 
 ## Versions

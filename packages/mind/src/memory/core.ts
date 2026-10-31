@@ -8,9 +8,9 @@
  * prompt section, capped at 230 words.
  */
 import { randomUUID } from "node:crypto";
-import type { CoreLine } from "@spreissen/contracts";
+import type { CoreLine } from "@spriessen/contracts";
 import { Effect } from "effect";
-import { InvalidInput, NotFound } from "@spreissen/core";
+import { InvalidInput, NotFound } from "@spriessen/core";
 import type { ConverseService } from "../converse/converse.ts";
 import { CoreDoc, ownerKey, profileKey } from "./model.ts";
 

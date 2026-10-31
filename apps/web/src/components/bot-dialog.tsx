@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { describeAllowEntry } from "@/lib/approval-text";
 import { useApp } from "@/lib/app-state";
-import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spreissen/contracts";
+import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
 import { deadlineFieldProblem, deadlineValue, formProblem } from "@/lib/deadline-fields";
 
 export interface BotForm {

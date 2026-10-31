@@ -9,7 +9,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { resolveInside } from "@spreissen/core";
+import { resolveInside } from "@spriessen/core";
 import type {
   OAuthClientMetadata,
   OAuthClientProvider,

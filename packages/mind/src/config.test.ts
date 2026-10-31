@@ -1,6 +1,6 @@
 import { ConfigProvider, Effect, Option } from "effect";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
-import { resetLegacyEnvWarnings } from "@spreissen/core";
+import { resetLegacyEnvWarnings } from "@spriessen/core";
 import { defaultModel, modelProviders } from "./config.ts";
 
 const parse = <A>(

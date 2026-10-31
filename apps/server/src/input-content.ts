@@ -9,7 +9,7 @@
  */
 import type { Conversation, InputEntry, UserInput } from "@earendil-works/pi-durable";
 import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
-import type { ArtifactInfo, AttachmentRef } from "@spreissen/contracts";
+import type { ArtifactInfo, AttachmentRef } from "@spriessen/contracts";
 import {
   artifactsDir,
   MAX_IMAGE_BASE64,
@@ -17,8 +17,8 @@ import {
   readArtifactInfo,
   resolveInside,
   VISION_MIMES,
-} from "@spreissen/ext";
-import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND, type MindService } from "@spreissen/mind";
+} from "@spriessen/ext";
+import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND, type MindService } from "@spriessen/mind";
 import { Effect } from "effect";
 
 export interface BuiltInput {

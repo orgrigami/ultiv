@@ -10,7 +10,7 @@ import type {
   McpServerList,
   ProfileInfo,
   VaultItemInfo,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DevDetails } from "@/components/ui/dev-details";

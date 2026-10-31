@@ -6,8 +6,8 @@
  * ack-window bug). Owner scoping rides `x-spreissen-user`; routes live in ./rest.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { MindService } from "@spreissen/mind";
-import { isPathEscape } from "@spreissen/ext";
+import type { MindService } from "@spriessen/mind";
+import { isPathEscape } from "@spriessen/ext";
 import type { CronScheduler } from "./cron.ts";
 import { ownerOf, principalFromRequest } from "./identity.ts";
 import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";

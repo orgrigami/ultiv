@@ -15,8 +15,8 @@ import {
   TranscriptSchema,
   UsageSummarySchema,
   type ThinkingLevel,
-} from "@spreissen/contracts";
-import { projectTranscript, usageOf, type MindService } from "@spreissen/mind";
+} from "@spriessen/contracts";
+import { projectTranscript, usageOf, type MindService } from "@spriessen/mind";
 import { ownerOf, type Principal } from "./identity.ts";
 import { approveMethod, controlMethods, inputMethod } from "./session-methods.ts";
 import {

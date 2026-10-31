@@ -29,7 +29,7 @@ import {
   type UserInput,
 } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import { External } from "@spreissen/core";
+import { External } from "@spriessen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
 import { controlOps, type ParkedTask } from "./control.ts";

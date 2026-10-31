@@ -12,7 +12,7 @@ import type {
   ProfileInfo,
   VaultItemInfo,
   VaultKind,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 import { BindingEditor } from "@/components/binding-editor";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";

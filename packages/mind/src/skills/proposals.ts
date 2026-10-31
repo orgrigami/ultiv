@@ -7,9 +7,9 @@
  * skill_write).
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { resolveInside } from "@spreissen/core";
+import { resolveInside } from "@spriessen/core";
 import { randomUUID } from "node:crypto";
-import type { SkillProposal } from "@spreissen/contracts";
+import type { SkillProposal } from "@spriessen/contracts";
 
 const PROPOSALS_MAX = 50;
 

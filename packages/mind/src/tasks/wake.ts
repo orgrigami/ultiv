@@ -5,7 +5,7 @@
  * only once.
  */
 import { Effect } from "effect";
-import type { TaskInfo } from "@spreissen/contracts";
+import type { TaskInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { findTask, updateTask } from "./store.ts";
 

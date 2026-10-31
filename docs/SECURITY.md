@@ -6,7 +6,7 @@ names the one helper that enforces it, so a later change has one place to edit.
 ## File paths stay inside their folder
 
 Every store that turns a request or tool argument into a file path goes
-through `resolveInside(root, ...parts)` from `@spreissen/core`
+through `resolveInside(root, ...parts)` from `@spriessen/core`
 (`packages/core/src/safe-path.ts`; ext re-exports it for the server).
 
 - The joined path must stay under `root` after resolving: `../`, an absolute

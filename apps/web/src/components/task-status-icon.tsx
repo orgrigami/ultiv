@@ -1,5 +1,5 @@
 /** One mark per task status, shared by the task pill and the task cards. */
-import type { TaskStatus } from "@spreissen/contracts";
+import type { TaskStatus } from "@spriessen/contracts";
 import { Mark } from "@/components/state-mark";
 import { cn } from "@/lib/utils";
 

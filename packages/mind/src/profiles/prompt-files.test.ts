@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { ProfileInfo } from "@spreissen/contracts";
+import type { ProfileInfo } from "@spriessen/contracts";
 import { openMind } from "../entity.ts";
 import { botFiles } from "./bot-files.ts";
 import { defaultPolicies } from "./docs.ts";

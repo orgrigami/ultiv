@@ -1,4 +1,4 @@
-# @spreissen/mind
+# @spriessen/mind
 
 The entity substrate: **one runtime, and each profile (bot) is its own entity**
 with its own persona, memory, artifacts, vault scope, tool allowlist and
@@ -22,12 +22,12 @@ conversation→profile index):
   `pick`, `rate`, `ask` work with zero conversation infrastructure. The same
   faculty also appears as native agent tools (`jev`, `jev_score`, `jev_pick`,
   `jev_rate`) via the extension registry — one capability, two faces.
-- `act` — the executable tool surface, assembled from `@spreissen/ext` plugins;
+- `act` — the executable tool surface, assembled from `@spriessen/ext` plugins;
   `gated` tools pass through the approval broker at the act. The identity
   section ("You are <bot>…", persona + sibling roster) renders into every
   system prompt — models have no self-knowledge; undeclared, they answer from
   training priors.
-- **Credential broker** (`act/broker.ts` over `@spreissen/ext` `broker/`) — the
+- **Credential broker** (`act/broker.ts` over `@spriessen/ext` `broker/`) — the
   `http_request` tool spends a sealed vault secret without the model ever
   seeing it: the item's binding (hosts, methods, path prefixes, placement,
   bots) is checked BEFORE the secret opens, https only (localhost http per

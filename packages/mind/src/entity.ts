@@ -1,5 +1,5 @@
 /**
- * The mind — the entity substrate (`@spreissen/mind` keeps its working package
+ * The mind — the entity substrate (`@spriessen/mind` keeps its working package
  * name). One runtime hosts many entities: EACH PROFILE (bot) IS ITS OWN
  * ENTITY, with its own persona, memory, artifacts, vault scope, tool
  * allowlist and audit trail; the default profile is **Ultius**. Chat is only
@@ -13,7 +13,7 @@
 import { Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
 import { type Storage, type ToolRegistration } from "@earendil-works/pi-durable";
-import { openRuntime, Duplicate, External, Unavailable, type Runtime } from "@spreissen/core";
+import { openRuntime, Duplicate, External, Unavailable, type Runtime } from "@spriessen/core";
 import {
   artifactsPlugin,
   bashPlugin,
@@ -36,11 +36,11 @@ import {
   type McpManager,
   type Plugin,
   type VaultStore,
-} from "@spreissen/ext";
+} from "@spriessen/ext";
 import { Approvals, approvalsLayer, type ApprovalsService } from "./approvals.ts";
 import { actService } from "./act/act.ts";
 import { tasksVisibleTo } from "./act/task-live.ts";
-import type { ScopeHolder } from "@spreissen/ext";
+import type { ScopeHolder } from "@spriessen/ext";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";

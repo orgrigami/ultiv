@@ -6,7 +6,7 @@
  */
 import { Context, Effect, Layer } from "effect";
 import type { PromptSection } from "@earendil-works/pi-durable";
-import { Duplicate } from "@spreissen/core";
+import { Duplicate } from "@spriessen/core";
 import type { Connector } from "./connector.ts";
 import type { Plugin } from "./plugin.ts";
 import type { Tool } from "./tool.ts";

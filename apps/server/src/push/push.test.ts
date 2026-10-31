@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import type { TaskInfo } from "@spreissen/contracts";
+import type { TaskInfo } from "@spriessen/contracts";
 import { vapidConfig } from "./config.ts";
 import { isPushEndpoint } from "./endpoint.ts";
 import { approvalPayload, routinePayload, taskPayload } from "./events.ts";

@@ -15,7 +15,7 @@ import type {
   SubmissionId,
   TaskId,
 } from "@earendil-works/pi-durable";
-import { External } from "@spreissen/core";
+import { External } from "@spriessen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
 

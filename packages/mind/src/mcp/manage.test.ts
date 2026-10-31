@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createRegistry, type ToolRegistration } from "@earendil-works/pi-durable";
-import { makeBindingStore } from "@spreissen/ext";
-import { makeRig, startHttpFake, type HttpFake, type Rig } from "@spreissen/ext/mcp-testing";
+import { makeBindingStore } from "@spriessen/ext";
+import { makeRig, startHttpFake, type HttpFake, type Rig } from "@spriessen/ext/mcp-testing";
 import { makeApprovals } from "../approvals.ts";
 import { makeAudit } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -342,7 +342,7 @@ describe("planning a connector change", () => {
     ).toBe('no vault item "nope"');
     // Updates keep the previous scope and secret when only the id changes.
     const previous = pinned.input.auth as Extract<
-      import("@spreissen/contracts").McpAuth,
+      import("@spriessen/contracts").McpAuth,
       { kind: "oauth" }
     >;
     const updated = planAdd(

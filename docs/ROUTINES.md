@@ -116,7 +116,7 @@ A sensor watches an external source and wakes the entity on events. Tools:
   `leadMinutes` before matching event starts (1h grace for missed polls).
 - **rss** — the sensor's OWN feed URL (http/https, validated at creation);
   wakes on every unseen item whose title matches, capped at 5 per poll.
-  Parser: `parseFeed` in `@spreissen/ext` (RSS 2.0 + Atom, minimal).
+  Parser: `parseFeed` in `@spriessen/ext` (RSS 2.0 + Atom, minimal).
 - **watch** — any URL, EDGE-TRIGGERED: the first poll records a baseline
   fingerprint (sha256 of the body, never fires); each later poll fires once
   iff the fingerprint changed. `match` filters on raw body text (no match

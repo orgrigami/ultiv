@@ -1,8 +1,8 @@
 // Boots the full server stack on an ephemeral port, exercises the REST
 // surface, and closes it cleanly — all offline and ephemeral (MemoryStorage).
-// Run: vpr smoke  (root), or vp run --filter @spreissen/server smoke
+// Run: vpr smoke  (root), or vp run --filter @spriessen/server smoke
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { Session } from "@spreissen/contracts";
+import { Session } from "@spriessen/contracts";
 import { buildStack } from "./main.ts";
 import { smokeMcp } from "./smoke-mcp.ts";
 

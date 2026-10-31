@@ -1,5 +1,5 @@
 {
-  "name": "@spreissen/server",
+  "name": "@spriessen/server",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -14,9 +14,9 @@
   "dependencies": {
     "@earendil-works/chord": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
-    "@spreissen/contracts": "workspace:*",
-    "@spreissen/ext": "workspace:*",
-    "@spreissen/mind": "workspace:*",
+    "@spriessen/contracts": "workspace:*",
+    "@spriessen/ext": "workspace:*",
+    "@spriessen/mind": "workspace:*",
     "croner": "catalog:",
     "effect": "catalog:",
     "typebox": "catalog:",

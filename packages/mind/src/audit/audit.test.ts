@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { makeAudit } from "./audit.ts";
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 
 const event = (at: number, name: string): AuditEvent => ({
   at,

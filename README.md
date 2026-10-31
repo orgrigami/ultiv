@@ -94,7 +94,7 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 | `TINYFISH_API_KEY`                       | Live web search and fetch for bots                                                                             |
 | `CALENDAR_ICS_URL`                       | A secret iCal feed, so bots know your schedule (read only)                                                     |
 | `MCP_OAUTH_CALLBACK_URL`                 | OAuth callback for connectors (default `http://localhost:8787/api/mcp/oauth/callback`)                         |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @spreissen/server#push:keys`                                            |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push. Generate them once with `vpr @spriessen/server#push:keys`                                            |
 
 Product keys start with `SPREISSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the `x-ultiv-user` and `x-ultiv-token` headers, which are still accepted next to `x-spreissen-user` and `x-spreissen-token`.
 

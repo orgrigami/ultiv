@@ -21,8 +21,8 @@ import type {
   ThinkingLevel,
   TranscriptEntry,
   UsageSummary,
-} from "@spreissen/contracts";
-import { isStopped, type MindService } from "@spreissen/mind";
+} from "@spriessen/contracts";
+import { isStopped, type MindService } from "@spriessen/mind";
 import { ownerErrorText } from "./error-text.ts";
 import type { Principal } from "./identity.ts";
 

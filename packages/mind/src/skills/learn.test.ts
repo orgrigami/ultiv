@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";

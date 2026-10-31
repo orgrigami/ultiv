@@ -6,7 +6,7 @@
  * (`ANTHROPIC_API_KEY`, `KENARI_API_KEY`, …), see `providers/wire.ts`.
  */
 import { Config } from "effect";
-import { ENV_PREFIX, LEGACY_ENV_PREFIX, warnLegacyEnv } from "@spreissen/core";
+import { ENV_PREFIX, LEGACY_ENV_PREFIX, warnLegacyEnv } from "@spriessen/core";
 
 /** Single grep-able fallbacks (SPREISSEN_MODEL is the source of truth for the default model). */
 export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
@@ -18,7 +18,7 @@ export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
 
 /**
  * A product key: `SPREISSEN_<name>`, else the deprecated `ULTIV_<name>`
- * (warned once per process, see `readEnv` in @spreissen/core).
+ * (warned once per process, see `readEnv` in @spriessen/core).
  */
 export const productString = (name: string): Config.Config<string> =>
   Config.String(`${ENV_PREFIX}${name}`).pipe(

@@ -1,4 +1,4 @@
-# @spreissen/core
+# @spriessen/core
 
 The kernel: cross-cutting concerns every other package shares, and nothing else.
 

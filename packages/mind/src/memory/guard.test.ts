@@ -9,7 +9,7 @@ import {
   policyFor,
   trustFor,
 } from "./guard.ts";
-import type { AuditEvent } from "@spreissen/contracts";
+import type { AuditEvent } from "@spriessen/contracts";
 import { Effect } from "effect";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";

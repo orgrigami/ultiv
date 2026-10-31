@@ -7,7 +7,7 @@
  * `stalled`: no turn is running (the last one failed or was cut off). Queued
  * messages are never sent by themselves then (D3); a Retry chip sends them.
  */
-import type { QueuedInput } from "@spreissen/contracts";
+import type { QueuedInput } from "@spriessen/contracts";
 import { RotateCcwIcon, XIcon } from "lucide-react";
 import { Button } from "./ui/button.tsx";
 import { displayText } from "../lib/attachments.ts";

@@ -6,7 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { defineDocFamily } from "@earendil-works/pi-durable";
-import { readEnv } from "@spreissen/core";
+import { readEnv } from "@spriessen/core";
 import type {
   CoreLine,
   MemoryEntity,
@@ -14,7 +14,7 @@ import type {
   MemoryFact,
   MemoryProposal,
   MemoryRecord,
-} from "@spreissen/contracts";
+} from "@spriessen/contracts";
 
 /**
  * The v1 store (`ultiv.memory`) — kept only for the `SPREISSEN_MEMORY_V2=off`

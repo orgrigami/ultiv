@@ -7,7 +7,7 @@
  */
 import { Cron } from "croner";
 import { randomUUID } from "node:crypto";
-import type { MemoryFact, MemoryProposal } from "@spreissen/contracts";
+import type { MemoryFact, MemoryProposal } from "@spriessen/contracts";
 import { Effect } from "effect";
 import {
   FactsDoc,
@@ -19,7 +19,7 @@ import {
   profileKey,
   recordRoutineFire,
   type MindService,
-} from "@spreissen/mind";
+} from "@spriessen/mind";
 
 const TIDY_ROUTINE_ID = "memory-tidy";
 const CATCH_UP_DAYS = 8;

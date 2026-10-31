@@ -1,4 +1,4 @@
-import type { TranscriptEntry, WhenBusy } from "@spreissen/contracts";
+import type { TranscriptEntry, WhenBusy } from "@spriessen/contracts";
 
 /**
  * What the running turn is doing, as far as a queued message cares: a steered

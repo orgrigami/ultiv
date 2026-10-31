@@ -5,7 +5,7 @@
  * other chats never leak in.
  */
 import { useCallback, useEffect, useState } from "react";
-import type { TaskRow } from "@spreissen/contracts";
+import type { TaskRow } from "@spriessen/contracts";
 import { api } from "@/lib/api";
 import { pollFailed, pollRecovered } from "@/lib/notify";
 

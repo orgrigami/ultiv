@@ -1,5 +1,5 @@
 /** Cron routes: the registry, profile-stamped and rendered in the profile's timezone. */
-import { isValidJobStart, nextFireTimes } from "@spreissen/mind";
+import { isValidJobStart, nextFireTimes } from "@spriessen/mind";
 import { createCronJob, listCronJobs, removeCronJob } from "../cron.ts";
 import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
 import { queryOr, type RouteArgs } from "./types.ts";

@@ -13,7 +13,7 @@ import type {
   ReadResourceResult,
   Tool,
 } from "@modelcontextprotocol/client";
-import type { McpState, McpTransport } from "@spreissen/contracts";
+import type { McpState, McpTransport } from "@spriessen/contracts";
 import type { McpServerRecord } from "./config.ts";
 import { resolveSecrets, type Scrubber } from "./secrets.ts";
 import {

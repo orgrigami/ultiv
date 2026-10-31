@@ -7,10 +7,10 @@
  * and mark the old ones superseded.
  */
 import { randomUUID } from "node:crypto";
-import type { FactKind, FactTrust, MemoryFact } from "@spreissen/contracts";
+import type { FactKind, FactTrust, MemoryFact } from "@spriessen/contracts";
 import type { Tx } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { InvalidInput } from "@spreissen/core";
+import { InvalidInput } from "@spriessen/core";
 import type { ConverseService } from "../converse/converse.ts";
 import type { DecideService } from "../decide/decide.ts";
 import type { GenerateService } from "../generate/generate.ts";

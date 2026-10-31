@@ -162,7 +162,7 @@ Remaining: sign-in, push instead of poll, and the per-bot notification switch.
 
 **Rename to Spreissen** (2026-10-31): DONE — the product name, wordmark
 (`spreissen`), titles, manifest, notifications and server banner;
-`@spreissen/*` packages; `SPREISSEN_*` env keys with the old `ULTIV_*` names
+`@spriessen/*` packages; `SPREISSEN_*` env keys with the old `ULTIV_*` names
 read as a deprecated fallback; `x-spreissen-user` / `x-spreissen-token` with
 the old headers still accepted; device keys move to `spreissen.*` on first
 read; the offline cache is renamed and the old one cleared. Stored record

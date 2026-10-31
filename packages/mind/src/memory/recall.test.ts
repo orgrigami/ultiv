@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import type { MemoryFact } from "@spreissen/contracts";
+import type { MemoryFact } from "@spriessen/contracts";
 import { analyze, normalize, queryTerms } from "./text.ts";
 import { recall } from "./recall.ts";
 import { factHash, newFact } from "./model.ts";

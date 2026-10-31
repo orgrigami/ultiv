@@ -1,5 +1,5 @@
 /** The routine ids (cron jobs, webhooks, sensors) the caller owns, for receipt filtering. */
-import { listCronJobs, listSensors, listWebhooks } from "@spreissen/mind";
+import { listCronJobs, listSensors, listWebhooks } from "@spriessen/mind";
 import { ownedRecords } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
 

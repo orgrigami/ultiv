@@ -1,5 +1,5 @@
 {
-  "name": "@spreissen/ext",
+  "name": "@spriessen/ext",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@earendil-works/pi-durable": "catalog:",
     "@modelcontextprotocol/client": "catalog:",
-    "@spreissen/contracts": "workspace:*",
-    "@spreissen/core": "workspace:*",
+    "@spriessen/contracts": "workspace:*",
+    "@spriessen/core": "workspace:*",
     "effect": "catalog:",
     "microsandbox": "^0.7.11",
     "typebox": "catalog:"

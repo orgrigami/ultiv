@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { openMind, type ParkedTask } from "@spreissen/mind";
+import { openMind, type ParkedTask } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spreissen-parked-"));

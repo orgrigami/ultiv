@@ -6,7 +6,7 @@
  * shows wherever approvals show) and learns only the stored item ids.
  */
 import { Duration, Effect } from "effect";
-import type { VaultStore } from "@spreissen/ext";
+import type { VaultStore } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 
 export const SECRET_REQUEST = "secret_request";

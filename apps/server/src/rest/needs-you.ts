@@ -10,8 +10,8 @@
  * owner's task gets the same 404 an unknown one does.
  */
 import { Effect } from "effect";
-import type { AuditEvent, MemoryProposal } from "@spreissen/contracts";
-import { ProposalsDoc, profileKey } from "@spreissen/mind";
+import type { AuditEvent, MemoryProposal } from "@spriessen/contracts";
+import { ProposalsDoc, profileKey } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
 import { visibleProposals } from "./memory-v2.ts";
 import { sessionOfConversation } from "../push/events.ts";

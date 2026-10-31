@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { RoomInfo, RoomList } from "@spreissen/contracts";
+import type { RoomInfo, RoomList } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 export const RoomsDoc = defineDoc<{ items: RoomInfo[] }>({

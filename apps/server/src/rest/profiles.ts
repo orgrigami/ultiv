@@ -6,9 +6,9 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spreissen/ext";
-import { taskConversationKey } from "@spreissen/mind";
-import type { ProfileCreate, ProfileInfo } from "@spreissen/contracts";
+import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spriessen/ext";
+import { taskConversationKey } from "@spriessen/mind";
+import type { ProfileCreate, ProfileInfo } from "@spriessen/contracts";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
 import {
@@ -19,7 +19,7 @@ import {
   removeSensorsForSessions,
   sensorsService,
   webhooksService,
-} from "@spreissen/mind";
+} from "@spriessen/mind";
 import { botFileRoutes } from "./bot-files.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 

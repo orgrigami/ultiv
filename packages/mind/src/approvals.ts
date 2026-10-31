@@ -13,7 +13,7 @@
 import { Context, Deferred, Duration, Effect, Exit, Layer } from "effect";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import type { ProfileApprovalMode } from "@spreissen/contracts";
+import type { ProfileApprovalMode } from "@spriessen/contracts";
 
 export interface ApprovalRequest {
   readonly callId: string;

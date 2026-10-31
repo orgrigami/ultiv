@@ -9,7 +9,7 @@
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { Static } from "typebox";
-import { External, NotFound } from "@spreissen/core";
+import { External, NotFound } from "@spriessen/core";
 import type { ActionError, Connector } from "../connector.ts";
 import { defineAction, defineConnector, invoke } from "../connector.ts";
 import { connectorCapability, definePlugin, toolCapability, type Plugin } from "../plugin.ts";

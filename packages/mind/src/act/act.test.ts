@@ -11,7 +11,7 @@ import {
   localShellBackend,
   type Tool,
   type RegistryService,
-} from "@spreissen/ext";
+} from "@spriessen/ext";
 import { makeApprovals } from "../approvals.ts";
 import { makeAudit } from "../audit/audit.ts";
 import { actService } from "./act.ts";

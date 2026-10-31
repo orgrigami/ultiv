@@ -4,8 +4,8 @@
  * `x-spreissen-user` like every route. Purge is irreversible and human-only.
  */
 import { Effect } from "effect";
-import type { MemoryProposal } from "@spreissen/contracts";
-import { FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spreissen/mind";
+import type { MemoryProposal } from "@spriessen/contracts";
+import { FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
 import { errorOf, type RouteArgs } from "./types.ts";
 import { runTidy } from "../memory-tidy.ts";
 

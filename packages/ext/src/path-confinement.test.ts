@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, unlinkSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { PathEscapeError } from "@spreissen/core";
+import { PathEscapeError } from "@spriessen/core";
 import {
   artifactFile,
   deleteArtifact,
