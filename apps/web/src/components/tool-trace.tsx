@@ -101,9 +101,10 @@ function Line({
       <span className="readout text-muted-foreground/50 w-5 text-right select-none">
         {String(index).padStart(2, "0")}
       </span>
-      <TraceTitle>{title}</TraceTitle>
+      <TraceTitle className="max-w-[75%] shrink-0">{title}</TraceTitle>
       {detail !== undefined && (
-        <span className="text-muted-foreground/70 min-w-0 truncate">{detail}</span>
+        // The detail gives way first, so a narrow screen keeps the title whole.
+        <span className="text-muted-foreground/70 min-w-0 shrink-[8] truncate">{detail}</span>
       )}
       {duration !== null && <TraceDescription>{duration}</TraceDescription>}
     </TraceLine>
