@@ -4,7 +4,7 @@
  * the sign-in throttle, sign-out and the passcode change. A request is made
  * "non-loopback" the way a proxy makes it: with x-forwarded-for set.
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,6 +20,7 @@ process.env["ARTIFACTS_DIR"] = join(scratch, "artifacts");
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 
 let server: Server;
+let store: AuthStore;
 let base = "";
 const PASSCODE = "correct horse battery";
 
@@ -57,15 +58,23 @@ const call = async (
   };
 };
 
+/** Lift the throttle the way the recovery command would: on disk. */
+const unlock = (): void => {
+  const file = join(scratch, "auth", "auth.json");
+  const shape = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+  writeFileSync(file, JSON.stringify({ ...shape, failCount: 0, lockedUntil: 0 }));
+};
+
 const cookieHeader = (reply: Reply): Record<string, string> =>
   reply.setCookie !== null ? { cookie: reply.setCookie.split(";")[0] ?? "" } : {};
 
 beforeAll(async () => {
   const handle = await openMind({ storage: new MemoryStorage() });
+  store = new AuthStore();
   const rest = createRestHandler({
     mind: handle.mind,
     scheduler: { refresh: async () => {}, stop: () => {} },
-    auth: new AuthStore(),
+    auth: store,
   });
   server = createServer(rest);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -182,8 +191,40 @@ describe("passcode sign-in", () => {
     expect(after.status).toBe(401);
   });
 
-  it("changes the passcode with the current one, and not without", async () => {
+  it("changes the passcode only from a session, under the throttle", async () => {
+    // No session: the public prefix must not make this an anonymous oracle.
+    const anonymous = await call("POST", "/api/auth/passcode/change", {
+      current: PASSCODE,
+      next: "anonymous new pass",
+    });
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.json).toEqual({ error: "sign in required" });
     const signedIn = await call("POST", "/api/auth/sign-in", { passcode: PASSCODE });
+    const jar = cookieHeader(signedIn);
+    // Wrong guesses through the change form count toward the same lock.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const wrong = await call(
+        "POST",
+        "/api/auth/passcode/change",
+        { current: `guess ${attempt}`, next: "another good pass" },
+        jar,
+      );
+      expect(wrong.status).toBe(401);
+    }
+    const locked = await call(
+      "POST",
+      "/api/auth/passcode/change",
+      { current: PASSCODE, next: "another good pass" },
+      jar,
+    );
+    expect(locked.status).toBe(429);
+    expect((await call("POST", "/api/auth/sign-in", { passcode: PASSCODE })).status).toBe(429);
+  });
+
+  it("changes the passcode with the current one, and signs out the other sessions", async () => {
+    unlock();
+    const signedIn = await call("POST", "/api/auth/sign-in", { passcode: PASSCODE });
+    const other = await call("POST", "/api/auth/sign-in", { passcode: PASSCODE });
     const jar = cookieHeader(signedIn);
     const wrong = await call(
       "POST",
@@ -199,6 +240,9 @@ describe("passcode sign-in", () => {
       jar,
     );
     expect(ok.status).toBe(200);
+    // The changing session stays; the other one is gone.
+    expect((await call("GET", "/api/sessions", undefined, jar)).status).toBe(200);
+    expect((await call("GET", "/api/sessions", undefined, cookieHeader(other))).status).toBe(401);
     const old = await call("POST", "/api/auth/sign-in", { passcode: PASSCODE });
     expect(old.status).toBe(401);
     const fresh = await call("POST", "/api/auth/sign-in", { passcode: "another good pass" });

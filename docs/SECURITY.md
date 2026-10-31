@@ -42,8 +42,11 @@ request needs a session, loopback included.
 - Routes that answer without a session: `GET /api/health`, the webhook
   ingress `POST /hooks/:id` (its token is the auth), and `/api/auth/*`
   (status, sign-in, sign-out, setup, change). The first-time setup
-  additionally requires the unproxied loopback.
-- Changing the passcode needs the current one; sessions survive a change.
+  additionally requires the client on the machine; the change and the
+  passkey-management routes check the session themselves.
+- Changing the passcode needs a session and the current passcode, checked
+  under the same throttle as sign-in; a change signs out every other
+  session (the one making the change stays).
   **Passkeys** work beside the passcode (WebAuthn, via
   `@simplewebauthn/server`): a signed-in owner adds one in Settings, and the
   sign-in screen offers "Use a passkey" whenever one exists for the site's

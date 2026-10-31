@@ -308,12 +308,31 @@ const changePasscode = async (
     sendJson(res, 409, { error: "no passcode is set yet" });
     return true;
   }
+  // The route sits under the public /api/auth prefix, so it checks the
+  // session itself and refuses with the gate's own answer.
+  const sessionId = sessionCookieOf(req);
+  if (sessionId === undefined || store.session(sessionId) === undefined) {
+    sendJson(res, 401, { error: "sign in required" });
+    return true;
+  }
   const body = await readJsonBody<{ current?: string; next?: string }>(req);
   if ((body.next ?? "").length < 8) {
     sendJson(res, 400, { error: "use at least 8 characters for the new passcode" });
     return true;
   }
-  if (!store.changePasscode(body.current ?? "", body.next ?? "")) {
+  const outcome = store.changePasscode(body.current ?? "", body.next ?? "", sessionId);
+  if (outcome === "locked") {
+    record("passcode-change", false, "refused: throttled");
+    const wait = store.lockedFor();
+    res.writeHead(429, {
+      "content-type": "application/json",
+      "retry-after": String(wait),
+      ...CORS_HEADERS,
+    });
+    res.end(JSON.stringify({ error: `too many attempts; wait ${wait}s` }));
+    return true;
+  }
+  if (outcome !== "ok") {
     record("passcode-change", false, "wrong passcode");
     sendJson(res, 401, { error: "wrong passcode" });
     return true;

@@ -153,14 +153,21 @@ export class AuthStore {
     this.persistAuth();
   }
 
-  /** Requires the current passcode; sessions survive a change (one owner). */
-  changePasscode(current: string, next: string): boolean {
-    this.load();
-    if (this.file.passcodeHash === null) return false;
-    if (!verifyPasscodeHash(current, this.file.passcodeHash)) return false;
+  /**
+   * Requires the current passcode, checked under the sign-in throttle (so
+   * the change form is no side door for guessing). A change signs out every
+   * other session: whoever learned the old passcode loses access with it.
+   */
+  changePasscode(current: string, next: string, keepSessionId?: string): AttemptOutcome {
+    const outcome = this.attempt(current);
+    if (outcome !== "ok") return outcome;
     this.file = { ...this.file, passcodeHash: hashPasscode(next) };
     this.persistAuth();
-    return true;
+    for (const id of [...this.sessions.keys()]) {
+      if (id !== keepSessionId) this.sessions.delete(id);
+    }
+    this.persistSessions();
+    return "ok";
   }
 
   /**
