@@ -58,7 +58,9 @@ Schedules expose `fireCount` / `lastFiredAt`; webhooks expose counters plus
 The ingress answers the sender ONCE, fast, and honestly:
 
 1. unknown id → `404`; wrong token → `401` (counted per webhook — a climbing
-   `rejectedLast24h` with flat accepts is key rotation).
+   `rejectedLast24h` with flat accepts is key rotation). Only the token's
+   SHA-256 hash is stored and compared in constant time; the token is shown
+   once (at creation or **New token**) — see `docs/SECURITY.md`.
 2. body over 64 KB → `413`.
 3. rate limit (30/min default, `WEBHOOK_RATE_PER_MIN`) → `429` +
    `retryAfterS`.

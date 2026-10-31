@@ -2,7 +2,7 @@
  * Webhooks as native tools: the entity sets up its own inbound triggers.
  * Create and remove are gated (they open doors into the owner's attention);
  * listing is a read. The bearer token is NEVER in tool output — the owner
- * reads it in the app. What the entity gets instead is accounting: accept /
+ * issues one in the app (only its hash is stored). What the entity gets instead is accounting: accept /
  * reject counters and the 24h reject count, so a silently rotated key or a
  * drifted schema is diagnosable from here without ever seeing the key.
  */
@@ -47,7 +47,7 @@ const createTool = (webhooks: WebhooksService, profiles: ProfilesService): Tool 
       "and that outside services will be able to post to it. Optionally pass a JSON " +
       "Schema — every " +
       "payload is validated against it BEFORE the ack, and mismatches are counted and " +
-      "retained for you to inspect. The bearer token is shown only to your OWNER in " +
+      "retained for you to inspect. The bearer token is issued only to your OWNER, in " +
       "the app; you never see it. Rejection counters are how you debug auth failures.",
     parameters: Type.Object({
       name: Type.Optional(
@@ -102,7 +102,7 @@ const createTool = (webhooks: WebhooksService, profiles: ProfilesService): Tool 
             {
               type: "text" as const,
               text:
-                `webhook ${webhook.id} created — POST to /hooks/${webhook.id} with ?token=… (owner reads the token in the app).` +
+                `webhook ${webhook.id} created — POST to /hooks/${webhook.id} with ?token=… (the token isn't stored readably: your owner issues one with "New token" on the webhook in the app).` +
                 (schema !== null
                   ? " Payloads are schema-checked pre-ack; check webhook_list to watch rejections."
                   : ""),

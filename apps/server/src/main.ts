@@ -18,7 +18,7 @@ import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
-import { openMind } from "@spreissen/mind";
+import { openMind, sealWebhookTokens } from "@spreissen/mind";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalFromRequest, type Principal } from "./identity.ts";
 import { createRestHandler } from "./rest.ts";
@@ -54,6 +54,10 @@ export async function buildStack(options?: {
     },
   });
   const mind = handle.mind;
+  // One-time, repeatable: stored webhook tokens become hashes (URLs keep
+  // working). Logs a count only, never a token.
+  const sealed = await sealWebhookTokens(mind.converse);
+  if (sealed > 0) console.log(`webhooks: sealed ${sealed} stored token(s) as hashes`);
   // The attention last-mile: dead-letters and disabled jobs must ARRIVE.
   wireEscalationPager(mind);
   // Web Push to the owner's devices (inert until VAPID keys are in .env).

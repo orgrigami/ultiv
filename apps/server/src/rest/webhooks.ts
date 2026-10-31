@@ -1,5 +1,5 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
-import { listWebhooks, removeWebhook } from "@spreissen/mind";
+import { listWebhooks, removeWebhook, rotateWebhookToken } from "@spreissen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
 import { findOwned, ownedRecords, ownsSession } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
@@ -44,6 +44,15 @@ export async function webhookRoutes(
     const id = segment("/api/webhooks/");
     const mine = await findOwned(args, await listWebhooks(mind.converse), id);
     json(200, { ok: mine !== undefined && (await removeWebhook(mind.converse, id)) });
+    return true;
+  }
+  // New token: the old one stops working; the new one is in this response
+  // only (just its hash is stored), like at creation.
+  if (path.startsWith("/api/webhooks/") && path.endsWith("/token") && method === "POST") {
+    const id = segment("/api/webhooks/").slice(0, -"/token".length);
+    const mine = await findOwned(args, await listWebhooks(mind.converse), id);
+    const rotated = mine !== undefined ? await rotateWebhookToken(mind.converse, id) : undefined;
+    json(rotated !== undefined ? 200 : 404, rotated ?? { error: "unknown webhook" });
     return true;
   }
   // Test-fire: probe the schema without delivering — the debugger that key

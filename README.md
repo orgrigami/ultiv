@@ -135,6 +135,7 @@ In every mode, these always come to you as a card: a credential's first use on a
 - **Risky tools wait for you.** Read-only tools run freely. Tools with side effects wait for approval, or follow the bot's [approval mode](#approval-modes). Some always ask, whatever the mode or the allow list says: using a credential on a new host for the first time, a connector's first use, changing connectors, and `secret_request`. `bash_host` can't be saved as an "Always allow" rule and Jev never decides it, but fully automatic mode runs it.
 - **Outbound requests are limited.** `http_request` only does https, has an SSRF/DNS guard, sticks to each secret's host/method/path bindings, caps redirects and response size, and scrubs responses.
 - **File paths can't leave their folder.** Every file store resolves paths with symlinks followed and refuses `../`, absolute paths and links that point outside; see `docs/SECURITY.md`.
+- **Webhook tokens are stored as hashes.** A token is shown once, when the webhook is made or when you issue a New token, and the server keeps only its SHA-256 hash and compares in constant time. Existing tokens are converted on start, so old URLs keep working; see `docs/SECURITY.md` for the rollback note.
 - **`.env` stays on the server.** It's never printed or sent to the client.
 
 ## Layout

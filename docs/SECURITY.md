@@ -79,3 +79,49 @@ Left as they are, on purpose:
 Tests: `apps/server/src/rest/owner-scope.test.ts` (owner-a / owner-b over the
 real REST handler, plus a no-header guest run) and the owner check in
 `vp run smoke`.
+
+## Webhook tokens are stored as hashes
+
+A webhook URL is `/hooks/<id>?token=<token>` (or the token in an
+`x-spreissen-token` header; `x-ultiv-token` is still read). The token is the
+only thing that authenticates a sender, so the server keeps just its hash.
+
+- **Stored:** `tokenHash` = `sha256:<64 hex>` of the token, in the
+  `ultiv.webhooks` document. A random UUID token has enough entropy that a
+  plain SHA-256 is the right tool (no salt or slow hash needed).
+- **Checked:** the ingress hashes the presented token and compares the two
+  hashes with `timingSafeEqual` (`verifyWebhookToken` in
+  `packages/mind/src/webhooks/webhooks.ts`). A wrong token is `401` and a
+  counted reject, as before.
+- **Shown once:** `POST /api/webhooks` returns the token in its response and
+  the app shows the full URL with "Copy it now. It won't be shown again."
+  Lists (`GET /api/webhooks`, the `webhook_list` tool) never carry the token
+  or its hash. A lost token can't be recovered: **New token**
+  (`POST /api/webhooks/:id/token`, owner-scoped) issues a fresh one and the
+  old one stops working at once. Webhooks a bot creates with its tool get no
+  token in the tool output; their owner issues one with New token.
+- **Never logged:** tokens don't appear in logs, receipts, audit events or
+  tool output. The startup line logs only a count.
+
+### Migration of existing tokens
+
+On every start, before the server listens, `sealWebhookTokens` replaces any
+plaintext `token` in the webhooks document with its `tokenHash`, so existing
+URLs keep working unchanged. It is repeatable: a document with no plaintext
+left is not touched (no new revision), and it returns how many rows it
+sealed (`webhooks: sealed N stored token(s) as hashes`). Until it has run, a
+legacy plaintext row is still verified (by hashing it), so there is no window
+where a URL fails. Nothing is deleted: every row keeps its id, session,
+counters and rejects.
+
+Tested on throwaway stores only (`packages/mind/src/webhooks/token-hash.test.ts`,
+MemoryStorage and a temp-dir SQLite file that is grepped afterwards for the
+old token) and over REST (`apps/server/src/rest/webhook-tokens.test.ts`).
+
+### Rollback
+
+Code from before this change reads only the plaintext `token` field, so after
+a rollback every sealed webhook refuses all calls (`401`); the hash can't be
+turned back into the token. To recover after a rollback, delete and
+re-create the affected webhooks (or roll forward again, where New token
+works). No data is lost either way: the rows, receipts and counters stay.

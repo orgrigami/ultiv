@@ -30,14 +30,15 @@ export type JsonSchemaObject = { [key: string]: JsonSchemaValue };
 
 /**
  * One inbound webhook: a URL the outside world can POST to reach a session.
- * The bearer token is shown at creation and readable by the OWNER (user and
- * harness), never by the entity — key invisibility is the capability
+ * The bearer token is returned to the OWNER once, in the create (or
+ * rotate-token) response, and only its hash is stored, so lists never carry
+ * it. The entity never sees it — key invisibility is the capability
  * boundary, and the reject counters below are what make rotation debuggable.
  */
 export const WebhookInfoSchema = Type.Object({
   id: Type.String(),
-  /** Bearer secret the caller must present; shown once at creation. */
-  token: Type.String(),
+  /** Bearer secret the caller must present: only in the create / rotate-token response. */
+  token: Type.Optional(Type.String()),
   sessionId: Type.String(),
   /** The profile the bound session lives under. */
   profile: Type.String(),

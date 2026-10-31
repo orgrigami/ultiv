@@ -429,6 +429,9 @@ export const api = {
   }): Promise<WebhookInfo> => send<WebhookInfo>("/api/webhooks", "POST", input),
   removeWebhook: (id: string): Promise<{ ok: boolean }> =>
     send<{ ok: boolean }>(`/api/webhooks/${encodeURIComponent(id)}`, "DELETE"),
+  /** New token for a webhook; the response is the only place it appears. */
+  rotateWebhookToken: (id: string): Promise<WebhookInfo> =>
+    send<WebhookInfo>(`/api/webhooks/${encodeURIComponent(id)}/token`, "POST"),
   testWebhook: (id: string, payload: unknown): Promise<{ accepted: boolean; detail?: string }> =>
     send(`/api/webhooks/${encodeURIComponent(id)}/test`, "POST", { payload }),
   sensors: (): Promise<SensorInfo[]> => getJson<SensorInfo[]>("/api/sensors"),

@@ -2,15 +2,17 @@
  * The webhooks faculty: inbound triggers the entity can create for ITSELF.
  * The registry lives in a durable doc (kind "ultiv.webhooks", moved here from
  * the server — same kind); the server keeps only the HTTP ingress and the
- * delivery pump. Bearer tokens are shown at creation and readable by the
- * OWNER, never the entity — key invisibility is the capability boundary, and
+ * delivery pump. Bearer tokens are shown to the OWNER once, at creation or
+ * rotation, and only their SHA-256 is stored (`tokenHash`); the ingress
+ * compares hashes in constant time. The entity never sees a token — key
+ * invisibility is the capability boundary, and
  * it is compensated by REJECT ACCOUNTING (per-class counters + retained
  * rejected payloads), so a rotated partner key is a visible outage, never
  * silence. Optional per-webhook JSON Schemas are authored at creation: the
  * ingress validates every payload against the schema BEFORE acking, so a
  * schema rejection is the author's bug to diagnose from the retained bodies.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { Value } from "typebox/value";
@@ -25,7 +27,30 @@ export const WEBHOOK_RATE_PER_MIN = Number(process.env.WEBHOOK_RATE_PER_MIN ?? 3
 const REJECT_RETENTION = 5;
 const REJECT_BODY_TRUNCATE = 2048;
 
-export const WebhooksDoc = defineDoc<{ items: WebhookInfo[] }>({
+/**
+ * The stored row: the public info plus the token's hash. Rows written before
+ * hashing carry the plaintext `token` until `sealWebhookTokens` replaces it.
+ */
+export type StoredWebhook = WebhookInfo & { tokenHash?: string; token?: string };
+
+/** `sha256:<hex>` of a bearer token — the only form a token is stored in. */
+export const hashWebhookToken = (token: string): string =>
+  `sha256:${createHash("sha256").update(token, "utf8").digest("hex")}`;
+
+/** Constant-time compare of two token hashes (equal-length hex by construction). */
+const hashesMatch = (stored: string, presented: string): boolean => {
+  const a = Buffer.from(stored, "utf8");
+  const b = Buffer.from(presented, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+};
+
+/** The public view of a row: no token, no hash. */
+const publicOf = (row: StoredWebhook): WebhookInfo => {
+  const { token: _token, tokenHash: _hash, ...info } = row;
+  return { ...info, profile: info.profile ?? "default", whenBusy: info.whenBusy ?? "steer" };
+};
+
+export const WebhooksDoc = defineDoc<{ items: StoredWebhook[] }>({
   kind: "ultiv.webhooks",
   version: 3,
   scope: "session",
@@ -52,17 +77,56 @@ export const WebhooksDoc = defineDoc<{ items: WebhookInfo[] }>({
       lastRejectReason: typeof row.lastRejectReason === "string" ? row.lastRejectReason : null,
       recentRejects: Array.isArray(row.recentRejects) ? row.recentRejects : [],
     }));
-    return { items } as unknown as { items: WebhookInfo[] };
+    return { items } as unknown as { items: StoredWebhook[] };
   },
   checkpointWhen: () => true,
 });
 
+const readStored = async (converse: ConverseService): Promise<StoredWebhook[]> =>
+  (await Effect.runPromise(converse.docs.snapshot(WebhooksDoc)))?.items ?? [];
+
+/** Every webhook, public view (never a token or its hash). */
 export const listWebhooks = async (converse: ConverseService): Promise<WebhookList> =>
-  ((await Effect.runPromise(converse.docs.snapshot(WebhooksDoc)))?.items ?? []).map((webhook) => ({
-    ...webhook,
-    profile: webhook.profile ?? "default",
-    whenBusy: webhook.whenBusy ?? "steer",
-  }));
+  (await readStored(converse)).map(publicOf);
+
+/**
+ * Does `presented` open webhook `id`? Hashes are compared in constant time; a
+ * not-yet-sealed legacy row is checked by hashing its plaintext the same way.
+ * Unknown ids are false. Nothing here logs either token.
+ */
+export const verifyWebhookToken = async (
+  converse: ConverseService,
+  id: string,
+  presented: string,
+): Promise<boolean> => {
+  const row = (await readStored(converse)).find((webhook) => webhook.id === id);
+  if (row === undefined) return false;
+  const stored =
+    row.tokenHash ?? (typeof row.token === "string" ? hashWebhookToken(row.token) : undefined);
+  return stored !== undefined && hashesMatch(stored, hashWebhookToken(presented));
+};
+
+/**
+ * One-time startup migration: replace every stored plaintext token with its
+ * hash, so existing webhook URLs keep working while the token is no longer
+ * on disk. Commits only when a plaintext token is still present, so running
+ * it again is a no-op. Returns how many rows it sealed.
+ */
+export const sealWebhookTokens = async (converse: ConverseService): Promise<number> => {
+  const pending = (await readStored(converse)).filter((row) => typeof row.token === "string");
+  if (pending.length === 0) return 0;
+  await Effect.runPromise(
+    converse.docs.commit(async (tx) => {
+      const draft = await tx.doc(WebhooksDoc);
+      draft.items = draft.items.map((row) => {
+        if (typeof row.token !== "string") return row;
+        const { token, ...rest } = row;
+        return { ...rest, tokenHash: row.tokenHash ?? hashWebhookToken(token) };
+      });
+    }),
+  );
+  return pending.length;
+};
 
 /** Read one webhook without pulling the whole list through the caller's hands. */
 export const findWebhook = async (
@@ -70,10 +134,11 @@ export const findWebhook = async (
   id: string,
 ): Promise<WebhookInfo | undefined> => (await listWebhooks(converse)).find((w) => w.id === id);
 
-const writeWebhooks = (converse: ConverseService, items: WebhookInfo[]) =>
+/** Keep only the rows `keep` accepts (stored form, so hashes survive). */
+const keepWebhooks = (converse: ConverseService, keep: (row: StoredWebhook) => boolean) =>
   converse.docs.commit(async (tx) => {
     const draft = await tx.doc(WebhooksDoc);
-    draft.items = items;
+    draft.items = draft.items.filter(keep);
   });
 
 /** Functional update of one webhook row (counters, receipts bookkeeping). */
@@ -86,10 +151,17 @@ export const updateWebhook = async (
   await Effect.runPromise(
     converse.docs.commit(async (tx) => {
       const draft = await tx.doc(WebhooksDoc);
-      draft.items = draft.items.map((webhook) => {
-        if (webhook.id !== id) return webhook;
-        updated = update({ ...webhook, profile: webhook.profile ?? "default" });
-        return updated;
+      draft.items = draft.items.map((row) => {
+        if (row.id !== id) return row;
+        // The update sees and returns the public view; the stored secret
+        // fields ride along untouched.
+        const next = update(publicOf(row));
+        updated = next;
+        return {
+          ...next,
+          ...(row.tokenHash !== undefined ? { tokenHash: row.tokenHash } : {}),
+          ...(row.token !== undefined ? { token: row.token } : {}),
+        };
       });
     }),
   );
@@ -211,17 +283,19 @@ export interface WebhookCreate {
   readonly whenBusy?: "steer" | "followUp" | "reject";
 }
 
+/** A webhook as handed back at creation or rotation: the only time its token exists. */
+export type WebhookWithToken = WebhookInfo & { token: string };
+
 export const createWebhook = async (
   converse: ConverseService,
   profiles: { rowOf: (sessionId: string) => Promise<{ profile: string } | undefined> },
   input: WebhookCreate,
-): Promise<WebhookInfo> => {
+): Promise<WebhookWithToken> => {
   const schemaCheck = validateWebhookSchema(input.schema ?? null);
   if (!schemaCheck.ok) throw new Error(schemaCheck.reason ?? "invalid schema");
   const row = await profiles.rowOf(input.sessionId);
   const webhook: WebhookInfo = {
     id: randomUUID(),
-    token: randomUUID(),
     sessionId: input.sessionId,
     profile: row?.profile ?? "default",
     name: input.name ?? null,
@@ -239,20 +313,45 @@ export const createWebhook = async (
     recentRejects: [],
     ...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
   };
+  const token = randomUUID();
   await Effect.runPromise(
     converse.docs.commit(async (tx) => {
       const draft = await tx.doc(WebhooksDoc);
-      draft.items = [...draft.items, webhook];
+      draft.items = [...draft.items, { ...webhook, tokenHash: hashWebhookToken(token) }];
     }),
   );
-  return webhook;
+  return { ...webhook, token };
+};
+
+/**
+ * Issue a new token for a webhook (the old one stops working at once) and
+ * hand it back once. Undefined for an unknown id.
+ */
+export const rotateWebhookToken = async (
+  converse: ConverseService,
+  id: string,
+): Promise<WebhookWithToken | undefined> => {
+  const token = randomUUID();
+  let info: WebhookInfo | undefined;
+  await Effect.runPromise(
+    converse.docs.commit(async (tx) => {
+      const draft = await tx.doc(WebhooksDoc);
+      draft.items = draft.items.map((row) => {
+        if (row.id !== id) return row;
+        const { token: _legacy, ...rest } = row;
+        // A plain copy: the draft's nested values die with the transaction.
+        info = JSON.parse(JSON.stringify(publicOf(row))) as WebhookInfo;
+        return { ...rest, tokenHash: hashWebhookToken(token) };
+      });
+    }),
+  );
+  return info !== undefined ? { ...info, token } : undefined;
 };
 
 export const removeWebhook = async (converse: ConverseService, id: string): Promise<boolean> => {
   const before = await listWebhooks(converse);
-  const remaining = before.filter((webhook) => webhook.id !== id);
-  if (remaining.length === before.length) return false;
-  await Effect.runPromise(writeWebhooks(converse, remaining));
+  if (!before.some((webhook) => webhook.id === id)) return false;
+  await Effect.runPromise(keepWebhooks(converse, (row) => row.id !== id));
   return true;
 };
 
@@ -265,14 +364,19 @@ export const removeWebhooksForSessions = async (
   const before = await listWebhooks(converse);
   const remaining = before.filter((webhook) => !bound.has(webhook.sessionId));
   if (remaining.length !== before.length)
-    await Effect.runPromise(writeWebhooks(converse, remaining));
+    await Effect.runPromise(keepWebhooks(converse, (row) => !bound.has(row.sessionId)));
   return before.length - remaining.length;
 };
 
 export interface WebhooksService {
   readonly list: () => Promise<WebhookList>;
   readonly find: (id: string) => Promise<WebhookInfo | undefined>;
-  readonly create: (input: WebhookCreate) => Promise<WebhookInfo>;
+  /** The returned token is the only copy; only its hash is stored. */
+  readonly create: (input: WebhookCreate) => Promise<WebhookWithToken>;
+  /** New token, returned once; the old one stops working. */
+  readonly rotateToken: (id: string) => Promise<WebhookWithToken | undefined>;
+  /** Constant-time check of a presented token. */
+  readonly verifyToken: (id: string, presented: string) => Promise<boolean>;
   readonly remove: (id: string) => Promise<boolean>;
   readonly removeForSessions: (sessionIds: readonly string[]) => Promise<number>;
   /** Bump one rejection class and retain the payload (the rotation alarm). */
@@ -294,6 +398,8 @@ export const webhooksService = (deps: {
   list: () => listWebhooks(deps.converse),
   find: (id) => findWebhook(deps.converse, id),
   create: (input) => createWebhook(deps.converse, deps.profiles, input),
+  rotateToken: (id) => rotateWebhookToken(deps.converse, id),
+  verifyToken: (id, presented) => verifyWebhookToken(deps.converse, id, presented),
   remove: (id) => removeWebhook(deps.converse, id),
   removeForSessions: (sessionIds) => removeWebhooksForSessions(deps.converse, sessionIds),
   recordReject: (id, reject) => recordWebhookReject(deps.converse, id, reject),

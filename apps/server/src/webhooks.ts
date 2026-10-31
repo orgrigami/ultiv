@@ -8,13 +8,13 @@
  * + an audit escalation). Delivery is DEBOUNCED per session: bursts that
  * land inside the window coalesce into one wake that carries every payload.
  */
-import { timingSafeEqual } from "node:crypto";
 import type { MindService } from "@spreissen/mind";
 import {
   MAX_WEBHOOK_BODY_BYTES,
   checkWebhookPayload,
   checkWebhookRate,
   findWebhook,
+  verifyWebhookToken,
   recordRoutineFire,
   recordWebhookReject,
   removeWebhooksForSessions as removeWebhooksForSessionsDoc,
@@ -131,13 +131,6 @@ const flush = async (
   }
 };
 
-/** Constant-time bearer compare — a public endpoint must not leak its own timing. */
-const tokenMatches = (expected: string, presented: string): boolean => {
-  const a = Buffer.from(expected);
-  const b = Buffer.from(presented.padEnd(a.length, "\0"));
-  return Buffer.byteLength(presented) === a.length && timingSafeEqual(a, b);
-};
-
 /**
  * The ingress pipeline. Everything cheap and synchronous happens pre-ack —
  * after the 2xx the sender assumes success and will never hear "no" again.
@@ -164,7 +157,8 @@ export const handleWebhookIngress = async (
     }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "size"));
     return { status: 413, json: { error: "payload too large" } };
   }
-  if (!tokenMatches(webhook.token, token)) {
+  // Constant-time hash compare (only the hash is stored); never logged.
+  if (!(await verifyWebhookToken(mind.converse, id, token))) {
     // The key-rotation alarm: counted per webhook, visible in 24h rejects.
     await recordWebhookReject(mind.converse, id, {
       reason: "auth",

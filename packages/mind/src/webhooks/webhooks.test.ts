@@ -103,10 +103,14 @@ describe("Webhooks faculty (offline, MemoryStorage)", () => {
     // The id is public (it is the URL); the TOKEN must never cross a
     // model-facing surface.
     const hookId = (created.structuredOutput as { id: string }).id;
-    const token = (await webhooks.list()).find((w) => w.id === hookId)?.token ?? "";
-    expect(token).not.toBe("");
-    expect(JSON.stringify(created.output)).not.toContain(token);
-    expect(JSON.stringify(created.structuredOutput)).not.toContain(token);
+    // Only a hash is stored, so no list carries a token, and the tool output
+    // names no id-shaped value but the webhook's own id, and no hash.
+    expect((await webhooks.list()).find((w) => w.id === hookId)?.token).toBeUndefined();
+    const shown = JSON.stringify([created.output, created.structuredOutput]);
+    const uuids =
+      shown.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [];
+    expect(uuids.every((value) => value === hookId)).toBe(true);
+    expect(shown).not.toContain("sha256:");
 
     const listed = await list.execute({}, api, {} as never);
     const rows = listed.structuredOutput as { id: string; rejectedLast24h: number }[];
