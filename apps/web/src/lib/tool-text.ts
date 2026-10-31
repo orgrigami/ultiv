@@ -10,6 +10,7 @@ import {
   type ChecklistDetails,
   type ToolStep,
 } from "@spriessen/contracts";
+import { adminView } from "./admin-tool-views.ts";
 import { checklistView, graphView } from "./chat-tool-views.ts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
 import { learnedOf, type LearnedRef } from "./learned.ts";
@@ -787,6 +788,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     case GRAPH_TOOL:
       return { kind: "human", view: graphView(step) };
     default: {
+      const admin = adminView(step);
+      if (admin !== null) return { kind: "human", view: admin };
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {
         const output = rawOf(step.output);

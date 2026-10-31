@@ -2,6 +2,7 @@
  * Owner-facing words for a gated tool call: what the bot wants to do, how
  * risky it is and why, and the most telling bit of its input.
  */
+import { ADMIN_APPROVALS } from "./admin-tool-views.ts";
 
 /** Tools that reach outside the conversation (delete/send/pay/publish). */
 const RISKY_TOOL =
@@ -113,6 +114,7 @@ const KNOWN: Record<string, Known> = {
     risk: "Nothing runs: your answer goes back to the bot and it carries on.",
     risky: false,
   },
+  ...ADMIN_APPROVALS,
   bot_create: {
     action: "create a new bot",
     risk: "Lower risk: it joins your bots with the details on the form; edit or archive it any time.",

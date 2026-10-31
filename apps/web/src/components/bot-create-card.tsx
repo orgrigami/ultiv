@@ -1,7 +1,8 @@
 /**
  * The `bot_create` confirmation card, inline in the chat: the proposal as a
- * small editable form. Name, title, personality, model + effort, and the
- * sandbox toggle. Creating sends the corrected input back through the
+ * small editable form. Name, title, home (a department or the org),
+ * personality, Instructions, model + effort, and the sandbox toggle; the
+ * tool list rides along as proposed. Creating sends the corrected input back through the
  * approval's override channel; denying (or letting it expire) tells the bot
  * nothing was created.
  */
@@ -9,6 +10,7 @@ import { useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import type { DecideOutcome } from "@/components/approval-card";
 import { ModelFields } from "@/components/bot-dialog";
+import { HomeSelect } from "@/components/department/home-select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -19,6 +21,11 @@ export interface BotProposal {
   name: string;
   title: string;
   persona: string;
+  /** A department id or name as proposed; "" = an org bot. */
+  department: string;
+  instructions: string;
+  /** Proposed tool names; empty = all installed tools. */
+  tools: string[];
   modelId: string;
   effort: string;
   sandbox: boolean;
@@ -34,6 +41,11 @@ export const proposalOf = (input: unknown): BotProposal => {
     name: text("name"),
     title: text("title"),
     persona: text("persona"),
+    department: text("department") === "org" ? "" : text("department"),
+    instructions: text("instructions"),
+    tools: Array.isArray(record["tools"])
+      ? record["tools"].filter((tool): tool is string => typeof tool === "string")
+      : [],
     modelId: text("model"),
     effort: text("effort"),
     sandbox: sandbox !== false,
@@ -115,7 +127,8 @@ function CreateActions({
   return (
     <>
       <p className="text-muted-foreground text-xs">
-        The new bot starts asking you to approve its actions, whatever this bot's own mode is.
+        The new bot starts asking you to approve its actions, whatever this bot's own mode is. Its
+        host access starts off.
       </p>
       <div className="flex items-center justify-end gap-2">
         <Button size="sm" variant="outline" disabled={deciding !== null} onClick={onDeny}>
@@ -155,6 +168,11 @@ function ProposalFields({
         onChange={(title) => setProposal({ ...proposal, title })}
         placeholder="Research assistant for the workspace"
       />
+      <HomeSelect
+        label="Which department?"
+        value={proposal.department}
+        onChange={(department) => setProposal({ ...proposal, department })}
+      />
       <TextField
         label="Personality"
         rows={3}
@@ -162,6 +180,16 @@ function ProposalFields({
         onChange={(persona) => setProposal({ ...proposal, persona })}
         placeholder={"You are meticulous. You check rather than guess…"}
       />
+      <TextField
+        label="Instructions"
+        rows={3}
+        value={proposal.instructions}
+        onChange={(instructions) => setProposal({ ...proposal, instructions })}
+        placeholder="Standing rules it follows in every chat"
+      />
+      <p className="text-muted-foreground text-xs">
+        Tools: {proposal.tools.length > 0 ? proposal.tools.join(", ") : "all installed tools"}
+      </p>
       <ModelFields
         modelId={proposal.modelId}
         effort={proposal.effort}
@@ -211,6 +239,9 @@ export function BotCreateCard(props: {
               name: proposal.name.trim(),
               title: proposal.title.trim(),
               persona: proposal.persona,
+              department: proposal.department,
+              instructions: proposal.instructions,
+              ...(proposal.tools.length > 0 ? { tools: proposal.tools } : {}),
               model: proposal.modelId,
               effort: proposal.effort,
               sandbox: proposal.sandbox,
