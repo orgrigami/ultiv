@@ -4,7 +4,7 @@
  * routes only shape the answers. A department another role may not touch
  * reads as a missing one, like every scoped route.
  */
-import type { VmSettings } from "@spriessen/contracts";
+import type { DepartmentInfo, DepartmentSummary, VmSettings } from "@spriessen/contracts";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
@@ -136,5 +136,57 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       return (json(400, { error: errorOf(cause) }), true);
     }
   }
+  if (path.startsWith("/api/org/departments/") && path.endsWith("/summary") && method === "GET") {
+    const id = segment("/api/org/departments/").replace(/\/summary$/, "");
+    const view = await mind.org.view();
+    const department = view.departments.find((row) => row.id === id);
+    if (department === undefined) {
+      return (json(404, { error: "unknown department" }), true);
+    }
+    if (!(await may(args, "view", { type: "department-summary", departmentId: id }))) {
+      return (json(404, { error: "unknown department" }), true);
+    }
+    return (json(200, await departmentSummary(args, department)), true);
+  }
   return false;
 }
+
+/**
+ * The department digest: counts, bot names, activity timestamps. Metadata
+ * only — never a chat's contents (slice 4).
+ */
+const departmentSummary = async (
+  args: RouteArgs,
+  department: DepartmentInfo,
+): Promise<DepartmentSummary> => {
+  const { mind } = args;
+  const bots = (await mind.profiles.list(args.owner)).filter(
+    (profile) => profile.departmentId === department.id,
+  );
+  const active = bots.filter((profile) => profile.archivedAt === null);
+  const ids = new Set(bots.map((profile) => profile.id));
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const calls = mind.audit
+    .tail(5_000)
+    .filter(
+      (event) =>
+        event.kind === "tool_call" &&
+        event.profile !== null &&
+        ids.has(event.profile) &&
+        event.at >= weekAgo,
+    );
+  const pending = (await mind.approvals.pendingAll()).filter((entry) => {
+    const scope = mind.profiles.scopeOf(entry.conversationId);
+    return scope !== undefined && ids.has(scope.profileId);
+  });
+  return {
+    department,
+    bots: active.map((profile) => ({ id: profile.id, name: profile.name })),
+    archivedBots: bots.length - active.length,
+    activity: {
+      lastToolCallAt: calls.reduce<number | null>((last, event) => event.at, null),
+      toolCalls7d: calls.length,
+      openApprovals: pending.length,
+    },
+  };
+};

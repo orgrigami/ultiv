@@ -201,3 +201,68 @@ async function callAs(
   await orgRoutes(args);
   return { status, json: payload };
 }
+
+describe("the department summary (slice 4)", () => {
+  it("gives the org owner counts, bots and activity, never chat contents", async () => {
+    const made = await call("POST", "/api/org/departments", { name: "Alpha" });
+    const alpha = made.json as { id: string };
+    const bot = await handle.mind.profiles.create("owner", {
+      name: "Alpha bot",
+      onboard: false,
+      departmentId: alpha.id,
+    });
+    const session = await handle.mind.profiles.ensureMain("owner", bot.id);
+    await handle.mind.audit.record({
+      at: Date.now(),
+      kind: "tool_call",
+      conversationId: session.id,
+      profile: bot.id,
+      callId: null,
+      name: "bash",
+      durationMs: 5,
+      ok: true,
+      error: null,
+    });
+    const summary = await call("GET", `/api/org/departments/${alpha.id}/summary`);
+    expect(summary.status).toBe(200);
+    const body = summary.json as {
+      department: { id: string };
+      bots: { id: string; name: string }[];
+      activity: { toolCalls7d: number; lastToolCallAt: number | null; openApprovals: number };
+    };
+    expect(body.department.id).toBe(alpha.id);
+    expect(body.bots).toEqual([{ id: bot.id, name: "Alpha bot" }]);
+    expect(body.activity.toolCalls7d).toBe(1);
+    expect(body.activity.lastToolCallAt).not.toBeNull();
+    // No chat contents anywhere in the digest.
+    expect(JSON.stringify(body)).not.toContain("transcript");
+    expect(JSON.stringify(body)).not.toContain("messages");
+  });
+
+  it("reads as a missing department for a role that may not see it", async () => {
+    const made = await call("POST", "/api/org/departments", { name: "Beta" });
+    const beta = made.json as { id: string };
+    await handle.mind.org.setMember({
+      accountId: "mate-beta",
+      role: "member",
+      departmentId: beta.id,
+    });
+    const refusal = { status: 404, json: { error: "unknown department" } };
+    expect(await callAs("mate-beta", "GET", `/api/org/departments/${beta.id}/summary`)).toEqual(
+      refusal,
+    );
+    expect(await callAs("mate-beta", "GET", "/api/org/departments/ghost/summary")).toEqual(refusal);
+    // A member of ANOTHER department also reads it as missing.
+    const gamma = (await call("POST", "/api/org/departments", { name: "Gamma" })).json as {
+      id: string;
+    };
+    await handle.mind.org.setMember({
+      accountId: "mate-gamma",
+      role: "member",
+      departmentId: gamma.id,
+    });
+    expect(await callAs("mate-gamma", "GET", `/api/org/departments/${beta.id}/summary`)).toEqual(
+      refusal,
+    );
+  });
+});
