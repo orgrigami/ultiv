@@ -1,4 +1,4 @@
-# @ultiv/ext
+# @spreissen/ext
 
 The extension platform: the standard future development plugs into.
 

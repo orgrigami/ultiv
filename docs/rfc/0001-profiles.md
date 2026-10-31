@@ -7,11 +7,11 @@ envelope schema and trust rules are live via `deliverExternal`), the notificatio
 (the approval inbox + dead-letter REST surfaces + audit escalations are the attention path), and
 profile management UI beyond the switcher/Bot Mode pin. Transcript export is not in the bundle
 (the harness has no conversation export API); sessions import as fresh chats.
-Scope: `@ultiv/mind`, `@ultiv/ext`, `packages/contracts`, `apps/server`, `apps/web`.
+Scope: `@spreissen/mind`, `@spreissen/ext`, `packages/contracts`, `apps/server`, `apps/web`.
 
 ## 1. Summary
 
-Ultiv grows a layer above sessions: **profiles**. A profile is a user-defined AI entity —
+Spreissen grows a layer above sessions: **profiles**. A profile is a user-defined AI entity —
 its own name, persona, persistent chat, sessions, artifacts, credentials scope, and (later)
 memories. Entities communicate with each other through an asynchronous, durable **mailbox**
 carried on per-pair **DM threads**, and act on external services through a **vault** that

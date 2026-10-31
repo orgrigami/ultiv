@@ -8,7 +8,7 @@ skills hold ways of working worth loading before similar work.
 ## Where they live
 
 - Built-ins: `packages/about`, the app's own self-knowledge as one
-  whole-world skill (`ultiv`): a lean SKILL.md (ground truths, owner
+  whole-world skill (`spreissen`): a lean SKILL.md (ground truths, owner
   experience, the reference index) plus `references/` for the surfaces,
   the faculties, the procedures, and the platform contracts. Read-only,
   updated with the app; built-in files read from the package, never disk.
@@ -39,7 +39,7 @@ the review before enable is where trust gets granted.
 
 ## The prompt section
 
-Each mapped conversation renders the floor line ("You live in Ultiv...")
+Each mapped conversation renders the floor line ("You live in Spreissen...")
 plus up to 16 enabled skills (name + clipped description; `skill_list`
 beyond), plus the trust rule. Sections re-render per request, so writes,
 installs, disables and accepted proposals are live by the bot's next turn.

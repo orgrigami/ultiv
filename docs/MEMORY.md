@@ -15,6 +15,10 @@ described in RFC 0001 §9 — now shipped. Storage stays pi-durable docs in
 | Archive   | `ultiv.mem.archive`   | Cold facts, still searchable on demand                                    |
 | Proposals | `ultiv.mem.proposals` | Tidy suggestions; nothing changes until the owner accepts                 |
 
+The stored record names keep the `ultiv.` prefix from before the product was
+renamed to Spreissen. They are internal storage names, not branding, and
+renaming them would mean migrating the owner's data, so they stay.
+
 All are `scope: "session"`, family docs keyed `owner:<o>` (owner store) or
 `profile:<o>:<id>` (a bot's own store). Bots never see a sibling's store.
 
@@ -144,7 +148,7 @@ confirmed there is nothing left to migrate. Writes are v2-only; the old
 `POST /api/memory/v1/cleanup` sweep is gone with it. The v1
 `ultiv.memory` doc family stays exported only for the rollback surfaces.
 
-- Rollback: `ULTIV_MEMORY_V2=off` brings back the v1 code path. This is
+- Rollback: `SPREISSEN_MEMORY_V2=off` brings back the v1 code path. This is
   a fallback for the v2 seam, not a full return to v1 — facts written
   while off land in the v1 docs and do not appear in v2 reads.
 - Mirror: REMOVED 2026-10-28 (owner-approved end of the 14-day soak, commit
@@ -154,9 +158,9 @@ confirmed there is nothing left to migrate. Writes are v2-only; the old
 
 ## Flags
 
-| Flag                | Default     | Effect                                        |
-| ------------------- | ----------- | --------------------------------------------- |
-| `ULTIV_MEMORY_V2`   | on          | `off` = v1-seam fallback, NOT a full rollback |
-| `MEMORY_EXTRACT`    | on          | `off` = deterministic extraction only         |
-| `MEMORY_EMBEDDINGS` | off         | embeddings; prefer local Ollama if ever on    |
-| `MEMORY_TIDY_CRON`  | `0 9 * * 0` | tidy schedule (croner, Asia/Jakarta)          |
+| Flag                  | Default     | Effect                                        |
+| --------------------- | ----------- | --------------------------------------------- |
+| `SPREISSEN_MEMORY_V2` | on          | `off` = v1-seam fallback, NOT a full rollback |
+| `MEMORY_EXTRACT`      | on          | `off` = deterministic extraction only         |
+| `MEMORY_EMBEDDINGS`   | off         | embeddings; prefer local Ollama if ever on    |
+| `MEMORY_TIDY_CRON`    | `0 9 * * 0` | tidy schedule (croner, Asia/Jakarta)          |

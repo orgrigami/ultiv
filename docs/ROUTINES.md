@@ -19,6 +19,9 @@ dropped, a rotated key indistinguishable from a quiet day.
 | Rate-limit token buckets                        | **no** (in-memory, restart resets)        | server process                        |
 | Debounce windows                                | **no** (payloads already receipted first) | server process                        |
 
+The `ultiv.` record names predate the rename to Spreissen and are kept on
+purpose: they name data already on disk.
+
 ## Attention: escalations must ARRIVE
 
 Every escalation (cron disabled, webhook dead-letter, mailbox dead-letter)
@@ -74,7 +77,8 @@ one wake carrying every payload, each with its own receipt.
 
 - **Bearer tokens never reach the entity.** Tools and tool outputs carry the
   id/path and the accounting; the owner reads the token in the app.
-  Senders SHOULD use the `x-ultiv-token` header over the `?token=` query
+  Senders SHOULD use the `x-spreissen-token` header (the old `x-ultiv-token`
+  is still accepted) over the `?token=` query
   form — query strings end up in access logs. Test-fire
   (`POST /api/webhooks/:id/test`, owner) validates a probe payload against
   the schema without delivering — rejected probes are receipted.
@@ -107,7 +111,7 @@ A sensor watches an external source and wakes the entity on events. Tools:
   `leadMinutes` before matching event starts (1h grace for missed polls).
 - **rss** — the sensor's OWN feed URL (http/https, validated at creation);
   wakes on every unseen item whose title matches, capped at 5 per poll.
-  Parser: `parseFeed` in `@ultiv/ext` (RSS 2.0 + Atom, minimal).
+  Parser: `parseFeed` in `@spreissen/ext` (RSS 2.0 + Atom, minimal).
 - **watch** — any URL, EDGE-TRIGGERED: the first poll records a baseline
   fingerprint (sha256 of the body, never fires); each later poll fires once
   iff the fingerprint changed. `match` filters on raw body text (no match

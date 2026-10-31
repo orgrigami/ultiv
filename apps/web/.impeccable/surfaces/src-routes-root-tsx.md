@@ -13,7 +13,7 @@ related_targets:
   ]
 ---
 
-## Surface Brief — ultiv web app (all routes)
+## Surface Brief — spreissen web app (all routes)
 
 Scope: the whole client surface; visitor mode Operate. Audience: one owner operating a crew of persistent AI entities from a dark desk (desktop primary, phone secondary).
 

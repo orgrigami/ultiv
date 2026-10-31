@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-10-30T00:00:00Z",
-  "title": "Design System: ultiv",
+  "title": "Design System: spreissen",
   "extensions": {
     "colorMeta": {
       "primary": {
@@ -398,7 +398,7 @@
   ],
   "narrative": {
     "northStar": "The Observatory Control Room",
-    "overview": "ultiv is the owner's night station for a crew of autonomous entities. The visual world is an observatory control room: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, and instruments set in a mono voice under quiet sans prose. Every bot is a catalogued object with a spectral class; every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture — the identity is the console rail, the roster, the readouts. The system is built for one person reading for hours in the dark: instrument-grade calm, high density, tabular numbers everywhere anything is counted, and exactly one red light reserved for what demands the owner. Chrome floats translucent over the transcript so the prose terrain stays continuous; tool activity rides above it as a numbered overlay layer, never mixed into the prose. Expansion always explains — shaped bodies, definition lists, receipts one click away — never dumps raw JSON at the owner when a lens knows the call.",
+    "overview": "spreissen is the owner's night station for a crew of autonomous entities. The visual world is an observatory control room: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, and instruments set in a mono voice under quiet sans prose. Every bot is a catalogued object with a spectral class; every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture — the identity is the console rail, the roster, the readouts. The system is built for one person reading for hours in the dark: instrument-grade calm, high density, tabular numbers everywhere anything is counted, and exactly one red light reserved for what demands the owner. Chrome floats translucent over the transcript so the prose terrain stays continuous; tool activity rides above it as a numbered overlay layer, never mixed into the prose. Expansion always explains — shaped bodies, definition lists, receipts one click away — never dumps raw JSON at the owner when a lens knows the call.",
     "keyCharacteristics": [
       "Four lightness elevation tiers on one blue-black hue; depth by tier, not by shadow",
       "Two typographic voices: Geist Mono as the instrument (overlines, readouts, accounting), Geist Sans for prose",

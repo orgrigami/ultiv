@@ -1,4 +1,4 @@
-# @ultiv/mind
+# @spreissen/mind
 
 The entity substrate: **one runtime, and each profile (bot) is its own entity**
 with its own persona, memory, artifacts, vault scope, tool allowlist and
@@ -22,12 +22,12 @@ conversation→profile index):
   `pick`, `rate`, `ask` work with zero conversation infrastructure. The same
   faculty also appears as native agent tools (`jev`, `jev_score`, `jev_pick`,
   `jev_rate`) via the extension registry — one capability, two faces.
-- `act` — the executable tool surface, assembled from `@ultiv/ext` plugins;
+- `act` — the executable tool surface, assembled from `@spreissen/ext` plugins;
   `gated` tools pass through the approval broker at the act. The identity
   section ("You are <bot>…", persona + sibling roster) renders into every
   system prompt — models have no self-knowledge; undeclared, they answer from
   training priors.
-- **Credential broker** (`act/broker.ts` over `@ultiv/ext` `broker/`) — the
+- **Credential broker** (`act/broker.ts` over `@spreissen/ext` `broker/`) — the
   `http_request` tool spends a sealed vault secret without the model ever
   seeing it: the item's binding (hosts, methods, path prefixes, placement,
   bots) is checked BEFORE the secret opens, https only (localhost http per
@@ -41,7 +41,7 @@ conversation→profile index):
   parent bot steers a running task with `task_message` (arrives as
   `[from parent]`); a long task posts rare progress lines to its owner with
   `notify_owner` (one per 2 min, 280 chars); at most
-  `ULTIV_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
+  `SPREISSEN_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
   pill above the composer. `tasks.listen` hears each task settle.
 - `mailbox` — bot-to-bot messages through contextual rooms. Each request has
   a deadline, `MAILBOX_DEADLINE_MS` (default 15 minutes); an unanswered one

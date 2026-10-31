@@ -1,6 +1,6 @@
-# Ultiv design direction
+# Spreissen design direction
 
-Ultiv is a small crew of bots that do real work for one person: they chat,
+Spreissen is a small crew of bots that do real work for one person: they chat,
 run tasks, keep memory, and ask before anything risky. This note says how
 the app should look and feel, and which flows we keep tuning. It is short on
 purpose. The tokens live in `apps/web/src/index.css`, the brand in
@@ -55,11 +55,11 @@ settled without leaving the chat. The header stays narrow enough for 390 px.
 
 ## Brand
 
-The name stays **Ultiv**: short, easy to say, and our quick search found no
-well-known product with it (Kith and Burrow, the best alternatives, are both
-taken by AI products). We changed the identity instead: a lowercase rounded
-wordmark, a soft amber blob mark with two eyes, generated bot characters and
-a warm plain voice. See [brand.md](brand.md).
+The product is **Spreissen** (lowercase wordmark **spreissen**); it replaced
+the earlier working name on 2026-10-31, the owner's decision. The identity
+stays: a lowercase rounded wordmark, a soft amber gumdrop mark with two eyes
+and a sprout (a small growing thing), generated bot characters and a warm
+plain voice. See [brand.md](brand.md).
 
 ## Flows we tune
 

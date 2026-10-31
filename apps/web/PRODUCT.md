@@ -14,7 +14,7 @@ Derived from the repo (owner-scoped everything, single-header IdP seam, tailnet 
 
 ## Product Purpose
 
-ultiv is one runtime hosting many AI entities: each bot has its own persona, persistent memory, artifacts, vault scope, skills, tool allowlist, and budgets. The owner chats with them, spawns background tasks, watches them message each other in rooms, approves gated actions, and defines routines (cron, webhooks, sensors) that wake them. Success: the owner trusts the crew with real commitments and leaves it working overnight.
+spreissen is one runtime hosting many AI entities: each bot has its own persona, persistent memory, artifacts, vault scope, skills, tool allowlist, and budgets. The owner chats with them, spawns background tasks, watches them message each other in rooms, approves gated actions, and defines routines (cron, webhooks, sensors) that wake them. Success: the owner trusts the crew with real commitments and leaves it working overnight.
 
 ## Positioning
 
@@ -30,7 +30,7 @@ Chat with steering (default) and redirect (stop at safe point); per-session mode
 
 ## Brand Commitments
 
-Product name "Ultiv" (wordmark "ultiv"), defined once in `src/lib/brand.ts` with the amber sprout mark and the voice guide in `docs/design/brand.md`: plain, short, warm, no hype. Each bot has its own generated character (`src/lib/avatar.ts`); entity names are product content, not chrome: Jev (decision faculty) and the owner's bots (e.g. Rook); a fresh install has none. The 2026-10-31 redesign (`docs/design/direction.md`) sets the current look: dark by default, soft rounded surfaces, one warm accent.
+Product name "Spreissen" (wordmark "spreissen"), defined once in `src/lib/brand.ts` with the amber sprout mark and the voice guide in `docs/design/brand.md`: plain, short, warm, no hype. Each bot has its own generated character (`src/lib/avatar.ts`); entity names are product content, not chrome: Jev (decision faculty) and the owner's bots (e.g. Rook); a fresh install has none. The 2026-10-31 redesign (`docs/design/direction.md`) sets the current look: dark by default, soft rounded surfaces, one warm accent.
 
 ## Evidence on Hand
 

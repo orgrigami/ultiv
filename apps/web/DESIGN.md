@@ -1,5 +1,5 @@
 ---
-name: ultiv
+name: spreissen
 description: The owner's dark workspace for a crew of autonomous AI entities.
 colors:
   background: "oklch(0.166 0.012 275)"
@@ -88,13 +88,13 @@ components:
     textColor: "{colors.foreground}"
 ---
 
-# Design System: ultiv
+# Design System: spreissen
 
 ## Overview
 
 **Creative North Star: "A quiet dark workspace for a crew of AI entities"**
 
-ultiv is the owner's workspace for a crew of autonomous entities: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, quiet sans prose. Bots are named entities, each with its own small character drawn from its id (a soft creature in one of six hues); every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture (the composer, the tab bar); the identity is the nav rail, the roster, the readouts.
+spreissen is the owner's workspace for a crew of autonomous entities: deep blue-black ground, warm-tinted ivory ink, hairline seams at one device pixel, quiet sans prose. Bots are named entities, each with its own small character drawn from its id (a soft creature in one of six hues); every state is a drawn mark, never an emoji, never a glow. The category-default floating-pill chat shell survives only as furniture (the composer, the tab bar); the identity is the nav rail, the roster, the readouts.
 
 The system is built for one person reading for hours in the dark: calm, high density, tabular numbers everywhere anything is counted, and exactly one red light reserved for what demands the owner. Chrome floats translucent over the transcript so prose stays continuous; tool activity rides above it as a numbered overlay layer, never mixed into the prose. Expansion always explains (shaped bodies, definition lists, receipts one click away) and never dumps raw JSON at the owner when a lens knows the call.
 
@@ -226,7 +226,7 @@ Radius grows from one base: `--radius: 0.625rem` (10px), with the Tailwind scale
 - **Work pane:** a 3xl floating panel beside the chat on `lg+` (a sheet below), with Back through up to four opened things and Close; Escape closes it.
 - **Quick switcher:** Cmd/Ctrl-K opens a 3xl panel near the top: one field, results grouped Actions · Go to · Bots · Past chats, arrow keys and Enter. N starts a new chat, ? shows the shortcut sheet.
 - **Composer pill:** `.chrome-float` bar — round "+" (quick prompts), the message box, round send arrow that joins a Stop while the bot works; a "Redirect now" pill rides above it mid-turn.
-- **Wordmark row:** "ultiv" at 15px/600 tracking-tight beside the connection mark and readout, the app's own status line.
+- **Wordmark row:** "spreissen" at 15px/600 tracking-tight beside the connection mark and readout, the app's own status line.
 
 ## Do's and Don'ts
 
