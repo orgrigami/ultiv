@@ -94,7 +94,12 @@ beforeAll(async () => {
     } as never).id ?? "";
   theirs.task = (
     await Effect.runPromise(
-      mind.tasks.spawn({ sessionId: session.id, owner: OTHER, conversationId: null, prompt: "dig" }),
+      mind.tasks.spawn({
+        sessionId: session.id,
+        owner: OTHER,
+        conversationId: null,
+        prompt: "dig",
+      }),
     )
   ).id;
   theirConversation = String(

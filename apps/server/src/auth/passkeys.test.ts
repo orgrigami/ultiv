@@ -58,9 +58,7 @@ afterAll(async () => {
     fetch(`${base}/api/auth/sign-out`, {
       method: "POST",
       headers: { cookie, "content-type": "application/json" },
-    }).then(() =>
-      resolve(),
-    ),
+    }).then(() => resolve()),
   );
   await new Promise<void>((resolve) => server.close(() => resolve()));
   rmSync(scratch, { recursive: true, force: true });

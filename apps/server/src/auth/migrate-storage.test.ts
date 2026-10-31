@@ -107,9 +107,9 @@ describe("migrateStorage", () => {
       JSON.stringify({ info: { id: "item-1", owner: "label-a" }, sealed: "opaque" }),
     );
     const report = move("owner", ["label-a"]);
-    const servers = JSON.parse(
-      readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8"),
-    ) as { owner: string }[];
+    const servers = JSON.parse(readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8")) as {
+      owner: string;
+    }[];
     expect(servers.map((row) => row.owner)).toEqual(["owner"]);
     const item = JSON.parse(
       readFileSync(join(dirs.vault, "owner", "items", "item-1.json"), "utf8"),
@@ -130,9 +130,11 @@ describe("migrateStorage", () => {
       ]),
     );
     const report = move("owner", ["label-b"]);
-    const servers = JSON.parse(
-      readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8"),
-    ) as { id: string; owner: string; name: string }[];
+    const servers = JSON.parse(readFileSync(join(dirs.mcp, "owner", "servers.json"), "utf8")) as {
+      id: string;
+      owner: string;
+      name: string;
+    }[];
     expect(servers.map((row) => row.id)).toEqual(["srv-1", "srv-2"]);
     expect(servers.find((row) => row.id === "srv-1")?.name).toBe("one");
     expect(servers.every((row) => row.owner === "owner")).toBe(true);

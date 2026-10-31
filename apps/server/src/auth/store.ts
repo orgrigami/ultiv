@@ -182,7 +182,7 @@ export class AuthStore {
     if (outcome !== "ok") return outcome;
     this.file = { ...this.file, passcodeHash: hashPasscode(next) };
     this.persistAuth();
-    for (const id of [...this.sessions.keys()]) {
+    for (const id of this.sessions.keys()) {
       if (id !== keepSessionId) this.sessions.delete(id);
     }
     this.persistSessions();

@@ -10,10 +10,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { SIGNED_OUT_CLOSE } from "./live.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const server = readFileSync(
-  join(here, "../../../server/src/auth/socket-sessions.ts"),
-  "utf8",
-);
+const server = readFileSync(join(here, "../../../server/src/auth/socket-sessions.ts"), "utf8");
 
 describe("the signed-out close code", () => {
   it("is the same on the server and in the live client", () => {

@@ -23,16 +23,14 @@ describe("isLoopback", () => {
   it("refuses a LAN client the dev proxy forwarded (it arrives from 127.0.0.1)", () => {
     expect(isLoopback(request("127.0.0.1", { "x-forwarded-for": "10.20.30.40" }))).toBe(false);
     // A spoofed first hop does not help: the proxy appends the real one.
-    expect(
-      isLoopback(request("127.0.0.1", { "x-forwarded-for": "127.0.0.1, 10.20.30.40" })),
-    ).toBe(false);
+    expect(isLoopback(request("127.0.0.1", { "x-forwarded-for": "127.0.0.1, 10.20.30.40" }))).toBe(
+      false,
+    );
   });
 
   it("accepts the host's own browser through the dev proxy", () => {
     expect(
-      isLoopback(
-        request("127.0.0.1", { "x-forwarded-for": "::1", "x-forwarded-proto": "http" }),
-      ),
+      isLoopback(request("127.0.0.1", { "x-forwarded-for": "::1", "x-forwarded-proto": "http" })),
     ).toBe(true);
   });
 
