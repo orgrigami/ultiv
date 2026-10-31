@@ -169,7 +169,8 @@ describe("file tools: the bot's own files", () => {
     await call("file_edit", { path: "seen.txt", new_text: "second\n" });
     expect((await run("cat seen.txt")).structuredOutput).toMatchObject({ stdout: "second\n" });
     await call("file_delete", { path: "seen.txt" });
-    expect((await run("ls seen.txt")).structuredOutput).toMatchObject({ exitCode: 1 });
+    // `test -e` exits 1 on every platform (a missing-file `ls` is 1 on macOS, 2 on Linux).
+    expect((await run("test -e seen.txt")).structuredOutput).toMatchObject({ exitCode: 1 });
     expect((await call("file_read", { path: "seen.txt" })).isError).toBe(true);
   });
 });
