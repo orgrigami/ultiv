@@ -323,7 +323,7 @@ export const converseService = (
     Effect.flatMap(submitOf(conversation, content, whenBusy), (submission) =>
       settleOf(conversation, submission),
     ),
-  ...selectionOps(findModel),
+  ...selectionOps(findModel, agent.model),
   docs: {
     // The token is family-parametric; the harness call is typed once at this boundary.
     snapshot: <T extends JsonObject>(doc: SessionDocToken<T>) =>
