@@ -63,7 +63,12 @@ const autoApprove = async (): Promise<string[]> =>
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
-  bot = (await handle.mind.profiles.create("owner", { name: "Host", onboard: false })).id;
+  // The host-access switch is fail-closed: the org exists (as the server's
+  // startup migration leaves it) with host access on, and this bot is
+  // granted it, so the approval mechanics decide.
+  await handle.mind.org.ensureOrg("owner", "Org", true);
+  bot = (await handle.mind.profiles.create("owner", { name: "Host", onboard: false, hostAccess: true }))
+    .id;
   const main = await handle.mind.profiles.ensureMain("owner", bot);
   const cid = await Effect.runPromise(
     handle.mind.converse.conversationIdOf(await handle.mind.profiles.keyOfRow(main)),

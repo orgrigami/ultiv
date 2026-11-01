@@ -29,16 +29,19 @@ export const isHostDirectCall = (mind: MindService, name: string): boolean => {
 /**
  * The refusal for approving a waiting host-direct call, or null when the
  * approval may stand: the call is not host-direct, or the bot's effective
- * switch (org AND department AND bot) is on.
+ * switch (org AND department AND bot) is on. Fail-closed like the per-call
+ * guard: a host-direct call whose conversation maps to no bot, or whose
+ * org view cannot be read, is refused.
  */
 export const hostSwitchRefusal = async (
   mind: MindService,
   conversationId: string,
   name: string,
 ): Promise<string | null> => {
+  if (!isHostDirectCall(mind, name)) return null;
   const profile = mind.profiles.profileOf(conversationId);
-  if (profile === undefined || !isHostDirectCall(mind, name)) return null;
-  const view = await mind.org.view();
+  if (profile === undefined) return HOST_SWITCH_NOTE;
+  const view = await mind.org.view().catch(() => undefined);
   if (switchAllows(view, profile)) return null;
   return HOST_SWITCH_NOTE;
 };

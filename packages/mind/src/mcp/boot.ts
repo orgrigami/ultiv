@@ -68,7 +68,7 @@ export const mcpOptionsWithHostSwitch = (
     ? {}
     : {
         hostAccess: host.hostAccess,
-        hostAllowed: (profile: ProfileInfo) => host.watch()?.allows(profile) ?? true,
+        hostAllowed: (profile: ProfileInfo) => host.watch()?.allows(profile) ?? false,
       }),
 });
 
