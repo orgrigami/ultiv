@@ -15,6 +15,26 @@ export interface ScopeResolver {
   readonly scopeOf: (
     conversationId: string,
   ) => { readonly owner: string; readonly profile: string } | undefined;
+  /**
+   * The conversation's HOME scope, when the embedder gives each home (an org
+   * or a department) its own sandbox instead of each bot: `dir` names the
+   * home's VM (a stable scope dir; the sandbox name derives from it) and
+   * `sharedGid` is the home's shared-folder group id, when it provisions
+   * one. ext never learns org concepts — the mind supplies both. Absent
+   * (or undefined per conversation) keeps the per-bot sandbox of older
+   * embedders.
+   */
+  readonly homeScopeOf?: (
+    conversationId: string,
+  ) => HomeScope | undefined | Promise<HomeScope | undefined>;
+}
+
+/** The home scope one conversation's bot shares with its home's other bots. */
+export interface HomeScope {
+  /** Stable scope dir naming the home's VM (the sandbox name derives from it). */
+  readonly dir: string;
+  /** Gid of the home's `/home/shared` group, when the home provisions one. */
+  readonly sharedGid?: number;
 }
 
 /** A settable holder, so plugins built before the profiles service resolve lazily. */

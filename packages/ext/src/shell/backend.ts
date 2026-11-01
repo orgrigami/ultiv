@@ -49,19 +49,30 @@ export interface ShellBackend {
 }
 
 /** Factory signature plugins use: one backend per workspace scope. */
-export type ShellBackendFactory = (homeDir: string) => ShellBackend;
+export type ShellBackendFactory = (homeDir: string, guestRoot?: string) => ShellBackend;
 
 /**
  * A real `/bin/bash` child process over a plain host directory standing in
- * for `/home`. Same script, cwd, timeout, and file semantics as the VM —
- * which is exactly why it is a test fixture and never the default.
+ * for the workspace root inside the VM (`guestRoot`, default `/home`). With
+ * one VM per home the guest root is the bot's own folder (`/home/<bot>`):
+ * the `homeDir` then stands in for THAT folder — `prepare` wipes only it,
+ * other bots' folders are simply other directories it never touches. Same
+ * script, cwd, timeout, and file semantics as the VM — which is exactly why
+ * it is a test fixture and never the default.
  */
-export const localShellBackend: ShellBackendFactory = (homeDir: string): ShellBackend => {
+export const localShellBackend: ShellBackendFactory = (
+  homeDir: string,
+  guestRoot = "/home",
+): ShellBackend => {
   let realHome = existsSync(homeDir) ? realpathSync(homeDir) : "";
+  const prefix = guestRoot.endsWith("/") ? guestRoot : `${guestRoot}/`;
   const guestToHost = (value: string): string =>
-    value === "/home"
+    value === guestRoot
       ? homeDir
-      : resolveInside(homeDir, value.replace(/^\/home\/?/, "").replace(/^\/+/, ""));
+      : resolveInside(
+          homeDir,
+          value.startsWith(prefix) ? value.slice(prefix.length) : value.replace(/^\/+/, ""),
+        );
 
   const writeAll = (files: readonly ShellFile[]): void => {
     rmSync(homeDir, { recursive: true, force: true });
@@ -111,7 +122,7 @@ export const localShellBackend: ShellBackendFactory = (homeDir: string): ShellBa
         // the prefix in stdout so `pwd`-style output matches the VM's world.
         const physical = realHome === "" ? homeDir : realHome;
         const virtualize = (text: string): string =>
-          physical === "" ? text : text.split(physical).join("/home");
+          physical === "" ? text : text.split(physical).join(guestRoot);
         stdout = virtualize(stdout);
         stderr = virtualize(stderr);
         resolve({ stdout, stderr, exitCode });

@@ -20,13 +20,13 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
-import { scopeDir, type ScopeHolder } from "./vault.ts";
+import { scopeDir, type HomeScope, type ScopeHolder } from "./vault.ts";
 import { artifactsDir } from "./artifacts.ts";
 import { localShellBackend, type ShellBackend, type ShellExecResult } from "../shell/backend.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
@@ -48,10 +48,43 @@ export interface BashOptions {
    * Backend factory override, keyed by the scope's absolute workspace dir.
    * Tests inject `localShellBackend`; production defaults to the microsandbox
    * microVM (`sandboxShellBackend`). `homeDir` is the plain host directory
-   * standing in for /home (the local backend's staging dir).
+   * standing in for the workspace root inside the VM (`guestRoot` — the bot's
+   * own folder when the VM is shared by a home, `/home` otherwise).
    */
-  readonly backend?: (dir: string, homeDir: string) => ShellBackend;
+  readonly backend?: (dir: string, homeDir: string, guestRoot: string) => ShellBackend;
 }
+
+/**
+ * The guest world one conversation's `bash` maps to: which VM (its sandbox
+ * name is `sandboxNameOf(vmDir)`), where the bot's workspace sits inside it,
+ * and the home's shared-folder gid when the home provisions one. Without a
+ * home scope this is the per-bot VM of older embedders: the bot's whole dir
+ * is the scope and the workspace is all of `/home`.
+ */
+export interface HomeWorld {
+  readonly vmDir: string;
+  readonly guestRoot: string;
+  readonly sharedGid?: number;
+}
+
+/** Safe folder name for the bot inside the shared VM; an opaque hash otherwise. */
+const botFolderOf = (dir: string): string => {
+  const base = basename(dir);
+  // "shared" is reserved: it is every VM's /home/shared.
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(base) && base !== "shared"
+    ? base
+    : scopeHash(dir);
+};
+
+/** The pure mapping from a conversation's bot dir and home scope to its VM world. */
+export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWorld => {
+  if (home === undefined) return { vmDir: botDir, guestRoot: HOME };
+  return {
+    vmDir: home.dir,
+    guestRoot: `${HOME}/${botFolderOf(botDir)}`,
+    ...(home.sharedGid === undefined ? {} : { sharedGid: home.sharedGid }),
+  };
+};
 
 /** Appends an exit-code-preserving exec-boundary marker that reports $PWD. */
 const wrapScript = (script: string): string =>
@@ -125,13 +158,14 @@ const openSession = async (
   dir: string,
   conversationId: string,
   backend: ShellBackend,
+  guestRoot: string,
 ): Promise<SandboxSession> => {
   const session: SandboxSession = {
     durable: new DurableFs({ dir, conversationId }),
     backend,
     epoch: workspaceEpoch(dir),
     hashes: new Map(),
-    cwd: HOME,
+    cwd: guestRoot,
   };
   await load(session, dir, conversationId);
   return session;
@@ -184,13 +218,19 @@ const SandboxParams = Type.Object({
 
 const sandboxTool = (
   dirOf: (conversationId: string) => string,
-  backendOf: (dir: string) => ShellBackend,
+  backendOf: (
+    dir: string,
+    conversationId: string,
+  ) => Promise<{ readonly backend: ShellBackend; readonly guestRoot: string }>,
   sessions: Map<string, Promise<SandboxSession>>,
 ): Tool => {
   const open = (dir: string, conversationId: string): Promise<SandboxSession> => {
     const existing = sessions.get(dir);
     if (existing !== undefined) return existing;
-    const creating = openSession(dir, conversationId, backendOf(dir));
+    const creating = backendOf(dir, conversationId).then(({ backend, guestRoot }) =>
+      openSession(dir, conversationId, backend, guestRoot),
+    );
+    creating.catch(() => sessions.delete(dir));
     sessions.set(dir, creating);
     return creating;
   };
@@ -199,8 +239,9 @@ const sandboxTool = (
     name: "bash",
     gated: true,
     description:
-      `Run a bash script in your own microVM workspace, mounted at ${HOME} (the working ` +
-      "directory). Real Linux in a sandbox: coreutils, pipes, grep, jq, tar, and network " +
+      `Run a bash script in your own workspace inside your home's microVM ` +
+      `(the working directory; on a single-bot install that is the whole VM ` +
+      `at ${HOME}). Real Linux in a sandbox: coreutils, pipes, grep, jq, tar, and network ` +
       "access — install packages with apt-get, run python or whatever the task needs. Every " +
       "file you create or change under " +
       HOME +
@@ -321,16 +362,31 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   const sessions = new Map<string, Promise<SandboxSession>>();
   const hostSessions = new Map<string, HostSession>();
   const stagingOf = (dir: string): string => join(root, "..", "bash-home", scopeHash(dir));
-  const backendOf = (dir: string): ShellBackend =>
-    options.backend !== undefined
-      ? options.backend(dir, stagingOf(dir))
-      : sandboxShellBackend({
-          name: sandboxNameOf(dir),
-          ...(options.image === undefined ? {} : { image: options.image }),
-        })(stagingOf(dir));
+  // One VM per HOME (org or department) when the mind wires a home-scope
+  // resolver: the sandbox is named by the home's scope dir and the bot works
+  // in its own folder inside it. Without the resolver, the per-bot VM of
+  // older embedders: the bot's dir names the VM and the workspace is /home.
+  const backendOf = async (
+    dir: string,
+    conversationId: string,
+  ): Promise<{ readonly backend: ShellBackend; readonly guestRoot: string }> => {
+    const home = await holder?.get()?.homeScopeOf?.(conversationId);
+    const world = homeWorldOf(dir, home);
+    const staging = stagingOf(dir);
+    const backend =
+      options.backend !== undefined
+        ? options.backend(dir, staging, world.guestRoot)
+        : sandboxShellBackend({
+            name: sandboxNameOf(world.vmDir),
+            ...(options.image === undefined ? {} : { image: options.image }),
+            guestRoot: world.guestRoot,
+            ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
+          })(staging);
+    return { backend, guestRoot: world.guestRoot };
+  };
   return definePlugin({
     id: "ultiv.bash",
-    version: "2.0.0",
+    version: "2.1.0",
     description:
       "Two shells: a sandboxed microVM over the durable workspace (files written here are artifacts), and a privileged shell on the host computer.",
     capabilities: [
