@@ -1,6 +1,6 @@
 /** The Profiles service surface and the shared context its parts build on. */
 import type { AgentChange } from "@earendil-works/pi-durable";
-import type { ProfileCreate, ProfileInfo, SessionInfo } from "@spriessen/contracts";
+import type { HomeRef, ProfileCreate, ProfileInfo, SessionInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { SaveMeta } from "../versions/store.ts";
@@ -98,6 +98,14 @@ export interface ProfilesContext {
   readonly knownModel: (ref: string) => boolean;
   /** Persona and Instructions files, when wired. */
   readonly files?: BotFilesService;
+  /**
+   * Retire a bot's Linux user (and group memberships) from a named home's
+   * VM — wired by the entity with the same sweep a purge uses. Fired when a
+   * bot MOVES between homes, so the old home's VM keeps no stale member
+   * (slice 2: the user is re-provisioned, same stored uid, in the new home
+   * on its first `bash` there). Best effort; absent in bare tests.
+   */
+  readonly retireUserFromHome?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
   /** The assembled service, for parts that call each other. */
   readonly self: () => ProfilesService;
 }

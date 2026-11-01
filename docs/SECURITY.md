@@ -267,13 +267,52 @@ bot's first use of that VM (`usermod -aG` in the same provisioning step) and
 never pre-created. Files bots put there are group-readable and
 group-writable on purpose; treat the folder as untrusted input (F-H).
 
+**The org-wide folder `/home/org-shared` (slice 2c).** One host-side store
+per org — `{ARTIFACTS_DIR}/{owner}/_shared/org`, beside the `_home` scope
+dirs — is bind-mounted at `/home/org-shared` into the org VM (read-write)
+and into EVERY department VM (read-only: the mount refuses writes, so a
+department bot's write fails; F-O3 is the read-write alternative). Inside
+the VM it is `root:ultiv-org` mode 2775, where `ultiv-org` is one extra
+group with its own fixed gid stored with the org (`orgSharedGid`, allocated
+at creation as `sharedGid + 1` and never given to a department; legacy rows
+read `sharedGid + 1`). Every bot joins `ultiv-org` on its first use of its
+home VM, whatever its home. The folder never holds vault values or
+connector tokens — that is a docs rule and a line in the `bash` tool
+description (there is no mediated shared-folder tool path that could refuse
+one); grants remain the way to share vault items.
+
+Known limits of the folder, measured on this host (macOS, Apple
+virtualization; a Linux/KVM host has a real POSIX filesystem behind the
+mount and does not have them):
+
+- The per-bot umask 077 applies to files written through `bash`: they are
+  private to their writer. A default ACL (`setfacl -d -m g:ultiv-org:rwX`,
+  `acl` is in the image) is applied at every boot, but on macOS POSIX ACLs
+  do not cross the virtiofs boundary, so the ACL cannot open bash-written
+  files to other bots. A bot shares a file with `chgrp ultiv-org` +
+  `chmod g+r` (both succeed; the bot is a group member).
+- The setgid bit does not propagate either on macOS: a new file carries the
+  WRITER's group, not `ultiv-org`.
+- Size cap: the org stores `orgSharedCapBytes` (default 1 GiB, owner
+  editable with `PATCH /api/org`, minimum 1 MiB). It is enforced only where
+  the server mediates a write — and no shared-folder tool path exists yet,
+  so `bash` writes into the bind mount are neither capped nor audited. Both
+  become real when a mediated tool path lands.
+
+Purging a department destroys only that department's VM and mounts;
+`/home/org-shared` is untouched. The store is destroyed only with the org.
+
 **Purge**: deleting a bot never destroys a VM (the VM belongs to its home;
 `apps/server/src/rest/bot-purge.ts` answers `sandbox: false`), but it
 RETIREES the bot's Linux user from its home's VM — `userdel -r`, which also
 removes its shared-folder group membership — immediately when the VM is
 running, otherwise marked in a pending-removal file that the VM's next boot
 applies and clears (`retireSandboxUser` in
-`packages/ext/src/shell/sandbox-backend.ts`). A bot that never ran `bash`
+`packages/ext/src/shell/sandbox-backend.ts`). A bot MOVED to another home is
+retired from its old home's VM the same way — the entity wires the same
+sweep to every move (`profiles.update`, `retireUserFromHome`) — and its
+user, with the same stored uid, is provisioned in the new home on its first
+`bash` there. A bot that never ran `bash`
 has no uid and no user anywhere. Deleting a department destroys the
 department's VM — both paths (`DELETE /api/org/departments/:id` and the main
 bot's `department_delete`) go through `orgService.removeDepartment`, which

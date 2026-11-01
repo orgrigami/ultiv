@@ -37,6 +37,9 @@ export type VmSettings = Static<typeof VmSettingsSchema>;
 
 export const DEFAULT_VM: VmSettings = { cpus: 1, memoryMiB: 512 };
 
+/** The default size cap of the org-wide shared folder (slice 2c). */
+export const DEFAULT_ORG_SHARED_CAP_BYTES = 1_073_741_824;
+
 /** Whether bots of this home may run tools on the server's own machine. */
 export const HostAccessSchema = Type.Boolean();
 
@@ -55,6 +58,20 @@ export const OrgInfoSchema = Type.Object({
    * field existed get a deterministic value on read (`normalizeOrgState`).
    */
   sharedGid: Type.Optional(Type.Number()),
+  /**
+   * Gid of the org-wide folder's group (`/home/org-shared`, slice 2c): one
+   * extra fixed gid stored with the org, separate from the department
+   * groups and from the org VM's `/home/shared` group. Allocated at
+   * creation; legacy rows read `sharedGid + 1` on read
+   * (`normalizeOrgState`).
+   */
+  orgSharedGid: Type.Optional(Type.Number()),
+  /**
+   * Size cap of `/home/org-shared` in bytes, default 1 GiB, owner
+   * configurable. Enforced where the server mediates writes; `bash` writes
+   * into the bind mount are not mediated (docs/SECURITY.md).
+   */
+  orgSharedCapBytes: Type.Optional(Type.Number()),
 });
 
 export type OrgInfo = Static<typeof OrgInfoSchema>;

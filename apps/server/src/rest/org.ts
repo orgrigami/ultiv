@@ -58,12 +58,13 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       name?: string;
       vm?: { cpus?: number; memoryMiB?: number };
       hostAccess?: boolean;
+      orgSharedCapBytes?: number;
     }>(req);
     if (body.hostAccess !== undefined && !(await may(args, "change", { type: "host-flag" }))) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
     }
     if (
-      (body.name !== undefined || body.vm !== undefined) &&
+      (body.name !== undefined || body.vm !== undefined || body.orgSharedCapBytes !== undefined) &&
       !(await may(args, "change", { type: "org-settings" }))
     ) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
@@ -74,10 +75,21 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (vm === null) {
       return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
     }
+    if (
+      body.orgSharedCapBytes !== undefined &&
+      (!Number.isInteger(body.orgSharedCapBytes) || body.orgSharedCapBytes < 1_048_576)
+    ) {
+      return (
+        json(400, { error: "orgSharedCapBytes must be a whole number of at least 1 MiB" }), true
+      );
+    }
     const org = await mind.org.updateOrg({
       ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
       ...(vm !== undefined ? { vm } : {}),
       ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
+      ...(body.orgSharedCapBytes !== undefined
+        ? { orgSharedCapBytes: body.orgSharedCapBytes }
+        : {}),
     });
     if (body.hostAccess !== undefined) audited(args, "org-host-access");
     return (json(200, org), true);

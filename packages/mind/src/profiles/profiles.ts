@@ -43,6 +43,8 @@ export const profilesService = (deps: {
   readonly knownModel?: (ref: string) => boolean;
   /** Persona and Instructions files (docs/BOT-FILES.md). */
   readonly files?: BotFilesService;
+  /** Retires a moved bot's user from its old home's VM (slice 2); best effort. */
+  readonly retireUserFromHome?: ProfilesContext["retireUserFromHome"];
 }): ProfilesService => {
   const agentFor: ProfilesService["agentFor"] = (profile) =>
     agentForProfile(profile, deps.tools, deps.implied);
@@ -53,6 +55,9 @@ export const profilesService = (deps: {
     index,
     knownModel: deps.knownModel ?? (() => true),
     ...(deps.files !== undefined ? { files: deps.files } : {}),
+    ...(deps.retireUserFromHome !== undefined
+      ? { retireUserFromHome: deps.retireUserFromHome }
+      : {}),
     self: () => service,
   };
   const service: ProfilesService = {

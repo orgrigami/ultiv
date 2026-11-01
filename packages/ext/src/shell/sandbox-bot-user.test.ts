@@ -7,7 +7,7 @@
  * next boot). Real-VM behaviour is probed separately (var/probe).
  */
 import { afterAll, describe, expect, it } from "vite-plus/test";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { homeWorldOf } from "../plugins/bash.ts";
@@ -16,6 +16,7 @@ import {
   applyBotExec,
   bootScript,
   botProvisionScript,
+  orgSharedMount,
   readPendingRemovals,
   retireSandboxUser,
   retireScriptFor,
@@ -63,6 +64,17 @@ describe("bootScript (root, per boot)", () => {
     );
     expect(script).toContain("chmod 2770 /home/shared");
   });
+
+  it("provisions the org-wide folder: its own group, 2775, a default ACL against umask 077", () => {
+    const script = bootScript(undefined, { gid: 10_001 });
+    expect(script).toContain(
+      "getent group ultiv-org >/dev/null 2>&1 || groupadd -g 10001 ultiv-org",
+    );
+    expect(script).toContain("chmod 2775 /home/org-shared");
+    expect(script).toContain("setfacl -d -m g:ultiv-org:rwX /home/org-shared");
+    // Running it twice is the same script: the guards decide.
+    expect(bootScript(undefined, { gid: 10_001 })).toBe(script);
+  });
 });
 
 describe("botProvisionScript (root, idempotent, per bot)", () => {
@@ -79,6 +91,14 @@ describe("botProvisionScript (root, idempotent, per bot)", () => {
   it("adds the bot to the VM's shared group (first use, never pre-created)", () => {
     expect(botProvisionScript(botA, 10_001)).toContain("usermod -aG ultiv-shared bot-aa11bb22cc33");
     expect(botProvisionScript(botA, undefined)).not.toContain("usermod");
+  });
+
+  it("adds the bot to the org-wide folder's group in EVERY VM (slice 2c)", () => {
+    expect(botProvisionScript(botA, 10_001, { gid: 10_000 })).toContain(
+      "usermod -aG ultiv-org bot-aa11bb22cc33",
+    );
+    // No org-wide folder configured (older embedders): no org group.
+    expect(botProvisionScript(botA, 10_001)).not.toContain("ultiv-org");
   });
 
   it("hands the bot a mode-700 home", () => {
@@ -161,6 +181,43 @@ describe("homeWorldOf carries the bot's user to the VM backend", () => {
     expect(world.user).toEqual(botA);
     expect(world.guestRoot).toBe("/home/bot-a");
     expect(homeWorldOf("/h/owner-a/bot-a", { dir: "/h/_home/org" }).user).toBeUndefined();
+  });
+
+  it("the org-wide folder rides along with its store, gid and read-only flag (2c)", () => {
+    const orgShared = { hostDir: "/h/_shared/org", gid: 10_001, readOnly: true };
+    const world = homeWorldOf("/h/owner-a/bot-a", {
+      dir: "/h/_home/dept-x",
+      sharedGid: 10_002,
+      orgShared,
+    });
+    expect(world.orgShared).toEqual(orgShared);
+    expect(homeWorldOf("/h/owner-a/bot-a", { dir: "/h/_home/org" }).orgShared).toBeUndefined();
+  });
+});
+
+describe("the org-wide folder's mount (slice 2c)", () => {
+  it("binds the RESOLVED host path at /home/org-shared, read-only as asked", () => {
+    const dir = join(scratch, "store-org");
+    const mount = orgSharedMount({ hostDir: dir, gid: 10_001, readOnly: false });
+    expect(mount).toEqual({ guest: "/home/org-shared", host: realpathSync(dir), readOnly: false });
+    const ro = orgSharedMount({ hostDir: dir, gid: 10_001, readOnly: true });
+    expect(ro?.readOnly).toBe(true);
+  });
+
+  it("creates the store when missing and refuses a symlinked path", () => {
+    const fresh = join(scratch, "made", "now");
+    const mount = orgSharedMount({ hostDir: fresh, gid: 10_001, readOnly: false });
+    expect(existsSync(fresh)).toBe(true);
+    expect(mount?.host).toBe(realpathSync(fresh));
+    const link = join(scratch, "link-store");
+    symlinkSync(fresh, link);
+    expect(() => orgSharedMount({ hostDir: link, gid: 10_001, readOnly: false })).toThrow(
+      /symlinked bind path/,
+    );
+  });
+
+  it("is absent when the embedder configures no org-wide folder", () => {
+    expect(orgSharedMount(undefined)).toBeUndefined();
   });
 });
 

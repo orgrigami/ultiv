@@ -101,7 +101,7 @@ describe("the home scope carries the user to ext", () => {
     const digger = await profileOf("Digger");
     const scope = await homeScopeOfProfile(mind.converse, scratch)(owner, digger);
     expect(scope?.dir).toBe(join(scratch, owner, "_home", dept));
-    expect(scope?.sharedGid).toBe(10_001);
+    expect(scope?.sharedGid).toBe(10_002);
     expect(scope?.user).toBeDefined();
     expect(scope?.user?.uid).toBe(await botUidPeek(mind.converse)(digger.id));
     // A rerun resolves the same identity — the same uid in every VM.

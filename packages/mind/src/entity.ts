@@ -205,10 +205,17 @@ const mindLayerRaw = (
       let mcpRef: McpRuntime | undefined;
       let botTools: readonly ToolRegistration[] = [];
       const files = botFiles();
+      // One VM per home: the sweep that retires a removed or MOVED bot's
+      // Linux user from its (old) home's VM — best effort, never failing the
+      // removal. The org VM is destroyed only with the org; a bot purge
+      // destroys no VM at all.
+      const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
+      const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
       const profiles = profilesService({
         converse,
         generate,
         files,
+        retireUserFromHome: retireBotUser,
         tools: () => [
           ...(act.extension().tools ?? []),
           ...botTools,
@@ -220,12 +227,6 @@ const mindLayerRaw = (
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
-      // One VM per home: a department removal (REST or the main bot's
-      // department_delete) destroys the department's VM — best effort and
-      // never failing the removal. The org VM is destroyed only with the
-      // org; a bot purge destroys no VM at all.
-      const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
-      const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
       const org = orgService(converse, { destroyHomeVm, retireBotUser });
       // Persona and Instructions files: every existing bot gets both, once.
       void Effect.runPromise(readProfiles(converse))

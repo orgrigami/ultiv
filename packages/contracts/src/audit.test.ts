@@ -10,11 +10,11 @@ import { AuditEventSchema } from "./audit.ts";
 describe("the reach surface is messaging only", () => {
   it("the surface is exactly the `message` literal — no union, no other surface", () => {
     const reach = AuditEventSchema.properties.reach as {
-      properties: { surface: { kind?: string; const?: string; anyOf?: unknown[] } };
+      properties: { surface: { const?: string; anyOf?: unknown[] } };
     };
     const surface = reach.properties.surface;
-    expect(surface.kind).toBe("literal");
     expect(surface.const).toBe("message");
+    // Not a union: there is no second surface to fall back to.
     expect(surface.anyOf).toBeUndefined();
   });
 });

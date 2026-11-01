@@ -20,6 +20,7 @@ import type {
   ProfileInfo,
   TemplateInfo,
 } from "@spriessen/contracts";
+import { DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { botUidPeek } from "./bot-users.ts";
 import { readProfiles } from "../profiles/docs.ts";
@@ -78,11 +79,12 @@ export interface OrgService {
   readonly view: () => Promise<OrgView>;
   /** Create the org once (the migration); repeat calls change nothing. */
   readonly ensureOrg: (owner: string, name: string, hostAccess: boolean) => Promise<OrgInfo>;
-  /** Patch the org row (name, VM settings, host-access flag). */
+  /** Patch the org row (name, VM settings, host-access flag, folder cap). */
   readonly updateOrg: (patch: {
     readonly name?: string;
     readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
     readonly hostAccess?: boolean;
+    readonly orgSharedCapBytes?: number;
   }) => Promise<OrgInfo>;
   readonly createDepartment: (input: DepartmentCreate, by: string) => Promise<DepartmentInfo>;
   readonly updateDepartment: (id: string, patch: DepartmentPatch) => Promise<DepartmentInfo>;
@@ -130,6 +132,9 @@ const nextGid = (state: OrgState): number =>
   Math.max(
     10_000,
     state.org?.sharedGid ?? 0,
+    // The org-wide folder's group is a gid of its own: departments never
+    // get it (slice 2c).
+    state.org?.orgSharedGid ?? 0,
     ...state.departments.map((row) => row.sharedGid ?? 0),
   ) + 1;
 
@@ -160,6 +165,10 @@ export const orgService = (
         vm: defaultVm(),
         hostAccess,
         sharedGid: 10_000,
+        // The org-wide folder's own group, separate from /home/shared's and
+        // from every department's (slice 2c).
+        orgSharedGid: 10_001,
+        orgSharedCapBytes: DEFAULT_ORG_SHARED_CAP_BYTES,
       };
       const member: MemberInfo = { accountId: owner, role: "owner", departmentId: null };
       await commitOrg(converse, (draft) => {
@@ -170,6 +179,14 @@ export const orgService = (
       return org;
     },
     updateOrg: async (patch) => {
+      if (patch.orgSharedCapBytes !== undefined) {
+        const cap = patch.orgSharedCapBytes;
+        if (!Number.isInteger(cap) || cap < 1_048_576) {
+          throw new InvalidInput({
+            reason: "the shared-folder size cap must be a whole number of at least 1 MiB",
+          });
+        }
+      }
       let updated: OrgInfo | undefined;
       await commitOrg(converse, (draft) => {
         if (draft.org === null) return;
@@ -179,6 +196,9 @@ export const orgService = (
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
           ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
+          ...(patch.orgSharedCapBytes !== undefined
+            ? { orgSharedCapBytes: patch.orgSharedCapBytes }
+            : {}),
         };
         draft.org = updated;
       });

@@ -50,6 +50,22 @@ export interface HomeScope {
   /** Gid of the home's `/home/shared` group, when the home provisions one. */
   readonly sharedGid?: number;
   /**
+   * The org-wide folder (slice 2c): one host-side store, mounted at
+   * `/home/org-shared` into EVERY VM — read-write in the org VM, read-only
+   * in a department VM (enforced by the mount, never file modes alone).
+   * `gid` is the org's own org-shared group, separate from every
+   * department's group. ext never learns org concepts — the mind supplies
+   * the store path and gid.
+   */
+  readonly orgShared?: {
+    /** Durable host directory backing the mount. */
+    readonly hostDir: string;
+    /** The org's org-shared group id (fixed from 10000 up, stored with the org). */
+    readonly gid: number;
+    /** True for a department VM: the mount is read-only. */
+    readonly readOnly: boolean;
+  };
+  /**
    * The bot's own Linux user in the VM (uid, group, home). When set, the VM
    * provisions it idempotently on boot and every bot command runs as it;
    * root remains only for provisioning, `prepare` and the file sync.

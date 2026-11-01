@@ -20,7 +20,7 @@
  * cleared by `ensureVm`).
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Sandbox } from "microsandbox";
 import { readEnv } from "@spriessen/core";
@@ -46,6 +46,17 @@ export interface SandboxBackendOptions {
    */
   readonly sharedGid?: number;
   /**
+   * The org-wide folder (slice 2c): one durable host directory, bind-mounted
+   * at `/home/org-shared` into EVERY VM — read-write in the org VM,
+   * read-only in a department VM (enforced by the mount). Its group
+   * (`ultiv-org`) is the org's own stored gid; every bot's user joins it.
+   */
+  readonly orgShared?: {
+    readonly hostDir: string;
+    readonly gid: number;
+    readonly readOnly: boolean;
+  };
+  /**
    * The bot's own Linux user in this VM. When set, every `exec` runs as
    * `uid:gid` (never root) and the user is provisioned idempotently at boot.
    */
@@ -58,6 +69,10 @@ const VM_MEMORY_MIB = 512;
 const SHARED_DIR = "/home/shared";
 /** The per-scope group every VM's shared folder and its bots' users share. */
 export const SHARED_GROUP = "ultiv-shared";
+/** The guest path of the org-wide shared folder (slice 2c). */
+export const ORG_SHARED_DIR = "/home/org-shared";
+/** The org-wide folder's group: the org's own stored gid, every VM. */
+export const ORG_GROUP = "ultiv-org";
 /**
  * The default VM image: built from `packages/ext/sandbox/Dockerfile`
  * (node 24, python 3 + pip, jq, tar, curl, git on Debian slim) and loaded
@@ -85,8 +100,51 @@ export const scopeHash = (value: string): string =>
 /** The deterministic sandbox name for one workspace scope dir. */
 export const sandboxNameOf = (dir: string): string => `ultiv-${scopeHash(dir)}`;
 
-/** The root boot script: hidepid=2 on /proc, plus the shared folder. */
-export const bootScript = (sharedGid: number | undefined): string =>
+/**
+ * The bind path for one host directory: create it when missing, REFUSE a
+ * symlinked leaf (the brief's rule), and return the fully resolved path —
+ * on macOS `/var/...` reads as `/private/var/...`, which is the only form a
+ * bind mount accepts.
+ */
+export const resolvedBindPath = (hostDir: string): string => {
+  let stat;
+  try {
+    stat = lstatSync(hostDir);
+  } catch {
+    mkdirSync(hostDir, { recursive: true });
+    stat = lstatSync(hostDir);
+  }
+  if (stat.isSymbolicLink()) throw new Error(`refusing a symlinked bind path: ${hostDir}`);
+  return realpathSync(hostDir);
+};
+
+/** One declared VM volume: the guest path, the resolved host path, read-only. */
+export interface SharedMount {
+  readonly guest: string;
+  readonly host: string;
+  readonly readOnly: boolean;
+}
+
+/** The org-wide folder's mount declaration (undefined when not configured). */
+export const orgSharedMount = (
+  org:
+    | {
+        readonly hostDir: string;
+        readonly gid: number;
+        readonly readOnly: boolean;
+      }
+    | undefined,
+  resolveHost: (dir: string) => string = resolvedBindPath,
+): SharedMount | undefined =>
+  org === undefined
+    ? undefined
+    : { guest: ORG_SHARED_DIR, host: resolveHost(org.hostDir), readOnly: org.readOnly };
+
+/** The root boot script: hidepid=2 on /proc, the shared folder, the org-wide folder. */
+export const bootScript = (
+  sharedGid: number | undefined,
+  orgShared?: { readonly gid: number },
+): string =>
   [
     // Each bot sees only its own processes; a bot cannot undo the remount.
     "mount -o remount,hidepid=2 /proc 2>/dev/null || true",
@@ -98,6 +156,19 @@ export const bootScript = (sharedGid: number | undefined): string =>
           `chown root:${SHARED_GROUP} ${SHARED_DIR}`,
           `chmod 2770 ${SHARED_DIR}`,
         ]),
+    ...(orgShared === undefined
+      ? []
+      : [
+          // The org-wide folder (slice 2c): the mount carries the host
+          // store; root sets the group, the mode and a default ACL so
+          // files written through the bot's umask 077 stay group-usable.
+          `getent group ${ORG_GROUP} >/dev/null 2>&1 || groupadd -g ${orgShared.gid} ${ORG_GROUP}`,
+          `mkdir -p ${ORG_SHARED_DIR}`,
+          `chown root:${ORG_GROUP} ${ORG_SHARED_DIR} 2>/dev/null || true`,
+          `chmod 2775 ${ORG_SHARED_DIR} 2>/dev/null || true`,
+          `command -v setfacl >/dev/null 2>&1 && ` +
+            `setfacl -d -m g:${ORG_GROUP}:rwX ${ORG_SHARED_DIR} 2>/dev/null || true`,
+        ]),
   ].join("\n");
 
 /**
@@ -106,12 +177,18 @@ export const bootScript = (sharedGid: number | undefined): string =>
  * when the gid is taken — the shared folder's), mode-700 home, and membership
  * of the shared-folder group created at first use, never pre-created.
  */
-export const botProvisionScript = (user: SandboxUser, sharedGid: number | undefined): string =>
+export const botProvisionScript = (
+  user: SandboxUser,
+  sharedGid: number | undefined,
+  orgShared?: { readonly gid: number },
+): string =>
   [
     `getent group ${user.gid} >/dev/null 2>&1 || groupadd -g ${user.gid} ${user.name}`,
     `getent passwd ${user.name} >/dev/null 2>&1 || ` +
       `useradd -m -s /bin/bash -u ${user.uid} -g ${user.gid} -d ${user.home} ${user.name}`,
     ...(sharedGid === undefined ? [] : [`usermod -aG ${SHARED_GROUP} ${user.name}`]),
+    // Every bot joins the org-wide folder's group, whatever its home (2c).
+    ...(orgShared === undefined ? [] : [`usermod -aG ${ORG_GROUP} ${user.name}`]),
     `mkdir -p ${user.home}`,
     `chown ${user.uid}:${user.gid} ${user.home}`,
     `chmod 700 ${user.home}`,
@@ -278,17 +355,29 @@ export const sandboxShellBackend =
       // Dynamic import: the native runtime module loads only when a VM is
       // actually needed, so tests and non-bash paths never touch it.
       const { Sandbox } = await import("microsandbox");
-      vm = await Sandbox.builder(options.name)
+      let builder = Sandbox.builder(options.name)
         .image(options.image ?? sandboxImage())
         .cpus(VM_CPUS)
         .memory(VM_MEMORY_MIB)
-        .workdir(HOME)
-        .connectOrCreate();
+        .workdir(HOME);
+      // The org-wide folder (slice 2c): a live bind mount of one durable
+      // host directory — a department VM gets it read-only, enforced by the
+      // mount, so a department bot's write fails at the mount.
+      const orgMount = orgSharedMount(options.orgShared ?? undefined);
+      if (orgMount !== undefined) {
+        builder = builder.volume(orgMount.guest, (m) => {
+          const bound = m.bind(orgMount.host);
+          return orgMount.readOnly ? bound.readonly() : bound;
+        });
+      }
+      vm = await builder.connectOrCreate();
       await applyPending(vm);
       const user = options.user;
       const script = [
-        bootScript(options.sharedGid),
-        ...(user === undefined ? [] : [botProvisionScript(user, options.sharedGid)]),
+        bootScript(options.sharedGid, options.orgShared),
+        ...(user === undefined
+          ? []
+          : [botProvisionScript(user, options.sharedGid, options.orgShared)]),
       ].join("\n");
       const output = await vm.execWith(
         "bash",

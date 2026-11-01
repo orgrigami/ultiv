@@ -64,6 +64,12 @@ describe("homeScopeOfProfile (the upgrade from per-bot VMs)", () => {
     const scope = await homeScopeOfProfile(mind.converse, scratch)(owner, scout as never);
     expect(scope?.dir).toBe(join(scratch, owner, "_home", "org"));
     expect(scope?.sharedGid).toBe(10_000);
+    // The org-wide folder (slice 2c): read-write in the org VM, its own gid.
+    expect(scope?.orgShared).toEqual({
+      hostDir: join(scratch, owner, "_shared", "org"),
+      gid: 10_001,
+      readOnly: false,
+    });
   });
 
   it("a department bot runs in its department's VM with its gid", async () => {
@@ -71,7 +77,14 @@ describe("homeScopeOfProfile (the upgrade from per-bot VMs)", () => {
     const digger = profiles.find((row) => row.name === "Digger");
     const scope = await homeScopeOfProfile(mind.converse, scratch)(owner, digger as never);
     expect(scope?.dir).toBe(join(scratch, owner, "_home", dept));
-    expect(scope?.sharedGid).toBe(10_001);
+    expect(scope?.sharedGid).toBe(10_002);
+    // The org-wide folder is mounted READ-ONLY in a department VM, with the
+    // same store and org gid as everywhere else (slice 2c).
+    expect(scope?.orgShared).toEqual({
+      hostDir: join(scratch, owner, "_shared", "org"),
+      gid: 10_001,
+      readOnly: true,
+    });
   });
 
   it("a rerun changes nothing: the mapping and gids are stable", async () => {
@@ -79,20 +92,33 @@ describe("homeScopeOfProfile (the upgrade from per-bot VMs)", () => {
     const first = await homeScopeOfProfile(mind.converse, scratch)(owner, profiles[0] as never);
     const second = await homeScopeOfProfile(mind.converse, scratch)(owner, profiles[0] as never);
     expect(second).toEqual(first);
-    // ensureOrg again: the org row (and its gid) is untouched.
+    // ensureOrg again: the org row (and its gids) is untouched.
     const again = await mind.org.ensureOrg(owner, "Personal", true);
     expect(again.sharedGid).toBe(10_000);
+    expect(again.orgSharedGid).toBe(10_001);
     const state = await readOrgState(mind.converse);
-    expect(state.departments.map((row) => row.sharedGid)).toEqual([10_001, 10_002]);
+    expect(state.departments.map((row) => row.sharedGid)).toEqual([10_002, 10_003]);
   });
 
-  it("allocated gids never repeat across departments", async () => {
+  it("allocated gids never repeat across departments (the org gid is skipped)", async () => {
     const a = await mind.org.createDepartment({ name: "Temp A" }, owner);
     const b = await mind.org.createDepartment({ name: "Temp B" }, owner);
     expect(a.sharedGid).toBeDefined();
     expect(b.sharedGid).not.toBe(a.sharedGid);
+    // No department ever gets the org-wide folder's gid (slice 2c).
+    expect(a.sharedGid).not.toBe(10_001);
+    expect(b.sharedGid).not.toBe(10_001);
     await mind.org.removeDepartment(a.id);
     await mind.org.removeDepartment(b.id);
+  });
+
+  it("the org's size cap reads by default and the owner can change it", async () => {
+    const state = await readOrgState(mind.converse);
+    expect(state.org?.orgSharedCapBytes).toBe(1_073_741_824);
+    const patched = await mind.org.updateOrg({ orgSharedCapBytes: 2_147_483_648 });
+    expect(patched.orgSharedCapBytes).toBe(2_147_483_648);
+    await expect(mind.org.updateOrg({ orgSharedCapBytes: 999 })).rejects.toThrow();
+    await mind.org.updateOrg({ orgSharedCapBytes: 1_073_741_824 });
   });
 });
 

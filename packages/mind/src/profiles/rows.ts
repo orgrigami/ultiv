@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
-import type { ProfileInfo } from "@spriessen/contracts";
+import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
 import {
   actionTextsOf,
   EXACT_ONLY,
@@ -37,6 +37,14 @@ export const guardHome = async (
   if (problem !== null) throw new InvalidInput({ reason: problem });
 };
 
+/** The home a `departmentId` names: a department, or the org for null/empty. */
+const homeRefOf = (departmentId: string | null | undefined): HomeRef | undefined => {
+  if (departmentId === undefined) return undefined;
+  return typeof departmentId === "string" && departmentId !== ""
+    ? { kind: "department", departmentId }
+    : { kind: "org" };
+};
+
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
 
@@ -63,10 +71,26 @@ export const rowOps = (
     },
     update: async (owner, id, patch, meta) => {
       validatePatch(patch, ctx.knownModel);
-      if (patch.departmentId !== undefined) {
+      const moving = patch.departmentId !== undefined;
+      if (moving) {
         await guardHome(ctx, owner, { kind: "move", id, to: patch.departmentId ?? null });
       }
-      return updateRow(ctx, owner, id, patch, meta);
+      const before = moving ? await ctx.self().get(owner, id) : undefined;
+      const next = await updateRow(ctx, owner, id, patch, meta);
+      // A move between homes: retire the bot's user from the OLD home's VM
+      // (its group memberships go with it); the new home provisions the
+      // same stored uid on the bot's first `bash` there (slice 2).
+      const from = homeRefOf(before?.departmentId);
+      const to = homeRefOf(next.departmentId);
+      if (ctx.retireUserFromHome !== undefined && from !== undefined && to !== undefined) {
+        const moved =
+          from.kind !== to.kind ||
+          (from.kind === "department" &&
+            to.kind === "department" &&
+            from.departmentId !== to.departmentId);
+        if (moved) void ctx.retireUserFromHome(owner, from, id).catch(() => {});
+      }
+      return next;
     },
   };
 };

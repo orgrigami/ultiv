@@ -65,6 +65,11 @@ export interface HomeWorld {
   readonly vmDir: string;
   readonly guestRoot: string;
   readonly sharedGid?: number;
+  /**
+   * The org-wide folder (slice 2c): mounted at `/home/org-shared` in every
+   * VM, read-write for an org bot, read-only for a department bot.
+   */
+  readonly orgShared?: HomeScope["orgShared"];
   /** The bot's own Linux user in the VM (slice 2b), when the home gives one. */
   readonly user?: SandboxUser;
 }
@@ -85,6 +90,7 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     vmDir: home.dir,
     guestRoot: `${HOME}/${botFolderName(botDir)}`,
     ...(home.sharedGid === undefined ? {} : { sharedGid: home.sharedGid }),
+    ...(home.orgShared === undefined ? {} : { orgShared: home.orgShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
   };
 };
@@ -248,7 +254,9 @@ const sandboxTool = (
       "access — install packages with apt-get, run python or whatever the task needs. Every " +
       "file you create or change under " +
       HOME +
-      " is an artifact: it persists across restarts and the user can see it. Working directory " +
+      " is an artifact: it persists across restarts and the user can see it. The folder " +
+      "/home/org-shared is shared with the whole org: never write vault values, tokens or " +
+      "credentials there. Working directory " +
       "carries over between calls. Each call waits for your owner's approval (unless they " +
       "chose always-allow): batch work into few scripts, and first say in a sentence what " +
       "the script will change. Never delete or overwrite files you did not create for the " +
@@ -384,6 +392,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
             ...(options.image === undefined ? {} : { image: options.image }),
             guestRoot: world.guestRoot,
             ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
+            ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
             ...(world.user === undefined ? {} : { user: world.user }),
           })(staging);
     return { backend, guestRoot: world.guestRoot };

@@ -53,9 +53,22 @@ export const homeScopeOfProfile =
         ? state.org.sharedGid
         : state.departments.find((row) => row.id === home.departmentId)?.sharedGid;
     const user = await botUserOf(converse)(root, owner, profile.id);
+    // The org-wide folder (slice 2c): one host-side store per org, mounted
+    // into EVERY VM — read-write in the org VM, read-only in a department
+    // VM (enforced by the mount). Departments are a boundary again; this
+    // folder and messaging are the only paths between homes.
+    const orgShared =
+      state.org === null
+        ? undefined
+        : {
+            hostDir: join(root, owner, "_shared", "org"),
+            gid: state.org.orgSharedGid ?? 10_001,
+            readOnly: home.kind === "department",
+          };
     return {
       dir: homeScopeDir(root, owner, home),
       ...(sharedGid === undefined ? {} : { sharedGid }),
+      ...(orgShared === undefined ? {} : { orgShared }),
       user,
     };
   };

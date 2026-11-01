@@ -8,14 +8,15 @@
  */
 import { defineDoc } from "@earendil-works/pi-durable";
 import type { ProfileInfo } from "@spriessen/contracts";
-import type {
-  DepartmentInfo,
-  HomeRef,
-  MemberInfo,
-  OrgInfo,
-  OrgRole,
-  OrgState,
-  VmSettings,
+import {
+  DEFAULT_ORG_SHARED_CAP_BYTES,
+  type DepartmentInfo,
+  type HomeRef,
+  type MemberInfo,
+  type OrgInfo,
+  type OrgRole,
+  type OrgState,
+  type VmSettings,
 } from "@spriessen/contracts";
 
 /** The stored org document: everything the org holds besides bots. */
@@ -42,8 +43,17 @@ export const normalizeOrgState = (state: OrgState): OrgState => ({
     state.org === null || state.org === undefined
       ? null
       : // A legacy org row (before the shared folder existed) reads as the
-        // first fixed gid; created rows always carry their own.
-        { ...state.org, sharedGid: state.org.sharedGid ?? 10_000 },
+        // first fixed gid; created rows always carry their own. The
+        // org-wide folder's gid (slice 2c) reads as sharedGid + 1 —
+        // deterministic and stable, though a legacy first department may
+        // hold that same gid (its org-shared mount is read-only, so the
+        // duplicate gid grants nothing).
+        {
+          ...state.org,
+          sharedGid: state.org.sharedGid ?? 10_000,
+          orgSharedGid: state.org.orgSharedGid ?? (state.org.sharedGid ?? 10_000) + 1,
+          orgSharedCapBytes: state.org.orgSharedCapBytes ?? DEFAULT_ORG_SHARED_CAP_BYTES,
+        },
   departments: (state.departments ?? []).map((row, index) => ({
     ...row,
     instructions: typeof row.instructions === "string" ? row.instructions : "",

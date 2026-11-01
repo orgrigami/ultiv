@@ -41,12 +41,15 @@ hashing); this file is the map of trust.
   is set, a loopback request can only set the first passcode (one-time
   bootstrap); every other request needs a session, loopback included.
 - **Open reach is messaging only (owner decision, 1 Nov 2026)**: no reach
-  rule limits by department, and the ONLY cross-home surface is messaging.
-  Every bot, in any home, can message any bot; each cross-home message
-  writes a `reach` row (from, to, surface — always `message`, never
+  rule limits by department, and the only cross-home reach SURFACE is
+  messaging. Every bot, in any home, can message any bot; each cross-home
+  message writes a `reach` row (from, to, surface — always `message`, never
   content) into the audit trail (`org/reach.ts`). A VM is for its home's
   bots only: `bash` runs only in the bot's own home VM (the tool takes no
-  target), and no bot uses another home's `/home/shared`. Reach does NOT
+  target), and no bot uses another home's `/home/shared`. The one
+  DELIBERATE data path across homes is the org-wide `/home/org-shared`
+  folder (slice 2c, flagged F-O1–F-O8 below) — it is a file path, not a
+  reach surface, and writes no `reach` rows. Reach does NOT
   cover: another bot's chats, memory or home folder; vault items and
   connectors of another home (those need a NAMED grant, audited, revoked
   stops access at once); department and org settings for anyone without the
@@ -168,10 +171,29 @@ hashing); this file is the map of trust.
   the purge itself. The audit trail is the compensating control; who reads
   it and how loudly is an open question (F-E). Shared folders are an
   injection channel between the bots of one home, and bot-to-bot messages
-  between all bots (F-H): every bot message and every shared-folder file is
-  untrusted input, like web content. A published template carries no vault
-  items, memory or chats; copies are independent from the moment they are
-  made.
+  between all bots (F-H): every bot message, every shared-folder file and
+  every file in `/home/org-shared` is untrusted input, like web content. A
+  published template carries no vault items, memory or chats; copies are
+  independent from the moment they are made.
+- **The org-wide folder is a deliberate leak across departments
+  (slice 2c, F-O1–F-O8)**: `/home/org-shared` is mounted read-write in the
+  org VM and READ-ONLY in every department VM (F-O8: the read-only mount is
+  only as strong as the VM config — the slice test proves a department
+  bot's write fails). F-O1: anything an org bot writes there (secrets,
+  personal data) becomes readable by every department bot. F-O2: it is a
+  prompt-injection channel flowing down from org bots to all department
+  bots; treat its content as untrusted input. F-O3: the alternative,
+  read-write for all bots, would let a department bot poison every bot —
+  not the default. F-O4: it is the first data path across homes and weakens
+  the boundary restored on 1 Nov. F-O5: purging a department removes
+  nothing from the folder, including anything about that department. F-O6:
+  the size cap (default 1 GiB, owner-editable) is enforced only where the
+  server mediates writes — `bash` writes are not capped today — and nobody
+  is named to back the folder up. F-O7: last write wins, no locking. F-O8:
+  see the mount note above. `bash` writes there keep the bot's umask 077
+  and, on macOS, neither the setgid group nor POSIX ACLs cross the mount,
+  so a bot shares a file deliberately (`chgrp ultiv-org` + `chmod g+r`) or
+  not at all (docs/SECURITY.md).
 - **One account, many roles on paper**: the role matrix (org admin,
   department admin, member, viewer) is enforced by `can()` and tested, but
   today only the org owner can sign in — no second account exists yet, so

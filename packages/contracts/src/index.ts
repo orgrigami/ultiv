@@ -81,6 +81,7 @@ export {
   DepartmentSummarySchema,
   TemplatePayloadSchema,
   DEFAULT_VM,
+  DEFAULT_ORG_SHARED_CAP_BYTES,
 } from "./org.ts";
 export type {
   OrgRole,
