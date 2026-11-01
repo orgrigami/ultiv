@@ -101,7 +101,7 @@ function SandboxField({
     <div className="flex flex-col gap-1 text-sm">
       <label className="flex items-center gap-2">
         <Checkbox checked={sandbox} onCheckedChange={(checked) => onSandbox(checked)} />
-        Own sandbox (bash in a microVM)
+        Sandbox (bash in the home's VM)
       </label>
       <span className="text-muted-foreground text-xs">
         {sandbox

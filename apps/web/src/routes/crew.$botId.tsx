@@ -505,7 +505,7 @@ function AccessTab({ bot }: { bot: ProfileInfo }) {
       <dl className="bg-card divide-border divide-y rounded-xl border">
         <Fact label="Sandboxed shell">
           {sandboxed
-            ? "On. Commands run in this bot's own microVM."
+            ? "On. Commands run in this bot's home's VM — the org VM for an org bot, its department's VM otherwise — as its own Linux user."
             : "Off. Only the host shell is available, and it always asks you."}
         </Fact>
         <Fact label="Tool list">

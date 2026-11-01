@@ -336,7 +336,7 @@ export function BotDialog({
             </Select>
             <span className="text-muted-foreground text-xs">
               {form.sandbox
-                ? "The bash tool runs in this bot's own microVM sandbox; its workspace files are artifacts."
+                ? "The bash tool runs in this bot's home's VM — the org VM for an org bot, its department's VM otherwise — as its own Linux user; its workspace files are artifacts."
                 : "No sandboxed bash for this bot. The privileged bash_host stays, always approved by you."}
             </span>
           </label>
