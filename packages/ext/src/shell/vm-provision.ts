@@ -12,7 +12,7 @@ import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { readEnv } from "@spriessen/core";
 import type { SandboxUser } from "../plugins/vault.ts";
-import { deptGroupName } from "./dept-shared.ts";
+import { DEPT_SHARED_DIR, deptGroupName } from "./dept-shared.ts";
 import { clearAppliedFingerprint, type VmSpec } from "./net-policy.ts";
 import type { SandboxBackendOptions } from "./sandbox-backend.ts";
 import { artifactsDir } from "../plugins/artifacts.ts";
@@ -289,4 +289,23 @@ export const vmSpecOf = (options: SandboxBackendOptions): VmSpec => ({
   cpus: options.vm?.cpus ?? VM_CPUS,
   memoryMiB: options.vm?.memoryMiB ?? VM_MEMORY_MIB,
   allowlist: options.netAllowlist ?? [],
+  image: options.image ?? sandboxImage(),
+  mounts: mountsOf(options),
 });
+
+/**
+ * The volumes a VM is created with, as stable descriptors (host paths as
+ * stored, not resolved — pure). A mount added, dropped or flipped
+ * read-only/writable recreates the VM, like a size or allowlist edit.
+ */
+export const mountsOf = (options: SandboxBackendOptions): string[] => {
+  const out: string[] = [];
+  if (options.orgShared !== undefined) {
+    out.push(`${ORG_SHARED_DIR}=${options.orgShared.hostDir}:${options.orgShared.readOnly ? "ro" : "rw"}`);
+  }
+  if (options.sharedStore !== undefined) out.push(`${SHARED_DIR}=${options.sharedStore}:rw`);
+  if (options.deptShared !== undefined) {
+    out.push(`${DEPT_SHARED_DIR}=${options.deptShared.parentDir}:rw`);
+  }
+  return out.sort();
+};

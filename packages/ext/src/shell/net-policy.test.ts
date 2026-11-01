@@ -45,7 +45,8 @@ describe("allowlistPolicy (allowlist -> NetworkPolicy)", () => {
     expect(policy.rules).toHaveLength(2);
     expect(policy.rules[0]).toMatchObject({
       direction: "egress",
-      destination: { kind: "any" },
+      // DNS only to the VM resolver (the host group), never port 53 anywhere.
+      destination: { kind: "group", group: "host" },
       ports: [{ start: 53, end: 53 }],
       action: "allow",
     });

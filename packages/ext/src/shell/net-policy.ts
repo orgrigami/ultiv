@@ -56,7 +56,14 @@ export const normalizeAllowlist = (hosts: readonly string[]): string[] =>
 export const allowlistPolicy = (hosts: readonly string[]): NetworkPolicy => {
   const names = normalizeAllowlist(hosts);
   if (names.length === 0) return DENY_ALL;
-  const dns: Rule = allowRule({ kind: "any" }, ["udp", "tcp"], [{ start: 53, end: 53 }]);
+  // DNS only to the VM's own resolver: microsandbox points the guest's
+  // resolv.conf at the host gateway and forwards from there, so the SDK's
+  // `Rule.allowDns()` destination — the `host` group — is the one resolver
+  // a guest actually uses. Port 53 to any OTHER address stays denied (no
+  // DNS tunnelling to an outside resolver).
+  const dns: Rule = allowRule({ kind: "group", group: "host" }, ["udp", "tcp"], [
+    { start: 53, end: 53 },
+  ]);
   const rules: Rule[] = names.map((host) =>
     host.startsWith("*.")
       ? allowRule({ kind: "domainSuffix", suffix: host.slice(2) }, [], [])
@@ -82,6 +89,10 @@ export interface VmSpec {
   readonly cpus: number;
   readonly memoryMiB: number;
   readonly allowlist: readonly string[];
+  /** The OCI image the VM was created from (create-time-only too). */
+  readonly image?: string;
+  /** The declared volumes, `guest=host:ro|rw`, sorted (create-time-only too). */
+  readonly mounts?: readonly string[];
 }
 
 /** A short stable fingerprint of the whole spec a VM was created with. */
@@ -92,6 +103,8 @@ export const vmSpecFingerprint = (spec: VmSpec): string =>
         cpus: spec.cpus,
         memoryMiB: spec.memoryMiB,
         allowlist: normalizeAllowlist(spec.allowlist),
+        image: spec.image ?? null,
+        mounts: [...(spec.mounts ?? [])].sort(),
       }),
     )
     .digest("hex")

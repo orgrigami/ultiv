@@ -25,10 +25,11 @@ const scratch = mkdtempSync(join(tmpdir(), "spriessen-vm-size-ext-"));
 
 describe("vmSpecOf (what reaches the builder)", () => {
   it("defaults to 1 CPU / 512 MiB when the home stores no size", () => {
-    expect(vmSpecOf({ name: "ultiv-x" })).toEqual({
+    expect(vmSpecOf({ name: "ultiv-x" })).toMatchObject({
       cpus: 1,
       memoryMiB: 512,
       allowlist: [],
+      mounts: [],
     });
   });
 
@@ -38,11 +39,25 @@ describe("vmSpecOf (what reaches the builder)", () => {
       vm: { cpus: 4, memoryMiB: 2048 },
       netAllowlist: ["api.example.com"],
     };
-    expect(vmSpecOf(options)).toEqual({
+    expect(vmSpecOf(options)).toMatchObject({
       cpus: 4,
       memoryMiB: 2048,
       allowlist: ["api.example.com"],
     });
+  });
+
+  it("covers the image and every mount (fix: a changed mount or image recreates the VM)", () => {
+    const base: SandboxBackendOptions = { name: "ultiv-x", image: "img-a" };
+    const fp = (options: SandboxBackendOptions) => vmSpecFingerprint(vmSpecOf(options));
+    expect(fp({ ...base, image: "img-b" })).not.toBe(fp(base));
+    const ro = { ...base, orgShared: { hostDir: "/s/org", gid: 9, readOnly: true } };
+    expect(fp(ro)).not.toBe(fp(base));
+    expect(fp({ ...ro, orgShared: { ...ro.orgShared, readOnly: false } })).not.toBe(fp(ro));
+    expect(fp({ ...base, sharedStore: "/s/d1" })).not.toBe(fp(base));
+    expect(
+      fp({ ...base, deptShared: { parentDir: "/s/_dept", depts: [], users: [] } as never }),
+    ).not.toBe(fp(base));
+    expect(vmSpecOf(ro).mounts).toEqual(["/home/org-shared=/s/org:ro"]);
   });
 });
 
