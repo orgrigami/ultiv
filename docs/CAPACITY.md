@@ -63,3 +63,20 @@ a load round. These numbers set the slice 4 bounds (1–8 CPUs, 128–8192 MiB
 per VM) and the host-capacity rule (all homes' CONFIGURED VM memory ≤ half
 the host's RAM — a configured-sum heuristic, not a live measurement;
 docs/SECURITY.md).
+
+## Slice 9 follow-up (chromium in the image), 1 November 2026
+
+The sandbox image now carries the headless browser permanently: `chromium`
+plus `fonts-liberation` joined `packages/ext/sandbox/Dockerfile`, the image
+was rebuilt (`docker build -t ultiv-sandbox:latest packages/ext/sandbox`)
+and loaded again into the runtime's image store (`docker save` +
+`vp -C packages/ext exec msb load -i … -t ultiv-sandbox:latest`). The image
+grew from 579 MB to 1.56 GB of disk (the browser adds roughly +1 GB, more
+than slice 1's ~0.5 GB estimate from the throwaway apt install); idle RAM
+cost is unchanged (none until a page runs). A fresh machine must run the
+same one-time build + `msb load` before `browser_open` works — the tool
+refuses with an owner-worded message when the image has no chromium and
+never apt-installs at call time. RUNNING VMs keep the old image until they
+are recreated (an allowlist or size edit does that at the next start), so
+an existing install shows the new tool failing with the rebuild message
+until each home's VM is recreated once.

@@ -9,12 +9,28 @@
 # Baseline: node 24, python 3 + pip, jq, tar, curl, git, ca-certificates on
 # Debian slim (apt-get for everything else). SPRIESSEN_SANDBOX_IMAGE points the
 # backend at any other OCI reference instead.
+#
+# Chromium (phase 4 slice 9, the read-only `browser_open` tool) rides in every
+# VM so a browser call never apt-installs at call time. Cost (measured on this
+# machine, 1 Nov 2026): the image grows from 579 MB to 1.56 GB on disk —
+# roughly +1 GB per VM disk; idle RAM cost none until it runs. A fresh
+# machine — or an existing one after this change — must rebuild the image
+# once (the running VMs keep the old image until they are recreated):
+#
+#   docker build -t ultiv-sandbox:latest packages/ext/sandbox
+#   docker save ultiv-sandbox:latest -o var/ultiv-sandbox.tar
+#   vp -C packages/ext exec msb load -i var/ultiv-sandbox.tar -t ultiv-sandbox:latest
+#
+# fonts-liberation keeps rendered pages (screenshots) from falling back to
+# bitmap fonts; a few MB.
 FROM node:24-slim
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     acl \
     ca-certificates \
+    chromium \
+    fonts-liberation \
     curl \
     git \
     jq \

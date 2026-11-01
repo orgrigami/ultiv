@@ -4,8 +4,8 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { ProfileInfo } from "@spriessen/contracts";
 import { parseRef } from "../providers/refs.ts";
 
-/** Tools a profile loses whatever its allowlist says: the sandboxed bash without a sandbox. */
-const SANDBOX_TOOLS = ["bash"];
+/** Tools a profile loses whatever its allowlist says: sandboxed tools without a sandbox. */
+const SANDBOX_TOOLS = ["bash", "browser_open"];
 
 export const agentForProfile = (
   profile: ProfileInfo,

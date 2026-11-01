@@ -578,6 +578,30 @@ const artifactView = (step: ToolStep, past: string, live: string): ToolView => {
 };
 
 /**
+ * The read-only browser (phase 4 slice 9): the page text like a web read,
+ * plus the screenshot as an image card (the same `details` ref shape
+ * artifact_write carries, so the app draws it like any saved file).
+ */
+const browserView = (step: ToolStep): ToolView => {
+  const input = recordOf(step.input);
+  const url = flatOf(input.url);
+  const host = hostOf(url) ?? "page";
+  const parsed = recordOf(jsonOf(step));
+  const text = typeof parsed.text === "string" ? clip(parsed.text, 6000) : undefined;
+  const file = step.status === "done" ? artifactFileOf(step) : undefined;
+  return {
+    family: "web",
+    done: "Opened a page in the sandbox browser",
+    live: "Opening a page in the sandbox browser…",
+    detail: host,
+    ...(url === undefined || text === undefined
+      ? {}
+      : { structured: { t: "page", url, host, text } }),
+    ...(file === undefined ? {} : { artifact: file }),
+  };
+};
+
+/**
  * The script a shell call ran. Both shell tools (`bash`, `bash_host`) take
  * it as `script`; `command` is read too for older stored calls. Kept as
  * written (newlines and all), so the copy button copies a runnable script.
@@ -781,6 +805,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: artifactView(step, "Saved a file", "Saving a file…") };
     case "artifact_read":
       return { kind: "human", view: artifactView(step, "Read a file", "Reading a file…") };
+    case "browser_open":
+      return { kind: "human", view: browserView(step) };
     case "bot_create":
       return { kind: "human", view: botCreateView(step) };
     case CHECKLIST_TOOL:

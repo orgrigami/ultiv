@@ -210,7 +210,12 @@ hashing); this file is the map of trust.
   **Network is off by default (slice 3)**: a VM reaches only its home's
   stored allowlist of named hosts (deny-everything otherwise, raw IPs
   never); a misled bot's network reach is bounded by that list, and the
-  browser slice will run under the same policy. The known cost: bots that
+  read-only browser (slice 9) runs under the SAME policy — `browser_open`
+  opens one page at a time inside the bot's own home VM (no clicking,
+  typing, forms or logins), so an off-allowlist url is refused by the
+  network layer and with the default deny-all no external page loads at
+  all. Page content is untrusted input, and a screenshot can carry the
+  same injection (rendered text and images alike). The known cost: bots that
   used `curl`, `pip` or `git` in a VM stop until their host is allowlisted.
   Removing a bot retires its user and shared-folder group membership from
   its home's VM (marked for the next boot when the VM is stopped); a stale

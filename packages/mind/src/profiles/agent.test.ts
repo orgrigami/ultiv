@@ -52,4 +52,22 @@ describe("the per-profile agent's tool set", () => {
     );
     expect(namesOf(agent)).toEqual(["web_search"]);
   });
+
+  it("sandbox off also removes the read-only browser (no VM to run it in)", () => {
+    const withBrowser = () => [...tools(), { name: "browser_open" }];
+    const agent = agentForProfile(
+      row({ policies: { ...defaultPolicies(), sandbox: false } }),
+      withBrowser,
+    );
+    expect(namesOf(agent)).toEqual(["bash_host", "web_search"]);
+    // And an allowlist naming it does not override the exclusion either.
+    const allowlisted = agentForProfile(
+      row({
+        toolAllowlist: ["browser_open", "web_search"],
+        policies: { ...defaultPolicies(), sandbox: false },
+      }),
+      withBrowser,
+    );
+    expect(namesOf(allowlisted)).toEqual(["web_search"]);
+  });
 });

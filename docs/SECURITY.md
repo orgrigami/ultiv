@@ -534,6 +534,34 @@ mount refuses); and there is no network path between VMs — a deny-all VM
 cannot reach another VM's internal service or the outside, while the same
 service and an allowlisted host answer the VM whose policy allows them.
 
+**The read-only browser (slice 9).** `browser_open`
+(`packages/ext/src/plugins/browser.ts`) opens ONE url per call, read-only:
+it returns the page's rendered text (capped at 20 000 chars) and a PNG
+screenshot. There is no clicking, typing, forms, logins or downloads — the
+tool cannot be steered to interact with a page. The chromium run happens
+INSIDE the bot's own home VM — the same microVM `bash` uses (org VM for org
+bots, department VM for department bots), as the bot's own Linux user, with
+the same per-call bound (45 s, `timeout -k` wrapped so a hung renderer
+cannot hang the tool) — and under that VM's network policy: a page whose
+host is off the home's allowlist is unreachable BY CONSTRUCTION (the
+network layer refuses it), and with the default deny-all policy every
+external page fails. The tool takes no target, so it can never open a page
+in another home's VM. Chromium ships in the VM image
+(`packages/ext/sandbox/Dockerfile`; a fresh machine or an image upgrade
+needs the one-time `docker build` + `msb load`) — the tool NEVER installs
+packages at call time; a missing browser answers with an owner-worded
+message asking for the image rebuild. Like `web_search`/`web_fetch` the
+tool is a pure READ and is NOT gated (no approval card per call), but every
+call still rides the audit trail, and a bot with `sandbox: false` has no VM
+to run it in, so the tool is absent from that bot's list (the same
+exclusion `bash` has). The screenshot is written into the bot's own
+`.tmp` inside its mode-700 home (umask 0600, so no other bot in a shared
+VM can read it), pulled out over the sandbox fs channel, capped (1280 px
+window; the model only gets bytes under the same base64 budget artifact
+images use) and stored as an artifact of that bot's own tree — the owner
+sees the image card in the app. Page text, page title and screenshot are
+UNTRUSTED INPUT (prompt injection): the tool description and output say so.
+
 ## Owner scoping and the one account
 
 There is exactly one account: the passcode signs you in as `owner`
