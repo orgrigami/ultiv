@@ -46,8 +46,14 @@ in `packages/ext/var/probe/` and is not committed.
 - Disk usage over time (upper-layer growth) was not measured; the install
   showed an apt browser adds roughly half a GB to a VM's disk.
 - Linux/KVM hosts were not tested — this machine is the only one available.
-- Per-bot Linux users and hidepid (slice 2b) are not in this image yet, so
-  the numbers above are for today's all-root image.
+- The numbers above were measured on the all-root image. Per-bot Linux
+  users and hidepid now run in every VM (the opt-in real-VM suite checks
+  them), but the capacity numbers were not measured again with them.
+- The shared-folder caps (Phase 4 fix 2) add work to every sandboxed `bash`
+  call: a host-side walk of each capped store before and after the call
+  (it stops once past the cap, so the cost grows with the file count up to
+  the cap), and the post-call group handover runs one `find` per writable
+  shared folder. Neither was timed under load.
 
 ## Slice 4 follow-up (VM size), 1 November 2026
 

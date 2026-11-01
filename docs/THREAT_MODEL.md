@@ -258,15 +258,16 @@ hashing); this file is the map of trust.
   not the default. F-O4: it is the first data path across homes and weakens
   the boundary restored on 1 Nov. F-O5: purging a department removes
   nothing from the folder, including anything about that department. F-O6:
-  the size cap (default 1 GiB, owner-editable) is enforced only where the
-  server mediates writes — `bash` writes are not capped today — and nobody
-  is named to back the folder up. F-O7: last write wins, no locking. F-O8:
-  see the mount note above. The stored size cap (and an audit of writes)
-  stays DORMANT for `bash` writes until a mediated shared-folder tool path
-  exists. `bash` writes there keep the bot's umask 077
-  and, on macOS, neither the setgid group nor POSIX ACLs cross the mount,
-  so a bot shares a file deliberately (`chgrp ultiv-org` + `chmod g+r`) or
-  not at all (docs/SECURITY.md).
+  the size cap (default 1 GiB, owner-editable) is enforced at the `bash`
+  tool path, not by a filesystem quota: over the cap the folder turns
+  read-only in the VM (or `bash` is refused for the bots that can write
+  there), and one call can overshoot; nobody is named to back the folder
+  up. Org bots' writes there are audited per file (`shared_write`: path,
+  size, bot; no content). F-O7: last write wins, no locking. F-O8: see the
+  mount note above. Under umask 077 a bash-written file is handed to the
+  folder's group after each call, so every bot of the folder can read and
+  write it: anything written there is shared by design (docs/SECURITY.md,
+  "Shared-folder caps").
 - **Department shared folders in the org VM (slice 2d, F-D1–F-D9)**: the
   org VM mounts every department's shared store at
   `/home/dept-shared/<department id>`, read-write. F-D1: a prompt-injected
@@ -286,7 +287,10 @@ hashing); this file is the map of trust.
   the departments; no limit is set. F-D8: read-write is the default; the
   alternative (one read-only mount for all departments) is not selected.
   F-D9: the org VM's capacity matters more now, and the purge default
-  deletes a department's store with it (archiving is not decided).
+  deletes a department's store with it (archiving is not decided). Each
+  department store has its own cap (`sharedCapBytes`, default 1 GiB,
+  enforced like the org-wide one), and org bots' writes into it are
+  audited per file.
 - **One account, many roles on paper**: the role matrix (org admin,
   department admin, member, viewer) is enforced by `can()` and tested, but
   today only the org owner can sign in — no second account exists yet, so

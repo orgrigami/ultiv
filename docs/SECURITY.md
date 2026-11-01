@@ -204,7 +204,10 @@ org in place, and a second run changes nothing. A bot's connector surface —
 `connector_list`, `connector_load`/`connector_resources`,
 `<server>_<tool>` calls and the management tools — lists and reaches only
 its home's connectors: another home's connector is absent from the list and
-a call is refused ("this connector belongs to another home"); a department
+a call is refused with the uniform `connector not found` (`CONNECTOR_NOT_FOUND`
+in `packages/mind/src/mcp/access.ts`, the same answer as for a connector that
+does not exist, belongs to another owner, was removed or is not assigned to
+the bot; only a host switch that is off says so); a department
 bot never sees an org connector, and an org bot never sees a department
 connector. A bot's `connector_add` files the new connector in the bot's own
 home. The human Connectors screen (REST over the signed-in owner session)
@@ -260,6 +263,18 @@ host-direct tools are absent from the bot's tool list (`bash_host` and the
 stdio connectors' tools, `hostExcludedTools` in
 `packages/mind/src/org/host-switch.ts`); a switch change re-applies every
 affected bot's agent, so existing chats lose and regain the tools at once.
+The switch FAILS CLOSED: a bot whose profile or org row cannot be read is
+treated as switched off (`switchAllows`, `?? false` in the connector boot
+path). Excluding tools never touches the rest of the list: the agent's tool
+filter is stored as `{remove: [...]}` (names only), so every faculty tool
+(`message`, rooms, memory, tasks) and every connector installed later stays;
+an explicit allowlist becomes a fixed list over the WHOLE registry, never
+just the catalog. At boot every stored conversation is re-synced
+(`resyncStored`), which heals chats whose stored list predates this. A
+mailbox request to a bot whose tool list has no `message` is answered at
+once with a dead-letter reply ("… cannot reply: the message tool is not in
+its tool list"), never a silent timeout (`canReply` in
+`packages/mind/src/mailbox/delivery.ts`).
 A queued host-direct call is refused at DECIDE time when the switch went
 false after the card was parked (the `approval` resource's `hostBlocked`,
 checked first in `can()`; both decide paths ask `hostSwitchRefusal`).
@@ -336,10 +351,17 @@ own processes. Every bot COMMAND runs as that bot's `uid:gid` — never root
 (root stays only for provisioning, `prepare`, the chown handover and the
 file sync) — with `USER` set, a per-bot `TMPDIR` under its home, and umask
 077, which is also what keeps files a bot drops in the sticky `/tmp` from
-being read by other bots. The same umask applies in `/home/shared`: the
-setgid directory gives a shared file the right GROUP, not readability — a
-bot that means to share a file must relax its mode (`chmod`), which keeps
-accidental writes private by default. Remaining limits: unprivileged user
+being read by other bots. The `/proc` remount is verified against
+`/proc/mounts` and a failure FAILS THE BOOT (exit 97, `SETUP_FATAL`): a VM
+without hidepid is never used. The other setup steps (chown, chmod,
+setfacl, group changes) never fail silently: a failure prints a
+`spriessen-setup-warn:` line that the backend logs once per process
+(`setup-steps.ts`). Shared folders work under umask 077 by a group
+handover, not by ACLs: after every `bash` call the bot itself (never root)
+re-groups the files and folders it OWNS and changed during the call in
+each writable shared folder to the folder's group, adds group read/write
+and, on folders, setgid (`sharedNormalizeScript`, symlinks never matched).
+A bot's private files elsewhere stay private. Remaining limits: unprivileged user
 namespaces are left on (the optional `user.max_user_namespaces=0` hardening
 is not applied), and bind-mounted host folders have no host-side isolation
 between bots — on the host every file belongs to the host user.
@@ -367,23 +389,44 @@ connector tokens — that is a docs rule and a line in the `bash` tool
 description (there is no mediated shared-folder tool path that could refuse
 one); grants remain the way to share vault items.
 
-Known limits of the folder, measured on this host (macOS, Apple
-virtualization; a Linux/KVM host has a real POSIX filesystem behind the
-mount and does not have them):
+Known limits of the folder on this host (macOS, Apple virtualization):
+POSIX default ACLs and the setgid bit do not cross the virtiofs boundary,
+so neither is relied on; the group handover above is what makes a
+bash-written file readable and writable by the folder's group (verified
+in the real-VM suite). The boot still applies the default ACL where the
+filesystem supports it.
 
-- The per-bot umask 077 applies to files written through `bash`: they are
-  private to their writer. A default ACL (`setfacl -d -m g:ultiv-org:rwX`,
-  `acl` is in the image) is applied at every boot, but on macOS POSIX ACLs
-  do not cross the virtiofs boundary, so the ACL cannot open bash-written
-  files to other bots. A bot shares a file with `chgrp ultiv-org` +
-  `chmod g+r` (both succeed; the bot is a group member).
-- The setgid bit does not propagate either on macOS: a new file carries the
-  WRITER's group, not `ultiv-org`.
-- Size cap: the org stores `orgSharedCapBytes` (default 1 GiB, owner
-  editable with `PATCH /api/org`, minimum 1 MiB). It is enforced only where
-  the server mediates a write — and no shared-folder tool path exists yet,
-  so `bash` writes into the bind mount are neither capped nor audited. Both
-  become real when a mediated tool path lands.
+**Shared-folder caps (fix 2): what is and is not enforced.** There is no
+filesystem quota: the folders are virtiofs bind mounts of host
+directories and microsandbox 0.7.11 has no quota setting. The caps are
+enforced at the Spriessen tool path (`packages/ext/src/shell/shared-caps.ts`):
+
+- Caps: `orgSharedCapBytes` for `/home/org-shared` (default 1 GiB, the org
+  owner edits it with `PATCH /api/org`), and `sharedCapBytes` per
+  department for its store — the department VM's `/home/shared` and the
+  org VM's `/home/dept-shared/<id>` (default 1 GiB, edited by the
+  department's admin or the org level with `PATCH /api/org/departments/:id`,
+  which writes a `department-shared-cap` permission row). Both have a
+  minimum of 1 MiB.
+- Enforced: before and after every sandboxed `bash` call the backing host
+  directory is measured (an lstat walk that never follows symlinks). Over
+  the cap, the folder is remounted READ-ONLY inside the VM (a bind of the
+  folder onto itself, remounted ro), and the call's stderr says so. Once it
+  is back under the cap, the read-only layer is removed at the next call.
+  If the remount fails, every `bash` call by a bot that can write there is
+  REFUSED while the folder is over its cap. Verified in the real-VM suite.
+- Not enforced: a single call can overshoot (the check runs after the
+  fact). While a folder is read-only, bots cannot delete files there either,
+  so the owner frees space on the host or raises the cap. The org VM's own
+  `/home/shared` lives on the VM disk, not in a host store, so only the VM
+  disk bounds it. Files written by host-side paths (the server itself) are
+  not counted.
+- Audit: every file an ORG bot writes into `/home/org-shared` or
+  `/home/dept-shared/<id>` during a `bash` call becomes a `shared_write`
+  audit row (path inside the VM, size in bytes, area, the department whose
+  store it is, and the writing bot; never any content). At most 50 rows
+  per call. Department bots' writes in their own `/home/shared` are not
+  audited.
 
 **Network is off by default (slice 3).** The org VM and every department VM
 boot with a deny-everything microsandbox `NetworkPolicy`
@@ -412,7 +455,11 @@ until hosts are allowlisted:** `curl`, `pip`/`apt`/`npm` installs, `git`
 clone/pull/push and every other direct network use inside the VM fail out of
 the box; the credential broker and MCP HTTP connectors are unaffected (they
 run on the host). DNS is allowed only as far as the allowlisted names need
-it; raw addresses are never allowed (rules are by name).
+it; raw addresses are never allowed (rules are by name). Port 53 is open
+only to the host resolver the VM is given (microsandbox's `host` group),
+never to an arbitrary address. The VM fingerprint covers the image and the
+mount list as well as size and allowlist, so a changed mount or image
+also recreates the VM.
 
 **VM size per home (slice 4).** The org VM and each department VM are
 CREATED with the size stored on their org or department row (`vm`: `cpus`
@@ -468,11 +515,8 @@ workdir/secrets/ports only), but the org VM mounts the parent DIRECTORY
 once, and virtiofs shows new host-side store subfolders live — verified by
 probe — so only the group reconcile is needed (F-D6). The department store
 is deleted with the department's purge (F-D9 default; archiving for 30
-days is not decided). The umask limits above apply to these mounts the
-same way: bash-written files keep the writer's umask 077 and group until
-the writer shares them. There is no mediated shared-folder tool path, so
-no write into these folders is capped or audited; department bots' writes
-in their own `/home/shared` are not audited by default.
+days is not decided). The group handover, the caps and the
+`shared_write` audit rows above apply to these folders.
 
 **Purge**: deleting a bot never destroys a VM (the VM belongs to its home;
 `apps/server/src/rest/bot-purge.ts` answers `sandbox: false`), but it
@@ -526,8 +570,30 @@ per-bot prepare isolation with ownership, mode-700 homes, hidepid=2,
 retirement, ownership + hidepid surviving a VM restart, and the slice-3
 network behaviour: the offline default, an allowlisted host reachable, an
 off-list host and a raw IP refused, the policy surviving a stop + boot,
-and a change landing by recreation) was verified with throwaway probe VMs
-on this host, not in the suite.
+and a change landing by recreation) was first verified with throwaway probe
+VMs on this host. Phase 4 adds an opt-in real-VM suite,
+`packages/ext/src/shell/real-vm.test.ts`, which is skipped by default and
+reports "NOT VERIFIED" then. With `SPRIESSEN_REAL_VM=1` it boots throwaway
+VMs and checks that two bots in one VM cannot read each other's files or
+see or kill each other's processes; hidepid; `/tmp` under umask 077;
+supplementary groups for the numeric uid:gid; the group handover and the
+`shared_write` rows; a new department folder appearing live; org-shared
+read-only and no `/home/dept-shared` in a department VM; no network path
+between VMs and no internet by default; the cap remount in both
+directions; a recreate reading as a LOST workspace that re-prepares; and
+DNS resolving through the host resolver for an allowlisted name.
+
+**The file sync never deletes on a bad listing (fix 1).** The workspace
+listing runs under `set -o pipefail` and THROWS on a non-zero exit. Each
+`prepare` writes a random token to `/var/lib/spriessen/ws/`, and the
+listing checks it first: a VM that was recreated since the last prepare
+(by this session or another) has no token, so the listing throws
+`WorkspaceLostError` instead of returning an empty tree. Either error
+deletes nothing; the call's output carries a `[sync] warning`, and the next
+call prepares again. A recreate bumps the VM generation, so every cached
+backend reconnects and re-provisions its bot user. The bash tool also
+re-resolves the home on every call and rebuilds the session when the VM
+world (name, allowlist, size, mounts, user, caps) changed.
 
 **Cross-home isolation (slice 5).** The isolation line is the whole phase-4
 model restated as tests. At unit level, a resource filed under another home
