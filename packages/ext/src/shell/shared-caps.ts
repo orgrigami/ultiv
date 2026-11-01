@@ -72,7 +72,8 @@ const quote = (path: string): string => `'${path.replaceAll("'", "'\\''")}'`;
  */
 export const capMountScript = (guest: string, readOnly: boolean): string => {
   const dir = quote(guest);
-  const isRo = `findmnt -no OPTIONS --mountpoint ${dir} 2>/dev/null | head -n1 | grep -q '^ro'`;
+  // The LAST line is the topmost mount on the folder (what access sees).
+  const isRo = `findmnt -no OPTIONS --mountpoint ${dir} 2>/dev/null | tail -n1 | grep -q '^ro'`;
   return readOnly
     ? `[ -d ${dir} ] || exit 0\n` +
         `if ${isRo}; then exit 0; fi\n` +
