@@ -28,7 +28,12 @@ import { DurableFs } from "../fs/durable-fs.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
 import { scopeDir, type HomeScope, type SandboxUser, type ScopeHolder } from "./vault.ts";
 import { artifactsDir } from "./artifacts.ts";
-import { localShellBackend, type ShellBackend, type ShellExecResult } from "../shell/backend.ts";
+import {
+  localShellBackend,
+  WorkspaceLostError,
+  type ShellBackend,
+  type ShellExecResult,
+} from "../shell/backend.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 
 const MAX_OUTPUT_CHARS = 20_000;
@@ -160,9 +165,17 @@ const execFailure = (what: string, cause: unknown) => ({
 
 // ---- mode 1: the durable workspace in a microVM -------------------------
 
+/** One call's resolved home world: its identity, and how to build its backend. */
+interface ResolvedWorld {
+  readonly key: string;
+  readonly make: () => { readonly backend: ShellBackend; readonly guestRoot: string };
+}
+
 interface SandboxSession {
   durable: DurableFs;
   readonly backend: ShellBackend;
+  /** The resolved home world this backend was built for (re-checked every call). */
+  readonly worldKey: string;
   /** workspaceEpoch(dir) when the VM was last loaded; file_edit/file_delete bump it. */
   epoch: number;
   /** sha256 per workspace-relative path, the sync loop's diff basis. */
@@ -180,10 +193,12 @@ const openSession = async (
   conversationId: string,
   backend: ShellBackend,
   guestRoot: string,
+  worldKey: string,
 ): Promise<SandboxSession> => {
   const session: SandboxSession = {
     durable: new DurableFs({ dir, conversationId }),
     backend,
+    worldKey,
     epoch: workspaceEpoch(dir),
     hashes: new Map(),
     cwd: guestRoot,
@@ -212,7 +227,12 @@ const load = async (
   session.hashes = hashes;
 };
 
-/** VM → artifact store: upsert changed files, delete removed ones. */
+/**
+ * VM → artifact store: upsert changed files, delete removed ones. Deletion
+ * needs a TRUSTED listing: a failed listing throws before anything is
+ * deleted, and a lost workspace (recreated VM — `WorkspaceLostError`) is
+ * never read as "the bot deleted everything"; the next call re-prepares.
+ */
 const reconcile = async (session: SandboxSession): Promise<void> => {
   const seen = new Set<string>(await session.backend.listFiles());
   for (const rel of seen) {
@@ -239,18 +259,25 @@ const SandboxParams = Type.Object({
 
 const sandboxTool = (
   dirOf: (conversationId: string) => string,
-  backendOf: (
-    dir: string,
-    conversationId: string,
-  ) => Promise<{ readonly backend: ShellBackend; readonly guestRoot: string }>,
+  backendOf: (dir: string, conversationId: string) => Promise<ResolvedWorld>,
   sessions: Map<string, Promise<SandboxSession>>,
 ): Tool => {
-  const open = (dir: string, conversationId: string): Promise<SandboxSession> => {
+  // The home world is resolved on EVERY call: a cached session keeps its
+  // backend only while the world it was built for (VM name, allowlist,
+  // size, mounts, user) is still the current one — a stale session would
+  // recreate the VM back to an old spec.
+  const open = async (dir: string, conversationId: string): Promise<SandboxSession> => {
+    const world = await backendOf(dir, conversationId);
     const existing = sessions.get(dir);
-    if (existing !== undefined) return existing;
-    const creating = backendOf(dir, conversationId).then(({ backend, guestRoot }) =>
-      openSession(dir, conversationId, backend, guestRoot),
-    );
+    if (existing !== undefined) {
+      const session = await existing.catch(() => undefined);
+      if (session !== undefined && session.worldKey === world.key) return session;
+      if (sessions.get(dir) === existing) sessions.delete(dir);
+    }
+    const again = sessions.get(dir);
+    if (again !== undefined) return again;
+    const { backend, guestRoot } = world.make();
+    const creating = openSession(dir, conversationId, backend, guestRoot, world.key);
     creating.catch(() => sessions.delete(dir));
     sessions.set(dir, creating);
     return creating;
@@ -285,7 +312,12 @@ const sandboxTool = (
       let session: SandboxSession;
       try {
         session = await open(dir, conversationId);
-        if (session.epoch !== workspaceEpoch(dir)) await load(session, dir, conversationId);
+        if (
+          session.epoch !== workspaceEpoch(dir) ||
+          session.backend.needsPrepare?.() === true
+        ) {
+          await load(session, dir, conversationId);
+        }
       } catch (cause) {
         sessions.delete(dir);
         return execFailure("bash", cause);
@@ -301,6 +333,8 @@ const sandboxTool = (
       try {
         await reconcile(session);
       } catch (cause) {
+        // Nothing was deleted. A lost workspace re-prepares at the next call.
+        if (cause instanceof WorkspaceLostError) session.epoch = -1;
         result = {
           ...result,
           stderr: `${result.stderr}\n[sync] warning: workspace sync to artifacts failed: ${String(cause)}`,
@@ -389,29 +423,32 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   // resolver: the sandbox is named by the home's scope dir and the bot works
   // in its own folder inside it. Without the resolver, the per-bot VM of
   // older embedders: the bot's dir names the VM and the workspace is /home.
-  const backendOf = async (
-    dir: string,
-    conversationId: string,
-  ): Promise<{ readonly backend: ShellBackend; readonly guestRoot: string }> => {
+  const backendOf = async (dir: string, conversationId: string): Promise<ResolvedWorld> => {
     const home = await holder?.get()?.homeScopeOf?.(conversationId);
     const world = homeWorldOf(dir, home);
     const staging = stagingOf(dir);
-    const backend =
-      options.backend !== undefined
-        ? options.backend(dir, staging, world.guestRoot)
-        : sandboxShellBackend({
-            name: sandboxNameOf(world.vmDir),
-            ...(options.image === undefined ? {} : { image: options.image }),
-            guestRoot: world.guestRoot,
-            ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
-            ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
-            ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-            ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
-            ...(world.user === undefined ? {} : { user: world.user }),
-            ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
-            ...(world.vm === undefined ? {} : { vm: world.vm }),
-          })(staging);
-    return { backend, guestRoot: world.guestRoot };
+    const sandboxOptions = {
+      name: sandboxNameOf(world.vmDir),
+      ...(options.image === undefined ? {} : { image: options.image }),
+      guestRoot: world.guestRoot,
+      ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
+      ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
+      ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
+      ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
+      ...(world.user === undefined ? {} : { user: world.user }),
+      ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
+      ...(world.vm === undefined ? {} : { vm: world.vm }),
+    };
+    return {
+      key: JSON.stringify(sandboxOptions),
+      make: () => ({
+        backend:
+          options.backend !== undefined
+            ? options.backend(dir, staging, world.guestRoot)
+            : sandboxShellBackend(sandboxOptions)(staging),
+        guestRoot: world.guestRoot,
+      }),
+    };
   };
   return definePlugin({
     id: "ultiv.bash",

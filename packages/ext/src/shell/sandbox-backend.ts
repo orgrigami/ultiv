@@ -37,7 +37,12 @@ import {
   specDrift,
   vmSpecFingerprint,
 } from "./net-policy.ts";
-import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
+import {
+  WorkspaceLostError,
+  type ShellBackend,
+  type ShellFile,
+  type ShellExecResult,
+} from "./backend.ts";
 import {
   applyBotExec,
   bootScript,
@@ -150,6 +155,23 @@ export interface SandboxBackendOptions {
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
 }
 
+/**
+ * Per VM (by name), bumped on every (re)creation in this process: a backend
+ * whose remembered generation differs holds a STALE handle — another bot's
+ * session recreated the VM — so it reconnects, provisions its user again
+ * and reports `needsPrepare` (its workspace went with the old VM).
+ */
+const vmGenerations = new Map<string, number>();
+export const vmGenerationOf = (name: string): number => vmGenerations.get(name) ?? 0;
+const bumpVmGeneration = (name: string): number => {
+  const next = vmGenerationOf(name) + 1;
+  vmGenerations.set(name, next);
+  return next;
+};
+
+/** Where a prepared workspace's token lives: root-owned, outside every bot folder. */
+const WS_TOKEN_DIR = "/var/lib/spriessen/ws";
+
 /** Logged setup warnings, once per VM and line per process (no log flood). */
 const seenWarnings = new Set<string>();
 
@@ -168,10 +190,18 @@ export const logSetupWarnings = (
   }
 };
 
+/** The token file name of one bot folder (`/home/bot-a` -> `home_bot-a`). */
+export const tokenNameOf = (root: string): string => root.replace(/^\/+/, "").replaceAll("/", "_");
+
 export const sandboxShellBackend =
   (options: SandboxBackendOptions): ((homeDir: string) => ShellBackend) =>
   (): ShellBackend => {
     let vm: Sandbox | null = null;
+    /** The VM generation this backend's handle and user provisioning belong to. */
+    let generation = -1;
+    /** The token written at the last prepare; null before (or after a lost workspace). */
+    let token: string | null = null;
+    let lost = false;
 
     /** Root steps only: prepare's wipe/refill, the chown handover, listFiles. */
     const rootRun = async (
@@ -212,7 +242,15 @@ export const sandboxShellBackend =
       const spec = vmSpecOf(options);
       if (specDrift(options.name, spec)) {
         await destroySandbox(options.name).catch(() => {});
+        bumpVmGeneration(options.name);
         vm = null;
+      }
+      // Another session recreated this VM: the handle is stale and the
+      // prepared workspace is gone — reconnect, re-provision, re-prepare.
+      if (vm !== null && generation !== vmGenerationOf(options.name)) {
+        vm = null;
+        if (token !== null) lost = true;
+        token = null;
       }
       if (vm !== null) return vm;
       // Dynamic import: the native runtime module loads only when a VM is
@@ -251,6 +289,7 @@ export const sandboxShellBackend =
       // Applied at creation; see the fingerprint above.
       builder = builder.network((network) => allowlistNetwork(network, options.netAllowlist ?? []));
       vm = await builder.connectOrCreate();
+      generation = vmGenerationOf(options.name);
       markAppliedFingerprint(options.name, vmSpecFingerprint(spec));
       await applyPending(vm);
       const user = options.user;
@@ -330,6 +369,16 @@ export const sandboxShellBackend =
         }
         const fs = sandbox.fs();
         for (const file of files) await fs.write(`${root}/${file.path}`, file.bytes);
+        const next = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+        const tokenFile = `${WS_TOKEN_DIR}/${tokenNameOf(root)}`;
+        const wrote = await rootRun(
+          `mkdir -p ${WS_TOKEN_DIR} && chmod 700 ${WS_TOKEN_DIR} && printf '%s' '${next}' > '${tokenFile}'`,
+          HOME,
+          30_000,
+        );
+        if (wrote.exitCode !== 0) throw new Error(`workspace token write failed: ${wrote.stderr}`);
+        token = next;
+        lost = false;
         if (user !== undefined) {
           await rootRun(
             `chown -R ${user.uid}:${user.gid} '${root}'\n` +
@@ -345,17 +394,32 @@ export const sandboxShellBackend =
       exec: (script, cwd, timeoutMs) => run(script, cwd, timeoutMs),
 
       listFiles: async (): Promise<readonly string[]> => {
+        // The token first: a VM recreated since `prepare` (by this session
+        // or another) has no token — that empty tree is a LOST workspace,
+        // never "the bot deleted everything". `.tmp` is the bot's TMPDIR,
+        // never an artifact.
         const result = await rootRun(
-          `cd ${root} && find . -type f -print0 | xargs -0 -n1 printf '%s\\n' | sed 's|^\\./||'`,
-          root,
+          `set -o pipefail; printf '%s\\n' "$(cat '${WS_TOKEN_DIR}/${tokenNameOf(root)}' 2>/dev/null)" && ` +
+            `cd '${root}' && find . -path ./.tmp -prune -o -type f -print0 | ` +
+            `xargs -0 -r -n1 printf '%s\\n' | sed 's|^\\./||'`,
+          HOME,
           30_000,
         );
-        return result.stdout
-          .split("\n")
+        if (result.exitCode !== 0) {
+          throw new Error(`workspace listing failed (exit ${result.exitCode}): ${result.stderr}`);
+        }
+        const [first = "", ...rest] = result.stdout.split("\n");
+        if (lost || token === null || first.trim() !== token) {
+          lost = true;
+          throw new WorkspaceLostError("the VM workspace was recreated since it was prepared");
+        }
+        return rest
           .map((line: string) => line.trim())
           .filter((line: string) => line.length > 0)
           .sort();
       },
+
+      needsPrepare: () => lost || (vm !== null && generation !== vmGenerationOf(options.name)),
 
       readFile: async (path: string): Promise<Uint8Array> => {
         const sandbox = await ensureVm();

@@ -40,7 +40,14 @@ describe("no command path targets a VM by name", () => {
     // Every command, whatever the home, rides this interface; the VM is
     // bound in the closure at construction (options.name), never per call.
     const backend: ShellBackend = sandboxShellBackend({ name: "ultiv-unittest" })("/staging");
-    expect(Object.keys(backend).sort()).toEqual(["exec", "listFiles", "prepare", "readFile"]);
+    expect(Object.keys(backend).sort()).toEqual([
+      "exec",
+      "listFiles",
+      "needsPrepare",
+      "prepare",
+      "readFile",
+    ]);
+    expect(backend.needsPrepare?.length).toBe(0); // no target either
     expect(backend.exec.length).toBe(3); // script, cwd, timeout — no target
   });
 

@@ -46,6 +46,22 @@ export interface ShellBackend {
   listFiles(): Promise<readonly string[]>;
   /** Read one workspace file's bytes. */
   readFile(path: string): Promise<Uint8Array>;
+  /**
+   * True when the workspace this backend prepared is GONE (its VM was
+   * recreated, or another session's recreate swapped the VM under it): the
+   * caller must `prepare` again before running anything. Optional — a
+   * backend that cannot lose its workspace never says so.
+   */
+  needsPrepare?(): boolean;
+}
+
+/**
+ * The workspace a backend prepared is gone (a recreated VM): its listing is
+ * NOT "the bot deleted everything". The sync loop never deletes artifacts on
+ * this error; the next call re-prepares from the artifact store.
+ */
+export class WorkspaceLostError extends Error {
+  override readonly name = "WorkspaceLostError";
 }
 
 /** Factory signature plugins use: one backend per workspace scope. */
