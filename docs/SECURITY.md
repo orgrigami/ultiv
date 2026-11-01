@@ -157,16 +157,24 @@ the earlier note that listed shared folders and commands among the reach
 surfaces): any bot can message any bot, across homes, with the mailbox caps;
 each CROSS-HOME message writes a `reach` audit row (`org/reach.ts`, the
 mailbox wrapper is wired in `entity.ts`), carrying from, to and the
-`message` surface — never content. Nothing else crosses homes: a VM is for
-its home's bots only (`bash` runs only in the bot's own home VM — the tool
-takes no target), each home's `/home/shared` is usable only by that home's
-bots, and `can()` refuses another home's VM, shared folder and files,
-another bot's chats, memory or home, and another home's vault items,
-connectors or settings with the uniform "not found" answer. Those need a
-**grant** (REST `/api/org/grants`), which names the resource, the grantee
+`message` surface — never content. The only paths between homes are
+messaging, the org-wide `/home/org-shared` folder and the org bots'
+slice-2d department-folder mounts (both below), plus **grants** for NAMED
+VAULT ITEMS (REST `/api/org/grants`), which name the resource, the grantee
 home and the action; creating, using and revoking are audited, and a revoke
 stops access at once (the broker's granted-credential fallback consults the
-live grant table on every spend). Messaging itself needs no grant and stays
+live grant table on every spend). Connector grants exist in the org model
+but are STORED ONLY — the enforced cross-home path for grants is vault
+items (slice 7 below). Beyond those paths, a VM is for its home's bots only
+(`bash` runs only in the bot's own home VM — the tool takes no target),
+each home's `/home/shared` is usable only by that home's bots (org bots
+reach a department's folder only through the
+`/home/dept-shared/<department id>` mounts below), and `can()` refuses
+another home's VM, shared folder and files — for DEPARTMENT BOTS, with the
+uniform "not found" answer; org bots see every department's folder under
+`/home/dept-shared` (F-D5) — and, for every bot, another bot's chats,
+memory or home and another home's vault items, connectors or settings, the
+same way. Messaging itself needs no grant and stays
 under the mailbox caps.
 
 **Vault items per home** (phase 4 slice 6): every vault item belongs to one

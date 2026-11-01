@@ -29,8 +29,9 @@ hashing); this file is the map of trust.
   vaults** (owner decision, 1 Nov 2026) — against department bots: a
   department bot cannot enter, read or run commands in another home's VM,
   and no bot uses another home's `/home/shared` except the org bots through
-  the slice-2d mounts. Messaging, `/home/org-shared` and the slice-2d
-  department folders in the org VM are the only paths between homes.
+  the slice-2d mounts. Messaging, `/home/org-shared`, the slice-2d
+  department folders in the org VM and grants for named vault items are the
+  only paths between homes.
   Every resource (bot, memory record, file, skill, vault item, routine,
   sandbox) belongs to exactly one home through its bot (`checkHomes` in
   `packages/mind/src/org/model.ts`).
@@ -45,16 +46,20 @@ hashing); this file is the map of trust.
   rule limits by department, and the only cross-home reach SURFACE is
   messaging. Every bot, in any home, can message any bot; each cross-home
   message writes a `reach` row (from, to, surface — always `message`, never
-  content) into the audit trail (`org/reach.ts`). A VM is for its home's
+  message) into the audit trail (`org/reach.ts`). A VM is for its home's
   bots only: `bash` runs only in the bot's own home VM (the tool takes no
-  target), and no bot uses another home's `/home/shared`. The DELIBERATE
+  target), and no bot uses another home's `/home/shared` (org bots reach a
+  department's only through the slice-2d mounts in the org VM). The DELIBERATE
   data paths across homes are the org-wide `/home/org-shared` folder
   (slice 2c) and the slice-2d department folders in the org VM — both
   flagged below (F-O1–F-O8, F-D1–F-D9); they are file paths, not reach
-  surfaces, and write no `reach` rows. Reach does NOT
-  cover: another bot's chats, memory or home folder; vault items and
-  connectors of another home (those need a NAMED grant, audited, revoked
-  stops access at once). From slice 6 a vault item CARRIES its home
+  surfaces, and write no `reach` rows. Grants for NAMED VAULT ITEMS are the
+  only other cross-home path. Reach does NOT
+  cover: another bot's chats, memory or home folder; vault items of another
+  home (a named grant is the only way to share one — audited, revoked stops
+  access at once); or connectors of another home (connector grants exist in
+  the org model but are STORED, NOT ENFORCED — a granted connector is not
+  reachable across homes today, slice 7). From slice 6 a vault item CARRIES its home
   (legacy owner-level items read as the org): a bot's vault reads —
   `vault_list`, `vault_contacts` and the broker's credential resolution —
   never list another home's items, and a refused cross-home credential read
@@ -68,8 +73,9 @@ hashing); this file is the map of trust.
   server) lives as vault items OF the connector's home: `servers.json`
   holds the item ids only, the secret is redeemed in-process at flow time
   and never logged or shown, and a lookup that names another home's item
-  (or a profile-scoped one) reads as absent — the sign-in falls back to
-  dynamic registration rather than crossing homes. A department
+  (or a profile-scoped one) reads as absent — the sign-in falls back to a
+  plain stored `clientId` or dynamic registration rather than crossing
+  homes. A department
   connector's keys typed in a secure field are sealed as items OF that
   department, so a department's Google client never sits in the org's
   vault. Department and org
@@ -140,8 +146,11 @@ hashing); this file is the map of trust.
   calls before any card while the effective flag is false, and its tools
   leave the bot's list until the switch turns back on.
 - **The sandboxed `bash`** (microsandbox microVM) is the containment for
-  ordinary bot scripts: host files are not mounted, the bot's files tree is
-  synced in. From phase 4 the VM belongs to the bot's HOME, not the bot: the
+  ordinary bot scripts: the bot's files tree is synced in from artifacts,
+  and the only host folders inside a VM are the sanctioned bind mounts —
+  each home's `/home/shared`, the org-wide `/home/org-shared`, and in the
+  org VM the `/home/dept-shared/<department id>` stores. From phase 4 the
+  VM belongs to the bot's HOME, not the bot: the
   org's bots share the org VM, a department's bots its department VM, each
   in its own `/home/<bot>` folder beside a shared `/home/shared`. Slice 2b
   gives each bot its own Linux user inside every VM it uses: a fixed uid
@@ -159,7 +168,7 @@ hashing); this file is the map of trust.
   VM can therefore not exfiltrate anywhere but its own allowlist, and the
   org VM only where the org level allows. The org owner or an org admin
   edits the org VM's list; a department's own admin, their department's;
-  every change is audited (`permission` rows). An allowlist entry is a
+  every change is audited (`permission` rows). An allowlist entry is an
   exfiltration channel to that host — allowlist deliberately, treat
   allowlisted-host content as untrusted input like any web fetch. Until a
   host is allowlisted, `curl`, `pip`, `git` and every other direct network
@@ -233,7 +242,10 @@ hashing); this file is the map of trust.
   between all bots (F-H): every bot message, every shared-folder file and
   every file in `/home/org-shared` is untrusted input, like web content. A
   published template carries no vault items, memory or chats; copies are
-  independent from the moment they are made.
+  independent from the moment they are made. Bind-mounted host folders have
+  NO host-side isolation between bots: inside the VM uids hold, but on the
+  host every file belongs to the host user, so a host-side process or
+  another mount of the same store sees every bot's files (docs/SECURITY.md).
 - **The org-wide folder is a deliberate leak across departments
   (slice 2c, F-O1–F-O8)**: `/home/org-shared` is mounted read-write in the
   org VM and READ-ONLY in every department VM (F-O8: the read-only mount is
@@ -249,7 +261,9 @@ hashing); this file is the map of trust.
   the size cap (default 1 GiB, owner-editable) is enforced only where the
   server mediates writes — `bash` writes are not capped today — and nobody
   is named to back the folder up. F-O7: last write wins, no locking. F-O8:
-  see the mount note above. `bash` writes there keep the bot's umask 077
+  see the mount note above. The stored size cap (and an audit of writes)
+  stays DORMANT for `bash` writes until a mediated shared-folder tool path
+  exists. `bash` writes there keep the bot's umask 077
   and, on macOS, neither the setgid group nor POSIX ACLs cross the mount,
   so a bot shares a file deliberately (`chgrp ultiv-org` + `chmod g+r`) or
   not at all (docs/SECURITY.md).
