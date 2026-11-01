@@ -133,7 +133,11 @@ describe("hostSwitchWatch", () => {
     const configured: unknown[] = [];
     const watch = hostSwitchWatch({
       view: (async () => ({ org: { hostAccess: false }, departments: [] })) as never,
-      allProfiles: async () => [{ id: "p1", owner: "o" }, { id: "p2", owner: "o" }] as never,
+      allProfiles: async () =>
+        [
+          { id: "p1", owner: "o" },
+          { id: "p2", owner: "o" },
+        ] as never,
       agentFor: () => ({ tools: { remove: [{ name: "bash_host" }] } }) as never,
       reapply: {
         converse: {

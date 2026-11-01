@@ -118,8 +118,7 @@ export const accessOf = (
 ): Access => {
   const scope = deps.profiles.scopeOf(conversationId);
   if (scope === undefined) return { ok: false, reason: "this conversation belongs to no bot" };
-  if (scope.owner !== owner)
-    return { ok: false, reason: CONNECTOR_NOT_FOUND };
+  if (scope.owner !== owner) return { ok: false, reason: CONNECTOR_NOT_FOUND };
   const view = deps.manager.view(owner, id);
   if (view === undefined) return { ok: false, reason: CONNECTOR_NOT_FOUND };
   const home = homeOfConversation(deps, conversationId);

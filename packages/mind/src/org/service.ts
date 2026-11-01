@@ -366,9 +366,7 @@ export const orgService = (
             ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
             ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
             ...(patch.instructions !== undefined ? { instructions: patch.instructions } : {}),
-            ...(patch.sharedCapBytes !== undefined
-              ? { sharedCapBytes: patch.sharedCapBytes }
-              : {}),
+            ...(patch.sharedCapBytes !== undefined ? { sharedCapBytes: patch.sharedCapBytes } : {}),
           };
           return updated;
         });

@@ -61,9 +61,11 @@ export const allowlistPolicy = (hosts: readonly string[]): NetworkPolicy => {
   // `Rule.allowDns()` destination — the `host` group — is the one resolver
   // a guest actually uses. Port 53 to any OTHER address stays denied (no
   // DNS tunnelling to an outside resolver).
-  const dns: Rule = allowRule({ kind: "group", group: "host" }, ["udp", "tcp"], [
-    { start: 53, end: 53 },
-  ]);
+  const dns: Rule = allowRule(
+    { kind: "group", group: "host" },
+    ["udp", "tcp"],
+    [{ start: 53, end: 53 }],
+  );
   const rules: Rule[] = names.map((host) =>
     host.startsWith("*.")
       ? allowRule({ kind: "domainSuffix", suffix: host.slice(2) }, [], [])

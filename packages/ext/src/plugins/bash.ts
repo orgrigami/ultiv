@@ -320,10 +320,7 @@ const sandboxTool = (
       let session: SandboxSession;
       try {
         session = await open(dir, conversationId);
-        if (
-          session.epoch !== workspaceEpoch(dir) ||
-          session.backend.needsPrepare?.() === true
-        ) {
+        if (session.epoch !== workspaceEpoch(dir) || session.backend.needsPrepare?.() === true) {
           await load(session, dir, conversationId);
         }
       } catch (cause) {

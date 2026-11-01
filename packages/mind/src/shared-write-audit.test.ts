@@ -18,12 +18,20 @@ describe("shared-write audit rows", () => {
       { set: (r: ScopeResolver) => (resolver = r) } as unknown as ScopeHolder,
       makeApprovals(Duration.seconds(30), Duration.seconds(8)),
       { record: (event: AuditEvent) => audit.push(event) } as never,
-      { profileOf: () => ({ id: "bot-org", departmentId: null }), scopeOf: () => undefined } as never,
+      {
+        profileOf: () => ({ id: "bot-org", departmentId: null }),
+        scopeOf: () => undefined,
+      } as never,
       { available: false } as never,
       { entriesOf: () => Effect.succeed([]) } as never,
     );
     resolver?.sharedWrite?.("conv-1", [
-      { path: "/home/dept-shared/research/a.txt", bytes: 9, area: "dept-shared", departmentId: "research" },
+      {
+        path: "/home/dept-shared/research/a.txt",
+        bytes: 9,
+        area: "dept-shared",
+        departmentId: "research",
+      },
       ...Array.from({ length: 60 }, (_, i) => ({
         path: `/home/org-shared/f${i}`,
         bytes: i,

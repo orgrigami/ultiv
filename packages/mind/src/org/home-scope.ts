@@ -18,10 +18,7 @@ import { join } from "node:path";
 import { rmSync } from "node:fs";
 import { Effect } from "effect";
 import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
-import {
-  DEFAULT_DEPT_SHARED_CAP_BYTES,
-  DEFAULT_ORG_SHARED_CAP_BYTES,
-} from "@spriessen/contracts";
+import { DEFAULT_DEPT_SHARED_CAP_BYTES, DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
 import {
   artifactsDir,
   botFolderName,

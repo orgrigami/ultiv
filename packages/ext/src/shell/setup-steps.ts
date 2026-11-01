@@ -25,4 +25,3 @@ export const setfaclStep = (group: string, dir: string): string =>
     `setfacl -d -m g:${group}:rwX '${dir}'`,
     `setfacl ${dir}`,
   )}; else echo '${SETUP_WARN} setfacl missing' >&2; fi`;
-

@@ -142,7 +142,13 @@ describe("faculty tools survive every exclusion", () => {
   });
 
   it("an allowlist governs only the catalog: faculties stay", () => {
-    const agent = agentForProfile(row({ toolAllowlist: ["web_search"] }), catalog, undefined, [], all);
+    const agent = agentForProfile(
+      row({ toolAllowlist: ["web_search"] }),
+      catalog,
+      undefined,
+      [],
+      all,
+    );
     expect(namesOf(agent, registry)).toEqual([
       "web_search",
       ...faculties.map((tool) => tool.name),

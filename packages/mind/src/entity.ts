@@ -89,12 +89,7 @@ import {
   modelsLayer,
   type ModelCatalogService,
 } from "./providers/models.ts";
-import {
-  MCP_EXTENSION,
-  startMcp,
-  mcpOptionsWithHostSwitch,
-  type McpRuntime,
-} from "./mcp/index.ts";
+import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import type { SecretRequestsService } from "./secrets/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 

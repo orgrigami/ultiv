@@ -148,9 +148,7 @@ describe("shared-write audit rows", () => {
         };
       },
     });
-    const capability = plugin.capabilities.find(
-      (c) => c.kind === "tool" && c.tool.name === "bash",
-    );
+    const capability = plugin.capabilities.find((c) => c.kind === "tool" && c.tool.name === "bash");
     if (capability?.kind !== "tool") throw new Error("missing bash tool");
     const ran = await capability.tool.execute(
       { script: "true" },

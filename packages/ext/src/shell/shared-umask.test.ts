@@ -44,7 +44,9 @@ describe("writableSharedDirs", () => {
 });
 
 describe("sharedNormalizeScript", () => {
-  const script = sharedNormalizeScript(20_001, 1_700_000_000, [{ dir: "/home/shared", gid: 10_005 }]);
+  const script = sharedNormalizeScript(20_001, 1_700_000_000, [
+    { dir: "/home/shared", gid: 10_005 },
+  ]);
 
   it("touches only the bot's own files changed since the call began, never symlinks", () => {
     expect(script).toContain("-user 20001");

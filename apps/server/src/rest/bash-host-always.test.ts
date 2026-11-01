@@ -67,8 +67,9 @@ beforeAll(async () => {
   // startup migration leaves it) with host access on, and this bot is
   // granted it, so the approval mechanics decide.
   await handle.mind.org.ensureOrg("owner", "Org", true);
-  bot = (await handle.mind.profiles.create("owner", { name: "Host", onboard: false, hostAccess: true }))
-    .id;
+  bot = (
+    await handle.mind.profiles.create("owner", { name: "Host", onboard: false, hostAccess: true })
+  ).id;
   const main = await handle.mind.profiles.ensureMain("owner", bot);
   const cid = await Effect.runPromise(
     handle.mind.converse.conversationIdOf(await handle.mind.profiles.keyOfRow(main)),

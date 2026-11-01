@@ -371,9 +371,11 @@ export const sandboxShellBackend =
         const want = used > dir.capBytes ? "ro" : "rw";
         let ok = capState.get(dir.guest) === want;
         if (!ok) {
-          const applied = await rootRun(capMountScript(dir.guest, want === "ro"), HOME, 30_000).catch(
-            () => ({ stdout: "", stderr: "exec failed", exitCode: 1 }),
-          );
+          const applied = await rootRun(
+            capMountScript(dir.guest, want === "ro"),
+            HOME,
+            30_000,
+          ).catch(() => ({ stdout: "", stderr: "exec failed", exitCode: 1 }));
           ok = applied.exitCode === 0;
           if (ok) capState.set(dir.guest, want);
           else {

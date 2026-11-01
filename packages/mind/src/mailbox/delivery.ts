@@ -270,7 +270,9 @@ const afterSettled = async (
  * resolved agent offers (or can call) `message`. Unknown reads say yes — the
  * check only turns a certain silent turn into a clear refusal.
  */
-export const canReply = async (chat: { agent: (ctx: never) => Promise<unknown> }): Promise<boolean> => {
+export const canReply = async (chat: {
+  agent: (ctx: never) => Promise<unknown>;
+}): Promise<boolean> => {
   try {
     const agent = (await chat.agent(BACKGROUND_CONTEXT as never)) as {
       readonly tools?: readonly { readonly name: string }[];

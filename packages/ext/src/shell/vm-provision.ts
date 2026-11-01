@@ -185,9 +185,7 @@ export const retireScriptFor = (user: Pick<SandboxUser, "name" | "home">): strin
   [
     `if id -u ${user.name} >/dev/null 2>&1; then ${warnOnFail(`userdel -r ${user.name}`, `userdel ${user.name}`)}; fi`,
     warnOnFail(`rm -rf ${user.home}`, `rm ${user.home}`),
-  ].join(
-    "\n",
-  );
+  ].join("\n");
 
 /**
  * Applies the bot-user exec options: the command runs as `uid:gid`, with
@@ -257,7 +255,11 @@ export const cappedDirsOf = (options: SandboxBackendOptions): CappedDir[] => {
   const caps = options.caps;
   if (caps === undefined) return [];
   const out: CappedDir[] = [];
-  if (options.orgShared !== undefined && !options.orgShared.readOnly && caps.orgShared !== undefined) {
+  if (
+    options.orgShared !== undefined &&
+    !options.orgShared.readOnly &&
+    caps.orgShared !== undefined
+  ) {
     out.push({
       guest: ORG_SHARED_DIR,
       host: options.orgShared.hostDir,
@@ -444,7 +446,9 @@ export const vmSpecOf = (options: SandboxBackendOptions): VmSpec => ({
 export const mountsOf = (options: SandboxBackendOptions): string[] => {
   const out: string[] = [];
   if (options.orgShared !== undefined) {
-    out.push(`${ORG_SHARED_DIR}=${options.orgShared.hostDir}:${options.orgShared.readOnly ? "ro" : "rw"}`);
+    out.push(
+      `${ORG_SHARED_DIR}=${options.orgShared.hostDir}:${options.orgShared.readOnly ? "ro" : "rw"}`,
+    );
   }
   if (options.sharedStore !== undefined) out.push(`${SHARED_DIR}=${options.sharedStore}:rw`);
   if (options.deptShared !== undefined) {
