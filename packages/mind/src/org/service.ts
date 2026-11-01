@@ -60,6 +60,12 @@ export type OrgServiceOptions = VmSizeOptions & {
    * `{ARTIFACTS_DIR}/{owner}/_dept/<id>`; tests inject a recorder.
    */
   readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  /**
+   * Fired after every committed change (slice 10): the entity's host-access
+   * watch refreshes its flag snapshot on it and re-applies the bots' tool
+   * lists when a switch flipped. Never fails the change.
+   */
+  readonly onChanged?: () => void;
 };
 
 /** The whole org state, normalized (missing fields filled, never overwritten). */
@@ -195,6 +201,19 @@ export const orgService = (
   converse: ConverseService,
   options: OrgServiceOptions = {},
 ): OrgService => {
+  // Every committed change fires `onChanged` (slice 10): the entity's
+  // host-access watch lives on it. Best effort — never fails the change.
+  const fireChanged = (): void => {
+    try {
+      options.onChanged?.();
+    } catch {
+      // Observers must not break the commit path.
+    }
+  };
+  const commit = async (change: (draft: OrgState) => void): Promise<void> => {
+    await commitOrg(converse, change);
+    fireChanged();
+  };
   const view = async (): Promise<OrgView> => {
     const state = await readOrgState(converse);
     return {
@@ -224,7 +243,7 @@ export const orgService = (
         orgSharedCapBytes: DEFAULT_ORG_SHARED_CAP_BYTES,
       };
       const member: MemberInfo = { accountId: owner, role: "owner", departmentId: null };
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         if (draft.org !== null) return;
         draft.org = org;
         draft.members = [...draft.members, member];
@@ -250,7 +269,7 @@ export const orgService = (
         options,
       );
       let updated: OrgInfo | undefined;
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         if (draft.org === null) return;
         updated = {
           ...draft.org,
@@ -300,7 +319,7 @@ export const orgService = (
         netAllowlist: input.netAllowlist ?? [],
         sharedGid: nextGid(state),
       };
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.departments = [...draft.departments, row];
       });
       // The org VM picks the new store up live (the parent mount shows it);
@@ -322,7 +341,7 @@ export const orgService = (
         options,
       );
       let updated: DepartmentInfo | undefined;
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.departments = draft.departments.map((row) => {
           if (row.id !== id) return row;
           updated = {
@@ -349,7 +368,7 @@ export const orgService = (
       if (profiles.some((profile) => profile.departmentId === id)) {
         throw new InvalidInput({ reason: "the department still has bots" });
       }
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.departments = draft.departments.filter((row) => row.id !== id);
         draft.members = draft.members.filter((member) => member.departmentId !== id);
         draft.grants = draft.grants.filter(
@@ -372,7 +391,7 @@ export const orgService = (
       return true;
     },
     setMember: async (input) => {
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         const rest = draft.members.filter(
           (member) =>
             !(member.accountId === input.accountId && member.departmentId === input.departmentId),
@@ -390,7 +409,7 @@ export const orgService = (
       ) {
         return false;
       }
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.members = draft.members.filter(
           (member) => !(member.accountId === accountId && member.departmentId === departmentId),
         );
@@ -407,7 +426,7 @@ export const orgService = (
         createdBy: by,
         revokedAt: null,
       };
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.grants = [...draft.grants, grant];
       });
       return grant;
@@ -416,7 +435,7 @@ export const orgService = (
       const state = await readOrgState(converse);
       const grant = state.grants.find((row) => row.id === id && row.revokedAt === null);
       if (grant === undefined) return false;
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.grants = draft.grants.map((row) =>
           row.id === id && row.revokedAt === null ? { ...row, revokedAt: Date.now() } : row,
         );
@@ -426,7 +445,7 @@ export const orgService = (
     activeGrants: async () =>
       (await readOrgState(converse)).grants.filter((grant) => grant.revokedAt === null),
     putTemplate: async (template) => {
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.templates = [...draft.templates.filter((row) => row.id !== template.id), template];
       });
       return template;
@@ -434,7 +453,7 @@ export const orgService = (
     removeTemplate: async (id) => {
       const state = await readOrgState(converse);
       if (!state.templates.some((row) => row.id === id)) return false;
-      await commitOrg(converse, (draft) => {
+      await commit((draft) => {
         draft.templates = draft.templates.filter((row) => row.id !== id);
       });
       return true;

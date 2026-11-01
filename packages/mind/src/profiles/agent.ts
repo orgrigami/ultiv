@@ -12,10 +12,15 @@ export const agentForProfile = (
   tools: () => readonly { readonly name: string }[],
   /** Names an allowlist implies (allowlisting a connector tool implies `connector_load`). */
   implied: (allowlist: readonly string[]) => readonly string[] = () => [],
+  /** Host-direct tool names dropped while the bot's host-access switch is off (slice 10). */
+  hostExcluded: readonly string[] = [],
 ): AgentChange => {
   // Sandbox off removes the tool outright (never falls back to the host
   // shell — that would quietly change what every approval was approving).
-  const excluded = profile.policies.sandbox === false ? SANDBOX_TOOLS : [];
+  // The host-access switch removes its own set the same way: absent from the
+  // list, not merely gated (slice 10).
+  const excluded =
+    profile.policies.sandbox === false ? [...SANDBOX_TOOLS, ...hostExcluded] : hostExcluded;
   const names =
     profile.toolAllowlist === null
       ? null

@@ -8,7 +8,7 @@ import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { convertToolResult, type McpServerView, type McpToolView } from "@spriessen/ext";
 import { withAudit } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
-import { accessOf, approvalFor, type McpMindDeps } from "./access.ts";
+import { accessOf, approvalFor, hostDirectRefusal, type McpMindDeps } from "./access.ts";
 import { toolSchemaOf } from "./schema.ts";
 
 const errorText = (cause: unknown): string =>
@@ -32,6 +32,10 @@ const executeFor =
     const access = accessOf(deps, conversationId, owner, id);
     if (!access.ok) return textReply(`refused: ${access.reason}`, true);
     const { view } = access;
+    // Host-direct (stdio) first, before any approval path (slice 10): a
+    // false switch refuses even a first-use card or an auto-allowed read.
+    const switched = await hostDirectRefusal(deps, conversationId, view);
+    if (switched !== null) return textReply(switched, true);
     const tool = view.tools.find((candidate) => candidate.name === toolName);
     if (tool === undefined || !tool.enabled) {
       return textReply("refused: this connector tool is switched off or gone", true);

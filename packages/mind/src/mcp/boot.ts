@@ -4,6 +4,8 @@
  * never shadow (every tool installed before connectors).
  */
 import type { Registry } from "@earendil-works/pi-durable";
+import type { ProfileInfo } from "@spriessen/contracts";
+import type { HostSwitchWatch } from "../org/host-switch.ts";
 import {
   makeMcpConfigStore,
   makeMcpManager,
@@ -38,7 +40,37 @@ export interface McpOptions {
   readonly settleMs?: number;
   /** Secure-input wait (default 10 min). */
   readonly secretTimeoutMs?: number;
+  /**
+   * The host-access switch for the HOST-DIRECT (stdio) connectors (slice
+   * 10): per-call refusal before any approval, and the synchronous answer
+   * for the prompt section. Absent in bare tests — connectors behave as before.
+   */
+  readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
+  readonly hostAllowed?: (profile: ProfileInfo) => boolean;
 }
+
+/**
+ * Merge the app's MCP options with the mind's host-access seam (slice 10):
+ * the switch derived from `authz.hostAccess` decides; the section reads the
+ * watch's snapshot lazily (the watch boots after the connectors).
+ */
+export const mcpOptionsWithHostSwitch = (
+  options: McpOptions | undefined,
+  host:
+    | {
+        readonly hostAccess: (conversationId: string) => boolean | Promise<boolean>;
+        readonly watch: () => HostSwitchWatch | undefined;
+      }
+    | undefined,
+): McpOptions => ({
+  ...options,
+  ...(host === undefined
+    ? {}
+    : {
+        hostAccess: host.hostAccess,
+        hostAllowed: (profile: ProfileInfo) => host.watch()?.allows(profile) ?? true,
+      }),
+});
 
 export interface McpRuntime {
   readonly manager: McpManager;
@@ -92,6 +124,8 @@ export const startMcp = (
     secrets,
     vault: vault.store,
     bindings: vault.bindings,
+    ...(options.hostAccess !== undefined ? { hostAccess: options.hostAccess } : {}),
+    ...(options.hostAllowed !== undefined ? { hostAllowed: options.hostAllowed } : {}),
     ...(options.settleMs !== undefined ? { settleMs: options.settleMs } : {}),
   });
   if (options.boot !== false) manager.boot();

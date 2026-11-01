@@ -110,15 +110,19 @@ hashing); this file is the map of trust.
 
 ## 3. What escapes the sandbox by design
 
-- **Host access has three switches (phase 3)**: org AND department AND bot
-  for a department bot; org AND bot for an org bot; every level defaults to
-  off for anything created after the migration (the migration turned the
-  org and the existing bots on, F1). The effective flag gates every
-  host-running tool before any card exists (`effectiveHostAccess` in
+- **Host access has three switches (phase 3, enforced first-in-line in
+  slice 10)**: org AND department AND bot for a department bot; org AND bot
+  for an org bot; every level defaults to off for anything created after the
+  migration (the migration turned the org and the existing bots on, F1). The
+  effective flag gates every host-running tool before any approval decision
+  exists — yolo and Jev cannot bypass it, and a stored allow rule sits
+  dormant while off (`effectiveHostAccess` in
   `packages/mind/src/org/model.ts`, consulted through `openMind`'s
-  `authz.hostAccess`). Only the org owner may flip a switch; every change
-  is audited and approves nothing already queued (F6). A switch that is on
-  under an off level is inert and the UI names the blocking level (F4).
+  `authz.hostAccess`). While off, the host-direct tools are absent from the
+  bot's tool list; while on, the approval rules apply as before. Only the
+  org owner may flip a switch; every change is audited and refuses calls
+  already queued at decide time (F6). A switch that is on under an off level
+  is inert and the UI names the blocking level (F4).
 - **`bash_host`** runs a script DIRECTLY on the host that runs the server: it
   can read and write everything that account can, including `.env`, the data
   folder, the vault's key material on disk and every bot's files. Nothing in
@@ -131,7 +135,10 @@ hashing); this file is the map of trust.
   with the server account's permissions, see their env (a minimal allowlist
   plus vault-referenced values), and can reach whatever the network allows.
   They are inside the trust boundary the moment they start; only install them
-  from sources you trust.
+  from sources you trust. Their tools are HOST-DIRECT (slice 10): a stdio
+  connector sits under the same three-switch flag as `bash_host`, refuses
+  calls before any card while the effective flag is false, and its tools
+  leave the bot's list until the switch turns back on.
 - **The sandboxed `bash`** (microsandbox microVM) is the containment for
   ordinary bot scripts: host files are not mounted, the bot's files tree is
   synced in. From phase 4 the VM belongs to the bot's HOME, not the bot: the

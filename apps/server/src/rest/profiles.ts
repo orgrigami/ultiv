@@ -110,10 +110,13 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
       }
       // The per-bot model preference and tool set are durable agent state: a
       // change applies to every existing conversation too (main, sessions,
-      // room seats), not just future ones.
+      // room seats), not just future ones. A host-access flip or a move
+      // between homes changes the host-direct tools too (slice 10, F5).
       const toolsChanged =
         (patch.policies as { sandbox?: unknown } | undefined)?.sandbox !== undefined ||
-        patch.toolAllowlist !== undefined;
+        patch.toolAllowlist !== undefined ||
+        patch.hostAccess !== undefined ||
+        patch.departmentId !== undefined;
       if (patch.model !== undefined || toolsChanged) {
         await applyAgentPreference(args, updated, toolsChanged);
       }

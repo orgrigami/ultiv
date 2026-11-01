@@ -89,8 +89,9 @@ import {
   modelsLayer,
   type ModelCatalogService,
 } from "./providers/models.ts";
-import { startMcp, type McpRuntime } from "./mcp/index.ts";
+import { startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import type { SecretRequestsService } from "./secrets/index.ts";
+import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 
 export interface MindDescription {
   readonly entity: string;
@@ -219,6 +220,8 @@ const mindLayerRaw = (
       const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
       const reconcileDeptGroups = wiring.reconcileDeptGroups ?? defaultReconcileDeptGroups();
       const deleteDeptStore = wiring.deleteDeptStore ?? defaultDeleteDeptStore();
+      // Slice 10: the switch watch — snapshot for the list exclusion, re-applies on a flip.
+      const hostSwitch: { current: HostSwitchWatch | undefined } = { current: undefined };
       const profiles = profilesService({
         converse,
         generate,
@@ -230,6 +233,12 @@ const mindLayerRaw = (
           ...(mcpRef?.wiring.allowlistTools() ?? []),
         ],
         implied: (allowlist) => mcpRef?.wiring.implied(allowlist) ?? [],
+        hostExcluded: (profile) =>
+          hostExcludedTools(
+            hostSwitch.current?.flags(),
+            profile,
+            mcpRef?.wiring.hostDirectToolNames() ?? [],
+          ),
         // An empty catalog (models.dev unreachable on a first boot) cannot
         // judge: the ref is kept and works once the catalog lands.
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
@@ -240,6 +249,8 @@ const mindLayerRaw = (
         retireBotUser,
         reconcileDeptGroups,
         deleteDeptStore,
+        // Slice 10: a flip re-applies every bot's agent (its tool list changed).
+        onChanged: () => hostSwitch.current?.onOrgChange(),
       });
       // Persona and Instructions files: every existing bot gets both, once.
       void Effect.runPromise(readProfiles(converse))
@@ -323,13 +334,21 @@ const mindLayerRaw = (
       piRegistry.install(deadlinesExtension(deadlines));
       yield* Effect.addFinalizer(() => Effect.sync(deadlines.stop));
       // Connectors install after everything else so their names never shadow ours.
+      // Slice 10: the stdio connectors ride the same switch (per-call gate + section).
+      const mcpHost =
+        wiring.hostAccess === undefined
+          ? undefined
+          : { hostAccess: wiring.hostAccess, watch: () => hostSwitch.current };
       const mcp = startMcp(
         piRegistry,
         { approvals, audit, profiles },
         { store: wiring.vaultStore, root: wiring.vaultRoot, bindings: wiring.bindings },
-        wiring.mcp,
+        mcpOptionsWithHostSwitch(wiring.mcp, mcpHost),
       );
       mcpRef = mcp;
+      // Slice 10: the watch is live at boot; the awaited read removes the race.
+      hostSwitch.current = mindHostSwitchWatch({ org, profiles, converse, tasks });
+      yield* Effect.promise(() => hostSwitch.current?.refresh() ?? Promise.resolve());
       yield* Effect.addFinalizer(() => Effect.promise(mcp.close));
       // Turns a restart cut off continue now, with every tool installed
       // (connector tools join as their servers connect). One cut off too many

@@ -10,7 +10,14 @@ import { convertResource, fenceUntrusted, type McpServerView } from "@spriessen/
 import { defineTool } from "@spriessen/ext";
 import { withAudit } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
-import { accessOf, approvalFor, visibleServers, type McpMindDeps } from "./access.ts";
+import {
+  accessOf,
+  approvalFor,
+  hostDirectRefusal,
+  isHostDirectServer,
+  visibleServers,
+  type McpMindDeps,
+} from "./access.ts";
 
 export const CONNECTOR_LOAD = "connector_load";
 export const CONNECTOR_RESOURCES = "connector_resources";
@@ -51,6 +58,10 @@ const loadTool = (deps: McpMindDeps) =>
       const conversationId = String(api.conversationId);
       const found = findServer(deps, conversationId, args.server);
       if (typeof found === "string") return textReply(found, true);
+      // A stdio connector's tools are host-direct (slice 10): a false switch
+      // leaves them unloadable, whatever the section showed.
+      const switched = await hostDirectRefusal(deps, conversationId, found);
+      if (switched !== null) return textReply(switched, true);
       const allowlist = deps.profiles.profileOf(conversationId)?.toolAllowlist ?? null;
       const wanted = args.tools?.map((name) => name.trim());
       const tools = found.tools.filter(
@@ -90,6 +101,9 @@ const resourcesTool = (deps: McpMindDeps) =>
       const { owner, id } = found.record;
       const access = accessOf(deps, conversationId, owner, id);
       if (!access.ok) return textReply(`refused: ${access.reason}`, true);
+      // Resources of a stdio server come from its host process (slice 10).
+      const switched = await hostDirectRefusal(deps, conversationId, found);
+      if (switched !== null) return textReply(switched, true);
       if (!found.status.hasResources) return textReply("this connector offers no resources", true);
       const denial = await approvalFor(deps, api, found, {
         name: CONNECTOR_RESOURCES,
@@ -140,16 +154,25 @@ export const connectorsSection = (deps: McpMindDeps): PromptSection => ({
   key: "connectors",
   render: (input) => {
     const conversationId = String(input.conversationId);
+    const profile = deps.profiles.profileOf(conversationId);
     const visible = visibleServers(deps, conversationId);
+    // A stdio server under a false host-access switch stays out of the
+    // section (slice 10): the bot has no path to its tools.
+    const listed =
+      deps.hostAllowed === undefined || profile === undefined
+        ? visible
+        : visible.filter(
+            (view) => !isHostDirectServer(view) || deps.hostAllowed?.(profile) === true,
+          );
     const noted = deps.notes.has(conversationId);
     if (visible.length === 0 && !noted) return undefined;
-    const lines = visible.map((view) => {
+    const lines = listed.map((view) => {
       const tools = view.tools.filter((tool) => tool.enabled).map((tool) => tool.name);
       const shown = tools.slice(0, 12).join(", ") + (tools.length > 12 ? ", …" : "");
       return `- ${view.record.slug} (${stateWords(view)}): ${tools.length} tool(s)${shown === "" ? "" : ` — ${shown}`}`;
     });
     const intro =
-      visible.length === 0
+      listed.length === 0
         ? ""
         : `Connectors (MCP servers) you can use. Load tools with ${CONNECTOR_LOAD} before ` +
           `calling them; ${CONNECTOR_RESOURCES} lists or reads resources. Calls may wait for ` +

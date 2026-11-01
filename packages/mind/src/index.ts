@@ -47,6 +47,8 @@ export * from "./entity.ts";
 export * from "./migrate/owners.ts";
 export * from "./org/model.ts";
 export * from "./org/service.ts";
+export * from "./org/host-switch.ts";
+export { isHostDirectServer } from "./mcp/access.ts";
 export * from "./org/migrate.ts";
 export * from "./org/reach.ts";
 export * from "./org/home-rules.ts";

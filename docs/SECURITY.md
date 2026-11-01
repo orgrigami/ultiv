@@ -243,7 +243,22 @@ org AND department AND bot for a department bot, org AND bot for an org bot;
 only the org owner flips a switch (the `host-flag` resource in `can()`, F3);
 every change writes a `permission` audit row and approves nothing already
 queued (F6); `GET /api/org/host-access` returns the matrix with the blocking
-level for the UI (F4).
+level for the UI (F4). Slice 10 makes the switch first-in-line everywhere:
+the per-call gates (the act's guard, the connector call gate) run BEFORE the
+approval broker, so a false switch wins over yolo and over Jev, and a stored
+exact-command allow rule sits dormant — not deleted — and applies again the
+moment the switch turns on. While the effective value is false the
+host-direct tools are absent from the bot's tool list (`bash_host` and the
+stdio connectors' tools, `hostExcludedTools` in
+`packages/mind/src/org/host-switch.ts`); a switch change re-applies every
+affected bot's agent, so existing chats lose and regain the tools at once.
+A queued host-direct call is refused at DECIDE time when the switch went
+false after the card was parked (the `approval` resource's `hostBlocked`,
+checked first in `can()`; both decide paths ask `hostSwitchRefusal`).
+stdio MCP connectors are host-direct — their server runs as a host process —
+so they sit under the same switch: a stdio server under a false switch
+refuses calls before any first-use card, its tools cannot be loaded, and it
+is left out of the connectors prompt section.
 
 **The main bot's admin tools** (`packages/mind/src/admin/`, plus
 `bot_create`): `departments_list`, `department_create`, `department_update`,

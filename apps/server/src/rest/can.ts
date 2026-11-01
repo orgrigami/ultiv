@@ -56,6 +56,12 @@ export type Resource =
       readonly owner: string;
       readonly id: string;
       readonly home?: HomeRef;
+      /**
+       * The bot's host-access switch went false while the card was parked
+       * (slice 10): the switch is checked FIRST, so every approver is
+       * refused like the item is missing — the approval rules never run.
+       */
+      readonly hostBlocked?: boolean;
     }
   | {
       /** A bot (`caller`) managing bots and departments; `main` is its account's main bot. */
@@ -164,6 +170,9 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
         (view !== undefined && roleAt(actor, view, resource.departmentId) === "admin")
       );
     case "approval": {
+      // The host-access switch decides first (slice 10): a false switch
+      // refuses every approver, before the routing rules below.
+      if (resource.hostBlocked === true) return false;
       // Deciding a card is not reading the chat. Routing (slice 6): the chat
       // starter, then for a department bot its department's admins and the
       // org owner; for an org bot the org owner and org admins.

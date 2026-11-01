@@ -11,6 +11,7 @@ import {
   type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import type { BindingStore, McpServerView } from "@spriessen/ext";
+import { isHostDirectServer } from "./access.ts";
 import { secretTools } from "../secrets/tool.ts";
 import {
   CONNECTOR_LOAD,
@@ -48,6 +49,8 @@ const signatureOf = (view: McpServerView): string =>
 export interface McpWiring {
   /** Every connector tool registration, for per-bot allowlists. */
   readonly allowlistTools: () => readonly ToolRegistration[];
+  /** Tool names of the host-direct (stdio) servers — host-direct like bash_host (slice 10). */
+  readonly hostDirectToolNames: () => readonly string[];
   /** Allowlisting any connector tool implies the helper tools. */
   readonly implied: (allowlist: readonly string[]) => readonly string[];
   /** Re-sync the registry now (the manager's change feed also does). */
@@ -90,6 +93,11 @@ export const wireMcp = (registry: Registry, deps: WireDeps): McpWiring => {
       ...helpers,
       ...deps.manager.views().flatMap((view) => serverTools(deps, view)),
     ],
+    hostDirectToolNames: () =>
+      deps.manager
+        .views()
+        .filter(isHostDirectServer)
+        .flatMap((view) => view.tools.filter((tool) => tool.enabled).map((tool) => tool.name)),
     implied: (allowlist) => {
       const names = new Set(
         deps.manager.views().flatMap((view) => view.tools.map((tool) => tool.name)),

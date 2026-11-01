@@ -6,12 +6,13 @@
  */
 import { defineExtension, type Extension } from "@earendil-works/pi-durable";
 import type { RegistryService, Tool } from "@spriessen/ext";
+import { HOST_DIRECT_TOOLS, HOST_REFUSAL } from "../org/host-switch.ts";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { withTaskNudge, type NudgeGate } from "./nudge.ts";
 
 /** Tools that run directly on the server's own machine (see can()'s host capability). */
-const HOST_TOOLS: ReadonlySet<string> = new Set(["bash_host"]);
+const HOST_TOOLS: ReadonlySet<string> = new Set(HOST_DIRECT_TOOLS);
 
 export interface ActService {
   readonly tools: () => readonly Tool[];
@@ -40,7 +41,7 @@ export const actService = (
         ? async (_args: unknown, api: unknown): Promise<string | undefined> =>
             (await hostAccess(String((api as { conversationId?: unknown }).conversationId ?? "")))
               ? undefined
-              : "this bot does not have access to this computer (the owner has not granted it)"
+              : HOST_REFUSAL
         : undefined;
     return withApproval(approvals, tool, guard !== undefined ? { guard } : undefined);
   };

@@ -38,6 +38,21 @@ describe("can", () => {
     expect(can("", "view", { type: "account" })).toBe(false);
     expect(can("agent", "change", { type: "host" })).toBe(false);
   });
+
+  it("a false host-access switch refuses every approver before the routing (slice 10)", () => {
+    const card = (hostBlocked?: boolean) =>
+      ({
+        type: "approval",
+        owner: "owner-a",
+        id: "c1",
+        home: { kind: "org" },
+        ...(hostBlocked === undefined ? {} : { hostBlocked }),
+      }) as const;
+    // The same approver the routing would allow is refused while blocked.
+    expect(can("owner-a", "decide", card(true), view)).toBe(false);
+    expect(can("owner-a", "decide", card(false), view)).toBe(true);
+    expect(can("owner-a", "decide", card(), view)).toBe(true);
+  });
 });
 
 /**
@@ -181,13 +196,11 @@ const crossHomeCases: {
   readonly actor: string;
   readonly action: Action;
   readonly type: "bot" | "record" | "artifact" | "file";
-}[] = [
-  ...["admin-x", "member-x", "viewer-x", "stranger"].flatMap((actor) =>
-    (["view", "change", "remove", "decide"] as const).flatMap((action) =>
-      (["bot", "record", "artifact", "file"] as const).map((type) => ({ actor, action, type })),
-    ),
+}[] = ["admin-x", "member-x", "viewer-x", "stranger"].flatMap((actor) =>
+  (["view", "change", "remove", "decide"] as const).flatMap((action) =>
+    (["bot", "record", "artifact", "file"] as const).map((type) => ({ actor, action, type })),
   ),
-];
+);
 
 describe("cross-home isolation (phase 4 slice 5)", () => {
   it("another home's bot-owned resource answers exactly like a missing id, every cell", () => {

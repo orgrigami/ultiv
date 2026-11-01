@@ -5,6 +5,7 @@
  * card the org owner and org admins. Deciding a card never reads the chat.
  */
 import { homeOf } from "@spriessen/mind";
+import { hostSwitchRefusal } from "../host-switch.ts";
 import type { RouteArgs } from "./types.ts";
 import { can } from "./can.ts";
 
@@ -53,17 +54,44 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
     const scope = mind.profiles.scopeOf(conversationId ?? "");
     const home = await homeOfConversation(conversationId ?? "");
     const view = await mind.org.view();
+    // A stale decide (the call already resolved) is a 409, not a silent ok —
+    // the chord path throws for the same race, and the surfaces agree.
+    const waiting = mind.approvals
+      .pendingFor(conversationId ?? "")
+      .find((request) => request.callId === callId);
+    // Slice 10: the host-access switch re-checks at DECIDE time and rides
+    // into can() as `hostBlocked` — a false switch refuses every approver
+    // BEFORE the routing rules, and the stored allow rules stay dormant
+    // (they apply again when the switch turns on).
+    const switchRefusal =
+      waiting !== undefined
+        ? await hostSwitchRefusal(mind, conversationId ?? "", waiting.name)
+        : null;
+    // A stale decide (the call already resolved) is a 409, not a silent ok —
+    // the chord path throws for the same race, and the surfaces agree. The
+    // can() refusal (a false switch included) comes FIRST: a non-approver
+    // reads the same 403 whatever the call id names.
     if (
       scope === undefined ||
       home === undefined ||
       !can(
         args.owner,
         "decide",
-        { type: "approval", owner: scope.owner, id: conversationId ?? "", home },
+        {
+          type: "approval",
+          owner: scope.owner,
+          id: conversationId ?? "",
+          home,
+          ...(switchRefusal !== null ? { hostBlocked: true } : {}),
+        },
         view,
       )
     ) {
       json(403, { error: "not your conversation" });
+      return true;
+    }
+    if (waiting === undefined) {
+      json(409, { error: "this approval is no longer waiting" });
       return true;
     }
     const body = await args.readJson<{
@@ -72,16 +100,7 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       takeover?: boolean;
       input?: unknown;
     }>(req);
-    const approved = body.approved === true;
-    // A stale decide (the call already resolved) is a 409, not a silent ok —
-    // the chord path throws for the same race, and the surfaces agree.
-    const waiting = mind.approvals
-      .pendingFor(conversationId ?? "")
-      .find((request) => request.callId === callId);
-    if (waiting === undefined) {
-      json(409, { error: "this approval is no longer waiting" });
-      return true;
-    }
+    const approved = body.approved === true && switchRefusal === null;
     // "Always allow" from the inbox saves the same per-profile rule the chat
     // card does; a failed save must not swallow the decision. An empty
     // result means the call stays gated by its pattern — noted in the audit
@@ -104,15 +123,17 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
       conversationId ?? "",
       callId ?? "",
       approved,
-      // "Take over" from the inbox: same note the chat card sends.
+      // "Take over" from the inbox: same note the chat card sends. A switch
+      // refusal rides as the note too (the tool reads it).
       !approved && body.takeover === true
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
-        : undefined,
+        : (switchRefusal ?? undefined),
       // An editable card may approve with the owner's corrected input.
       approved && body.input !== undefined ? body.input : undefined,
     );
     const notes = [
       !approved && body.takeover === true ? "taken over by the owner" : null,
+      switchRefusal,
       stored !== null && stored.length === 0
         ? "always-allow skipped: the call stays gated by its pattern"
         : null,

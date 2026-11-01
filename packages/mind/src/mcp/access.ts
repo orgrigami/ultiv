@@ -6,6 +6,7 @@
  * switched on "auto-allow read-only" for that server.
  */
 import { Effect } from "effect";
+import type { ProfileInfo } from "@spriessen/contracts";
 import type { McpManager, McpServerView } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
@@ -20,6 +21,19 @@ export interface McpMindDeps {
   readonly notes: UntrustedNotes;
   /** Per-call timeout for tool calls and resource reads. */
   readonly callTimeoutMs: number;
+  /**
+   * The host-access switch (slice 10): stdio connectors' servers run as host
+   * processes, so their tools are host-direct. Refused per call BEFORE any
+   * approval card (first use included); undefined in bare tests, where the
+   * switch is not wired and connectors behave as before.
+   */
+  readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
+  /**
+   * The same switch, synchronously off the entity's flag snapshot — for the
+   * prompt section, which cannot await. Unknown flags count as allowed (the
+   * per-call gate still refuses, so the section never opens access).
+   */
+  readonly hostAllowed?: (profile: ProfileInfo) => boolean;
 }
 
 const FIRST_USE_PREFIX = "mcp (first use of ";
@@ -36,6 +50,32 @@ export type Access =
 
 /** The home segment of a server record: the stored one, else the org. */
 const segmentOf = (view: McpServerView): string => view.record.home ?? "org";
+
+/**
+ * A stdio server runs as a host process (slice 10): its tools are
+ * host-direct, under the org/department/bot switch like `bash_host`. `auto`
+ * never resolves to stdio (it tries HTTP, then SSE), so the stored transport
+ * or the resolved one decides.
+ */
+export const isHostDirectServer = (view: McpServerView): boolean =>
+  view.record.transport === "stdio" || view.status.activeTransport === "stdio";
+
+/**
+ * The host-switch refusal for one server's call: a reason string when the
+ * bot's effective host access is false and the server is stdio, else null.
+ * Fail closed: a failing switch resolver refuses.
+ */
+export const hostDirectRefusal = async (
+  deps: Pick<McpMindDeps, "hostAccess">,
+  conversationId: string,
+  view: McpServerView,
+): Promise<string | null> => {
+  if (!isHostDirectServer(view) || deps.hostAccess === undefined) return null;
+  const verdict = await Promise.resolve(deps.hostAccess(conversationId)).catch(() => false);
+  return verdict
+    ? null
+    : "refused: this bot does not have access to this computer (the owner has not granted it)";
+};
 
 /** The conversation's home segment, when the conversation belongs to a bot. */
 const homeOfConversation = (deps: McpMindDeps, conversationId: string): string | undefined => {

@@ -10,6 +10,7 @@
  */
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
+import type { ProfileInfo } from "@spriessen/contracts";
 import { agentForProfile } from "./agent.ts";
 import type { BotFilesService } from "./bot-files.ts";
 import { conversationIndex } from "./conversation-index.ts";
@@ -39,6 +40,12 @@ export const profilesService = (deps: {
   readonly tools: () => readonly { readonly name: string }[];
   /** Names an allowlist implies (connector helpers). */
   readonly implied?: (allowlist: readonly string[]) => readonly string[];
+  /**
+   * Host-direct tool names a bot loses while its host-access switch is off
+   * (slice 10): `bash_host` plus its home's stdio connector tools. Absent in
+   * bare tests, where every tool stays listed.
+   */
+  readonly hostExcluded?: (profile: ProfileInfo) => readonly string[];
   /** Whether a model ref is in the live catalog; every ref passes without one (tests). */
   readonly knownModel?: (ref: string) => boolean;
   /** Persona and Instructions files (docs/BOT-FILES.md). */
@@ -47,7 +54,7 @@ export const profilesService = (deps: {
   readonly retireUserFromHome?: ProfilesContext["retireUserFromHome"];
 }): ProfilesService => {
   const agentFor: ProfilesService["agentFor"] = (profile) =>
-    agentForProfile(profile, deps.tools, deps.implied);
+    agentForProfile(profile, deps.tools, deps.implied, deps.hostExcluded?.(profile) ?? []);
   const index = conversationIndex(deps.converse, agentFor);
   const ctx: ProfilesContext = {
     converse: deps.converse,

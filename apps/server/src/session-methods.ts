@@ -10,6 +10,7 @@ import type { SendMode, ThinkingLevel } from "@spriessen/contracts";
 import { redirectTurn, releaseQuestions, stopTurn, type MindService } from "@spriessen/mind";
 import { buildInputContent } from "./input-content.ts";
 import { ownerErrorText } from "./error-text.ts";
+import { hostSwitchRefusal } from "./host-switch.ts";
 import type { Principal } from "./identity.ts";
 import {
   safeChange,
@@ -91,13 +92,19 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
   return async ({ callId, approved, always, takeover, input }: ApproveInput, ctx: C) => {
     const id = await conversationId;
     const waiting = mind.approvals.pendingFor(id).find((r) => r.callId === callId);
+    // Slice 10: the host-access switch re-checks at DECIDE time — a queued
+    // host-direct call is refused when the switch went false after the card
+    // was parked, whatever the approver says.
+    const switchRefusal =
+      approved && waiting !== undefined ? await hostSwitchRefusal(mind, id, waiting.name) : null;
+    const effective = approved && switchRefusal === null;
     // "Always allow" saves the tool on the profile's autoApprove list;
     // the broker's hook reads policies live, so the next call skips the
     // gate. A failed rule save must not swallow the decision itself, and
     // an EMPTY result (the call stays gated by its pattern) is noted in
     // the audit record so the skipped save is not invisible.
     let stored: string[] | null = null;
-    if (approved && always === true && waiting !== undefined) {
+    if (effective && always === true && waiting !== undefined) {
       const profile = mind.profiles.profileOf(id);
       if (profile !== undefined) {
         try {
@@ -113,18 +120,20 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
     mind.approvals.decide(
       id,
       callId,
-      approved,
+      effective,
       // "Take over": the owner does this one themselves — the agent is
-      // told not to retry, so the turn carries on without nagging.
+      // told not to retry, so the turn carries on without nagging. A
+      // switch refusal rides as the note too (the tool reads it).
       takenOver
         ? "the owner is handling this themselves - do not retry; carry on and let them tell you when it is done"
-        : undefined,
+        : (switchRefusal ?? undefined),
       // An editable card (bot_create) may approve with the owner's corrected
       // input; it replaces the proposed arguments inside the gate.
-      approved && input !== undefined ? input : undefined,
+      effective && input !== undefined ? input : undefined,
     );
     const notes = [
       takenOver ? "taken over by the owner" : null,
+      switchRefusal,
       stored !== null && stored.length === 0
         ? "always-allow skipped: the call stays gated by its pattern"
         : null,
@@ -137,7 +146,7 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
       callId,
       name: waiting?.name ?? null,
       durationMs: null,
-      ok: approved,
+      ok: effective,
       error: notes.length === 0 ? null : notes.join("; "),
     });
     safeChange(cells.pending, ctx, () => mind.approvals.pendingFor(id)[0] ?? null);
