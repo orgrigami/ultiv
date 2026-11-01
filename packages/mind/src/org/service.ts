@@ -497,7 +497,7 @@ export const departmentInstructionsOf =
 
 /** The department a bot belongs to (null for an org bot); by profile row. */
 export const departmentOfProfileRow =
-  (converse: ConverseService) =>
+  (_converse: ConverseService) =>
   async (profile: { readonly departmentId?: string | null }): Promise<string | null> =>
     typeof profile.departmentId === "string" && profile.departmentId !== ""
       ? profile.departmentId

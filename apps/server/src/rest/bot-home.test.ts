@@ -9,7 +9,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { Effect } from "effect";
 import { openMind } from "@spriessen/mind";
 import { createRestHandler } from "../rest.ts";
 import { AuthStore } from "../auth/store.ts";

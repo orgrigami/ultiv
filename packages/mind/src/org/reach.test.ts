@@ -32,7 +32,6 @@ describe("crossHome", () => {
 describe("the mailbox reach audit (wired in the entity)", () => {
   it("a cross-home send writes one reach row; a same-home send writes none", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
-    const converse = handle.mind.converse;
     await handle.mind.org.ensureOrg("owner", "Personal", true);
     const a = await handle.mind.org.createDepartment({ name: "Alpha" }, "owner");
     const b = await handle.mind.org.createDepartment({ name: "Beta" }, "owner");

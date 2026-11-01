@@ -7,7 +7,7 @@
  * to the backend options. No VM runtime is touched.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { homeWorldOf } from "../plugins/bash.ts";

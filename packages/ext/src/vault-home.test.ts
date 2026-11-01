@@ -164,7 +164,7 @@ describe("vault tools are home-scoped", () => {
       { conversationId: "c1" } as never,
       {} as never,
     );
-    return (result.output?.[0] as { text: string }).text;
+    return (result.output?.[0] as { text: string } | undefined)?.text ?? "";
   };
 
   it("vault_list shows a department bot its home's items, never the org's", async () => {
@@ -222,7 +222,7 @@ describe("the broker refuses another home's credential, audited; a granted item 
         );
         return {
           ...(result.isError !== undefined ? { isError: result.isError } : {}),
-          text: (result.output?.[0] as { text: string }).text,
+          text: (result.output?.[0] as { text: string } | undefined)?.text ?? "",
         };
       },
     };

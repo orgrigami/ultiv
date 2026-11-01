@@ -26,7 +26,7 @@ let server: Server;
 let base = "";
 let cookie = "";
 
-const call = async (
+const _call = async (
   method: string,
   path: string,
   body?: unknown,

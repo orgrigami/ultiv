@@ -12,16 +12,13 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { ProfileInfo } from "@spriessen/contracts";
 import {
   checkHomes,
-  commitOrg,
   defaultVm,
   effectiveHostAccess,
-  emptyOrgState,
   FactsDoc,
   homeOf,
   homeOfResource,
   migrateOrg,
   openMind,
-  OrgDoc,
   readOrgState,
 } from "@spriessen/mind";
 import { commitProfiles } from "@spriessen/mind";

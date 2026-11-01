@@ -101,7 +101,7 @@ describe("allowlistNetwork (the network() seam the VM boots with)", () => {
   it("applies the home's policy and bypasses TLS interception", () => {
     const calls: string[] = [];
     const network = {
-      policy: (policy: unknown): unknown => {
+      policy: (_policy: unknown): unknown => {
         calls.push("policy");
         return network;
       },

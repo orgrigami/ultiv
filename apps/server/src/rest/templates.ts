@@ -56,7 +56,6 @@ const skillPayload = async (
 export async function templateRoutes(args: RouteArgs): Promise<boolean> {
   const { req, mind, path, json, owner } = args;
   const method = req.method ?? "GET";
-  const segment = (after: string): string => decodeURIComponent(path.slice(after.length));
 
   if (path === "/api/org/templates" && method === "POST") {
     const body = await args.readJson<{

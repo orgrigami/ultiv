@@ -12,7 +12,6 @@ import {
   remoteInput,
   startHttpFake,
   stdioInput,
-  textOf,
   waitFor,
   type HttpFake,
   type Rig,
