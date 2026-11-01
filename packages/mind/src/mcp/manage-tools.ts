@@ -37,6 +37,7 @@ import {
   scopeOf,
   settle,
   type ManageDeps,
+  type Scope,
 } from "./manage-run.ts";
 
 const OWNER_ONLY =
@@ -151,7 +152,7 @@ const addTool = (deps: ManageDeps) =>
       const who = resolveBots(args.bots, bots, self);
       if (typeof who === "string") return textReply(who, true);
       const plan = planAdd(args, {
-        items: itemsOf(deps, scope.owner),
+        items: itemsOf(deps, scope),
         bots: who.words,
         profiles: who.ids,
         caution: cautionOf(deps, scope.conversationId),
@@ -182,7 +183,7 @@ const addTool = (deps: ManageDeps) =>
 /** The after-state of an update, its secure slots, or a plain error. */
 const nextInput = (
   deps: ManageDeps,
-  owner: string,
+  scope: Scope,
   info: ReturnType<ManageDeps["manager"]["list"]>[number],
   args: Record<string, unknown> & {
     auth?: "none" | "api_key" | "oauth";
@@ -238,7 +239,7 @@ const nextInput = (
         ? { auth: "oauth" as const, previousOAuth: before.auth }
         : {}),
     },
-    itemsOf(deps, owner),
+    itemsOf(deps, scope),
     input.name,
   );
   return typeof auth === "string"
@@ -268,11 +269,11 @@ const updateTool = (deps: ManageDeps) =>
       const bots = await botsOf(deps, scope.owner);
       const who = args.bots === undefined ? null : resolveBots(args.bots, bots, scope.profileId);
       if (typeof who === "string") return textReply(who, true);
-      const next = nextInput(deps, scope.owner, info, args, who === null ? info.profiles : who.ids);
+      const next = nextInput(deps, scope, info, args, who === null ? info.profiles : who.ids);
       if (typeof next === "string") return textReply(next, true);
       const invalid = checkInput(next.input, next.slots);
       if (invalid !== null) return textReply(invalid, true);
-      const items = itemsOf(deps, scope.owner);
+      const items = itemsOf(deps, scope);
       const caution = cautionOf(deps, scope.conversationId);
       const before = cardOf("update", inputOf(info), {
         bots: botsWords(info.profiles, bots),
@@ -323,7 +324,7 @@ const switchTool = (deps: ManageDeps, change: Exclude<ChangeKind, "add" | "updat
       const bots = await botsOf(deps, scope.owner);
       const card = cardOf(change, inputOf(info), {
         bots: botsWords(info.profiles, bots),
-        items: itemsOf(deps, scope.owner),
+        items: itemsOf(deps, scope),
         asked: false,
         caution: cautionOf(deps, scope.conversationId),
       });

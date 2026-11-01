@@ -70,6 +70,7 @@ export const homeOfItem = (info: Pick<VaultItemInfo, "home">): HomeRef =>
 const sameHome = (a: HomeRef, b: HomeRef): boolean =>
   a.kind === b.kind &&
   (a.kind !== "department" || (b.kind === "department" && a.departmentId === b.departmentId));
+export { sameHome };
 
 const encryptWith = (key: Buffer, data: Buffer): { iv: Buffer; tag: Buffer; ct: Buffer } => {
   const iv = randomBytes(12);

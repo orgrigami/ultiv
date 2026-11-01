@@ -207,6 +207,31 @@ approval floors in every mode. Connector grants exist in the org model
 vault items by grant only. Tested by `packages/ext/src/mcp/homes.test.ts`
 and `packages/mind/src/mcp/homes.test.ts`.
 
+**A connector's own OAuth client, per home** (phase 4 slice 8): a remote
+connector that signs in with a PRE-REGISTERED OAuth client (Google Drive's
+remote MCP server is the case in point) takes the client id and secret from
+VAULT ITEMS of the connector's own home — the org for an org connector, the
+department for a department one. The record in `servers.json` holds only
+the item ids (`clientIdItem` / `clientSecretItem`), never the values; the
+secret is redeemed in-process at flow time (`clientSecretOf` /
+`clientIdOf` in `packages/ext/src/mcp/secrets.ts`), never logged, never
+returned in tool output, and every encoded form rides the connector's
+scrubber. Redemption is home-scoped: only an owner-level item whose home
+matches the connector's counts. Another home's item, a profile-scoped item
+and an empty `clientIdItem` all read as "no custom client for this home",
+and the flow FALLS BACK to today's mechanism (a plain stored `clientId`,
+or the server's dynamic registration); a reference to an item that is gone
+entirely stays a plain-worded error. A bot naming a cross-home item for a
+connector fails validation ("no vault item …"), because `itemsOf` lists
+only the bot's home's items; a key the owner types into a secure field for
+a department connector is sealed as an item OF that department
+(`departmentId` through `askSecrets` → the secret-request store). No real
+Google sign-in is verified — the flow is proven against a local mock
+authorization server (discovery, PKCE, confidential token exchange,
+refresh). Tested by `packages/ext/src/mcp/oauth-homes.test.ts`,
+`packages/mind/src/mcp/homes.test.ts` and
+`packages/mind/src/secrets/requests.test.ts`.
+
 **Department memory**: a department bot proposes one of its own facts for the
 department's shared store; only an admin of that department (or the org
 level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)

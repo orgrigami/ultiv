@@ -54,11 +54,16 @@ export const McpAuthSchema = Type.Union([
     /**
      * Vault item holding the client id (bots collect it through a secure
      * field, same as the secret). A plain `clientId` wins when both are set.
+     * The item must belong to the connector's own home (phase 4 slice 8):
+     * anything else reads as absent, and the flow falls back to the
+     * server's dynamic registration.
      */
     clientIdItem: Type.Optional(ItemId),
     /**
      * Vault item holding the client secret, for confidential clients
      * (e.g. Google "web application" keys). Never stored in clear here.
+     * The item must belong to the connector's own home (slice 8): a
+     * cross-home or profile-scoped item reads as absent (fallback).
      */
     clientSecretItem: Type.Optional(ItemId),
     /**

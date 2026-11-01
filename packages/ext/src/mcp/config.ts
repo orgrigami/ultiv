@@ -18,7 +18,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { InvalidInput, resolveInside } from "@spriessen/core";
-import type { McpServerInput } from "@spriessen/contracts";
+import type { HomeRef, McpServerInput } from "@spriessen/contracts";
 
 /** One saved server: the owner's input plus identity, first-use state and home. */
 export type McpServerRecord = McpServerInput & {
@@ -43,6 +43,18 @@ export const ORG_HOME = "org";
 /** The home a record belongs to: the stored segment, else the org. */
 export const homeOfRecord = (record: Pick<McpServerRecord, "home">): string =>
   record.home ?? ORG_HOME;
+
+/**
+ * The home a record's vault lookups run in (phase 4 slice 8): the org, or
+ * the department the segment names. The `dept-` prefix is the mind's home
+ * segment convention (slice 7); ext only maps it, it never judges homes.
+ */
+export const homeRefOfRecord = (record: Pick<McpServerRecord, "home">): HomeRef => {
+  const home = homeOfRecord(record);
+  return home === ORG_HOME || !home.startsWith("dept-")
+    ? { kind: "org" }
+    : { kind: "department", departmentId: home.slice("dept-".length) };
+};
 
 export const mcpDir = (): string => {
   const configured = process.env.MCP_DIR?.trim();

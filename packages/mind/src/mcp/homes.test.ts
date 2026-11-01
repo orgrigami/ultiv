@@ -3,11 +3,18 @@
  * home A is absent from home B's list and refuses B's call; an org connector
  * is absent for department bots, and a department connector is absent for
  * org bots. Calls stay never-auto-approved (the floors unchanged).
+ * Slice 8: the vault items a bot may name for a connector are its home's
+ * (plus its own profile items), and the segment → department id mapping the
+ * secure-field store uses.
  */
-import { describe, expect, it } from "vite-plus/test";
-import type { McpManager, McpServerView } from "@spriessen/ext";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vite-plus/test";
+import { makeVaultStore, type McpManager, type McpServerView } from "@spriessen/ext";
 import { accessOf, visibleServers, type McpMindDeps } from "./access.ts";
-import { findOwned, scopeOf } from "./manage-run.ts";
+import { findOwned, itemsOf, scopeOf } from "./manage-run.ts";
+import { departmentIdOfSegment } from "../org/model.ts";
 
 const OWNER = "owner-a";
 const CONV = "conv-1";
@@ -115,10 +122,90 @@ describe("connector visibility is per home", () => {
     const scope = scopeOf(deps, CONV);
     if (typeof scope === "string") throw new Error(scope);
     expect(scope.home).toBe("dept-alpha");
+    expect(scope.homeRef).toEqual({ kind: "department", departmentId: "alpha" });
     expect(findOwned(deps, OWNER, "dept-connector", scope.home)).toMatchObject({
       id: "dept-connector",
     });
     expect(findOwned(deps, OWNER, "org-connector", scope.home)).toMatchObject(/no connector/);
     expect(findOwned(deps, OWNER, "org-connector")).toMatchObject({ id: "org-connector" });
+  });
+});
+
+describe("a bot names only its home's vault items for a connector (slice 8)", () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  const vaultWithItems = () => {
+    process.env.VAULT_KEY ??= "test-vault-key";
+    const root = mkdtempSync(join(tmpdir(), "spriessen-mcp-items-"));
+    dirs.push(root);
+    const vault = makeVaultStore(join(root, "vault"));
+    const items = {
+      org: vault.create(OWNER, {
+        kind: "note",
+        name: "Org client id",
+        note: { secret: "org-client.apps.googleusercontent.com" },
+      }),
+      alpha: vault.create(OWNER, {
+        kind: "note",
+        name: "Alpha client id",
+        note: { secret: "alpha-client.apps.googleusercontent.com" },
+        departmentId: "alpha",
+      }),
+      beta: vault.create(OWNER, {
+        kind: "note",
+        name: "Beta client id",
+        note: { secret: "beta-client.apps.googleusercontent.com" },
+        departmentId: "beta",
+      }),
+      own: vault.create(OWNER, {
+        kind: "note",
+        name: "Bot 1's own note",
+        note: { secret: "bot-one-private-note" },
+        profile: "bot-1",
+      }),
+    };
+    return { store: vault, items };
+  };
+
+  it("a department bot sees its department's items and its own, never another home's", () => {
+    const { store, items } = vaultWithItems();
+    const deps = {
+      ...depsWith([], { departmentId: "alpha" }),
+      vault: store,
+    } as unknown as Parameters<typeof itemsOf>[0];
+    const scope = scopeOf(deps, CONV);
+    if (typeof scope === "string") throw new Error(scope);
+    const names = itemsOf(deps, scope).map((entry) => entry.name);
+    expect(names).toContain("Alpha client id");
+    expect(names).toContain("Bot 1's own note");
+    expect(names).not.toContain("Org client id");
+    expect(names).not.toContain("Beta client id");
+    // Naming a cross-home item fails validation instead of wiring a client
+    // the connector's home could never redeem.
+    expect(itemsOf(deps, scope).find((entry) => entry.id === items.beta.id)).toBeUndefined();
+  });
+
+  it("an org bot sees the org's items (and its own), never a department's", () => {
+    const { store } = vaultWithItems();
+    const deps = {
+      ...depsWith([], { departmentId: null }),
+      vault: store,
+    } as unknown as Parameters<typeof itemsOf>[0];
+    const scope = scopeOf(deps, CONV);
+    if (typeof scope === "string") throw new Error(scope);
+    const names = itemsOf(deps, scope).map((entry) => entry.name);
+    expect(names).toContain("Org client id");
+    expect(names).toContain("Bot 1's own note");
+    expect(names).not.toContain("Alpha client id");
+    expect(names).not.toContain("Beta client id");
+  });
+
+  it("departmentIdOfSegment maps the mind's home segments to stored ids", () => {
+    expect(departmentIdOfSegment("dept-alpha")).toBe("alpha");
+    expect(departmentIdOfSegment("org")).toBeUndefined();
+    expect(departmentIdOfSegment("dept-")).toBeUndefined();
   });
 });

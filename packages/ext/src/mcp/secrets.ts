@@ -4,7 +4,10 @@
  * stdio env vars, and every encoded form of them for the redactor.
  */
 import type { McpServerRecord } from "./config.ts";
+import { homeRefOfRecord } from "./config.ts";
+import type { VaultItemInfo } from "@spriessen/contracts";
 import type { VaultStore } from "../vault.ts";
+import { homeOfItem, sameHome } from "../vault.ts";
 import { InvalidInput } from "@spriessen/core";
 import { MIN_SECRET_LENGTH, materialOf } from "../broker/credential.ts";
 import { makeRedactor, materialForms, secretForms } from "../broker/redact.ts";
@@ -65,35 +68,74 @@ export const resolveSecrets = (
 };
 
 /**
+ * True when the item a connector's OAuth client reference names may serve as
+ * that client (phase 4 slice 8): an owner-level item of the connector's OWN
+ * home (the org for org connectors, the department for department ones).
+ * Another home's item, a profile-scoped item and a missing vault all read as
+ * "no custom client for this home", so the flow falls back to today's
+ * mechanism (a plain stored client id, or dynamic registration).
+ */
+const clientItemOf = (
+  vault: VaultStore | null,
+  record: McpServerRecord,
+  item: string,
+): VaultItemInfo | undefined => {
+  if (vault === null) return undefined;
+  const info = vault.get(record.owner, item);
+  if (info === undefined || info.profile !== null) return undefined;
+  return sameHome(homeOfItem(info), homeRefOfRecord(record)) ? info : undefined;
+};
+
+/**
  * The OAuth client secret, redeemed from the vault at provider construction.
- * Absent when the record has no `clientSecretItem`; throws in plain words
- * when the item is gone or unusable (the Connect path surfaces it).
+ * Absent when the record has no `clientSecretItem` (or names an item that is
+ * not of the connector's home — the flow then falls back); throws in plain
+ * words when the item is gone or unusable (the Connect path surfaces it).
  */
 export const clientSecretOf = (
   vault: VaultStore | null,
   record: McpServerRecord,
 ): string | undefined => {
   if (record.auth.kind !== "oauth" || record.auth.clientSecretItem === undefined) return undefined;
-  const got = redeem(vault, record.owner, record.auth.clientSecretItem, "OAuth client secret");
-  if (!got.ok) throw new InvalidInput({ reason: got.reason });
-  return got.value;
+  if (vault === null) {
+    throw new InvalidInput({ reason: "OAuth client secret: needs the vault (set VAULT_KEY)" });
+  }
+  const stored = vault.get(record.owner, record.auth.clientSecretItem);
+  if (stored === undefined) {
+    throw new InvalidInput({ reason: "OAuth client secret: the vault item is gone" });
+  }
+  const info = clientItemOf(vault, record, record.auth.clientSecretItem);
+  // Not this home's item: no custom client — the caller falls back.
+  if (info === undefined) return undefined;
+  const material = materialOf(vault.resolve(record.owner, record.auth.clientSecretItem));
+  if (material === undefined) {
+    throw new InvalidInput({
+      reason: `OAuth client secret: "${info.name}" is not a key, note or login`,
+    });
+  }
+  if (material.secret.length < MIN_SECRET_LENGTH) {
+    throw new InvalidInput({
+      reason: `OAuth client secret: "${info.name}" is too short to be a secret`,
+    });
+  }
+  return material.secret;
 };
 
 /**
  * The OAuth client id, redeemed from the vault when the record references a
  * `clientIdItem` (bots collect it through a secure field). Unlike the
- * secret there is no minimum length — an id is public. Plain `clientId`
- * wins when both are present.
+ * secret there is no minimum length — an id is public. Only an item of the
+ * connector's own home counts (slice 8); anything else reads as absent, so
+ * a plain `clientId` wins when both are present.
  */
 export const clientIdOf = (
   vault: VaultStore | null,
   record: McpServerRecord,
 ): string | undefined => {
   if (record.auth.kind !== "oauth" || record.auth.clientIdItem === undefined) return undefined;
-  if (vault === null) return undefined;
-  const info = vault.get(record.owner, record.auth.clientIdItem);
+  const info = clientItemOf(vault, record, record.auth.clientIdItem);
   if (info === undefined) return undefined;
-  const material = materialOf(vault.resolve(record.owner, record.auth.clientIdItem));
+  const material = materialOf(vault?.resolve(record.owner, record.auth.clientIdItem));
   return material?.secret;
 };
 

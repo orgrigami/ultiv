@@ -30,6 +30,12 @@ export interface SecretSpec {
   readonly fields: readonly SecretField[];
   /** Where the value will be sent, in plain words ("only to mcp.context7.com"). */
   readonly usedFor?: string | undefined;
+  /**
+   * The department the item belongs to (phase 4 slice 8): a key typed for a
+   * department connector is sealed as a vault item OF that department, so
+   * the connector's home may redeem it. Absent = the org.
+   */
+  readonly departmentId?: string | undefined;
 }
 
 export interface StoredSecret {
@@ -96,6 +102,7 @@ export const makeSecretRequests = (deps: {
         kind: "key",
         name: nameOf(entry.spec, field),
         key: { service: entry.spec.label.slice(0, 120), secret: String(values[field.key]).trim() },
+        ...(entry.spec.departmentId !== undefined ? { departmentId: entry.spec.departmentId } : {}),
       });
       return { key: field.key, itemId: item.id, name: item.name };
     });

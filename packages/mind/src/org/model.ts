@@ -86,6 +86,15 @@ export const homeSegmentOf = (profile: { readonly departmentId?: string | null }
     ? `dept-${profile.departmentId}`
     : "org";
 
+/**
+ * The inverse, for the storage paths that need the stored id (slice 8: a
+ * secure-field secret for a department connector is sealed as a vault item
+ * OF that department): the department id a segment names, or undefined for
+ * the org (and for anything that is not a `dept-` segment).
+ */
+export const departmentIdOfSegment = (home: string): string | undefined =>
+  home.startsWith("dept-") && home.length > "dept-".length ? home.slice("dept-".length) : undefined;
+
 /** A resource owned by a bot lives in its bot's home — exactly one. */
 export const homeOfResource = <T extends { profileId?: string | null }>(
   resource: T,

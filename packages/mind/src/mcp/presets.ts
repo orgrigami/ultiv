@@ -59,8 +59,10 @@ export const MCP_PRESETS: readonly McpPreset[] = [
     about:
       "Google Drive files (official remote server; needs the Drive MCP API enabled and an OAuth " +
       'client with "Use this client for an AI-powered agent"). The owner signs in; the client ' +
-      "id and secret must be pre-registered — register this workspace's sign-in return address " +
-      "on the OAuth client. Its return address shows on the Connectors screen.",
+      "id and secret must be pre-registered — store them as vault items of the connector's home " +
+      "(the org or a department) and name them when adding the connector; register this " +
+      "workspace's sign-in return address on the OAuth client. Its return address shows on the " +
+      "Connectors screen.",
     key: "oauth",
     oauth: {
       // Google issues a refresh token only for access_type=offline; prompt=consent

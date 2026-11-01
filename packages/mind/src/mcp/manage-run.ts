@@ -10,8 +10,9 @@ import {
   type McpServerInput,
 } from "@spriessen/contracts";
 import { validateServerInput, type VaultStore } from "@spriessen/ext";
+import type { HomeRef } from "@spriessen/contracts";
 import type { SecretRequestsService } from "../secrets/requests.ts";
-import { homeSegmentOf } from "../org/model.ts";
+import { departmentIdOfSegment, homeOf, homeSegmentOf } from "../org/model.ts";
 import type { McpMindDeps } from "./access.ts";
 import type { ChangeCard, Named, SecretSlot } from "./manage.ts";
 
@@ -28,6 +29,9 @@ export interface Scope {
   readonly profileId: string;
   /** The bot's home segment (slice 7): connectors are per home. */
   readonly home: string;
+  /** The bot's home as a vault `HomeRef` (slice 8): item lists and the
+   * secure-field store run inside it. */
+  readonly homeRef: HomeRef;
 }
 
 export const scopeOf = (deps: ManageDeps, conversationId: string): Scope | string => {
@@ -39,11 +43,20 @@ export const scopeOf = (deps: ManageDeps, conversationId: string): Scope | strin
     owner: scope.owner,
     profileId: scope.profileId,
     home: profile === undefined ? "org" : homeSegmentOf(profile),
+    homeRef: profile === undefined ? { kind: "org" } : homeOf(profile),
   };
 };
 
-export const itemsOf = (deps: ManageDeps, owner: string): Named[] =>
-  (deps.vault?.list(owner) ?? []).map(({ id, name }) => ({ id, name }));
+/**
+ * The vault items a bot may name for a connector in its home (slice 8):
+ * its own profile items, plus owner-level items OF ITS HOME. Another
+ * home's item is invisible here, so naming one fails with "no vault item"
+ * instead of wiring a client the connector could never redeem.
+ */
+export const itemsOf = (deps: ManageDeps, scope: Scope): Named[] =>
+  (deps.vault?.list(scope.owner, { profile: scope.profileId, home: scope.homeRef }) ?? []).map(
+    ({ id, name }) => ({ id, name }),
+  );
 
 export const botsOf = async (deps: ManageDeps, owner: string): Promise<Named[]> =>
   (await deps.profiles.list(owner)).map(({ id, name }) => ({ id, name }));
@@ -103,11 +116,15 @@ export const askSecrets = async (
   usedFor: string,
 ): Promise<string[] | string> => {
   if (slots.length === 0) return [];
+  // A department connector's keys are sealed as items OF that department
+  // (slice 8), so its home may redeem them; the org stays the default.
+  const departmentId = departmentIdOfSegment(scope.home);
   const outcome = await deps.secrets.ask(scope.conversationId, `${callId}:key`, {
     label: slots.length === 1 ? (slots[0]?.label ?? server) : `Keys for ${server}`,
     purpose: `So ${server} can connect. Stored encrypted in your vault; the bot never sees it.`,
     usedFor,
     fields: slots.map((slot, index) => ({ key: `f${index}`, label: slot.label })),
+    ...(departmentId !== undefined ? { departmentId } : {}),
   });
   if (!outcome.ok) return `${outcome.reason}; the connector was not added`;
   return slots.map(

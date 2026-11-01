@@ -63,7 +63,16 @@ hashing); this file is the map of trust.
   home (the org's `servers.json` path unchanged, department connectors in
   `dept-<id>/`), the boot upgrade stamps existing connectors as the org's,
   a bot lists and calls only its home's connectors (a cross-home call is
-  refused), and connectors are never auto-approved. Department and org
+  refused), and connectors are never auto-approved. From slice 8 a
+  connector's PRE-REGISTERED OAuth client (Google Drive's remote MCP
+  server) lives as vault items OF the connector's home: `servers.json`
+  holds the item ids only, the secret is redeemed in-process at flow time
+  and never logged or shown, and a lookup that names another home's item
+  (or a profile-scoped one) reads as absent — the sign-in falls back to
+  dynamic registration rather than crossing homes. A department
+  connector's keys typed in a secure field are sealed as items OF that
+  department, so a department's Google client never sits in the org's
+  vault. Department and org
   settings are hidden from anyone without the
   role. Messaging itself is unchanged: admission-only through the mailbox
   with its caps, `canInitiate: ["*"]`.
