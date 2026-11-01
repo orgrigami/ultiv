@@ -217,6 +217,57 @@ export const applyBotExec = <B>(
   return builder;
 };
 
+// ---- umask 077 vs the shared folders (Phase 4 fix 11) --------------------
+
+/** One shared folder writable in a VM and the numeric gid its files belong to. */
+export interface SharedDir {
+  readonly dir: string;
+  readonly gid: number;
+}
+
+/**
+ * The shared folders a bot can WRITE in this VM, with their group: the
+ * home's /home/shared, the org-wide folder when writable (org VM), and each
+ * department store under /home/dept-shared (org VM). Read-only mounts are
+ * left out — nothing written there to fix.
+ */
+export const writableSharedDirs = (options: SandboxBackendOptions): SharedDir[] => [
+  ...(options.sharedGid === undefined ? [] : [{ dir: SHARED_DIR, gid: options.sharedGid }]),
+  ...(options.orgShared === undefined || options.orgShared.readOnly
+    ? []
+    : [{ dir: ORG_SHARED_DIR, gid: options.orgShared.gid }]),
+  ...(options.deptShared?.depts ?? []).map((d) => ({
+    dir: `${DEPT_SHARED_DIR}/${d.id}`,
+    gid: d.gid,
+  })),
+];
+
+/**
+ * The mechanism that makes shared folders work under the bot's umask 077
+ * (POSIX default ACLs do not cross a macOS virtiofs mount, so the ACL is
+ * not relied on): after every bash call, AS THE BOT (never root — it can
+ * only touch what it owns, and following a planted symlink gains nothing),
+ * every regular file and directory it owns and changed since the call
+ * began (`-newermt`) in a writable shared folder gets the folder's group,
+ * group read/write, and — directories — setgid, so the next file inherits
+ * the group. Symlinks are never matched (`-type f`/`-type d`, no `-L`).
+ */
+export const sharedNormalizeScript = (
+  uid: number,
+  sinceEpochSec: number,
+  dirs: readonly SharedDir[],
+): string =>
+  dirs
+    .map(
+      ({ dir, gid }) =>
+        `if [ -d '${dir}' ]; then ` +
+        `find '${dir}' -xdev -user ${uid} -newermt @${sinceEpochSec} -type d ` +
+        `-exec chgrp ${gid} {} + -exec chmod g+rwxs {} + ; ` +
+        `find '${dir}' -xdev -user ${uid} -newermt @${sinceEpochSec} -type f ` +
+        `-exec chgrp ${gid} {} + -exec chmod g+rw {} + ; fi`,
+    )
+    .join("\n");
+
 // ---- retiring a removed bot's user ---------------------------------------
 
 /** A user (and its shared-folder group) to remove from one VM. */

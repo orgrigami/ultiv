@@ -58,6 +58,8 @@ import {
   clearPendingRemovals,
   vmSpecOf,
   SETUP_WARN,
+  sharedNormalizeScript,
+  writableSharedDirs,
 } from "./vm-provision.ts";
 
 // Re-exported unchanged: consumers import from here (and `@spriessen/ext`
@@ -329,17 +331,47 @@ export const sandboxShellBackend =
     const root = options.guestRoot ?? HOME;
     const user = options.user;
 
+    const sharedDirs = writableSharedDirs(options);
+
     const run = async (
       script: string,
       cwd: string,
       timeoutMs: number,
     ): Promise<ShellExecResult> => {
       const sandbox = await ensureVm();
+      // A little slack: the guest clock and mtimes have second granularity.
+      const since = Math.floor(Date.now() / 1000) - 2;
       const output = await sandbox.execWith(
         "bash",
         (b) => applyBotExec(b, script, cwd, timeoutMs, user) as never,
       );
-      return { stdout: output.stdout(), stderr: output.stderr(), exitCode: output.code };
+      const result = { stdout: output.stdout(), stderr: output.stderr(), exitCode: output.code };
+      if (user !== undefined && sharedDirs.length > 0) {
+        // umask 077 vs the shared folders: hand what the bot just wrote
+        // there to the folder's group (as the bot itself — see the script).
+        await sandbox
+          .execWith(
+            "bash",
+            (b) =>
+              applyBotExec(
+                b,
+                sharedNormalizeScript(user.uid, since, sharedDirs),
+                HOME,
+                30_000,
+                user,
+              ) as never,
+          )
+          .then((normalized) => {
+            if (normalized.code !== 0) {
+              logSetupWarnings(
+                options.name,
+                `${SETUP_WARN} shared-folder normalization exit ${normalized.code}`,
+              );
+            }
+          })
+          .catch(() => {});
+      }
+      return result;
     };
 
     return {
