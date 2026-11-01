@@ -186,6 +186,27 @@ and placement. Tested by `packages/ext/src/vault-home.test.ts`,
 `packages/ext/src/plugins/vault.test.ts` and
 `packages/ext/src/broker/http-request-tool.test.ts`.
 
+**Connectors per home** (phase 4 slice 7): MCP server config is per home,
+not per owner. Storage layout: the org's file keeps its path
+(`{MCP_DIR}/{owner}/servers.json`); department D's records live at
+`{MCP_DIR}/{owner}/dept-<D>/servers.json`, both 0600. `upgradeMcpHomes`
+runs at boot (repeatable, like `sealWebhookTokens`): rows stored before the
+field existed are stamped as the org's — existing connectors move to the
+org in place, and a second run changes nothing. A bot's connector surface —
+`connector_list`, `connector_load`/`connector_resources`,
+`<server>_<tool>` calls and the management tools — lists and reaches only
+its home's connectors: another home's connector is absent from the list and
+a call is refused ("this connector belongs to another home"); a department
+bot never sees an org connector, and an org bot never sees a department
+connector. A bot's `connector_add` files the new connector in the bot's own
+home. The human Connectors screen (REST over the signed-in owner session)
+still lists and manages every home's connectors. Connectors stay NEVER
+auto-approved: the first-use card and the connector-change cards remain
+approval floors in every mode. Connector grants exist in the org model
+(`resource.kind "connector"`) but the enforced cross-home path today is
+vault items by grant only. Tested by `packages/ext/src/mcp/homes.test.ts`
+and `packages/mind/src/mcp/homes.test.ts`.
+
 **Department memory**: a department bot proposes one of its own facts for the
 department's shared store; only an admin of that department (or the org
 level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)

@@ -58,7 +58,12 @@ hashing); this file is the map of trust.
   (legacy owner-level items read as the org): a bot's vault reads —
   `vault_list`, `vault_contacts` and the broker's credential resolution —
   never list another home's items, and a refused cross-home credential read
-  writes an audited `credential` row (ok false). Department and org
+  writes an audited `credential` row (ok false). From slice 7 MCP
+  connectors are per home as well: config under `MCP_DIR` is stored per
+  home (the org's `servers.json` path unchanged, department connectors in
+  `dept-<id>/`), the boot upgrade stamps existing connectors as the org's,
+  a bot lists and calls only its home's connectors (a cross-home call is
+  refused), and connectors are never auto-approved. Department and org
   settings are hidden from anyone without the
   role. Messaging itself is unchanged: admission-only through the mailbox
   with its caps, `canInitiate: ["*"]`.

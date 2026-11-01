@@ -11,7 +11,7 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { WebSocketServer, type WebSocket } from "ws";
 import { Ping } from "@spriessen/contracts";
-import { artifactsDir, copyArtifact, resolveInside } from "@spriessen/ext";
+import { artifactsDir, copyArtifact, resolveInside, upgradeMcpHomes } from "@spriessen/ext";
 import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
@@ -120,6 +120,13 @@ export async function buildStack(options?: {
     console.log(
       `org: created=${org.createdOrg} bots stamped ${org.botsStamped}, departments ${org.departments}`,
     );
+  }
+  // One-time, repeatable: MCP connector config moves from per owner to per
+  // home (phase 4 slice 7) — existing connectors are stamped as the org's.
+  // The org file's path is unchanged; a second run changes nothing.
+  const stampedHomes = upgradeMcpHomes();
+  if (stampedHomes > 0) {
+    console.log(`mcp: moved ${stampedHomes} existing connector(s) to the org home`);
   }
   // What the migration could NOT move must be visible, not silent.
   if (migration.memorySkipped > 0) {

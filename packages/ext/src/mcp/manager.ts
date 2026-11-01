@@ -55,7 +55,7 @@ export interface McpManager {
   /** Every enabled server of every owner, with named tools. */
   readonly views: () => McpServerView[];
   readonly view: (owner: string, id: string) => McpServerView | undefined;
-  readonly add: (owner: string, input: McpServerInput) => McpServerInfo;
+  readonly add: (owner: string, input: McpServerInput, home?: string) => McpServerInfo;
   readonly update: (owner: string, id: string, input: McpServerInput) => Promise<McpServerInfo>;
   readonly remove: (owner: string, id: string) => Promise<boolean>;
   readonly reconnect: (owner: string, id: string) => Promise<McpServerInfo>;
@@ -232,7 +232,12 @@ const saveInput = async (
   return infoOf(viewFor(core, record));
 };
 
-const addServer = (core: Core, owner: string, input: McpServerInput): McpServerInfo => {
+const addServer = (
+  core: Core,
+  owner: string,
+  input: McpServerInput,
+  home?: string,
+): McpServerInfo => {
   validateServerInput(input);
   const used = new Set(core.config.all().map((record) => record.slug));
   for (const name of core.options.reservedNames?.() ?? []) used.add(name.split("_")[0] ?? name);
@@ -243,6 +248,9 @@ const addServer = (core: Core, owner: string, input: McpServerInput): McpServerI
     slug: uniqueSlug(input.name, used),
     createdAt: Date.now(),
     firstUseApproved: false,
+    // The bot's home segment (slice 7); the human REST path omits it and
+    // lands in the org.
+    ...(home !== undefined ? { home } : {}),
   };
   core.config.put(record);
   startConnection(core, record);
@@ -289,7 +297,7 @@ export const makeMcpManager = (options: McpManagerOptions): McpManager => {
       const record = core.config.get(owner, id);
       return record === undefined ? undefined : viewFor(core, record);
     },
-    add: (owner, input) => addServer(core, owner, input),
+    add: (owner, input, home) => addServer(core, owner, input, home),
     update: (owner, id, input) => saveInput(core, owner, id, input),
     remove: async (owner, id) => {
       await stopConnection(core, owner, id);

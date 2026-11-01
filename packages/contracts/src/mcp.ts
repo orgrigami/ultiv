@@ -154,6 +154,13 @@ export const McpServerInfoSchema = Type.Intersect([
     firstUseApproved: Type.Boolean(),
     /** OAuth only: tokens are stored. */
     signedIn: Type.Boolean(),
+    /**
+     * The home (phase 4 slice 7) the connector belongs to, as a home
+     * segment: `org`, or `dept-<department id>`. Absent on rows stored
+     * before the field existed — they read as the org (the upgrade stamps
+     * them, `upgradeMcpHomes`).
+     */
+    home: Type.Optional(Type.String()),
   }),
 ]);
 

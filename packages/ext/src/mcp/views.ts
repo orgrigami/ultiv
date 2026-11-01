@@ -66,6 +66,8 @@ export const infoOf = (view: McpServerView): McpServerInfo => ({
   ...inputOf(view.record),
   id: view.record.id,
   createdAt: view.record.createdAt,
+  // The home segment (slice 7); absent on legacy rows reads as the org.
+  ...(view.record.home !== undefined ? { home: view.record.home } : {}),
   state: view.status.state,
   reason: view.status.reason,
   activeTransport: view.status.activeTransport,

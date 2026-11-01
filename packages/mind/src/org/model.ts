@@ -76,6 +76,16 @@ export const homeOf = (profile: Pick<ProfileInfo, "departmentId">): HomeRef =>
     ? { kind: "department", departmentId: profile.departmentId }
     : { kind: "org" };
 
+/**
+ * The bot's home as the opaque segment stored resources key on (slice 7:
+ * connector config per home): `org`, or `dept-<department id>`. ext judges
+ * nothing — it stores and compares segments only.
+ */
+export const homeSegmentOf = (profile: { readonly departmentId?: string | null }): string =>
+  typeof profile.departmentId === "string" && profile.departmentId !== ""
+    ? `dept-${profile.departmentId}`
+    : "org";
+
 /** A resource owned by a bot lives in its bot's home — exactly one. */
 export const homeOfResource = <T extends { profileId?: string | null }>(
   resource: T,

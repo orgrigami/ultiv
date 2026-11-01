@@ -99,12 +99,16 @@ const listTool = (deps: ManageDeps) =>
       const scope = scopeOf(deps, String(api.conversationId));
       if (typeof scope === "string") return textReply(scope, true);
       const bots = await botsOf(deps, scope.owner);
-      const lines = deps.manager.list(scope.owner).map((info) => {
-        const tools = info.tools.filter((tool) => tool.enabled).length;
-        const state =
-          info.state.replace(/_/g, " ") + (info.reason !== null ? ` (${info.reason})` : "");
-        return `- ${info.name} [${info.transport}] ${state}; ${tools} tool(s); bots: ${botsWords(info.profiles, bots)}`;
-      });
+      // Slice 7: a bot sees its home's connectors only.
+      const lines = deps.manager
+        .list(scope.owner)
+        .filter((info) => info.home === scope.home)
+        .map((info) => {
+          const tools = info.tools.filter((tool) => tool.enabled).length;
+          const state =
+            info.state.replace(/_/g, " ") + (info.reason !== null ? ` (${info.reason})` : "");
+          return `- ${info.name} [${info.transport}] ${state}; ${tools} tool(s); bots: ${botsWords(info.profiles, bots)}`;
+        });
       const presets = MCP_PRESETS.map(
         (preset) => `- ${preset.id}: ${preset.url} - ${preset.about}`,
       );
@@ -166,7 +170,11 @@ const addTool = (deps: ManageDeps) =>
         hostOf(plan.input),
       );
       if (typeof ids === "string") return textReply(ids, true);
-      const added = deps.manager.add(scope.owner, fillSlots(plan.input, plan.slots, ids));
+      const added = deps.manager.add(
+        scope.owner,
+        fillSlots(plan.input, plan.slots, ids),
+        scope.home,
+      );
       return textReply(reportOf(await settle(deps, scope.owner, added.id), "Added"));
     },
   });
@@ -255,7 +263,7 @@ const updateTool = (deps: ManageDeps) =>
     execute: async (args, api) => {
       const scope = scopeOf(deps, String(api.conversationId));
       if (typeof scope === "string") return textReply(scope, true);
-      const info = findOwned(deps, scope.owner, args.server);
+      const info = findOwned(deps, scope.owner, args.server, scope.home);
       if (typeof info === "string") return textReply(info, true);
       const bots = await botsOf(deps, scope.owner);
       const who = args.bots === undefined ? null : resolveBots(args.bots, bots, scope.profileId);
@@ -310,7 +318,7 @@ const switchTool = (deps: ManageDeps, change: Exclude<ChangeKind, "add" | "updat
     execute: async (args, api) => {
       const scope = scopeOf(deps, String(api.conversationId));
       if (typeof scope === "string") return textReply(scope, true);
-      const info = findOwned(deps, scope.owner, args.server);
+      const info = findOwned(deps, scope.owner, args.server, scope.home);
       if (typeof info === "string") return textReply(info, true);
       const bots = await botsOf(deps, scope.owner);
       const card = cardOf(change, inputOf(info), {
@@ -345,7 +353,7 @@ const reconnectTool = (deps: ManageDeps) =>
     execute: async (args, api) => {
       const scope = scopeOf(deps, String(api.conversationId));
       if (typeof scope === "string") return textReply(scope, true);
-      const info = findOwned(deps, scope.owner, args.server);
+      const info = findOwned(deps, scope.owner, args.server, scope.home);
       if (typeof info === "string") return textReply(info, true);
       if (!info.enabled)
         return textReply("it is switched off; ask your owner before enabling it", true);

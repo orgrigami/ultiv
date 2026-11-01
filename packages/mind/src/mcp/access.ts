@@ -9,6 +9,7 @@ import { Effect } from "effect";
 import type { McpManager, McpServerView } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
+import { homeSegmentOf } from "../org/model.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 export interface McpMindDeps {
@@ -33,15 +34,31 @@ export type Access =
   | { readonly ok: true; readonly view: McpServerView }
   | { readonly ok: false; readonly reason: string };
 
-/** The servers a conversation's bot may use: same owner, enabled, assigned. */
+/** The home segment of a server record: the stored one, else the org. */
+const segmentOf = (view: McpServerView): string => view.record.home ?? "org";
+
+/** The conversation's home segment, when the conversation belongs to a bot. */
+const homeOfConversation = (deps: McpMindDeps, conversationId: string): string | undefined => {
+  const profile = deps.profiles.profileOf(conversationId);
+  if (profile === undefined) return undefined;
+  return homeSegmentOf(profile);
+};
+
+/**
+ * The servers a conversation's bot may use: same owner, enabled, assigned,
+ * and — slice 7 — in the bot's own HOME. Another home's connector is absent
+ * (not visible, not callable, not listable), whatever its bot assignment.
+ */
 export const visibleServers = (deps: McpMindDeps, conversationId: string): McpServerView[] => {
   const scope = deps.profiles.scopeOf(conversationId);
   if (scope === undefined) return [];
+  const home = homeOfConversation(deps, conversationId);
   return deps.manager
     .views()
     .filter(
       (view) =>
         view.record.owner === scope.owner &&
+        (home === undefined || segmentOf(view) === home) &&
         (view.record.profiles === null || view.record.profiles.includes(scope.profileId)),
     );
 };
@@ -58,6 +75,10 @@ export const accessOf = (
     return { ok: false, reason: "this connector belongs to another owner" };
   const view = deps.manager.view(owner, id);
   if (view === undefined) return { ok: false, reason: "this connector was removed" };
+  const home = homeOfConversation(deps, conversationId);
+  if (home !== undefined && segmentOf(view) !== home) {
+    return { ok: false, reason: "this connector belongs to another home" };
+  }
   if (!view.record.enabled) return { ok: false, reason: "this connector is switched off" };
   if (view.record.profiles !== null && !view.record.profiles.includes(scope.profileId)) {
     return { ok: false, reason: "this connector is not assigned to you" };

@@ -11,6 +11,7 @@ import {
 } from "@spriessen/contracts";
 import { validateServerInput, type VaultStore } from "@spriessen/ext";
 import type { SecretRequestsService } from "../secrets/requests.ts";
+import { homeSegmentOf } from "../org/model.ts";
 import type { McpMindDeps } from "./access.ts";
 import type { ChangeCard, Named, SecretSlot } from "./manage.ts";
 
@@ -25,13 +26,20 @@ export interface Scope {
   readonly conversationId: string;
   readonly owner: string;
   readonly profileId: string;
+  /** The bot's home segment (slice 7): connectors are per home. */
+  readonly home: string;
 }
 
 export const scopeOf = (deps: ManageDeps, conversationId: string): Scope | string => {
   const scope = deps.profiles.scopeOf(conversationId);
-  return scope === undefined
-    ? "this conversation belongs to no bot"
-    : { conversationId, owner: scope.owner, profileId: scope.profileId };
+  if (scope === undefined) return "this conversation belongs to no bot";
+  const profile = deps.profiles.profileOf(conversationId);
+  return {
+    conversationId,
+    owner: scope.owner,
+    profileId: scope.profileId,
+    home: profile === undefined ? "org" : homeSegmentOf(profile),
+  };
 };
 
 export const itemsOf = (deps: ManageDeps, owner: string): Named[] =>
@@ -145,14 +153,17 @@ export const reportOf = (info: McpServerInfo | undefined, verb: string): string 
   return `${head} It failed to connect: ${info.reason ?? "unknown reason"}.`;
 };
 
-/** An owner's server by id, name or short name. */
+/** An owner's server by id, name or short name — in the bot's HOME only. */
 export const findOwned = (
   deps: ManageDeps,
   owner: string,
   wanted: string,
+  home?: string,
 ): McpServerInfo | string => {
   const key = wanted.trim().toLowerCase();
-  const servers = deps.manager.list(owner);
+  const servers = deps.manager
+    .list(owner)
+    .filter((info) => home === undefined || info.home === home);
   const found = servers.find(
     (info) =>
       info.id === wanted.trim() ||
