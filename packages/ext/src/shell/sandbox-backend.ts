@@ -33,11 +33,12 @@ import {
   deptStoreProvisionScript,
 } from "./dept-shared.ts";
 import {
-  allowlistFingerprint,
   allowlistNetwork,
   clearAppliedFingerprint,
   markAppliedFingerprint,
-  readAppliedFingerprint,
+  specDrift,
+  vmSpecFingerprint,
+  type VmSpec,
 } from "./net-policy.ts";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
@@ -99,6 +100,14 @@ export interface SandboxBackendOptions {
    * recreates the VM at its next use (the applied-fingerprint marker).
    */
   readonly netAllowlist?: readonly string[];
+  /**
+   * The home's stored VM size (slice 4): the cpus and memory the VM is
+   * CREATED with — the org's or department's stored settings. Undefined
+   * reads the defaults (`VM_CPUS` / `VM_MEMORY_MIB`). Create-time-only in
+   * the SDK like the policy: an edited size recreates the VM at its next
+   * use (the same spec fingerprint).
+   */
+  readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
 }
 
 const HOME = "/home";
@@ -364,6 +373,17 @@ export const destroySandbox = async (name: string): Promise<void> => {
   clearAppliedFingerprint(name);
 };
 
+/**
+ * The create-time spec one VM gets (slice 4): the home's stored size when
+ * set, the defaults otherwise, plus the effective allowlist. Pure, so
+ * tests assert what reaches the builder without a VM.
+ */
+export const vmSpecOf = (options: SandboxBackendOptions): VmSpec => ({
+  cpus: options.vm?.cpus ?? VM_CPUS,
+  memoryMiB: options.vm?.memoryMiB ?? VM_MEMORY_MIB,
+  allowlist: options.netAllowlist ?? [],
+});
+
 export const sandboxShellBackend =
   (options: SandboxBackendOptions): ((homeDir: string) => ShellBackend) =>
   (): ShellBackend => {
@@ -396,15 +416,17 @@ export const sandboxShellBackend =
     };
 
     const ensureVm = async (): Promise<Sandbox> => {
-      // The stored allowlist IS the policy (slice 3): create-time-only in
-      // the SDK (`modify()` has no policy field; `restart()` reuses the
-      // stored config), so a changed fingerprint recreates the VM — the
-      // old one, running or stopped, is removed and a fresh one created.
-      // Running commands die with it (the F-D6 default); the writable
-      // layer (installed packages, /etc users) is refilled by the boot
-      // provisioning below.
-      const fingerprint = allowlistFingerprint(options.netAllowlist ?? []);
-      if (readAppliedFingerprint(options.name) !== fingerprint) {
+      // The stored spec IS the VM (slices 3 and 4): size plus policy are
+      // create-time-only in the SDK (`modify()` has neither; `restart()`
+      // reuses the stored config), so a changed fingerprint recreates the
+      // VM — the old one, running or stopped, is removed and a fresh one
+      // created FROM THE STORED SIZE AND ALLOWLIST. Running commands die
+      // with it (the F-D6 default); the writable layer (installed
+      // packages, /etc users) is refilled by the boot provisioning below.
+      // This is how a size or allowlist edit "takes effect at the next VM
+      // start": the next `ensureVm` after the edit.
+      const spec = vmSpecOf(options);
+      if (specDrift(options.name, spec)) {
         await destroySandbox(options.name).catch(() => {});
         vm = null;
       }
@@ -414,8 +436,8 @@ export const sandboxShellBackend =
       const { Sandbox } = await import("microsandbox");
       let builder = Sandbox.builder(options.name)
         .image(options.image ?? sandboxImage())
-        .cpus(VM_CPUS)
-        .memory(VM_MEMORY_MIB)
+        .cpus(spec.cpus)
+        .memory(spec.memoryMiB)
         .workdir(HOME);
       // The org-wide folder (slice 2c): a live bind mount of one durable
       // host directory — a department VM gets it read-only, enforced by the
@@ -445,7 +467,7 @@ export const sandboxShellBackend =
       // Applied at creation; see the fingerprint above.
       builder = builder.network((network) => allowlistNetwork(network, options.netAllowlist ?? []));
       vm = await builder.connectOrCreate();
-      markAppliedFingerprint(options.name, fingerprint);
+      markAppliedFingerprint(options.name, vmSpecFingerprint(spec));
       await applyPending(vm);
       const user = options.user;
       const depts = options.deptShared?.depts ?? [];

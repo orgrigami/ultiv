@@ -48,3 +48,18 @@ in `packages/ext/var/probe/` and is not committed.
 - Linux/KVM hosts were not tested — this machine is the only one available.
 - Per-bot Linux users and hidepid (slice 2b) are not in this image yet, so
   the numbers above are for today's all-root image.
+
+## Slice 4 follow-up (VM size), 1 November 2026
+
+Re-probed with real VMs for the slice 4 limits (throwaway VMs, deleted
+after): a VM created with 256 MiB reads ~229 MiB `MemTotal` in the guest
+(kernel overhead takes the rest); a Python process allocating ~1 GiB inside
+it is OOM-killed (the exec fails, the process is gone, the VM survives and
+serves the next command); a 1-CPU VM reports `nproc` 1 and runs four
+concurrent busy loops in 0.73 s against 0.19 s for one — a 3.84× ratio, so
+the CPU cap holds under contention; `cpus: 2` reads `nproc` 2. Four VMs
+sized 512/256/512/1024 MiB booted in parallel in ~240 ms and each completed
+a load round. These numbers set the slice 4 bounds (1–8 CPUs, 128–8192 MiB
+per VM) and the host-capacity rule (all homes' CONFIGURED VM memory ≤ half
+the host's RAM — a configured-sum heuristic, not a live measurement;
+docs/SECURITY.md).

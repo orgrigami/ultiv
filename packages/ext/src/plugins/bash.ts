@@ -78,6 +78,8 @@ export interface HomeWorld {
   readonly user?: SandboxUser;
   /** The home's network allowlist (slice 3): named hosts, everything else denied. */
   readonly netAllowlist?: readonly string[];
+  /** The home's stored VM size (slice 4): cpus and memory at creation. */
+  readonly vm?: HomeScope["vm"];
 }
 
 /** Safe folder name for the bot inside the shared VM; an opaque hash otherwise. */
@@ -101,6 +103,7 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     ...(home.deptShared === undefined ? {} : { deptShared: home.deptShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
     ...(home.netAllowlist === undefined ? {} : { netAllowlist: home.netAllowlist }),
+    ...(home.vm === undefined ? {} : { vm: home.vm }),
   };
 };
 
@@ -406,6 +409,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
             ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
             ...(world.user === undefined ? {} : { user: world.user }),
             ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
+            ...(world.vm === undefined ? {} : { vm: world.vm }),
           })(staging);
     return { backend, guestRoot: world.guestRoot };
   };

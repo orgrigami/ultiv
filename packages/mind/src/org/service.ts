@@ -20,18 +20,19 @@ import type {
   ProfileInfo,
   TemplateInfo,
 } from "@spriessen/contracts";
-import { DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
+import { DEFAULT_ORG_SHARED_CAP_BYTES, DEFAULT_VM } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { botUidPeek, botUserName } from "./bot-users.ts";
 import { deptGroupReconcileScript, type DeptStore } from "@spriessen/ext";
 import { readProfiles } from "../profiles/docs.ts";
 import { OrgDoc, defaultVm, emptyOrgState, homeOf, normalizeOrgState } from "./model.ts";
+import { refuseBadVm, type VmSizeOptions } from "./vm-size.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
 
 /** Injectable side effects, so tests never touch a VM. */
-export interface OrgServiceOptions {
+export type OrgServiceOptions = VmSizeOptions & {
   /**
    * Tears the HOME's microVM down (best effort, bounded) — wired by the
    * entity with the real `destroySandbox`; tests omit it. A department
@@ -59,7 +60,7 @@ export interface OrgServiceOptions {
    * `{ARTIFACTS_DIR}/{owner}/_dept/<id>`; tests inject a recorder.
    */
   readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
-}
+};
 
 /** The whole org state, normalized (missing fields filled, never overwritten). */
 export const readOrgState = (converse: ConverseService): Promise<OrgState> =>
@@ -185,6 +186,11 @@ const nextGid = (state: OrgState): number =>
     ...state.departments.map((row) => row.sharedGid ?? 0),
   ) + 1;
 
+/**
+ * The slice 4 VM-size checks live in `./vm-size.ts` (`refuseBadVm`): the
+ * dialog's-words bounds plus the host-capacity rule, applied to the org
+ * and department create and edit paths below.
+ */
 export const orgService = (
   converse: ConverseService,
   options: OrgServiceOptions = {},
@@ -234,6 +240,15 @@ export const orgService = (
           });
         }
       }
+      const state = await readOrgState(converse);
+      const org = state.org;
+      if (org === null) throw new NotFound({ what: "org" });
+      refuseBadVm(
+        state,
+        patch.vm,
+        () => [patch.vm ?? org.vm, ...state.departments.map((row) => row.vm)],
+        options,
+      );
       let updated: OrgInfo | undefined;
       await commitOrg(converse, (draft) => {
         if (draft.org === null) return;
@@ -262,6 +277,19 @@ export const orgService = (
       if (state.departments.some((row) => row.name === input.name)) {
         throw new InvalidInput({ reason: "a department with this name already exists" });
       }
+      const orgVm = state.org.vm;
+      refuseBadVm(
+        state,
+        input.vm,
+        () => [
+          orgVm,
+          ...state.departments.map((row) => row.vm),
+          // A NEW home counts against capacity at its default too: an org
+          // with many default departments fills the budget (slice 4).
+          input.vm ?? DEFAULT_VM,
+        ],
+        options,
+      );
       const row: DepartmentInfo = {
         id: departmentId(input.name),
         name: input.name,
@@ -281,6 +309,18 @@ export const orgService = (
       return row;
     },
     updateDepartment: async (id, patch) => {
+      const state = await readOrgState(converse);
+      const target = state.departments.find((row) => row.id === id);
+      if (target === undefined) throw new NotFound({ what: `department ${id}` });
+      refuseBadVm(
+        state,
+        patch.vm,
+        () => [
+          ...(state.org === null ? [] : [state.org.vm]),
+          ...state.departments.map((row) => (row.id === id ? (patch.vm ?? row.vm) : row.vm)),
+        ],
+        options,
+      );
       let updated: DepartmentInfo | undefined;
       await commitOrg(converse, (draft) => {
         draft.departments = draft.departments.map((row) => {

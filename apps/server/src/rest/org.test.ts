@@ -100,9 +100,9 @@ describe("org routes", () => {
     expect(row.hostAccess).toBe(false);
     const sized = await call("POST", "/api/org/departments", {
       name: "Lab",
-      vm: { cpus: 4, memoryMiB: 2048 },
+      vm: { cpus: 4, memoryMiB: 1024 },
     });
-    expect((sized.json as { vm: unknown }).vm).toEqual({ cpus: 4, memoryMiB: 2048 });
+    expect((sized.json as { vm: unknown }).vm).toEqual({ cpus: 4, memoryMiB: 1024 });
     dept = row.id;
   });
 
@@ -530,7 +530,14 @@ describe("host-access flags (slice 11)", () => {
   });
 
   it("a department admin or member changing any flag reads as a missing item", async () => {
-    const dept = (await call("POST", "/api/org/departments", { name: "FlagX" })).json as {
+    // An explicit small VM: this file's departments fill the configured
+    // host budget (slice 4), so a default-sized one more would be refused.
+    const dept = (
+      await call("POST", "/api/org/departments", {
+        name: "FlagX",
+        vm: { cpus: 1, memoryMiB: 128 },
+      })
+    ).json as {
       id: string;
     };
     await handle.mind.org.setMember({

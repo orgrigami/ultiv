@@ -61,6 +61,10 @@ export const homeScopeOfProfile =
     // department's for its VM — both defaulting to [] (fully offline).
     const netAllowlist =
       home.kind === "org" ? (state.org.netAllowlist ?? []) : (department?.netAllowlist ?? []);
+    // The home's stored VM size (slice 4): the cpus and memory its VM is
+    // CREATED with — the org's or department's stored settings, defaults
+    // 1 CPU / 512 MiB applied in ext when a legacy row has none.
+    const vm = home.kind === "org" ? state.org.vm : department?.vm;
     const user = await botUserOf(converse)(root, owner, profile.id);
     // The org-wide folder (slice 2c): one host-side store per org, mounted
     // into EVERY VM — read-write in the org VM, read-only in a department
@@ -107,6 +111,7 @@ export const homeScopeOfProfile =
       ...(deptShared === undefined ? {} : { deptShared }),
       user,
       netAllowlist,
+      ...(vm === undefined ? {} : { vm }),
     };
   };
 

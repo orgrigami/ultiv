@@ -26,16 +26,78 @@ export type HomeRef = Static<typeof HomeRefSchema>;
 
 /**
  * The VM a home's bots share (started in Phase 4). Given at creation;
- * defaults 1 CPU and 512 MiB.
+ * defaults 1 CPU and 512 MiB. The bounds are tightened for a 16 GB-class
+ * host (slice 1's numbers): the per-VM maxima are a DEFAULT set from them,
+ * not a recorded owner decision — one VM holds at most half this host's
+ * cores and memory.
  */
+export const VM_CPUS_MIN = 1;
+export const VM_CPUS_MAX = 8;
+export const VM_MEMORY_MIB_MIN = 128;
+export const VM_MEMORY_MIB_MAX = 8_192;
+
 export const VmSettingsSchema = Type.Object({
-  cpus: Type.Number({ minimum: 1, maximum: 64 }),
-  memoryMiB: Type.Number({ minimum: 128, maximum: 65_536 }),
+  cpus: Type.Number({ minimum: VM_CPUS_MIN, maximum: VM_CPUS_MAX }),
+  memoryMiB: Type.Number({ minimum: VM_MEMORY_MIB_MIN, maximum: VM_MEMORY_MIB_MAX }),
 });
 
 export type VmSettings = Static<typeof VmSettingsSchema>;
 
 export const DEFAULT_VM: VmSettings = { cpus: 1, memoryMiB: 512 };
+
+/**
+ * The host-capacity rule (slice 4): the CONFIGURED memory of all homes' VMs
+ * (the org's plus every department's, defaults included) may reach at most
+ * this fraction of the host's physical RAM. This is a configured-sum
+ * heuristic over stored settings — NOT a live measurement of what the host
+ * holds right now (docs/SECURITY.md).
+ */
+export const VM_HOST_MEMORY_FRACTION = 0.5;
+
+/**
+ * What is wrong with a VM-size value, in the dialog's words (the deadline
+ * style); null when it is fine.
+ */
+export const vmSettingsProblem = (vm: unknown): string | null => {
+  if (typeof vm !== "object" || vm === null) return "The VM size needs cpus and memoryMiB.";
+  const { cpus, memoryMiB } = vm as { cpus?: unknown; memoryMiB?: unknown };
+  if (
+    typeof cpus !== "number" ||
+    !Number.isInteger(cpus) ||
+    cpus < VM_CPUS_MIN ||
+    cpus > VM_CPUS_MAX
+  ) {
+    return `VM CPUs must be a whole number from ${VM_CPUS_MIN} to ${VM_CPUS_MAX}. Leave it out for the default (${DEFAULT_VM.cpus}).`;
+  }
+  if (
+    typeof memoryMiB !== "number" ||
+    !Number.isInteger(memoryMiB) ||
+    memoryMiB < VM_MEMORY_MIB_MIN ||
+    memoryMiB > VM_MEMORY_MIB_MAX
+  ) {
+    return `VM memory (MiB) must be a whole number from ${VM_MEMORY_MIB_MIN} to ${VM_MEMORY_MIB_MAX}. Leave it out for the default (${DEFAULT_VM.memoryMiB}).`;
+  }
+  return null;
+};
+
+/** The configured memory of every home's VM, added up (MiB). */
+export const totalVmMemoryMiB = (vms: readonly VmSettings[]): number =>
+  vms.reduce((sum, vm) => sum + vm.memoryMiB, 0);
+
+/**
+ * The host-capacity check, in the dialog's words; null when the sum fits.
+ * `hostMemoryBytes` is the host's physical RAM (tests inject a smaller
+ * value); the budget is `VM_HOST_MEMORY_FRACTION` of it.
+ */
+export const vmCapacityProblem = (totalMiB: number, hostMemoryBytes: number): string | null => {
+  const budgetMiB = Math.floor((hostMemoryBytes * VM_HOST_MEMORY_FRACTION) / (1024 * 1024));
+  return totalMiB <= budgetMiB
+    ? null
+    : `These VM sizes together ask for ${totalMiB} MiB of memory, and the host can hold ${budgetMiB} MiB of configured VM memory (half its RAM). Lower the VM sizes and try again.`;
+};
+
+/** Sent with a create/patch that changed a VM's size: when it applies. */
+export const VM_CHANGE_NOTE = "The new VM size takes effect the next time this VM starts.";
 
 /** The default size cap of the org-wide shared folder (slice 2c). */
 export const DEFAULT_ORG_SHARED_CAP_BYTES = 1_073_741_824;

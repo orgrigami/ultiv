@@ -60,8 +60,9 @@ describe("home and size labels", () => {
     expect(readVmInput("0", "512")).toMatch(/CPUs/);
     expect(readVmInput("1", "64")).toMatch(/Memory/);
     expect(readVmInput("1.5", "512")).toMatch(/CPUs/);
-    expect(readVmInput("64", "512")).toEqual({ cpus: 64, memoryMiB: 512 });
-    expect(readVmInput("65", "512")).toMatch(/1 to 64/);
+    expect(readVmInput("8", "8192")).toEqual({ cpus: 8, memoryMiB: 8192 });
+    expect(readVmInput("9", "512")).toMatch(/1 to 8/);
+    expect(readVmInput("1", "8193")).toMatch(/128 to 8192/);
   });
 });
 

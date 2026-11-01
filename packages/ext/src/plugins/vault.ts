@@ -95,6 +95,12 @@ export interface HomeScope {
    * default). ext never learns org concepts — the mind supplies it.
    */
   readonly netAllowlist?: readonly string[];
+  /**
+   * The home's stored VM size (slice 4): the cpus and memory the VM is
+   * CREATED with. ext never learns org concepts — the mind supplies it;
+   * absent reads the defaults (1 CPU / 512 MiB).
+   */
+  readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
 }
 
 /** A settable holder, so plugins built before the profiles service resolve lazily. */

@@ -138,6 +138,16 @@ hashing); this file is the map of trust.
   allowlisted-host content as untrusted input like any web fetch. Until a
   host is allowlisted, `curl`, `pip`, `git` and every other direct network
   use inside the VM fails (docs/SECURITY.md has the details).
+- **VM size is capped per home and against the host (slice 4)**: the org VM
+  and each department VM are created with their row's stored `vm` settings
+  (defaults 1 CPU / 512 MiB), bounded at 1–8 CPUs and 128–8192 MiB, and a
+  create or edit is refused when the SUM of all homes' CONFIGURED memory
+  would pass half the host's RAM. That sum is a heuristic over stored
+  settings, not a live measurement — a home inside the cap can still run
+  its VM hard (a browser, a memory hog) and starve the host's other VMs;
+  the cap bounds configuration, not runtime behaviour. A size edit takes
+  effect only when the VM is recreated at its next start, and running
+  commands die with the recreation (the F-D6 tradeoff).
 - **The credential broker** (`packages/ext/src/broker/`) is the only path a
   vault secret takes to the network: sealed item redeemed inside the binding
   (hosts, methods, path prefixes, placement), https only, SSRF/DNS guard,

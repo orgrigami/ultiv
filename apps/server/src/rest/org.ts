@@ -5,8 +5,15 @@
  * reads as a missing one, like every scoped route.
  */
 import type { DepartmentInfo, DepartmentSummary, HomeRef, VmSettings } from "@spriessen/contracts";
-import { netAllowlistProblem } from "@spriessen/contracts";
+import {
+  netAllowlistProblem,
+  totalVmMemoryMiB,
+  VM_CHANGE_NOTE,
+  vmCapacityProblem,
+  vmSettingsProblem,
+} from "@spriessen/contracts";
 import { effectiveHostAccess } from "@spriessen/mind";
+import { totalmem } from "node:os";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
@@ -25,25 +32,38 @@ const audited = (args: RouteArgs, name: string): void => {
   });
 };
 
-/** A caller-supplied VM size, validated; `undefined` when not given, null when malformed. */
+/**
+ * The slice 4 host-capacity check over REST: with the candidate applied,
+ * the CONFIGURED memory of all homes' VMs must stay within half the host's
+ * RAM. A configured-sum heuristic over stored settings, never a live
+ * measurement (the mind service applies the same rule).
+ */
+const capacityProblem = (
+  candidate: VmSettings | undefined,
+  org: VmSettings,
+  departments: readonly DepartmentInfo[],
+  changedId?: string,
+): string | null =>
+  vmCapacityProblem(
+    totalVmMemoryMiB([
+      changedId === undefined ? (candidate ?? org) : org,
+      ...departments.map((row) =>
+        row.id === changedId && candidate !== undefined ? candidate : row.vm,
+      ),
+    ]),
+    totalmem(),
+  );
+
+/**
+ * The caller's VM size once `vmSettingsProblem` passed (both fields are
+ * whole numbers in range, so the cast only restores that knowledge).
+ */
 const readVm = (
   input: { cpus?: number; memoryMiB?: number } | undefined,
-): VmSettings | null | undefined => {
-  if (input === undefined) return undefined;
-  const cpus = input.cpus;
-  const memoryMiB = input.memoryMiB;
-  if (
-    typeof cpus !== "number" ||
-    !Number.isInteger(cpus) ||
-    cpus < 1 ||
-    typeof memoryMiB !== "number" ||
-    !Number.isInteger(memoryMiB) ||
-    memoryMiB < 128
-  ) {
-    return null;
-  }
-  return { cpus, memoryMiB };
-};
+): VmSettings | undefined =>
+  input === undefined
+    ? undefined
+    : ({ cpus: input.cpus, memoryMiB: input.memoryMiB } as VmSettings);
 
 export async function orgRoutes(args: RouteArgs): Promise<boolean> {
   const { req, mind, path, json, owner } = args;
@@ -76,10 +96,11 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     }
     const view = await mind.org.view();
     if (view.org === null) return (json(404, { error: "the org does not exist yet" }), true);
+    const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
+    if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
     const vm = readVm(body.vm);
-    if (vm === null) {
-      return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
-    }
+    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.departments);
+    if (capProblem !== null) return (json(400, { error: capProblem }), true);
     if (
       body.orgSharedCapBytes !== undefined &&
       (!Number.isInteger(body.orgSharedCapBytes) || body.orgSharedCapBytes < 1_048_576)
@@ -102,7 +123,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     });
     if (body.hostAccess !== undefined) audited(args, "org-host-access");
     if (body.netAllowlist !== undefined) audited(args, "org-net-allowlist");
-    return (json(200, org), true);
+    return (json(200, body.vm !== undefined ? { ...org, vmNote: VM_CHANGE_NOTE } : org), true);
   }
   if (path === "/api/org/departments" && method === "POST") {
     if (!(await may(args, "change", { type: "org-settings" }))) {
@@ -118,13 +139,16 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (body.name === undefined || body.name.trim() === "") {
       return (json(400, { error: "a department needs a name" }), true);
     }
+    const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
+    if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
     const vm = readVm(body.vm);
-    if (vm === null) {
-      return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
-    }
     const allowProblem =
       body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
     if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
+    const view = await mind.org.view();
+    if (view.org === null) return (json(404, { error: "the org does not exist yet" }), true);
+    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.departments);
+    if (capProblem !== null) return (json(400, { error: capProblem }), true);
     try {
       const department = await mind.org.createDepartment(
         {
@@ -165,10 +189,14 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     ) {
       return (json(404, { error: "unknown department" }), true);
     }
+    const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
+    if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
     const vm = readVm(body.vm);
-    if (vm === null) {
-      return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
-    }
+    const capProblem =
+      vm === undefined || view.org === null
+        ? null
+        : capacityProblem(vm, view.org.vm, view.departments, id);
+    if (capProblem !== null) return (json(400, { error: capProblem }), true);
     const allowProblem =
       body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
     if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
@@ -184,7 +212,10 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         audited(args, "department-host-access");
       }
       if (body.netAllowlist !== undefined) audited(args, "department-net-allowlist");
-      return (json(200, department), true);
+      return (
+        json(200, body.vm !== undefined ? { ...department, vmNote: VM_CHANGE_NOTE } : department),
+        true
+      );
     } catch (cause) {
       return (json(400, { error: errorOf(cause) }), true);
     }

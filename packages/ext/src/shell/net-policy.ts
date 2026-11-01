@@ -73,6 +73,38 @@ export const allowlistFingerprint = (hosts: readonly string[]): string =>
     .slice(0, 16);
 
 /**
+ * The whole create-time spec of one home's VM (slice 4): its stored SIZE
+ * (cpus, memoryMiB) plus its network allowlist. Both are create-time-only
+ * in the SDK, so ONE fingerprint covers both: any change recreates the VM
+ * at its next use (the applied-fingerprint marker).
+ */
+export interface VmSpec {
+  readonly cpus: number;
+  readonly memoryMiB: number;
+  readonly allowlist: readonly string[];
+}
+
+/** A short stable fingerprint of the whole spec a VM was created with. */
+export const vmSpecFingerprint = (spec: VmSpec): string =>
+  createHash("sha256")
+    .update(
+      JSON.stringify({
+        cpus: spec.cpus,
+        memoryMiB: spec.memoryMiB,
+        allowlist: normalizeAllowlist(spec.allowlist),
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+
+/**
+ * Whether a VM's stored spec has drifted from what it was CREATED with:
+ * true means the VM must be removed and recreated at its next use.
+ */
+export const specDrift = (sandboxName: string, spec: VmSpec, file?: string): boolean =>
+  readAppliedFingerprint(sandboxName, file) !== vmSpecFingerprint(spec);
+
+/**
  * The `network(...)` configuration EVERY VM gets: the home's policy, plus
  * TLS interception bypassed (`bypass("*")`). Probe-verified on this host:
  * without the bypass the interception proxy RESETS the TLS handshake of

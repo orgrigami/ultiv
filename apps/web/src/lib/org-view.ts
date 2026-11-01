@@ -46,13 +46,13 @@ export const homeName = (
 export const vmLabel = (vm: VmSettings): string =>
   `${vm.cpus} ${vm.cpus === 1 ? "CPU" : "CPUs"} · ${vm.memoryMiB} MiB`;
 
-/** The size as typed: whole CPUs (1-64) and MiB (128-65536), or what is wrong. */
+/** The size as typed: whole CPUs (1-8) and MiB (128-8192), or what is wrong. */
 export const readVmInput = (cpus: string, memory: string): VmSettings | string => {
   const c = Number(cpus);
   const m = Number(memory);
-  if (!Number.isInteger(c) || c < 1 || c > 64) return "CPUs: a whole number from 1 to 64.";
-  if (!Number.isInteger(m) || m < 128 || m > 65_536) {
-    return "Memory: a whole number of MiB from 128 to 65536.";
+  if (!Number.isInteger(c) || c < 1 || c > 8) return "CPUs: a whole number from 1 to 8.";
+  if (!Number.isInteger(m) || m < 128 || m > 8_192) {
+    return "Memory: a whole number of MiB from 128 to 8192.";
   }
   return { cpus: c, memoryMiB: m };
 };

@@ -328,6 +328,34 @@ the box; the credential broker and MCP HTTP connectors are unaffected (they
 run on the host). DNS is allowed only as far as the allowlisted names need
 it; raw addresses are never allowed (rules are by name).
 
+**VM size per home (slice 4).** The org VM and each department VM are
+CREATED with the size stored on their org or department row (`vm`: `cpus`
+and `memoryMiB`, set at creation; the defaults 1 CPU / 512 MiB are
+`DEFAULT_VM` in `@spriessen/contracts` — the old per-VM constants now only
+back legacy rows). Bounds (`vmSettingsProblem`, the dialog's words, applied
+on create AND edit in the org service and again over REST): 1–8 CPUs and
+128–8192 MiB per VM — the maxima are a DEFAULT set from slice 1's numbers
+for a 16 GB-class host (half its cores and RAM), not a recorded owner
+decision. On top of the per-VM bounds, the host-capacity rule
+(`vmCapacityProblem`) refuses a create or edit that would push the SUM of
+all homes' CONFIGURED memory (the org's plus every department's, defaults
+counted) past HALF the host's physical RAM (`VM_HOST_MEMORY_FRACTION = 0.5`
+of `os.totalmem()`; tests inject a smaller host). This is a configured-sum
+HEURISTIC over stored settings — it does not measure what the host holds
+right now, how much the hypervisor actually reserves, or other processes'
+use; treat it as a sanity cap, not a live capacity meter. Like the network
+policy, the size is create-time-only in microsandbox 0.7.11, so the applied
+fingerprint beside the sandbox state covers size AND allowlist together
+(`vmSpecFingerprint`): an edit removes and recreates the VM at its NEXT
+START — running commands die with it — and the PATCH answers with a
+`vmNote` field saying the change takes effect then (UI surfacing is still
+to come). Probe-verified on this host with real VMs: a 256 MiB VM reads
+~229 MiB `MemTotal` in the guest; a process allocating ~1 GiB in it is
+OOM-killed while the VM survives; a 1-CPU VM runs four concurrent busy
+loops ~4× slower than one (0.19 s vs 0.73 s, `nproc` = 1); four VMs sized
+512/256/512/1024 MiB boot in parallel in ~240 ms and each reads its own
+size.
+
 Purging a department destroys only that department's VM and mounts;
 `/home/org-shared` is untouched. The store is destroyed only with the org.
 

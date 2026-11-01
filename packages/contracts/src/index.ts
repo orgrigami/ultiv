@@ -82,8 +82,17 @@ export {
   TemplatePayloadSchema,
   DEFAULT_VM,
   DEFAULT_ORG_SHARED_CAP_BYTES,
+  VM_CPUS_MIN,
+  VM_CPUS_MAX,
+  VM_MEMORY_MIB_MIN,
+  VM_MEMORY_MIB_MAX,
+  VM_HOST_MEMORY_FRACTION,
+  VM_CHANGE_NOTE,
   NetAllowlistSchema,
   netAllowlistProblem,
+  vmSettingsProblem,
+  totalVmMemoryMiB,
+  vmCapacityProblem,
 } from "./org.ts";
 export type {
   OrgRole,
