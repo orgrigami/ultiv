@@ -443,6 +443,34 @@ off-list host and a raw IP refused, the policy surviving a stop + boot,
 and a change landing by recreation) was verified with throwaway probe VMs
 on this host, not in the suite.
 
+**Cross-home isolation (slice 5).** The isolation line is the whole phase-4
+model restated as tests. At unit level, a resource filed under another home
+is answered EXACTLY like a missing one for every actor below org level,
+every action and every bot-owned resource kind
+(`apps/server/src/rest/can.test.ts`, the cross-home block); `can()` has no
+resource kind that names a VM, a shared folder, a vault item or a connector,
+so another home's VM cannot even be asked for (a type-level probe fails the
+typecheck the moment one returns); and no tool parameter or backend method
+names a VM — `bash` and `bash_host` take exactly a script, the
+`ShellBackend` surface binds the VM in its closure
+(`packages/ext/src/shell/isolation.test.ts`), and the home-scope resolver
+takes the bot alone (`packages/mind/src/org/home-scope.test.ts`). Open reach
+stays messaging-only with its caps
+(`packages/mind/src/org/reach.test.ts`: a cross-home send writes its audit
+row and org↔department exchanges hit the same exchange cap as any pair).
+Real-VM level, throwaway probes on this host (deleted after the run)
+re-verified: bots sharing a VM cannot list, read, write or enter each
+other's homes, read each other's process environment, or see or kill each
+other's processes (hidepid=2), while root and the owner bot keep their
+positive controls; a department VM mounts only its own `/home/shared` plus a
+read-only `/home/org-shared`, has no `/home/dept-shared` and no other
+department's folder; the org reaches a department's files only through
+`/home/dept-shared/<id>` and the write lands in that department's VM at
+`/home/shared`; a department cannot write `/home/org-shared` (the read-only
+mount refuses); and there is no network path between VMs — a deny-all VM
+cannot reach another VM's internal service or the outside, while the same
+service and an allowlisted host answer the VM whose policy allows them.
+
 ## Owner scoping and the one account
 
 There is exactly one account: the passcode signs you in as `owner`

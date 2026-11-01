@@ -10,6 +10,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "@spriessen/mind";
 import { commitProfiles } from "@spriessen/mind";
 import { crossHome, grantedCredential } from "@spriessen/mind";
+import { ROOM_EXCHANGE_CAP } from "../mailbox/policy.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-reach-"));
 process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
@@ -81,6 +82,49 @@ describe("the mailbox reach audit (wired in the entity)", () => {
     expect(handle.mind.audit.tail(100).filter((event) => event.kind === "reach").length).toBe(
       before + 1,
     );
+    await handle.close();
+  });
+
+  it("cross-home delivery keeps its caps: org↔department sends hit the exchange cap", async () => {
+    // Open reach is messaging ONLY, and it changes nothing about the loop
+    // and cost safety: a tool send from an org bot to a department bot (and
+    // the reverse) delivers across the home boundary and counts against the
+    // same per-sibling exchange cap as any other pair.
+    const handle = await openMind({ storage: new MemoryStorage() });
+    await handle.mind.org.ensureOrg("owner", "Personal", true);
+    const dept = await handle.mind.org.createDepartment({ name: "Ops" }, "owner");
+    // The first bot is the org bot (main); the second lives in Ops.
+    const keeper = await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
+    const digger = await handle.mind.profiles.create("owner", {
+      name: "Digger",
+      departmentId: dept.id,
+      onboard: false,
+    });
+    const send = (from: string, to: string) =>
+      handle.mind.mailbox.send({
+        owner: "owner",
+        from,
+        to,
+        kind: "request",
+        body: "ping across homes",
+        origin: "tool",
+      });
+    // A tool send resolves to its entry (delivering across homes); a refused
+    // one comes back as the NACK text.
+    for (let index = 0; index < ROOM_EXCHANGE_CAP; index += 1) {
+      const entry = (await send(keeper.id, digger.id)) as { envelope?: { from: string } };
+      expect(entry.envelope?.from).toBe(keeper.id);
+    }
+    // The fourth tool send in the exchange is refused, across homes.
+    await expect(send(keeper.id, digger.id)).rejects.toMatchObject({
+      reason: expect.stringContaining("exchange cap reached"),
+    });
+    // The other direction is its own pair: org←department still delivers.
+    const back = (await send(digger.id, keeper.id)) as { envelope?: { from: string } };
+    expect(back.envelope?.from).toBe(digger.id);
+    // Every one of these writes its reach row (org ↔ department).
+    const reach = handle.mind.audit.tail(100).filter((event) => event.kind === "reach");
+    expect(reach.length).toBeGreaterThanOrEqual(ROOM_EXCHANGE_CAP);
     await handle.close();
   });
 });

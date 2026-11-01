@@ -4,7 +4,7 @@
  * `agent` sentinel never acts, and an absent label is nobody.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { can } from "./can.ts";
+import { can, type Action } from "./can.ts";
 
 describe("can", () => {
   it("the account acts on its own rows, and nobody else's", () => {
@@ -163,5 +163,108 @@ describe("can with the org view (slice 3)", () => {
     expect(can("stranger", "change", { type: "department", departmentId: "dept-gone" }, view)).toBe(
       false,
     );
+  });
+});
+
+/**
+ * Cross-home isolation (phase 4 slice 5), unit level: a resource filed under
+ * another home is answered EXACTLY like a missing one — the same `false`
+ * from can(), the same not-found answer from the route — for every actor
+ * below org level, every action, and every bot-owned resource kind. There
+ * is no resource type that even names a VM, a shared folder or a vault
+ * item, so another home's VM cannot be asked for, let alone granted, and
+ * org-level row visibility (management summaries) opens no VM or folder.
+ */
+const deptY = { kind: "department", departmentId: "dept-y" } as const;
+
+const crossHomeCases: {
+  readonly actor: string;
+  readonly action: Action;
+  readonly type: "bot" | "record" | "artifact" | "file";
+}[] = [
+  ...["admin-x", "member-x", "viewer-x", "stranger"].flatMap((actor) =>
+    (["view", "change", "remove", "decide"] as const).flatMap((action) =>
+      (["bot", "record", "artifact", "file"] as const).map((type) => ({ actor, action, type })),
+    ),
+  ),
+];
+
+describe("cross-home isolation (phase 4 slice 5)", () => {
+  it("another home's bot-owned resource answers exactly like a missing id, every cell", () => {
+    for (const { actor, action, type } of crossHomeCases) {
+      const otherHome = { type, owner: "owner-a", id: "row-y", home: deptY } as const;
+      const missingId = { type, owner: "owner-a", id: "row-gone", home: deptY } as const;
+      expect(can(actor, action, otherHome, view)).toBe(can(actor, action, missingId, view));
+      expect(can(actor, action, otherHome, view)).toBe(false);
+    }
+  });
+
+  it("another home's home — the bot row itself — reads as missing the same way", () => {
+    // "homes" in the slice's list: the other bot's row (its home, its
+    // existence) is refused identically to an unknown bot id.
+    expect(can("admin-x", "view", botInY, view)).toBe(false);
+    expect(can("admin-x", "view", botInY, view)).toBe(
+      can("admin-x", "view", { type: "bot", owner: "owner-a", id: "b-gone", home: deptY }, view),
+    );
+  });
+
+  it("another home's chat is refused like a missing session, whatever the roles", () => {
+    // A chat's owner label stands for the account; within one account the
+    // privacy line is the same answer: not yours reads as not found.
+    const chat = { type: "chat", owner: "owner-a", id: "s-y" } as const;
+    expect(can("admin-x", "view", chat, view)).toBe(false);
+    expect(can("admin-x", "view", chat, view)).toBe(
+      can("admin-x", "view", { type: "chat", owner: "owner-a", id: "s-gone" }, view),
+    );
+    expect(can("member-x", "view", chat, view)).toBe(false);
+  });
+
+  it("no resource type names another home's VM, shared folder or dept-shared folder", () => {
+    // The refusal is structural (owner decision, 1 Nov 2026): shared folders
+    // and command execution never cross homes, so can() has no case that
+    // lets anyone ask. The typecheck gate fails the moment any literal
+    // returns to `Resource`.
+    type ResourceType = Parameters<typeof can>[2]["type"];
+    type NoneOf<L extends readonly string[]> = L extends readonly [infer H, ...infer R]
+      ? H extends ResourceType
+        ? false
+        : NoneOf<R & readonly string[]>
+      : true;
+    const noVmSurface: NoneOf<
+      ["vm", "sandbox", "shared-folder", "dept-shared", "org-shared", "home-vm", "shell", "command"]
+    > = true;
+    expect(noVmSurface).toBe(true);
+  });
+
+  it("vault items, connectors and memory have no can() case — grants are the only path", () => {
+    // Another home's vault item, connector or memory has no Resource kind:
+    // can() cannot admit it, the vault/connector stores scope by owner and
+    // profile, and a NAMED item crosses only through a grant (phase 3;
+    // unit-tested in org/reach.test.ts grantedCredential). Same structural
+    // probe as the folders above.
+    type ResourceType = Parameters<typeof can>[2]["type"];
+    type NoneOf<L extends readonly string[]> = L extends readonly [infer H, ...infer R]
+      ? H extends ResourceType
+        ? false
+        : NoneOf<R & readonly string[]>
+      : true;
+    const noVaultSurface: NoneOf<
+      ["vault-item", "vault", "connector", "mcp", "memory", "credential"]
+    > = true;
+    expect(noVaultSurface).toBe(true);
+  });
+
+  it("org-level row visibility opens no VM, folder or command surface", () => {
+    // The org owner and org admins span departments at the ROW level (the
+    // management surface), and a member of one department works their own —
+    // but no can() answer ever opens another home's VM or folder: those
+    // belong to their home's bots alone, reached (for org bots) only through
+    // the slice 2d mounts inside the org VM. The refusal there is the
+    // resolver's shape, not a permission row: unit-asserted in
+    // packages/ext/src/shell/isolation.test.ts.
+    expect(can("owner-a", "view", botInY, view)).toBe(true);
+    expect(can("admin-org", "view", botInY, view)).toBe(true);
+    expect(can("member-x", "view", botInX, view)).toBe(true);
+    expect(can("member-x", "view", botInY, view)).toBe(false);
   });
 });
