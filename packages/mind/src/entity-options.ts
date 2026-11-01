@@ -50,6 +50,17 @@ export interface MindOptions {
    * runs, marked for its next boot otherwise); tests inject a recorder.
    */
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
+  /**
+   * Reconciles the org VM's department groups on a department create or
+   * delete (slice 2d). Defaults to running ext's script in the running org
+   * VM; tests inject a recorder.
+   */
+  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
+  /**
+   * Deletes a department's durable shared store with its purge (slice 2d,
+   * F-D9 default: delete). Defaults to removing the store directory.
+   */
+  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
 }
 
 /** Everything that can fail while booting the mind. */
@@ -81,4 +92,8 @@ export interface MindWiring {
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
   /** Bot-user teardown for a bot purge; the entity supplies the default. */
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
+  /** Department-group reconcile for create/delete; the entity supplies the default. */
+  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
+  /** Department-store deletion with the purge; the entity supplies the default. */
+  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
 }

@@ -26,10 +26,11 @@ hashing); this file is the map of trust.
 - **The org model (phase 3)**: one org holds flat departments (no nesting,
   no parent) and bots; every bot has exactly one home — one department or
   the org itself. **Departments are a boundary between bots' VMs, files and
-  vaults** (owner decision, 1 Nov 2026): a department bot cannot enter,
-  read or run commands in another home's VM, and each home's `/home/shared`
-  is for that home's bots only. Messaging and the org-wide
-  `/home/org-shared` folder (slice 2c) are the only paths between homes.
+  vaults** (owner decision, 1 Nov 2026) — against department bots: a
+  department bot cannot enter, read or run commands in another home's VM,
+  and no bot uses another home's `/home/shared` except the org bots through
+  the slice-2d mounts. Messaging, `/home/org-shared` and the slice-2d
+  department folders in the org VM are the only paths between homes.
   Every resource (bot, memory record, file, skill, vault item, routine,
   sandbox) belongs to exactly one home through its bot (`checkHomes` in
   `packages/mind/src/org/model.ts`).
@@ -46,10 +47,11 @@ hashing); this file is the map of trust.
   message writes a `reach` row (from, to, surface — always `message`, never
   content) into the audit trail (`org/reach.ts`). A VM is for its home's
   bots only: `bash` runs only in the bot's own home VM (the tool takes no
-  target), and no bot uses another home's `/home/shared`. The one
-  DELIBERATE data path across homes is the org-wide `/home/org-shared`
-  folder (slice 2c, flagged F-O1–F-O8 below) — it is a file path, not a
-  reach surface, and writes no `reach` rows. Reach does NOT
+  target), and no bot uses another home's `/home/shared`. The DELIBERATE
+  data paths across homes are the org-wide `/home/org-shared` folder
+  (slice 2c) and the slice-2d department folders in the org VM — both
+  flagged below (F-O1–F-O8, F-D1–F-D9); they are file paths, not reach
+  surfaces, and write no `reach` rows. Reach does NOT
   cover: another bot's chats, memory or home folder; vault items and
   connectors of another home (those need a NAMED grant, audited, revoked
   stops access at once); department and org settings for anyone without the
@@ -194,6 +196,26 @@ hashing); this file is the map of trust.
   and, on macOS, neither the setgid group nor POSIX ACLs cross the mount,
   so a bot shares a file deliberately (`chgrp ultiv-org` + `chmod g+r`) or
   not at all (docs/SECURITY.md).
+- **Department shared folders in the org VM (slice 2d, F-D1–F-D9)**: the
+  org VM mounts every department's shared store at
+  `/home/dept-shared/<department id>`, read-write. F-D1: a prompt-injected
+  org bot can read them all and write to them; content flows both ways
+  between org bots and every department bot — untrusted input. F-D2:
+  secrets in department shared files become readable by every org bot.
+  F-D3: this is one-way file reach (org to departments) after the owner
+  removed one-way reach for VMs; the department boundary now holds only
+  against department bots. F-D4: org bots can plant files department bots
+  read and act on. F-D5: the uniform "not found" rule for another
+  department's shared folder holds for DEPARTMENT bots only — org bots see
+  every department's id under `/home/dept-shared` and its group in
+  `/etc/group`. F-D6: microsandbox cannot change a running VM's mounts, but
+  the parent-folder mount makes new stores appear live, so a department
+  create or delete never restarts the org VM or kills running org-bot
+  commands (verified by probe). F-D7: the org VM's group count grows with
+  the departments; no limit is set. F-D8: read-write is the default; the
+  alternative (one read-only mount for all departments) is not selected.
+  F-D9: the org VM's capacity matters more now, and the purge default
+  deletes a department's store with it (archiving is not decided).
 - **One account, many roles on paper**: the role matrix (org admin,
   department admin, member, viewer) is enforced by `can()` and tested, but
   today only the org owner can sign in — no second account exists yet, so

@@ -64,7 +64,12 @@ import {
   orgService,
   type OrgService,
 } from "./org/service.ts";
-import { defaultDestroyHomeVm, defaultRetireBotUser } from "./org/home-scope.ts";
+import {
+  defaultDeleteDeptStore,
+  defaultDestroyHomeVm,
+  defaultReconcileDeptGroups,
+  defaultRetireBotUser,
+} from "./org/home-scope.ts";
 import { type MindError, type MindOptions, type MindWiring } from "./entity-options.ts";
 import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
@@ -211,6 +216,8 @@ const mindLayerRaw = (
       // destroys no VM at all.
       const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
       const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
+      const reconcileDeptGroups = wiring.reconcileDeptGroups ?? defaultReconcileDeptGroups();
+      const deleteDeptStore = wiring.deleteDeptStore ?? defaultDeleteDeptStore();
       const profiles = profilesService({
         converse,
         generate,
@@ -227,7 +234,12 @@ const mindLayerRaw = (
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
-      const org = orgService(converse, { destroyHomeVm, retireBotUser });
+      const org = orgService(converse, {
+        destroyHomeVm,
+        retireBotUser,
+        reconcileDeptGroups,
+        deleteDeptStore,
+      });
       // Persona and Instructions files: every existing bot gets both, once.
       void Effect.runPromise(readProfiles(converse))
         .then((rows) => files.migrate(rows))
@@ -382,6 +394,10 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       : {}),
     ...(options.destroyHomeVm !== undefined ? { destroyHomeVm: options.destroyHomeVm } : {}),
     ...(options.retireBotUser !== undefined ? { retireBotUser: options.retireBotUser } : {}),
+    ...(options.reconcileDeptGroups !== undefined
+      ? { reconcileDeptGroups: options.reconcileDeptGroups }
+      : {}),
+    ...(options.deleteDeptStore !== undefined ? { deleteDeptStore: options.deleteDeptStore } : {}),
     ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {

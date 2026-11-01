@@ -26,6 +26,12 @@ import type { Sandbox } from "microsandbox";
 import { readEnv } from "@spriessen/core";
 import { artifactsDir } from "../plugins/artifacts.ts";
 import type { SandboxUser } from "../plugins/vault.ts";
+import {
+  DEPT_SHARED_DIR,
+  deptGroupName,
+  deptGroupReconcileScript,
+  deptStoreProvisionScript,
+} from "./dept-shared.ts";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
 export interface SandboxBackendOptions {
@@ -61,6 +67,24 @@ export interface SandboxBackendOptions {
    * `uid:gid` (never root) and the user is provisioned idempotently at boot.
    */
   readonly user?: SandboxUser;
+  /**
+   * The department's own durable store (slice 2d): when set, `/home/shared`
+   * is a bind mount of this host directory instead of a writable-layer
+   * folder — the same store the org VM sees at
+   * `/home/dept-shared/<department id>`.
+   */
+  readonly sharedStore?: string;
+  /**
+   * The org VM's department shared folders (slice 2d): the per-org parent
+   * directory, bind-mounted at `/home/dept-shared` (its subfolders are the
+   * department stores), the stored departments (ids and gids) for
+   * provisioning, and every org bot's Linux user for group reconciliation.
+   */
+  readonly deptShared?: {
+    readonly parentDir: string;
+    readonly depts: readonly { readonly id: string; readonly gid: number }[];
+    readonly users: readonly string[];
+  };
 }
 
 const HOME = "/home";
@@ -181,6 +205,7 @@ export const botProvisionScript = (
   user: SandboxUser,
   sharedGid: number | undefined,
   orgShared?: { readonly gid: number },
+  deptGids?: readonly number[],
 ): string =>
   [
     `getent group ${user.gid} >/dev/null 2>&1 || groupadd -g ${user.gid} ${user.name}`,
@@ -189,6 +214,9 @@ export const botProvisionScript = (
     ...(sharedGid === undefined ? [] : [`usermod -aG ${SHARED_GROUP} ${user.name}`]),
     // Every bot joins the org-wide folder's group, whatever its home (2c).
     ...(orgShared === undefined ? [] : [`usermod -aG ${ORG_GROUP} ${user.name}`]),
+    // An ORG bot joins every department's group on its first use of the
+    // org VM (slice 2d).
+    ...(deptGids ?? []).map((gid) => `usermod -aG ${deptGroupName(gid)} ${user.name}`),
     `mkdir -p ${user.home}`,
     `chown ${user.uid}:${user.gid} ${user.home}`,
     `chmod 700 ${user.home}`,
@@ -370,14 +398,39 @@ export const sandboxShellBackend =
           return orgMount.readOnly ? bound.readonly() : bound;
         });
       }
+      // The department's own /home/shared is its durable store (slice 2d):
+      // the same directory the org VM sees under /home/dept-shared/<id>.
+      if (options.sharedStore !== undefined) {
+        const host = resolvedBindPath(options.sharedStore);
+        builder = builder.volume(SHARED_DIR, (m) => m.bind(host));
+      }
+      // The org VM's department folders (slice 2d): ONE mount of the parent
+      // directory — new stores beside it appear live, so a department
+      // create or delete never restarts the VM (F-D6).
+      if (options.deptShared !== undefined) {
+        const host = resolvedBindPath(options.deptShared.parentDir);
+        builder = builder.volume(DEPT_SHARED_DIR, (m) => m.bind(host));
+      }
       vm = await builder.connectOrCreate();
       await applyPending(vm);
       const user = options.user;
+      const depts = options.deptShared?.depts ?? [];
       const script = [
         bootScript(options.sharedGid, options.orgShared),
+        ...(depts.length > 0 ? [deptStoreProvisionScript(depts)] : []),
+        ...(depts.length > 0
+          ? [deptGroupReconcileScript(depts, options.deptShared?.users ?? [])]
+          : []),
         ...(user === undefined
           ? []
-          : [botProvisionScript(user, options.sharedGid, options.orgShared)]),
+          : [
+              botProvisionScript(
+                user,
+                options.sharedGid,
+                options.orgShared,
+                depts.map((d) => d.gid),
+              ),
+            ]),
       ].join("\n");
       const output = await vm.execWith(
         "bash",

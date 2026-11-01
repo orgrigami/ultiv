@@ -14,6 +14,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { sandboxNameOf } from "@spriessen/ext";
 import type { HomeRef } from "@spriessen/contracts";
 import {
+  botUserName,
   homeScopeDir,
   homeScopeOfProfile,
   openMind,
@@ -30,6 +31,7 @@ let handle: MindHandle;
 let mind: MindHandle["mind"];
 let owner: string;
 let dept = "";
+let deptLab = "";
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
@@ -37,7 +39,7 @@ beforeAll(async () => {
   owner = "owner-a";
   await mind.org.ensureOrg(owner, "Personal", true);
   dept = (await mind.org.createDepartment({ name: "Ops" }, owner)).id;
-  await mind.org.createDepartment({ name: "Lab" }, owner);
+  deptLab = (await mind.org.createDepartment({ name: "Lab" }, owner)).id;
   // The bots: one org bot (as the migration leaves every existing bot), one
   // department bot. The first bot created is the main bot, so it is the org
   // one — the shape an upgraded workspace has.
@@ -140,6 +142,48 @@ describe("bash stays in the bot's own home VM (reach is messaging only)", () => 
     // there is no way to name another home's VM (owner decision, 1 Nov 2026).
     const resolve = homeScopeOfProfile(mind.converse, scratch);
     expect(resolve.length).toBe(2);
+  });
+});
+
+describe("department shared folders in the org VM (slice 2d)", () => {
+  it("an org bot's scope carries the parent mount, every department's group, and org-bot users", async () => {
+    const profiles = await mind.profiles.list(owner);
+    const scout = profiles.find((row) => row.name === "Scout");
+    expect(scout).toBeDefined();
+    const scope = await homeScopeOfProfile(mind.converse, scratch)(owner, scout as never);
+    expect(scope?.deptShared?.parentDir).toBe(join(scratch, owner, "_dept"));
+    expect(scope?.deptShared?.depts).toEqual([
+      { id: dept, gid: 10_002 },
+      { id: deptLab, gid: 10_003 },
+    ]);
+    // Only org bots that already have a user are reconciled — never
+    // pre-created, a user appears at its bot's first use.
+    expect(scope?.deptShared?.users).toContain(botUserName(scout?.id as string));
+    // A department bot gets its own store, not the org VM's parent mount.
+    const digger = profiles.find((row) => row.name === "Digger");
+    const deptScope = await homeScopeOfProfile(mind.converse, scratch)(owner, digger as never);
+    expect(deptScope?.sharedStore).toBe(join(scratch, owner, "_dept", dept));
+    expect(deptScope?.deptShared).toBeUndefined();
+  });
+
+  it("a department create fires the reconcile with its gid; a delete removes store and group", async () => {
+    const reconciled: string[] = [];
+    const deleted: string[] = [];
+    const scoped = orgService(mind.converse, {
+      reconcileDeptGroups: async (ofOwner, script) => {
+        reconciled.push(`${ofOwner}:${script}`);
+      },
+      deleteDeptStore: async (ofOwner, departmentId) => {
+        deleted.push(`${ofOwner}:${departmentId}`);
+      },
+    });
+    const temp = await scoped.createDepartment({ name: "Temp C" }, owner);
+    expect(reconciled.length).toBe(1);
+    expect(reconciled[0]).toContain(`groupadd -g ${temp.sharedGid} ultiv-d${temp.sharedGid}`);
+    await scoped.removeDepartment(temp.id);
+    expect(deleted).toEqual([`${owner}:${temp.id}`]);
+    // The deleted department's group is no longer in the reconcile set.
+    expect(reconciled[1]).not.toContain(`ultiv-d${temp.sharedGid}`);
   });
 });
 

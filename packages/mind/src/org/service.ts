@@ -22,7 +22,8 @@ import type {
 } from "@spriessen/contracts";
 import { DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
-import { botUidPeek } from "./bot-users.ts";
+import { botUidPeek, botUserName } from "./bot-users.ts";
+import { deptGroupReconcileScript, type DeptStore } from "@spriessen/ext";
 import { readProfiles } from "../profiles/docs.ts";
 import { OrgDoc, defaultVm, emptyOrgState, homeOf, normalizeOrgState } from "./model.ts";
 
@@ -45,6 +46,19 @@ export interface OrgServiceOptions {
    * bare service tests, where the sweep is a no-op.
    */
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
+  /**
+   * Reconciles `/etc/group` in the RUNNING org VM against the stored
+   * departments and org bots (slice 2d) — fired on department create and
+   * delete. The default runs ext's script in the named VM; tests inject a
+   * recorder.
+   */
+  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
+  /**
+   * Deletes a department's durable shared store with its purge (slice 2d,
+   * F-D9 default: delete; archiving is not decided). The default rmSyncs
+   * `{ARTIFACTS_DIR}/{owner}/_dept/<id>`; tests inject a recorder.
+   */
+  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
 }
 
 /** The whole org state, normalized (missing fields filled, never overwritten). */
@@ -116,6 +130,38 @@ export interface OrgService {
 /** The department a HomeRef names, or null for the org. */
 const departmentOfHome = (home: HomeRef): string | null =>
   home.kind === "department" ? home.departmentId : null;
+
+/**
+ * The reconcile script for the org VM's department groups (slice 2d): the
+ * stored departments and every org bot that already has a Linux user (never
+ * allocating — a user appears at its bot's first use, never pre-created).
+ */
+const deptReconcileScript = async (converse: ConverseService): Promise<string> => {
+  const state = await readOrgState(converse);
+  const profiles = await run(readProfiles(converse));
+  const users: string[] = [];
+  for (const bot of profiles.filter((row) => homeOf(row).kind === "org")) {
+    if ((await botUidPeek(converse)(bot.id)) !== undefined) users.push(botUserName(bot.id));
+  }
+  const depts: DeptStore[] = state.departments
+    .filter((row) => row.sharedGid !== undefined)
+    .map((row) => ({ id: row.id, gid: row.sharedGid as number }));
+  return deptGroupReconcileScript(depts, users);
+};
+
+/** Fires the reconciliation best effort; a missing hook or VM is a no-op. */
+const fireReconcile = async (
+  converse: ConverseService,
+  options: OrgServiceOptions,
+  owner: string | undefined,
+): Promise<void> => {
+  if (options.reconcileDeptGroups === undefined || owner === undefined) return;
+  try {
+    await options.reconcileDeptGroups(owner, await deptReconcileScript(converse));
+  } catch {
+    // Reconciliation observes; it must never fail a department create.
+  }
+};
 
 /** A department id that is not in use; `name` is unique among departments. */
 const departmentId = (name: string): string =>
@@ -224,6 +270,9 @@ export const orgService = (
       await commitOrg(converse, (draft) => {
         draft.departments = [...draft.departments, row];
       });
+      // The org VM picks the new store up live (the parent mount shows it);
+      // only /etc/group needs reconciling — no VM restart (F-D6).
+      await fireReconcile(converse, options, state.org.owner);
       return row;
     },
     updateDepartment: async (id, patch) => {
@@ -262,11 +311,17 @@ export const orgService = (
         );
       });
       // The department's VM goes with it (best effort, bounded, injected —
-      // tests omit it). The org VM is destroyed only with the org.
+      // tests omit it). The org VM is destroyed only with the org. The
+      // department's durable store is deleted with the purge (F-D9
+      // default), and the org VM's /etc/group loses the department's group.
       const owner = state.org?.owner;
       if (options.destroyHomeVm !== undefined && owner !== undefined) {
         await options.destroyHomeVm(owner, { kind: "department", departmentId: id });
       }
+      if (options.deleteDeptStore !== undefined && owner !== undefined) {
+        await options.deleteDeptStore(owner, id).catch(() => {});
+      }
+      await fireReconcile(converse, options, owner);
       return true;
     },
     setMember: async (input) => {

@@ -70,6 +70,10 @@ export interface HomeWorld {
    * VM, read-write for an org bot, read-only for a department bot.
    */
   readonly orgShared?: HomeScope["orgShared"];
+  /** The department's durable store backing `/home/shared` (slice 2d). */
+  readonly sharedStore?: string;
+  /** The org VM's department folders (slice 2d), org bots only. */
+  readonly deptShared?: HomeScope["deptShared"];
   /** The bot's own Linux user in the VM (slice 2b), when the home gives one. */
   readonly user?: SandboxUser;
 }
@@ -91,6 +95,8 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     guestRoot: `${HOME}/${botFolderName(botDir)}`,
     ...(home.sharedGid === undefined ? {} : { sharedGid: home.sharedGid }),
     ...(home.orgShared === undefined ? {} : { orgShared: home.orgShared }),
+    ...(home.sharedStore === undefined ? {} : { sharedStore: home.sharedStore }),
+    ...(home.deptShared === undefined ? {} : { deptShared: home.deptShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
   };
 };
@@ -393,6 +399,8 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
             guestRoot: world.guestRoot,
             ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
             ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
+            ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
+            ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
             ...(world.user === undefined ? {} : { user: world.user }),
           })(staging);
     return { backend, guestRoot: world.guestRoot };

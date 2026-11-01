@@ -302,6 +302,35 @@ mount and does not have them):
 Purging a department destroys only that department's VM and mounts;
 `/home/org-shared` is untouched. The store is destroyed only with the org.
 
+**Department shared folders in the org VM (slice 2d).** Each department's
+shared store — `{ARTIFACTS_DIR}/{owner}/_dept/<department id>` — backs BOTH
+its own VM's `/home/shared` (a bind mount; it was a writable-layer folder
+before slice 2d) and the org VM's `/home/dept-shared/<department id>` (the
+STORED id, never the name): one store, two mounts, no copy. Ownership is
+`root:<department group>` mode 2770 in both, the department's stored gid
+used in both VMs so file groups match; the org VM names the group
+`ultiv-d<gid>`. Every org bot joins every department's group on its first
+use of the org VM; `/etc/group` in the org VM is reconciled at start and on
+every department create or delete (`deptGroupReconcileScript` in
+`packages/ext/src/shell/dept-shared.ts`, fired through
+`reconcileDeptGroups`) — missing groups and memberships are added, a
+deleted department's group is removed. Department bots get nothing new:
+they see only their own `/home/shared` plus `/home/org-shared`, never
+another department's folder and never `/home/dept-shared`. Org bots are
+READ-WRITE in the department folders by default (the alternative — one
+read-only mount for all departments — is flagged, F-D8). A department
+create or delete does NOT restart the org VM: microsandbox 0.7.11 cannot
+change a running VM's mounts (`modify()` covers cpu/memory/env/labels/
+workdir/secrets/ports only), but the org VM mounts the parent DIRECTORY
+once, and virtiofs shows new host-side store subfolders live — verified by
+probe — so only the group reconcile is needed (F-D6). The department store
+is deleted with the department's purge (F-D9 default; archiving for 30
+days is not decided). The umask limits above apply to these mounts the
+same way: bash-written files keep the writer's umask 077 and group until
+the writer shares them. There is no mediated shared-folder tool path, so
+no write into these folders is capped or audited; department bots' writes
+in their own `/home/shared` are not audited by default.
+
 **Purge**: deleting a bot never destroys a VM (the VM belongs to its home;
 `apps/server/src/rest/bot-purge.ts` answers `sandbox: false`), but it
 RETIREES the bot's Linux user from its home's VM — `userdel -r`, which also

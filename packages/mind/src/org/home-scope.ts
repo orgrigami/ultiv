@@ -15,17 +15,21 @@
  * the whole removal sweep.
  */
 import { join } from "node:path";
+import { rmSync } from "node:fs";
+import { Effect } from "effect";
 import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
 import {
   artifactsDir,
   botFolderName,
   destroySandbox,
+  reconcileOrgVm,
   retireSandboxUser,
   sandboxNameOf,
   type HomeScope,
 } from "@spriessen/ext";
 import type { ConverseService } from "../converse/converse.ts";
 import { botUidPeek, botUserOf, botUserName } from "./bot-users.ts";
+import { readProfiles } from "../profiles/docs.ts";
 import { homeOf } from "./model.ts";
 import { readOrgState } from "./service.ts";
 
@@ -57,18 +61,45 @@ export const homeScopeOfProfile =
     // into EVERY VM — read-write in the org VM, read-only in a department
     // VM (enforced by the mount). Departments are a boundary again; this
     // folder and messaging are the only paths between homes.
-    const orgShared =
-      state.org === null
-        ? undefined
-        : {
-            hostDir: join(root, owner, "_shared", "org"),
-            gid: state.org.orgSharedGid ?? 10_001,
-            readOnly: home.kind === "department",
-          };
+    const orgShared = {
+      hostDir: join(root, owner, "_shared", "org"),
+      gid: state.org.orgSharedGid ?? 10_001,
+      readOnly: home.kind === "department",
+    };
+    // The department's own durable store (slice 2d): backs BOTH its VM's
+    // /home/shared and the org VM's /home/dept-shared/<id>. One store, two
+    // mounts, no copy.
+    const deptStoreDir = (departmentId: string): string => join(root, owner, "_dept", departmentId);
+    const sharedStore = home.kind === "department" ? deptStoreDir(home.departmentId) : undefined;
+    // The org VM's department folders (slice 2d), ORG bots only: the parent
+    // directory of every department store, the stored departments (a
+    // create/delete reconciles /etc/group instead of restarting the VM),
+    // and the org bots that already have a Linux user (never allocating —
+    // a user is created at its bot's first use, never pre-created).
+    let deptShared: HomeScope["deptShared"];
+    if (home.kind === "org") {
+      const profiles = await Effect.runPromise(readProfiles(converse));
+      const orgBots = profiles.filter((row) => homeOf(row).kind === "org");
+      const users: string[] = [];
+      for (const bot of orgBots) {
+        if ((await botUidPeek(converse)(bot.id)) !== undefined) {
+          users.push(botUserName(bot.id));
+        }
+      }
+      deptShared = {
+        parentDir: join(root, owner, "_dept"),
+        depts: state.departments
+          .filter((row) => row.sharedGid !== undefined)
+          .map((row) => ({ id: row.id, gid: row.sharedGid as number })),
+        users,
+      };
+    }
     return {
       dir: homeScopeDir(root, owner, home),
       ...(sharedGid === undefined ? {} : { sharedGid }),
-      ...(orgShared === undefined ? {} : { orgShared }),
+      orgShared,
+      ...(sharedStore === undefined ? {} : { sharedStore }),
+      ...(deptShared === undefined ? {} : { deptShared }),
       user,
     };
   };
@@ -113,3 +144,35 @@ export const defaultRetireBotUser =
       home: `/home/${botFolderName(`${root}/${owner}/${profileId}`)}`,
     });
   };
+
+/**
+ * The default department-group reconciliation (slice 2d): run ext's
+ * reconcile script inside the RUNNING org VM. A stopped VM is skipped — its
+ * next boot reconciles from the stored departments anyway. Best effort,
+ * never throws.
+ */
+export const defaultReconcileDeptGroups = (): ((
+  owner: string,
+  script: string,
+) => Promise<void>) => {
+  const root = artifactsDir();
+  return async (owner, script) => {
+    await reconcileOrgVm(sandboxNameOf(homeScopeDir(root, owner, { kind: "org" })), script);
+  };
+};
+
+/**
+ * The default department-store deletion (slice 2d, F-D9 default): the
+ * store is deleted with the department's purge. Best effort; archiving is
+ * not decided.
+ */
+export const defaultDeleteDeptStore = (): ((
+  owner: string,
+  departmentId: string,
+) => Promise<void>) => {
+  const root = artifactsDir();
+  return (owner, departmentId) => {
+    rmSync(join(root, owner, "_dept", departmentId), { recursive: true, force: true });
+    return Promise.resolve();
+  };
+};

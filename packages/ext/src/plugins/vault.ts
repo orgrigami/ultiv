@@ -66,6 +66,24 @@ export interface HomeScope {
     readonly readOnly: boolean;
   };
   /**
+   * The department's own durable store (slice 2d): when set, the VM's
+   * `/home/shared` is a bind mount of this host directory — the SAME store
+   * the org VM sees at `/home/dept-shared/<department id>`.
+   */
+  readonly sharedStore?: string;
+  /**
+   * The org VM's department shared folders (slice 2d), for ORG bots only:
+   * the per-org parent directory mounted at `/home/dept-shared` (its
+   * subfolders are the department stores), the stored departments (ids and
+   * gids) and every org bot that already has a Linux user (for group
+   * reconciliation). ext never learns org concepts — the mind supplies all.
+   */
+  readonly deptShared?: {
+    readonly parentDir: string;
+    readonly depts: readonly { readonly id: string; readonly gid: number }[];
+    readonly users: readonly string[];
+  };
+  /**
    * The bot's own Linux user in the VM (uid, group, home). When set, the VM
    * provisions it idempotently on boot and every bot command runs as it;
    * root remains only for provisioning, `prepare` and the file sync.
