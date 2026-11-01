@@ -32,6 +32,13 @@ import {
   deptGroupReconcileScript,
   deptStoreProvisionScript,
 } from "./dept-shared.ts";
+import {
+  allowlistFingerprint,
+  allowlistNetwork,
+  clearAppliedFingerprint,
+  markAppliedFingerprint,
+  readAppliedFingerprint,
+} from "./net-policy.ts";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
 export interface SandboxBackendOptions {
@@ -85,6 +92,13 @@ export interface SandboxBackendOptions {
     readonly depts: readonly { readonly id: string; readonly gid: number }[];
     readonly users: readonly string[];
   };
+  /**
+   * The home's network allowlist (slice 3): named hosts the VM may reach.
+   * ALWAYS applied — an undefined or empty list boots the VM fully
+   * offline (the default). Create-time-only in the SDK: an edited list
+   * recreates the VM at its next use (the applied-fingerprint marker).
+   */
+  readonly netAllowlist?: readonly string[];
 }
 
 const HOME = "/home";
@@ -345,6 +359,9 @@ export const destroySandbox = async (name: string): Promise<void> => {
   }
   await Sandbox.remove(name);
   clearPendingRemovals(name);
+  // The applied-policy marker dies with the VM: the next one is created
+  // from the current stored allowlist, whatever it is.
+  clearAppliedFingerprint(name);
 };
 
 export const sandboxShellBackend =
@@ -379,6 +396,18 @@ export const sandboxShellBackend =
     };
 
     const ensureVm = async (): Promise<Sandbox> => {
+      // The stored allowlist IS the policy (slice 3): create-time-only in
+      // the SDK (`modify()` has no policy field; `restart()` reuses the
+      // stored config), so a changed fingerprint recreates the VM — the
+      // old one, running or stopped, is removed and a fresh one created.
+      // Running commands die with it (the F-D6 default); the writable
+      // layer (installed packages, /etc users) is refilled by the boot
+      // provisioning below.
+      const fingerprint = allowlistFingerprint(options.netAllowlist ?? []);
+      if (readAppliedFingerprint(options.name) !== fingerprint) {
+        await destroySandbox(options.name).catch(() => {});
+        vm = null;
+      }
       if (vm !== null) return vm;
       // Dynamic import: the native runtime module loads only when a VM is
       // actually needed, so tests and non-bash paths never touch it.
@@ -411,7 +440,12 @@ export const sandboxShellBackend =
         const host = resolvedBindPath(options.deptShared.parentDir);
         builder = builder.volume(DEPT_SHARED_DIR, (m) => m.bind(host));
       }
+      // The home's network policy (slice 3): deny by default, the stored
+      // hosts allowed, TLS relayed untouched (see allowlistNetwork).
+      // Applied at creation; see the fingerprint above.
+      builder = builder.network((network) => allowlistNetwork(network, options.netAllowlist ?? []));
       vm = await builder.connectOrCreate();
+      markAppliedFingerprint(options.name, fingerprint);
       await applyPending(vm);
       const user = options.user;
       const depts = options.deptShared?.depts ?? [];

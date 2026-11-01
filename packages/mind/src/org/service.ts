@@ -93,12 +93,13 @@ export interface OrgService {
   readonly view: () => Promise<OrgView>;
   /** Create the org once (the migration); repeat calls change nothing. */
   readonly ensureOrg: (owner: string, name: string, hostAccess: boolean) => Promise<OrgInfo>;
-  /** Patch the org row (name, VM settings, host-access flag, folder cap). */
+  /** Patch the org row (name, VM settings, host-access flag, folder cap, network allowlist). */
   readonly updateOrg: (patch: {
     readonly name?: string;
     readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
     readonly hostAccess?: boolean;
     readonly orgSharedCapBytes?: number;
+    readonly netAllowlist?: readonly string[];
   }) => Promise<OrgInfo>;
   readonly createDepartment: (input: DepartmentCreate, by: string) => Promise<DepartmentInfo>;
   readonly updateDepartment: (id: string, patch: DepartmentPatch) => Promise<DepartmentInfo>;
@@ -239,6 +240,9 @@ export const orgService = (
         updated = {
           ...draft.org,
           vm: { ...draft.org.vm },
+          // Plain copies: the returned row must not reach into the draft
+          // (a settled overlay throws the moment it is stringified).
+          netAllowlist: [...(patch.netAllowlist ?? draft.org.netAllowlist ?? [])],
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
           ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
@@ -265,6 +269,7 @@ export const orgService = (
         vm: input.vm ?? defaultVm(),
         hostAccess: input.hostAccess ?? false,
         instructions: input.instructions ?? "",
+        netAllowlist: input.netAllowlist ?? [],
         sharedGid: nextGid(state),
       };
       await commitOrg(converse, (draft) => {
@@ -283,6 +288,8 @@ export const orgService = (
           updated = {
             ...row,
             vm: { ...row.vm },
+            // Plain copy: never reach into the settled draft (see updateOrg).
+            netAllowlist: [...(patch.netAllowlist ?? row.netAllowlist ?? [])],
             ...(patch.name !== undefined ? { name: patch.name } : {}),
             ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
             ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),

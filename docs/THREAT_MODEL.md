@@ -127,6 +127,17 @@ hashing); this file is the map of trust.
   malicious root step). A sandbox escape is out of scope of
   this document (it would be a microsandbox vulnerability), but `bash_host`
   exists precisely because some jobs need the real host.
+- **Network is off by default in every VM (slice 3)**: the org VM and each
+  department VM boot deny-everything; a home's stored allowlist of named
+  hosts (its org or department row) opens exactly those. A department bot's
+  VM can therefore not exfiltrate anywhere but its own allowlist, and the
+  org VM only where the org level allows. The org owner or an org admin
+  edits the org VM's list; a department's own admin, their department's;
+  every change is audited (`permission` rows). An allowlist entry is a
+  exfiltration channel to that host — allowlist deliberately, treat
+  allowlisted-host content as untrusted input like any web fetch. Until a
+  host is allowlisted, `curl`, `pip`, `git` and every other direct network
+  use inside the VM fails (docs/SECURITY.md has the details).
 - **The credential broker** (`packages/ext/src/broker/`) is the only path a
   vault secret takes to the network: sealed item redeemed inside the binding
   (hosts, methods, path prefixes, placement), https only, SSRF/DNS guard,
@@ -167,6 +178,11 @@ hashing); this file is the map of trust.
   home's bots share one kernel; the inner boundary is per-bot Linux users
   with `hidepid=2` (slice 2b), the VM remains the real boundary — per-bot
   users are not a defence against kernel bugs or a malicious root step.
+  **Network is off by default (slice 3)**: a VM reaches only its home's
+  stored allowlist of named hosts (deny-everything otherwise, raw IPs
+  never); a misled bot's network reach is bounded by that list, and the
+  browser slice will run under the same policy. The known cost: bots that
+  used `curl`, `pip` or `git` in a VM stop until their host is allowlisted.
   Removing a bot retires its user and shared-folder group membership from
   its home's VM (marked for the next boot when the VM is stopped); a stale
   member would keep shared-folder access, which is why the sweep runs in

@@ -53,6 +53,9 @@ export const normalizeOrgState = (state: OrgState): OrgState => ({
           sharedGid: state.org.sharedGid ?? 10_000,
           orgSharedGid: state.org.orgSharedGid ?? (state.org.sharedGid ?? 10_000) + 1,
           orgSharedCapBytes: state.org.orgSharedCapBytes ?? DEFAULT_ORG_SHARED_CAP_BYTES,
+          // The network allowlist (slice 3): legacy rows read an empty
+          // list — the offline default — until the owner edits one.
+          netAllowlist: Array.isArray(state.org.netAllowlist) ? state.org.netAllowlist : [],
         },
   departments: (state.departments ?? []).map((row, index) => ({
     ...row,
@@ -60,6 +63,7 @@ export const normalizeOrgState = (state: OrgState): OrgState => ({
     // Legacy department rows read deterministically by position, after the
     // org's gid; created rows always carry their own stored gid.
     sharedGid: row.sharedGid ?? 10_001 + index,
+    netAllowlist: Array.isArray(row.netAllowlist) ? row.netAllowlist : [],
   })),
   members: state.members ?? [],
   grants: state.grants ?? [],

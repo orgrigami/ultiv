@@ -299,6 +299,35 @@ mount and does not have them):
   so `bash` writes into the bind mount are neither capped nor audited. Both
   become real when a mediated tool path lands.
 
+**Network is off by default (slice 3).** The org VM and every department VM
+boot with a deny-everything microsandbox `NetworkPolicy`
+(`allowlistNetwork` in `packages/ext/src/shell/net-policy.ts`): no DNS, no
+HTTP, nothing in or out — a request from the VM fails until a host is
+allowlisted. Each home stores its own allowlist of named hosts on its org or
+department row (`netAllowlist`, at most 64 entries, a hostname like
+`api.example.com` or a `*.suffix` for its subdomains; legacy rows read an
+empty list). The policy is part of the VM's creation config, so a change
+reaches a VM by RECREATING it at its next use — the applied fingerprint is
+kept beside the sandbox state (`sandbox-netpolicy/`), and `ensureVm` removes
+and re-creates the VM when the stored list no longer matches: running
+commands die (the same tradeoff as the F-D6 mount default) and the writable
+layer (installed packages) is refilled by the boot provisioning. Who edits:
+the org owner or an org admin for the org VM (`PATCH /api/org`,
+`netAllowlist`), a department's own admin (or the org level) for that
+department's VM (`PATCH /api/org/departments/:id`); a member or a foreign
+department's admin reads as a missing department. Every change writes a
+`permission` audit row (`org-net-allowlist`, `department-net-allowlist`).
+TLS interception is bypassed for the policy's allow rules, so a bot's TLS to
+an allowlisted host is end to end — no CA is installed in the guest — while
+a DENIED host gets an explicit refusal (probe-verified: an off-list or
+raw-IP connect answers 403, an allowlisted one 200, and the default VM
+cannot even resolve DNS; all of it survives a stop + boot). **What breaks
+until hosts are allowlisted:** `curl`, `pip`/`apt`/`npm` installs, `git`
+clone/pull/push and every other direct network use inside the VM fail out of
+the box; the credential broker and MCP HTTP connectors are unaffected (they
+run on the host). DNS is allowed only as far as the allowlisted names need
+it; raw addresses are never allowed (rules are by name).
+
 Purging a department destroys only that department's VM and mounts;
 `/home/org-shared` is untouched. The store is destroyed only with the org.
 
@@ -364,18 +393,27 @@ folder is refilled from artifacts.
 
 Tests: `packages/ext/src/plugins/bash-home-scope.test.ts` (naming,
 colocation, prepare isolation, per-bot fallback),
+`packages/ext/src/shell/net-policy.test.ts` (the allowlist → policy
+construction, the fingerprint marker, the TLS-bypass seam),
 `packages/ext/src/shell/sandbox-bot-user.test.ts` (the provisioning, exec
 and retire command construction at unit level), `packages/mind/src/org/
 bot-users.test.ts` (uid allocation, never-reuse across removal, the home
 scope carrying the user, the injected removal sweep), `packages/mind/src/org/
 home-scope.test.ts` (the resolver, gid allocation, the rerun-stable
-upgrade, the injected department teardown), and
-`apps/server/src/rest/home-vm-purge.test.ts` (a bot purge destroys no VM; a
-department delete destroys the department's). The real-VM behaviour
-(colocation inside one microVM, per-bot prepare isolation with ownership,
-mode-700 homes, hidepid=2, `/tmp` under umask 077, idempotent `useradd`
-keeping the same uid, retirement, and ownership + hidepid surviving a VM
-restart) was verified with throwaway probe VMs, not in the suite.
+upgrade, the injected department teardown), `packages/mind/src/
+org/net-allowlist.test.ts` (the offline default for legacy rows, the
+patches, the home scope carrying the right list),
+`apps/server/src/rest/net-allowlist.test.ts` (who may edit, the uniform
+refusals, the audit rows) and `apps/server/src/rest/home-vm-purge.test.ts`
+(a bot purge destroys no VM; a department delete destroys the
+department's). The real-VM behaviour (colocation inside one microVM,
+per-bot prepare isolation with ownership, mode-700 homes, hidepid=2,
+`/tmp` under umask 077, idempotent `useradd` keeping the same uid,
+retirement, ownership + hidepid surviving a VM restart, and the slice-3
+network behaviour: the offline default, an allowlisted host reachable, an
+off-list host and a raw IP refused, the policy surviving a stop + boot,
+and a change landing by recreation) was verified with throwaway probe VMs
+on this host, not in the suite.
 
 ## Owner scoping and the one account
 

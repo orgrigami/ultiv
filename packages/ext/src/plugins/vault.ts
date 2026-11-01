@@ -89,6 +89,12 @@ export interface HomeScope {
    * root remains only for provisioning, `prepare` and the file sync.
    */
   readonly user?: SandboxUser;
+  /**
+   * The home's network allowlist (slice 3): named hosts the VM may reach,
+   * everything else denied (an absent or empty list = fully offline, the
+   * default). ext never learns org concepts — the mind supplies it.
+   */
+  readonly netAllowlist?: readonly string[];
 }
 
 /** A settable holder, so plugins built before the profiles service resolve lazily. */

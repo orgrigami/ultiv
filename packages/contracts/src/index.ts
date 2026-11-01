@@ -82,6 +82,8 @@ export {
   TemplatePayloadSchema,
   DEFAULT_VM,
   DEFAULT_ORG_SHARED_CAP_BYTES,
+  NetAllowlistSchema,
+  netAllowlistProblem,
 } from "./org.ts";
 export type {
   OrgRole,
@@ -98,6 +100,7 @@ export type {
   DepartmentPatch,
   MemberPut,
   DepartmentSummary,
+  NetAllowlist,
 } from "./org.ts";
 export { MailboxEnvelopeSchema, MailboxEntrySchema, MailboxListSchema } from "./mailbox.ts";
 export type { MailboxEnvelope, MailboxEntry, MailboxList } from "./mailbox.ts";

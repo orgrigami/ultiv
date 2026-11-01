@@ -17,6 +17,7 @@ export * from "./fs/workspace-epoch.ts";
 export * from "./shell/backend.ts";
 export * from "./shell/sandbox-backend.ts";
 export * from "./shell/dept-shared.ts";
+export * from "./shell/net-policy.ts";
 export * from "./fs/durable-fs.ts";
 export * from "./broker/adapter.ts";
 export * from "./broker/bindings.ts";

@@ -43,6 +43,35 @@ export const DEFAULT_ORG_SHARED_CAP_BYTES = 1_073_741_824;
 /** Whether bots of this home may run tools on the server's own machine. */
 export const HostAccessSchema = Type.Boolean();
 
+/**
+ * The per-VM network allowlist (phase 4 slice 3): named hosts the home's VM
+ * may reach. Everything else is denied — the DEFAULT for both the org VM and
+ * every department VM is NO network. An empty list means fully offline.
+ */
+export const NetAllowlistSchema = Type.Array(Type.String(), { maxItems: 64 });
+
+export type NetAllowlist = Static<typeof NetAllowlistSchema>;
+
+/** A valid allowlist entry: a hostname (`api.example.com`) or `*.example.com`. */
+const HOST_ENTRY =
+  /^(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+/**
+ * Validate an allowlist as it arrives over REST: at most 64 entries, each a
+ * lowercase hostname (or a `*.suffix` for its subdomains), 253 bytes at
+ * most. Returns the problem in owner words, or null when it is fine.
+ */
+export const netAllowlistProblem = (entries: unknown): string | null => {
+  if (!Array.isArray(entries)) return "The allowlist must be a list of host names.";
+  if (entries.length > 64) return "The allowlist holds at most 64 host names.";
+  for (const entry of entries) {
+    if (typeof entry !== "string" || entry.length > 253 || !HOST_ENTRY.test(entry)) {
+      return `"${String(entry).slice(0, 60)}" is not a host name like api.example.com (or *.example.com).`;
+    }
+  }
+  return null;
+};
+
 /** The org row. Exactly one exists after the migration; `owner` is the account that owns it. */
 export const OrgInfoSchema = Type.Object({
   id: Type.String(),
@@ -72,6 +101,11 @@ export const OrgInfoSchema = Type.Object({
    * into the bind mount are not mediated (docs/SECURITY.md).
    */
   orgSharedCapBytes: Type.Optional(Type.Number()),
+  /**
+   * Named hosts the org VM may reach (slice 3); everything else is denied,
+   * including when the field is missing (legacy rows read an empty list).
+   */
+  netAllowlist: Type.Optional(NetAllowlistSchema),
 });
 
 export type OrgInfo = Static<typeof OrgInfoSchema>;
@@ -92,6 +126,11 @@ export const DepartmentInfoSchema = Type.Object({
    * (`normalizeOrgState`).
    */
   sharedGid: Type.Optional(Type.Number()),
+  /**
+   * Named hosts the department VM may reach (slice 3); everything else is
+   * denied, including when the field is missing (legacy rows read []).
+   */
+  netAllowlist: Type.Optional(NetAllowlistSchema),
 });
 
 export type DepartmentInfo = Static<typeof DepartmentInfoSchema>;
@@ -177,6 +216,7 @@ export const DepartmentCreateSchema = Type.Object({
   vm: Type.Optional(VmSettingsSchema),
   hostAccess: Type.Optional(Type.Boolean()),
   instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
+  netAllowlist: Type.Optional(NetAllowlistSchema),
 });
 
 export type DepartmentCreate = Static<typeof DepartmentCreateSchema>;
@@ -186,6 +226,7 @@ export const DepartmentPatchSchema = Type.Object({
   vm: Type.Optional(VmSettingsSchema),
   hostAccess: Type.Optional(Type.Boolean()),
   instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
+  netAllowlist: Type.Optional(NetAllowlistSchema),
 });
 
 export type DepartmentPatch = Static<typeof DepartmentPatchSchema>;

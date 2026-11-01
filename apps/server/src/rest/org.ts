@@ -5,6 +5,7 @@
  * reads as a missing one, like every scoped route.
  */
 import type { DepartmentInfo, DepartmentSummary, HomeRef, VmSettings } from "@spriessen/contracts";
+import { netAllowlistProblem } from "@spriessen/contracts";
 import { effectiveHostAccess } from "@spriessen/mind";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
@@ -59,12 +60,16 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       vm?: { cpus?: number; memoryMiB?: number };
       hostAccess?: boolean;
       orgSharedCapBytes?: number;
+      netAllowlist?: string[];
     }>(req);
     if (body.hostAccess !== undefined && !(await may(args, "change", { type: "host-flag" }))) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
     }
     if (
-      (body.name !== undefined || body.vm !== undefined || body.orgSharedCapBytes !== undefined) &&
+      (body.name !== undefined ||
+        body.vm !== undefined ||
+        body.orgSharedCapBytes !== undefined ||
+        body.netAllowlist !== undefined) &&
       !(await may(args, "change", { type: "org-settings" }))
     ) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
@@ -83,6 +88,9 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         json(400, { error: "orgSharedCapBytes must be a whole number of at least 1 MiB" }), true
       );
     }
+    const allowProblem =
+      body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
+    if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
     const org = await mind.org.updateOrg({
       ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
       ...(vm !== undefined ? { vm } : {}),
@@ -90,8 +98,10 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       ...(body.orgSharedCapBytes !== undefined
         ? { orgSharedCapBytes: body.orgSharedCapBytes }
         : {}),
+      ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
     });
     if (body.hostAccess !== undefined) audited(args, "org-host-access");
+    if (body.netAllowlist !== undefined) audited(args, "org-net-allowlist");
     return (json(200, org), true);
   }
   if (path === "/api/org/departments" && method === "POST") {
@@ -103,6 +113,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       vm?: { cpus?: number; memoryMiB?: number };
       hostAccess?: boolean;
       instructions?: string;
+      netAllowlist?: string[];
     }>(req);
     if (body.name === undefined || body.name.trim() === "") {
       return (json(400, { error: "a department needs a name" }), true);
@@ -111,6 +122,9 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (vm === null) {
       return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
     }
+    const allowProblem =
+      body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
+    if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
     try {
       const department = await mind.org.createDepartment(
         {
@@ -118,6 +132,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
           ...(vm !== undefined ? { vm } : {}),
           ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
           ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
+          ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
         },
         owner,
       );
@@ -138,9 +153,11 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       vm?: { cpus?: number; memoryMiB?: number };
       hostAccess?: boolean;
       instructions?: string;
+      netAllowlist?: string[];
     }>(req);
-    // A department's admins manage its state, but a host-access switch is
-    // the org owner's alone (F3); a member reads as missing either way.
+    // A department's admins manage its state (its VM's network allowlist
+    // included, slice 3), but a host-access switch is the org owner's alone
+    // (F3); a member reads as missing either way.
     if (
       body.hostAccess !== undefined
         ? !(await may(args, "change", { type: "host-flag" }))
@@ -152,16 +169,21 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (vm === null) {
       return (json(400, { error: "vm needs integer cpus (>= 1) and memoryMiB (>= 128)" }), true);
     }
+    const allowProblem =
+      body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
+    if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
     try {
       const department = await mind.org.updateDepartment(id, {
         ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
         ...(vm !== undefined ? { vm } : {}),
         ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
         ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
+        ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
       });
       if (body.hostAccess !== undefined) {
         audited(args, "department-host-access");
       }
+      if (body.netAllowlist !== undefined) audited(args, "department-net-allowlist");
       return (json(200, department), true);
     } catch (cause) {
       return (json(400, { error: errorOf(cause) }), true);

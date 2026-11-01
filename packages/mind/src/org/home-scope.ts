@@ -52,10 +52,15 @@ export const homeScopeOfProfile =
     const state = await readOrgState(converse);
     if (state.org === null) return undefined;
     const home = homeOf(profile);
-    const sharedGid =
-      home.kind === "org"
-        ? state.org.sharedGid
-        : state.departments.find((row) => row.id === home.departmentId)?.sharedGid;
+    const department =
+      home.kind === "department"
+        ? state.departments.find((row) => row.id === home.departmentId)
+        : undefined;
+    const sharedGid = home.kind === "org" ? state.org.sharedGid : department?.sharedGid;
+    // The home's network allowlist (slice 3): the org's for the org VM, the
+    // department's for its VM — both defaulting to [] (fully offline).
+    const netAllowlist =
+      home.kind === "org" ? (state.org.netAllowlist ?? []) : (department?.netAllowlist ?? []);
     const user = await botUserOf(converse)(root, owner, profile.id);
     // The org-wide folder (slice 2c): one host-side store per org, mounted
     // into EVERY VM — read-write in the org VM, read-only in a department
@@ -101,6 +106,7 @@ export const homeScopeOfProfile =
       ...(sharedStore === undefined ? {} : { sharedStore }),
       ...(deptShared === undefined ? {} : { deptShared }),
       user,
+      netAllowlist,
     };
   };
 
