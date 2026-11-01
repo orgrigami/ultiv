@@ -120,6 +120,14 @@ export const NetAllowlistSchema = Type.Array(Type.String(), { maxItems: 64 });
 
 export type NetAllowlist = Static<typeof NetAllowlistSchema>;
 
+/**
+ * Full network access for one home's VM (owner opt-in): when true the VM's
+ * egress is unrestricted — the allowlist is ignored and every host, port
+ * and the local network are reachable. Ingress stays denied. The sandbox's
+ * network isolation is OFF for such a home; the UI says so loudly.
+ */
+export const NetOpenSchema = Type.Boolean();
+
 /** A valid allowlist entry: a hostname (`api.example.com`) or `*.example.com`. */
 const HOST_ENTRY =
   /^(\*\.)?[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
@@ -177,6 +185,8 @@ export const OrgInfoSchema = Type.Object({
    * including when the field is missing (legacy rows read an empty list).
    */
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  /** Full network access (no egress restrictions); legacy rows read false. */
+  netOpen: Type.Optional(NetOpenSchema),
 });
 
 export type OrgInfo = Static<typeof OrgInfoSchema>;
@@ -202,6 +212,8 @@ export const DepartmentInfoSchema = Type.Object({
    * denied, including when the field is missing (legacy rows read []).
    */
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  /** Full network access (no egress restrictions); legacy rows read false. */
+  netOpen: Type.Optional(NetOpenSchema),
   /**
    * Size cap of the department's shared store (its VM's `/home/shared`,
    * the org VM's `/home/dept-shared/<id>`), default 1 GiB. Enforced the
@@ -294,6 +306,7 @@ export const DepartmentCreateSchema = Type.Object({
   hostAccess: Type.Optional(Type.Boolean()),
   instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  netOpen: Type.Optional(NetOpenSchema),
 });
 
 export type DepartmentCreate = Static<typeof DepartmentCreateSchema>;
@@ -304,6 +317,7 @@ export const DepartmentPatchSchema = Type.Object({
   hostAccess: Type.Optional(Type.Boolean()),
   instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  netOpen: Type.Optional(NetOpenSchema),
   sharedCapBytes: Type.Optional(Type.Integer({ minimum: 1_048_576 })),
 });
 

@@ -42,6 +42,8 @@ export interface DepartmentInput {
   vm?: VmSettings;
   hostAccess?: boolean;
   instructions?: string;
+  netAllowlist?: string[];
+  netOpen?: boolean;
 }
 
 /** GET /api/memory/v2?department= — the shared store and its proposals. */
@@ -69,8 +71,13 @@ export const orgApi = {
   exportBot: (id: string): Promise<unknown> =>
     getJson<unknown>(`/api/profiles/${encodeURIComponent(id)}/export`),
   hostAccess: (): Promise<HostAccessMatrix> => getJson<HostAccessMatrix>("/api/org/host-access"),
-  patchOrg: (patch: { name?: string; vm?: VmSettings; hostAccess?: boolean }): Promise<OrgInfo> =>
-    send<OrgInfo>("/api/org", "PATCH", patch).then(changed),
+  patchOrg: (patch: {
+    name?: string;
+    vm?: VmSettings;
+    hostAccess?: boolean;
+    netAllowlist?: string[];
+    netOpen?: boolean;
+  }): Promise<OrgInfo> => send<OrgInfo>("/api/org", "PATCH", patch).then(changed),
   createDepartment: (input: DepartmentInput & { name: string }): Promise<DepartmentInfo> =>
     send<DepartmentInfo>("/api/org/departments", "POST", input).then(changed),
   patchDepartment: (id: string, patch: DepartmentInput): Promise<DepartmentInfo> =>

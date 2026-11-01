@@ -10,6 +10,7 @@ import { Building2Icon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
 import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NetAllowlistEditor } from "@/components/net-allowlist";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { orgApi, type DepartmentInfo, type HostAccessMatrix } from "@/lib/org-api";
@@ -84,6 +85,21 @@ export function OrgSection() {
             </span>
           </span>
         </label>
+        <NetAllowlistEditor
+          title="Org VM network"
+          entries={org.netAllowlist ?? []}
+          open={org.netOpen === true}
+          meta={
+            org.netOpen === true
+              ? "Open: the org VM reaches everything. The allowlist below is ignored until you close it again."
+              : org.netAllowlist === undefined || org.netAllowlist.length === 0
+                ? "Offline: the org VM reaches no hosts. Add the ones its bots need."
+                : `The org VM reaches exactly these hosts (${org.netAllowlist.length} of at most 64).`
+          }
+          onSave={async (draft, open) => {
+            await orgApi.patchOrg({ netAllowlist: draft, netOpen: open });
+          }}
+        />
         {view.departments.map((department) => (
           <DepartmentRow key={department.id} department={department} />
         ))}
@@ -113,7 +129,12 @@ function DepartmentRow({ department }: { department: DepartmentInfo }) {
       <span className="text-ui min-w-0 flex-1">
         <span className="block truncate">{department.name}</span>
         <span className="text-meta text-muted-foreground block">
-          {vmLabel(department.vm)} · host access {department.hostAccess ? "on" : "off"}
+          {vmLabel(department.vm)} · host access {department.hostAccess ? "on" : "off"} ·{" "}
+          {department.netOpen === true
+            ? "network open"
+            : department.netAllowlist === undefined || department.netAllowlist.length === 0
+              ? "network off"
+              : `network: ${department.netAllowlist.length} host${department.netAllowlist.length === 1 ? "" : "s"}`}
         </span>
       </span>
       <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />

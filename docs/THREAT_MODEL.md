@@ -172,7 +172,12 @@ hashing); this file is the map of trust.
   exfiltration channel to that host — allowlist deliberately, treat
   allowlisted-host content as untrusted input like any web fetch. Until a
   host is allowlisted, `curl`, `pip`, `git` and every other direct network
-  use inside the VM fails (docs/SECURITY.md has the details).
+  use inside the VM fails (docs/SECURITY.md has the details). The one
+  exception is an explicit per-home OWNER OPT-IN, `netOpen`: full network
+  access, allowlist ignored, ingress still denied. While it is on, NONE of
+  this section's network bounds hold for that VM — no exfiltration bound,
+  no off-list refusals — and the flag is audited (`org-net-open`,
+  `department-net-open`) so the departure from the default is on the record.
 - **VM size is capped per home and against the host (slice 4)**: the org VM
   and each department VM are created with their row's stored `vm` settings
   (defaults 1 CPU / 512 MiB), bounded at 1–8 CPUs and 128–8192 MiB, and a
@@ -233,6 +238,9 @@ hashing); this file is the map of trust.
   all. Page content is untrusted input, and a screenshot can carry the
   same injection (rendered text and images alike). The known cost: bots that
   used `curl`, `pip` or `git` in a VM stop until their host is allowlisted.
+  The same `netOpen` opt-in removes these bounds for its home: an open VM
+  loads any page in the read-only browser and reaches any host — isolation
+  off, by explicit owner choice.
   Removing a bot retires its user and shared-folder group membership from
   its home's VM (marked for the next boot when the VM is stopped); a stale
   member would keep shared-folder access, which is why the sweep runs in

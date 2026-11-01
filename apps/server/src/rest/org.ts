@@ -81,6 +81,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       hostAccess?: boolean;
       orgSharedCapBytes?: number;
       netAllowlist?: string[];
+      netOpen?: boolean;
     }>(req);
     if (body.hostAccess !== undefined && !(await may(args, "change", { type: "host-flag" }))) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
@@ -89,7 +90,8 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       (body.name !== undefined ||
         body.vm !== undefined ||
         body.orgSharedCapBytes !== undefined ||
-        body.netAllowlist !== undefined) &&
+        body.netAllowlist !== undefined ||
+        body.netOpen !== undefined) &&
       !(await may(args, "change", { type: "org-settings" }))
     ) {
       return (json(404, { error: "no route: PATCH /api/org" }), true);
@@ -112,6 +114,9 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     const allowProblem =
       body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
     if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
+    if (body.netOpen !== undefined && typeof body.netOpen !== "boolean") {
+      return (json(400, { error: "netOpen must be true or false" }), true);
+    }
     const org = await mind.org.updateOrg({
       ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
       ...(vm !== undefined ? { vm } : {}),
@@ -120,9 +125,11 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         ? { orgSharedCapBytes: body.orgSharedCapBytes }
         : {}),
       ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
+      ...(body.netOpen !== undefined ? { netOpen: body.netOpen } : {}),
     });
     if (body.hostAccess !== undefined) audited(args, "org-host-access");
     if (body.netAllowlist !== undefined) audited(args, "org-net-allowlist");
+    if (body.netOpen !== undefined) audited(args, "org-net-open");
     return (json(200, body.vm !== undefined ? { ...org, vmNote: VM_CHANGE_NOTE } : org), true);
   }
   if (path === "/api/org/departments" && method === "POST") {
@@ -135,6 +142,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       hostAccess?: boolean;
       instructions?: string;
       netAllowlist?: string[];
+      netOpen?: boolean;
     }>(req);
     if (body.name === undefined || body.name.trim() === "") {
       return (json(400, { error: "a department needs a name" }), true);
@@ -157,6 +165,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
           ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
           ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
           ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
+          ...(body.netOpen !== undefined ? { netOpen: body.netOpen } : {}),
         },
         owner,
       );
@@ -178,6 +187,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       hostAccess?: boolean;
       instructions?: string;
       netAllowlist?: string[];
+      netOpen?: boolean;
       sharedCapBytes?: number;
     }>(req);
     // A department's admins manage its state (its VM's network allowlist
@@ -216,12 +226,14 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
         ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
         ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
+        ...(body.netOpen !== undefined ? { netOpen: body.netOpen } : {}),
         ...(body.sharedCapBytes !== undefined ? { sharedCapBytes: body.sharedCapBytes } : {}),
       });
       if (body.hostAccess !== undefined) {
         audited(args, "department-host-access");
       }
       if (body.netAllowlist !== undefined) audited(args, "department-net-allowlist");
+      if (body.netOpen !== undefined) audited(args, "department-net-open");
       if (body.sharedCapBytes !== undefined) audited(args, "department-shared-cap");
       return (
         json(200, body.vm !== undefined ? { ...department, vmNote: VM_CHANGE_NOTE } : department),

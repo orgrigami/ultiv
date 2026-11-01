@@ -208,3 +208,19 @@ in progress>"; tap it for the full list in place (it pushes the chat up,
 never covers it). A plan that finishes says "All done" for a few seconds and
 folds away; one already finished when the chat opens is not shown. The plan
 card in the transcript stays. The strip redraws only when the plan changes.
+
+**VM network you can see and set** (2026-11-01): DONE — the per-home
+network allowlist (phase 4 slice 3) is editable in the UI at every place
+the REST surface offers it: an "Org VM network" editor on Settings →
+Organization, a "Department VM network" editor on each department page, and
+an optional "Allowed hosts" field in New department. The editor shows the
+hosts as removable chips, validates each entry with the contract's own
+`netAllowlistProblem` (so the form refuses exactly what the server would),
+and the department rows on Settings show "network off" or the host count.
+Saving PATCHes the same field the API takes; the change reaches the VM at
+its next start (the VM is recreated by the fingerprint mechanic). Each
+editor also carries a "Full network access" toggle (`netOpen`, the same
+PATCH): an explicit owner opt-in that removes every egress restriction for
+that home's VM — allowlist ignored, isolation off, ingress still denied —
+with the warning spelled out in place, audited as `org-net-open` /
+`department-net-open`, and New department offers it too.

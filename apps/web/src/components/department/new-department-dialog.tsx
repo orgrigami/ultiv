@@ -5,8 +5,9 @@
  */
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { DEFAULT_VM } from "@spriessen/contracts";
+import { DEFAULT_VM, netAllowlistProblem } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,9 +30,16 @@ export function NewDepartmentDialog({
   const [instructions, setInstructions] = useState("");
   const [cpus, setCpus] = useState(String(DEFAULT_VM.cpus));
   const [memory, setMemory] = useState(String(DEFAULT_VM.memoryMiB));
+  const [hosts, setHosts] = useState("");
+  const [openNet, setOpenNet] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const vm = readVmInput(cpus, memory);
+  const hostList = hosts
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry !== "");
+  const hostProblem = hostList.length === 0 ? null : netAllowlistProblem(hostList);
   const submit = async (): Promise<void> => {
     if (name.trim() === "" || typeof vm === "string") return;
     setBusy(true);
@@ -42,10 +50,13 @@ export function NewDepartmentDialog({
         vm,
         hostAccess: false,
         ...(instructions.trim() !== "" ? { instructions } : {}),
+        ...(hostList.length > 0 && !openNet ? { netAllowlist: hostList } : {}),
+        ...(openNet ? { netOpen: true } : {}),
       });
       onOpenChange(false);
       setName("");
       setInstructions("");
+      setHosts("");
       if (onCreated !== undefined) onCreated(created.id);
       else void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: created.id } });
     } catch (cause) {
@@ -85,9 +96,38 @@ export function NewDepartmentDialog({
             />
           </label>
           <VmFields cpus={cpus} memory={memory} onCpus={setCpus} onMemory={setMemory} />
+          <label className="flex flex-col gap-1 text-sm">
+            Allowed hosts (optional)
+            <Textarea
+              rows={2}
+              value={hosts}
+              placeholder="api.example.com, *.example.com — leave empty to start offline"
+              onChange={(event) => setHosts(event.target.value)}
+            />
+          </label>
+          {hostProblem !== null && !openNet && (
+            <p role="alert" className="text-destructive text-sm">
+              {hostProblem}
+            </p>
+          )}
+          <label className="flex cursor-pointer items-start gap-2">
+            <Checkbox
+              className="mt-0.5"
+              checked={openNet}
+              onCheckedChange={(checked) => setOpenNet(checked === true)}
+            />
+            <span className="text-sm">
+              Full network access
+              <span className="text-muted-foreground block text-xs">
+                No restrictions: the VM reaches everything, including other machines on your
+                network. The allowlist is ignored while this is on.
+              </span>
+            </span>
+          </label>
           <p className="text-muted-foreground text-xs">
             Host access starts off: its bots can't run things on this computer until you switch it
-            on from the department page.
+            on from the department page. The VM's network is off unless hosts are listed (or full
+            access is on).
           </p>
           {error !== null && (
             <p role="alert" className="text-destructive text-sm">
@@ -95,7 +135,12 @@ export function NewDepartmentDialog({
             </p>
           )}
           <div className="flex justify-end">
-            <Button type="submit" disabled={busy || name.trim() === "" || typeof vm === "string"}>
+            <Button
+              type="submit"
+              disabled={
+                busy || name.trim() === "" || typeof vm === "string" || hostProblem !== null
+              }
+            >
               {busy ? "Creating…" : "Create department"}
             </Button>
           </div>

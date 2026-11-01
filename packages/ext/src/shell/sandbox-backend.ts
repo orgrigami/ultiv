@@ -156,6 +156,8 @@ export interface SandboxBackendOptions {
    * recreates the VM at its next use (the applied-fingerprint marker).
    */
   readonly netAllowlist?: readonly string[];
+  /** Full network access for this home's VM: the allowlist is ignored. */
+  readonly netOpen?: boolean;
   /**
    * The home's stored VM size (slice 4): the cpus and memory the VM is
    * CREATED with — the org's or department's stored settings. Undefined
@@ -305,7 +307,9 @@ export const sandboxShellBackend =
       // The home's network policy (slice 3): deny by default, the stored
       // hosts allowed, TLS relayed untouched (see allowlistNetwork).
       // Applied at creation; see the fingerprint above.
-      builder = builder.network((network) => allowlistNetwork(network, options.netAllowlist ?? []));
+      builder = builder.network((network) =>
+        allowlistNetwork(network, options.netAllowlist ?? [], options.netOpen === true),
+      );
       vm = await builder.connectOrCreate();
       generation = vmGenerationOf(options.name);
       markAppliedFingerprint(options.name, vmSpecFingerprint(spec));

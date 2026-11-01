@@ -84,6 +84,8 @@ export interface HomeWorld {
   readonly user?: SandboxUser;
   /** The home's network allowlist (slice 3): named hosts, everything else denied. */
   readonly netAllowlist?: readonly string[];
+  /** Full network access (owner opt-in): the allowlist is ignored. */
+  readonly netOpen?: boolean;
   /** The writable shared folders' size caps (fix 2). */
   readonly caps?: HomeScope["caps"];
   /** The home's stored VM size (slice 4): cpus and memory at creation. */
@@ -111,6 +113,7 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     ...(home.deptShared === undefined ? {} : { deptShared: home.deptShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
     ...(home.netAllowlist === undefined ? {} : { netAllowlist: home.netAllowlist }),
+    ...(home.netOpen === undefined ? {} : { netOpen: home.netOpen }),
     ...(home.caps === undefined ? {} : { caps: home.caps }),
     ...(home.vm === undefined ? {} : { vm: home.vm }),
   };
@@ -298,7 +301,8 @@ const sandboxTool = (
       "network is OFF by default: only the hosts your owner allowlisted for this home are " +
       "reachable, so apt-get, pip or curl work only when the policy allows their hosts (for " +
       "apt-get, the distribution mirrors); a refused connection means the host is not " +
-      "allowed, not that it is down. Shared folders have size caps; over a cap the folder " +
+      "allowed, not that it is down (if every host is refused, ask whether this home's " +
+      "network has been opened fully). Shared folders have size caps; over a cap the folder " +
       "turns read-only. Every file you create or change under " +
       HOME +
       " is an artifact: it persists across restarts and the user can see it. The folder " +
@@ -450,6 +454,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
       ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
       ...(world.user === undefined ? {} : { user: world.user }),
       ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
+      ...(world.netOpen === undefined ? {} : { netOpen: world.netOpen }),
       ...(world.vm === undefined ? {} : { vm: world.vm }),
       ...(world.caps === undefined ? {} : { caps: world.caps }),
     };

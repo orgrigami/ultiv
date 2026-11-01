@@ -446,6 +446,14 @@ the org owner or an org admin for the org VM (`PATCH /api/org`,
 department's VM (`PATCH /api/org/departments/:id`); a member or a foreign
 department's admin reads as a missing department. Every change writes a
 `permission` audit row (`org-net-allowlist`, `department-net-allowlist`).
+**Full network access is an explicit per-home opt-in (`netOpen`).** When the
+owner turns it on (the same PATCH routes, audited as `org-net-open` /
+`department-net-open`), the VM's policy becomes allow-all EGRESS — every
+host, port and the local network are reachable, the allowlist is ignored —
+while ingress stays denied. This turns the sandbox's network isolation OFF
+for that home: treat its bots accordingly, and expect nothing in the threat
+model's network claims to hold while it is on. The flag is part of the same
+create-time fingerprint, so flipping it recreates the VM at its next use.
 TLS interception is bypassed for the policy's allow rules, so a bot's TLS to
 an allowlisted host is end to end — no CA is installed in the guest — while
 a DENIED host gets an explicit refusal (probe-verified: an off-list or

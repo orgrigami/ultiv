@@ -111,6 +111,7 @@ export interface OrgService {
     readonly hostAccess?: boolean;
     readonly orgSharedCapBytes?: number;
     readonly netAllowlist?: readonly string[];
+    readonly netOpen?: boolean;
   }) => Promise<OrgInfo>;
   readonly createDepartment: (input: DepartmentCreate, by: string) => Promise<DepartmentInfo>;
   readonly updateDepartment: (id: string, patch: DepartmentPatch) => Promise<DepartmentInfo>;
@@ -281,6 +282,7 @@ export const orgService = (
           // Plain copies: the returned row must not reach into the draft
           // (a settled overlay throws the moment it is stringified).
           netAllowlist: [...(patch.netAllowlist ?? draft.org.netAllowlist ?? [])],
+          netOpen: patch.netOpen ?? draft.org.netOpen === true,
           ...(patch.name !== undefined ? { name: patch.name } : {}),
           ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
           ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
@@ -321,6 +323,7 @@ export const orgService = (
         hostAccess: input.hostAccess ?? false,
         instructions: input.instructions ?? "",
         netAllowlist: input.netAllowlist ?? [],
+        netOpen: input.netOpen ?? false,
         sharedCapBytes: DEFAULT_DEPT_SHARED_CAP_BYTES,
         sharedGid: nextGid(state),
       };
@@ -362,6 +365,7 @@ export const orgService = (
             vm: { ...row.vm },
             // Plain copy: never reach into the settled draft (see updateOrg).
             netAllowlist: [...(patch.netAllowlist ?? row.netAllowlist ?? [])],
+            netOpen: patch.netOpen ?? row.netOpen === true,
             ...(patch.name !== undefined ? { name: patch.name } : {}),
             ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
             ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),

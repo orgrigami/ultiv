@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { orgApi } from "@/lib/org-api";
 import { readVmInput } from "@/lib/org-view";
+import { NetAllowlistEditor } from "@/components/net-allowlist";
 import { VmFields } from "./vm-fields";
 
 const errorText = (cause: unknown): string =>
@@ -118,6 +119,21 @@ export function DeptSettings({
           </span>
         </span>
       </label>
+      <NetAllowlistEditor
+        title="Department VM network"
+        entries={department.netAllowlist ?? []}
+        open={department.netOpen === true}
+        meta={
+          department.netOpen === true
+            ? "Open: this VM reaches everything. The allowlist below is ignored until you close it again."
+            : department.netAllowlist === undefined || department.netAllowlist.length === 0
+              ? "Offline: this VM reaches no hosts. Add the ones its bots need."
+              : `This VM reaches exactly these hosts (${department.netAllowlist.length} of at most 64).`
+        }
+        onSave={async (draft, open) => {
+          await orgApi.patchDepartment(department.id, { netAllowlist: draft, netOpen: open });
+        }}
+      />
     </div>
   );
 }

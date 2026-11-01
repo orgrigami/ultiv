@@ -59,9 +59,11 @@ export const homeScopeOfProfile =
         : undefined;
     const sharedGid = home.kind === "org" ? state.org.sharedGid : department?.sharedGid;
     // The home's network allowlist (slice 3): the org's for the org VM, the
-    // department's for its VM — both defaulting to [] (fully offline).
+    // department's for its VM — both defaulting to [] (fully offline). A
+    // home with full network access (`netOpen`) ignores the list entirely.
     const netAllowlist =
       home.kind === "org" ? (state.org.netAllowlist ?? []) : (department?.netAllowlist ?? []);
+    const netOpen = home.kind === "org" ? state.org.netOpen === true : department?.netOpen === true;
     // The home's stored VM size (slice 4): the cpus and memory its VM is
     // CREATED with — the org's or department's stored settings, defaults
     // 1 CPU / 512 MiB applied in ext when a legacy row has none.
@@ -132,6 +134,7 @@ export const homeScopeOfProfile =
       ...(deptShared === undefined ? {} : { deptShared }),
       user,
       netAllowlist,
+      netOpen,
       ...(vm === undefined ? {} : { vm }),
     };
   };

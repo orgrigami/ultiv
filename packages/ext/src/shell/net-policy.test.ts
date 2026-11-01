@@ -71,6 +71,14 @@ describe("allowlistPolicy (allowlist -> NetworkPolicy)", () => {
       allowlistPolicy(["a.example.com", "b.example.com"]),
     );
   });
+
+  it("open=true allows ALL egress and ignores the allowlist, ingress still denied", () => {
+    const policy = allowlistPolicy(["api.example.com"], true);
+    expect(policy).toEqual({ defaultEgress: "allow", defaultIngress: "deny", rules: [] });
+    // The owner opt-in must be a distinct policy from any allowlist.
+    expect(policy).not.toEqual(allowlistPolicy(["api.example.com"]));
+    expect(allowlistPolicy([], true)).toEqual(policy);
+  });
 });
 
 describe("the applied-fingerprint marker (a change recreates the VM)", () => {
@@ -127,5 +135,16 @@ describe("the home-scope passthrough (mind -> ext)", () => {
   it("an absent allowlist stays absent (the backend then boots offline)", () => {
     const home = { dir: "/x/_home/org" } satisfies HomeScope;
     expect(homeWorldOf("/x/owner/bot", home).netAllowlist).toBeUndefined();
+  });
+
+  it("carries netOpen through, and a flipped open flag changes the spec fingerprint", async () => {
+    const { vmSpecFingerprint } = await import("./net-policy.ts");
+    const home = { dir: "/x/_home/org", netOpen: true } satisfies HomeScope;
+    expect(homeWorldOf("/x/owner/bot", home).netOpen).toBe(true);
+    const base = { cpus: 1, memoryMiB: 512, allowlist: ["api.example.com"] };
+    expect(vmSpecFingerprint({ ...base, open: true })).not.toBe(vmSpecFingerprint(base));
+    expect(vmSpecFingerprint({ ...base, open: true })).toBe(
+      vmSpecFingerprint({ ...base, open: true }),
+    );
   });
 });

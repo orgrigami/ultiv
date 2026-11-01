@@ -118,6 +118,12 @@ export interface HomeScope {
    */
   readonly netAllowlist?: readonly string[];
   /**
+   * Full network access for this home's VM (owner opt-in): when true the
+   * allowlist is ignored and all egress is allowed. ext never learns org
+   * concepts — the mind supplies it.
+   */
+  readonly netOpen?: boolean;
+  /**
    * The home's stored VM size (slice 4): the cpus and memory the VM is
    * CREATED with. ext never learns org concepts — the mind supplies it;
    * absent reads the defaults (1 CPU / 512 MiB).

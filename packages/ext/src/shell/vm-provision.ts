@@ -434,6 +434,7 @@ export const vmSpecOf = (options: SandboxBackendOptions): VmSpec => ({
   cpus: options.vm?.cpus ?? VM_CPUS,
   memoryMiB: options.vm?.memoryMiB ?? VM_MEMORY_MIB,
   allowlist: options.netAllowlist ?? [],
+  open: options.netOpen === true,
   image: options.image ?? sandboxImage(),
   mounts: mountsOf(options),
 });

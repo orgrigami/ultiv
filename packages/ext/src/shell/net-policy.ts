@@ -53,7 +53,10 @@ export const normalizeAllowlist = (hosts: readonly string[]): string[] =>
  * named hosts (a `*.suffix` entry covers its subdomains), and — only when
  * at least one host is listed — the DNS lookups those names need.
  */
-export const allowlistPolicy = (hosts: readonly string[]): NetworkPolicy => {
+export const allowlistPolicy = (hosts: readonly string[], open = false): NetworkPolicy => {
+  // Full network access (owner opt-in): every egress allowed, ingress still
+  // denied. The allowlist is ignored; the UI and docs say isolation is off.
+  if (open) return { defaultEgress: "allow", defaultIngress: "deny", rules: [] };
   const names = normalizeAllowlist(hosts);
   if (names.length === 0) return DENY_ALL;
   // DNS only to the VM's own resolver: microsandbox points the guest's
@@ -80,7 +83,6 @@ export const allowlistFingerprint = (hosts: readonly string[]): string =>
     .update(JSON.stringify(normalizeAllowlist(hosts)))
     .digest("hex")
     .slice(0, 16);
-
 /**
  * The whole create-time spec of one home's VM (slice 4): its stored SIZE
  * (cpus, memoryMiB) plus its network allowlist. Both are create-time-only
@@ -91,6 +93,8 @@ export interface VmSpec {
   readonly cpus: number;
   readonly memoryMiB: number;
   readonly allowlist: readonly string[];
+  /** Full network access: the allowlist is ignored, all egress allowed. */
+  readonly open?: boolean;
   /** The OCI image the VM was created from (create-time-only too). */
   readonly image?: string;
   /** The declared volumes, `guest=host:ro|rw`, sorted (create-time-only too). */
@@ -105,6 +109,7 @@ export const vmSpecFingerprint = (spec: VmSpec): string =>
         cpus: spec.cpus,
         memoryMiB: spec.memoryMiB,
         allowlist: normalizeAllowlist(spec.allowlist),
+        open: spec.open === true,
         image: spec.image ?? null,
         mounts: [...(spec.mounts ?? [])].sort(),
       }),
@@ -134,8 +139,9 @@ export const allowlistNetwork = (
     tls: (configure: (tls: { bypass: (pattern: string) => unknown }) => unknown) => unknown;
   },
   hosts: readonly string[],
+  open = false,
 ): unknown => {
-  const withPolicy = network.policy(allowlistPolicy(hosts)) as typeof network;
+  const withPolicy = network.policy(allowlistPolicy(hosts, open)) as typeof network;
   return withPolicy.tls((tls: { bypass: (pattern: string) => unknown }) => tls.bypass("*"));
 };
 
