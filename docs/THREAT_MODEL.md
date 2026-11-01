@@ -54,7 +54,12 @@ hashing); this file is the map of trust.
   surfaces, and write no `reach` rows. Reach does NOT
   cover: another bot's chats, memory or home folder; vault items and
   connectors of another home (those need a NAMED grant, audited, revoked
-  stops access at once); department and org settings for anyone without the
+  stops access at once). From slice 6 a vault item CARRIES its home
+  (legacy owner-level items read as the org): a bot's vault reads —
+  `vault_list`, `vault_contacts` and the broker's credential resolution —
+  never list another home's items, and a refused cross-home credential read
+  writes an audited `credential` row (ok false). Department and org
+  settings are hidden from anyone without the
   role. Messaging itself is unchanged: admission-only through the mailbox
   with its caps, `canInitiate: ["*"]`.
 - **Chats stay private**: a chat belongs to whoever started it — org owner

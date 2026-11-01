@@ -5,6 +5,7 @@
  * read path for them at the act surface, by construction.
  */
 import { resolveInside } from "@spriessen/core";
+import type { HomeRef } from "@spriessen/contracts";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -29,6 +30,13 @@ export interface ScopeResolver {
   readonly homeScopeOf?: (
     conversationId: string,
   ) => HomeScope | undefined | Promise<HomeScope | undefined>;
+  /**
+   * The conversation's HOME as a plain HomeRef (slice 6: vault reads are
+   * per home — a bot sees its home's items, never another home's). The
+   * mind supplies it; ext never judges org structure. Absent keeps the
+   * pre-slice-6 behaviour (owner-level items visible to every profile).
+   */
+  readonly homeOf?: (conversationId: string) => HomeRef | undefined;
 }
 
 /** The bot's own Linux identity inside a VM (slice 2b); the mind supplies it. */
@@ -125,6 +133,18 @@ export const scopeDir = (holder: ScopeHolder, conversationId: string, root: stri
   return scope === undefined ? root : resolveInside(root, scope.owner, scope.profile);
 };
 
+/** The read scope of one conversation: its profile plus, when known, its home. */
+const readScope = (holder: ScopeHolder, conversationId: string) => {
+  const scope = holder.get()?.scopeOf(conversationId);
+  if (scope === undefined) return undefined;
+  const home = holder.get()?.homeOf?.(conversationId);
+  return {
+    owner: scope.owner,
+    profile: scope.profile,
+    ...(home !== undefined ? { home } : {}),
+  };
+};
+
 const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>
   defineTool({
     name: "vault_list",
@@ -146,7 +166,7 @@ const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>
       }),
     ),
     execute: (args, api) => {
-      const scope = holder.get()?.scopeOf(String(api.conversationId));
+      const scope = readScope(holder, String(api.conversationId));
       if (scope === undefined) {
         return Promise.resolve({
           output: [{ type: "text" as const, text: "[]" }],
@@ -154,7 +174,7 @@ const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>
         });
       }
       const items = store
-        .list(scope.owner, { profile: scope.profile })
+        .list(scope.owner, scope)
         .map(({ id, name, kind, access, masked, profile }) => ({
           id,
           name,
@@ -190,7 +210,7 @@ const contactsTool = (store: VaultStore, holder: ScopeHolder): Tool =>
       }),
     ),
     execute: (args, api) => {
-      const scope = holder.get()?.scopeOf(String(api.conversationId));
+      const scope = readScope(holder, String(api.conversationId));
       if (scope === undefined) {
         return Promise.resolve({
           output: [{ type: "text" as const, text: "[]" }],
@@ -198,7 +218,7 @@ const contactsTool = (store: VaultStore, holder: ScopeHolder): Tool =>
         });
       }
       const report = store.contactsReport(scope.owner, {
-        profile: scope.profile,
+        ...scope,
         ...(args.query !== undefined ? { query: args.query } : {}),
       });
       const contacts = report.contacts.map(({ id, name, email, phone }) => ({

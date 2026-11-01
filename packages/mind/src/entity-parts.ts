@@ -9,6 +9,7 @@ import type { ScopeHolder } from "@spriessen/ext";
 import type { TranscriptEntry } from "@spriessen/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
 import { mayAutoApprove } from "./auto-approve.ts";
+import { homeOf } from "./org/model.ts";
 import { homeScopeOfProfile } from "./org/home-scope.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
@@ -242,6 +243,13 @@ export const wirePolicies = (
     scopeOf: (conversationId) => {
       const scope = profiles.scopeOf(conversationId);
       return scope === undefined ? undefined : { owner: scope.owner, profile: scope.profileId };
+    },
+    // Slice 6: vault reads (tools, broker) are per home — the bot's own
+    // department, or the org. ext never judges org structure; the mind
+    // resolves the conversation's bot to its home here.
+    homeOf: (conversationId) => {
+      const profile = profiles.profileOf(conversationId);
+      return profile === undefined ? undefined : homeOf(profile);
     },
     ...(homeScopeRoot === undefined
       ? {}

@@ -1,9 +1,10 @@
 /**
  * Resolving a model's credential reference to a usable (item, binding,
  * secret material) triple — every policy check happens here, before any
- * secret is opened: visibility to the profile, secret class, binding
- * presence, adapter, and which bots may use it.
+ * secret is opened: visibility to the profile AND the bot's home (slice 6),
+ * secret class, binding presence, adapter, and which bots may use it.
  */
+import type { HomeRef } from "@spriessen/contracts";
 import type { CredentialBinding, VaultItemInfo } from "@spriessen/contracts";
 import type { VaultSecret, VaultStore } from "../vault.ts";
 import type { BindingStore } from "./bindings.ts";
@@ -11,6 +12,13 @@ import type { SecretMaterial } from "./redact.ts";
 
 /** Secrets this short would make redaction scrub ordinary text; refuse them. */
 export const MIN_SECRET_LENGTH = 6;
+
+/** The scope one broker resolution runs in: the bot's profile plus its home. */
+export interface BrokerScope {
+  readonly owner: string;
+  readonly profile: string;
+  readonly home?: HomeRef;
+}
 
 export type Resolved =
   | { readonly ok: true; readonly item: VaultItemInfo; readonly binding: CredentialBinding }
@@ -20,11 +28,14 @@ export type Resolved =
 export const findCredential = (
   vault: VaultStore,
   bindings: BindingStore,
-  scope: { readonly owner: string; readonly profile: string },
+  scope: BrokerScope,
   reference: string,
 ): Resolved => {
   const visible = vault
-    .list(scope.owner, { profile: scope.profile })
+    .list(scope.owner, {
+      profile: scope.profile,
+      ...(scope.home !== undefined ? { home: scope.home } : {}),
+    })
     .filter((item) => item.access === "secret");
   const wanted = reference.trim().toLowerCase();
   const byId = visible.find((item) => item.id === reference.trim());

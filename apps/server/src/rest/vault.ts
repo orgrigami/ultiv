@@ -22,13 +22,14 @@ export async function vaultRoutes(
     // Strip the REST response down to metadata (the store never returns secrets).
     json(
       200,
-      items.map(({ id, name, kind, access, masked, profile, createdAt, lastUsedAt }) => ({
+      items.map(({ id, name, kind, access, masked, profile, home, createdAt, lastUsedAt }) => ({
         id,
         name,
         kind,
         access,
         masked,
         profile,
+        ...(home !== undefined ? { home } : {}),
         createdAt,
         lastUsedAt,
       })),

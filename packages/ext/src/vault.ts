@@ -11,7 +11,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { InvalidInput, NotFound, resolveInside, tryResolveInside } from "@spriessen/core";
-import type { VaultContact, VaultItemCreate, VaultItemInfo } from "@spriessen/contracts";
+import type { HomeRef, VaultContact, VaultItemCreate, VaultItemInfo } from "@spriessen/contracts";
 
 /** The vault root (relative to the server's cwd, like HARNESS_DB). */
 export const vaultDir = (): string => {
@@ -50,6 +50,26 @@ interface StoredVaultItem {
   info: VaultItemInfo;
   sealed?: Sealed | null;
 }
+
+/** The scope one bot's reads use: its profile plus its home (slice 6). */
+export interface VaultReadScope {
+  readonly profile?: string;
+  readonly home?: HomeRef;
+  readonly query?: string;
+}
+
+/**
+ * The home an item belongs to: the stored one, or the org when the row was
+ * written before items carried a home (existing owner-level items ARE org
+ * items — the recorded slice-6 decision). A profile-scoped item is visible
+ * to its profile alone, so its home is never consulted.
+ */
+export const homeOfItem = (info: Pick<VaultItemInfo, "home">): HomeRef =>
+  info.home ?? { kind: "org" };
+
+const sameHome = (a: HomeRef, b: HomeRef): boolean =>
+  a.kind === b.kind &&
+  (a.kind !== "department" || (b.kind === "department" && a.departmentId === b.departmentId));
 
 const encryptWith = (key: Buffer, data: Buffer): { iv: Buffer; tag: Buffer; ct: Buffer } => {
   const iv = randomBytes(12);
@@ -196,21 +216,15 @@ export interface VaultGrant {
 
 export interface VaultStore {
   readonly create: (owner: string, input: VaultItemCreate) => VaultItemInfo;
-  readonly list: (owner: string, scope?: { readonly profile?: string }) => readonly VaultItemInfo[];
+  readonly list: (owner: string, scope?: VaultReadScope) => readonly VaultItemInfo[];
   readonly get: (owner: string, id: string) => VaultItemInfo | undefined;
   readonly remove: (owner: string, id: string) => boolean;
   /** Redeem one secret in-process (connector auth, executor). */
   readonly resolve: (owner: string, id: string) => VaultSecret | undefined;
   /** Readable contacts (reference class), optionally by query. */
-  readonly contacts: (
-    owner: string,
-    scope?: { readonly profile?: string; readonly query?: string },
-  ) => readonly VaultContact[];
+  readonly contacts: (owner: string, scope?: VaultReadScope) => readonly VaultContact[];
   /** Contacts plus the items that could not be opened (e.g. after a VAULT_KEY change). */
-  readonly contactsReport: (
-    owner: string,
-    scope?: { readonly profile?: string; readonly query?: string },
-  ) => ContactsReport;
+  readonly contactsReport: (owner: string, scope?: VaultReadScope) => ContactsReport;
   readonly mintGrant: (owner: string, id: string, purpose: string) => VaultGrant | undefined;
   readonly redeemGrant: (
     token: string,
@@ -241,11 +255,7 @@ export interface ContactsReport {
  * Open every contact in scope. One item that fails to decrypt (a changed
  * VAULT_KEY, a damaged file) is skipped and reported, never fatal to the rest.
  */
-const contactsOf = (
-  store: VaultStore,
-  owner: string,
-  scope?: { readonly profile?: string; readonly query?: string },
-): ContactsReport => {
+const contactsOf = (store: VaultStore, owner: string, scope?: VaultReadScope): ContactsReport => {
   const query = scope?.query?.trim().toLowerCase() ?? "";
   const unreadable: { id: string; name: string }[] = [];
   const contacts = store
@@ -298,15 +308,29 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
     writeFileSync(sidecarOf(owner, item.info.id), JSON.stringify(item));
   };
 
-  const inScope = (info: VaultItemInfo, scope?: { readonly profile?: string }): boolean => {
+  /**
+   * What one bot's read may see (slice 6): its own profile items always;
+   * owner-level items only when they belong to the bot's home. Without a
+   * home in the scope (an older embedder), owner-level items stay visible
+   * to every profile of the owner — the pre-slice-6 behaviour.
+   */
+  const inScope = (info: VaultItemInfo, scope?: VaultReadScope): boolean => {
     if (scope?.profile === undefined) return true;
-    return info.profile === null || info.profile === scope.profile;
+    if (info.profile === scope.profile) return true;
+    if (info.profile !== null) return false;
+    return scope.home === undefined || sameHome(homeOfItem(info), scope.home);
   };
 
   const store: VaultStore = {
     create: (owner, input) => {
       if (!vaultConfigured()) {
         throw new InvalidInput({ reason: "VAULT_KEY is not set — the vault cannot seal items" });
+      }
+      if (input.departmentId !== undefined && input.departmentId !== null && input.profile) {
+        throw new InvalidInput({
+          reason:
+            "an item scoped to one bot follows that bot's home; it cannot also name a department",
+        });
       }
       const secret = secretOf(input);
       const info: VaultItemInfo = {
@@ -319,6 +343,17 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
         masked: maskOf(input),
         createdAt: Date.now(),
         lastUsedAt: null,
+        // Slice 6: an owner-level item's home is the department it names,
+        // else the org. A profile-scoped item stays home-less (its profile
+        // gates it).
+        ...(input.profile === undefined || input.profile === null
+          ? {
+              home:
+                input.departmentId !== undefined && input.departmentId !== null
+                  ? ({ kind: "department", departmentId: input.departmentId } as const)
+                  : ({ kind: "org" } as const),
+            }
+          : {}),
       };
       writeItem(owner, { info, sealed: seal(kekOf(), secret) });
       return info;

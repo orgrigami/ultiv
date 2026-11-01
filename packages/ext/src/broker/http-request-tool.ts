@@ -13,7 +13,7 @@ import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import type { VaultStore } from "../vault.ts";
 import type { BindingStore } from "./bindings.ts";
-import { findCredential, materialOf, MIN_SECRET_LENGTH } from "./credential.ts";
+import { findCredential, materialOf, MIN_SECRET_LENGTH, type BrokerScope } from "./credential.ts";
 import type { BrokerHooksHolder } from "./hooks.ts";
 import {
   checkHttp,
@@ -65,7 +65,7 @@ interface Spend {
 /** Policy, then the secret: returns what to spend or why not. */
 const prepare = async (
   deps: BrokerDeps,
-  scope: { readonly owner: string; readonly profile: string } | undefined,
+  scope: BrokerScope | undefined,
   call: HttpCall,
   reference: string,
 ): Promise<Spend | string> => {
@@ -137,13 +137,30 @@ export const httpRequestTool = (deps: BrokerDeps): Tool =>
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
       const scope = deps.holder.get()?.scopeOf(conversationId);
+      const home = deps.holder.get()?.homeOf?.(conversationId);
       const call: HttpCall = {
         method: args.method,
         url: args.url,
         ...(args.headers !== undefined ? { headers: args.headers } : {}),
         ...(args.body !== undefined ? { body: args.body } : {}),
       };
-      return runCall(deps, { conversationId, callId: api.callId, scope }, call, args.credential);
+      return runCall(
+        deps,
+        {
+          conversationId,
+          callId: api.callId,
+          scope:
+            scope === undefined
+              ? undefined
+              : {
+                  owner: scope.owner,
+                  profile: scope.profile,
+                  ...(home !== undefined ? { home } : {}),
+                },
+        },
+        call,
+        args.credential,
+      );
     },
   });
 
@@ -153,7 +170,7 @@ const runCall = async (
   context: {
     readonly conversationId: string;
     readonly callId: string;
-    readonly scope: { readonly owner: string; readonly profile: string } | undefined;
+    readonly scope: BrokerScope | undefined;
   },
   call: HttpCall,
   reference: string | undefined,
@@ -164,9 +181,15 @@ const runCall = async (
   } catch {
     return fail("not an absolute URL");
   }
+  const startedAt = Date.now();
   const spend =
     reference === undefined ? null : await prepare(deps, context.scope, call, reference);
-  if (typeof spend === "string") return fail(spend);
+  if (typeof spend === "string") {
+    // spend is only non-null when a reference was given.
+    if (reference !== undefined)
+      auditRefusal(deps, context, call, url, reference, spend, startedAt);
+    return fail(spend);
+  }
   const problem = targetProblem(url, spend?.binding.allowLocalhostHttp ?? false);
   if (problem !== undefined) return fail(problem);
   const hooks = deps.hooks.get();
@@ -197,6 +220,55 @@ const runCall = async (
     }
   }
   return spendAndReport(deps, context, call, spend);
+};
+
+/**
+ * A refused credential resolution is an event (slice 6): a read from another
+ * home (or another bot's profile, or an unknown name) writes its audit row —
+ * kind `credential`, ok false, never any secret bytes. The item is named
+ * when one exists under that reference, so the trail shows WHAT was refused.
+ */
+const auditRefusal = (
+  deps: BrokerDeps,
+  context: {
+    readonly conversationId: string;
+    readonly callId: string;
+    readonly scope: BrokerScope | undefined;
+  },
+  call: HttpCall,
+  url: URL,
+  reference: string,
+  reason: string,
+  startedAt: number,
+): void => {
+  const audit = deps.hooks.get()?.audit;
+  if (audit === undefined) return;
+  const wanted = reference.trim().toLowerCase();
+  const owner = context.scope?.owner;
+  const item =
+    owner !== undefined && deps.vault !== null
+      ? deps.vault
+          .list(owner)
+          .find((info) => info.id === reference.trim() || info.name.toLowerCase() === wanted)
+      : undefined;
+  audit({
+    conversationId: context.conversationId,
+    profile: context.scope?.profile ?? null,
+    callId: context.callId,
+    at: startedAt,
+    kind: "credential",
+    name: HTTP_REQUEST_TOOL,
+    durationMs: Date.now() - startedAt,
+    ok: false,
+    error: reason,
+    credential: {
+      item: item?.name ?? null,
+      adapter: "http",
+      host: url.host,
+      method: call.method,
+      status: null,
+    },
+  });
 };
 
 const spendAndReport = async (

@@ -169,6 +169,23 @@ stops access at once (the broker's granted-credential fallback consults the
 live grant table on every spend). Messaging itself needs no grant and stays
 under the mailbox caps.
 
+**Vault items per home** (phase 4 slice 6): every vault item belongs to one
+home — a department or the org. The human create names the department
+(`departmentId` on `POST /api/vault`); without it the item is an org item.
+Rows stored before the field existed read as ORG items (the recorded
+decision: owner-level means org) — a department bot therefore no longer
+sees them, which is the tightening the org model intends. A bot's reads —
+`vault_list`, `vault_contacts` and the broker's credential resolution — see
+its own profile's items plus its HOME's shared items; another home's items
+are simply absent, and a broker reference that points at one is refused AND
+audited (kind `credential`, ok false, the item's name only, never any
+secret bytes — `auditRefusal` in `packages/ext/src/broker/http-request-tool.ts`).
+Grants keep working unchanged: the granted-credential fallback resolves a
+named item across homes and the item's binding still governs hosts, methods
+and placement. Tested by `packages/ext/src/vault-home.test.ts`,
+`packages/ext/src/plugins/vault.test.ts` and
+`packages/ext/src/broker/http-request-tool.test.ts`.
+
 **Department memory**: a department bot proposes one of its own facts for the
 department's shared store; only an admin of that department (or the org
 level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)

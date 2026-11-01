@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { HomeRefSchema } from "./org.ts";
 
 /**
  * Vault item kinds. `login`/`card`/`key`/`note` are `secret` (use-only: the
@@ -28,6 +29,14 @@ export const VaultItemInfoSchema = Type.Object({
   masked: Type.String(),
   createdAt: Type.Number(),
   lastUsedAt: Type.Union([Type.Number(), Type.Null()]),
+  /**
+   * The home (phase 4 slice 6) the item belongs to: one department, or the
+   * org. Absent on rows stored before the field existed — they read as the
+   * org (owner-level items are org items; recorded decision). A
+   * profile-scoped item's visibility is its profile's alone, so its home
+   * stays unstored; grants name the home when one is shared.
+   */
+  home: Type.Optional(HomeRefSchema),
 });
 
 export type VaultItemInfo = Static<typeof VaultItemInfoSchema>;
@@ -45,6 +54,12 @@ export const VaultItemCreateSchema = Type.Object({
   name: Type.String({ minLength: 1, maxLength: 120 }),
   /** Profile scope; omit/null = owner-shared. */
   profile: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /**
+   * The department the item belongs to (phase 4 slice 6); omit/null = the
+   * org. Refused when a profile scope is also given (a profile-scoped item
+   * follows its bot's home, not a second one).
+   */
+  departmentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   login: Type.Optional(
     Type.Object({
       url: Type.Optional(Type.String()),
