@@ -52,6 +52,7 @@ import {
   SHARED_DIR,
   clearPendingRemovals,
   vmSpecOf,
+  SETUP_WARN,
 } from "./vm-provision.ts";
 
 // Re-exported unchanged: consumers import from here (and `@spriessen/ext`
@@ -148,6 +149,24 @@ export interface SandboxBackendOptions {
    */
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
 }
+
+/** Logged setup warnings, once per VM and line per process (no log flood). */
+const seenWarnings = new Set<string>();
+
+/** Every `SETUP_WARN` line of a provisioning run goes to the server log. */
+export const logSetupWarnings = (
+  sandboxName: string,
+  stderr: string,
+  log: (line: string) => void = (line) => console.warn(line),
+): void => {
+  for (const line of stderr.split("\n")) {
+    if (!line.startsWith(SETUP_WARN)) continue;
+    const key = `${sandboxName} ${line}`;
+    if (seenWarnings.has(key)) continue;
+    seenWarnings.add(key);
+    log(`[sandbox ${sandboxName}] ${line}`);
+  }
+};
 
 export const sandboxShellBackend =
   (options: SandboxBackendOptions): ((homeDir: string) => ShellBackend) =>
@@ -257,7 +276,14 @@ export const sandboxShellBackend =
         "bash",
         (b) => applyBotExec(b, script, HOME, 30_000, undefined) as never,
       );
-      if (output.code !== 0) throw new Error(`VM provisioning failed: ${output.stderr()}`);
+      const stderr = output.stderr();
+      logSetupWarnings(options.name, stderr);
+      if (output.code !== 0) {
+        // Not provisioned is not usable: the next call provisions again
+        // (a hidepid failure keeps failing every boot, never runs a command).
+        vm = null;
+        throw new Error(`VM provisioning failed: ${stderr}`);
+      }
       return vm;
     };
 

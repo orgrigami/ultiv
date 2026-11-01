@@ -13,6 +13,15 @@ import { dirname, join } from "node:path";
 import { readEnv } from "@spriessen/core";
 import type { SandboxUser } from "../plugins/vault.ts";
 import { DEPT_SHARED_DIR, deptGroupName } from "./dept-shared.ts";
+import {
+  SETUP_FATAL,
+  SETUP_FATAL_CODE,
+  SETUP_WARN,
+  setfaclStep,
+  warnOnFail,
+} from "./setup-steps.ts";
+
+export { SETUP_FATAL, SETUP_FATAL_CODE, SETUP_WARN, setfaclStep, warnOnFail };
 import { clearAppliedFingerprint, type VmSpec } from "./net-policy.ts";
 import type { SandboxBackendOptions } from "./sandbox-backend.ts";
 import { artifactsDir } from "../plugins/artifacts.ts";
@@ -94,14 +103,22 @@ export const orgSharedMount = (
     ? undefined
     : { guest: ORG_SHARED_DIR, host: resolveHost(org.hostDir), readOnly: org.readOnly };
 
+/** The hidepid step: remount, then VERIFY — either failing fails the boot. */
+export const HIDEPID_SCRIPT = [
+  `mount -o remount,hidepid=2 /proc || { echo '${SETUP_FATAL} hidepid remount failed' >&2; exit ${SETUP_FATAL_CODE}; }`,
+  `grep -Eq '^proc /proc proc [^ ]*hidepid=(2|invisible)' /proc/mounts || { echo '${SETUP_FATAL} hidepid not in effect' >&2; exit ${SETUP_FATAL_CODE}; }`,
+].join("\n");
+
 /** The root boot script: hidepid=2 on /proc, the shared folder, the org-wide folder. */
 export const bootScript = (
   sharedGid: number | undefined,
-  orgShared?: { readonly gid: number },
+  orgShared?: { readonly gid: number; readonly readOnly?: boolean },
 ): string =>
   [
     // Each bot sees only its own processes; a bot cannot undo the remount.
-    "mount -o remount,hidepid=2 /proc 2>/dev/null || true",
+    // No fallback: a VM without hidepid would let bots see each other's
+    // processes, so the boot FAILS instead.
+    HIDEPID_SCRIPT,
     ...(sharedGid === undefined
       ? []
       : [
@@ -118,10 +135,15 @@ export const bootScript = (
           // files written through the bot's umask 077 stay group-usable.
           `getent group ${ORG_GROUP} >/dev/null 2>&1 || groupadd -g ${orgShared.gid} ${ORG_GROUP}`,
           `mkdir -p ${ORG_SHARED_DIR}`,
-          `chown root:${ORG_GROUP} ${ORG_SHARED_DIR} 2>/dev/null || true`,
-          `chmod 2775 ${ORG_SHARED_DIR} 2>/dev/null || true`,
-          `command -v setfacl >/dev/null 2>&1 && ` +
-            `setfacl -d -m g:${ORG_GROUP}:rwX ${ORG_SHARED_DIR} 2>/dev/null || true`,
+          // A department VM mounts it read-only: nothing to set (the org VM
+          // owns the store's group and mode).
+          ...(orgShared.readOnly === true
+            ? []
+            : [
+                warnOnFail(`chown root:${ORG_GROUP} ${ORG_SHARED_DIR}`, `chown ${ORG_SHARED_DIR}`),
+                warnOnFail(`chmod 2775 ${ORG_SHARED_DIR}`, `chmod ${ORG_SHARED_DIR}`),
+                setfaclStep(ORG_GROUP, ORG_SHARED_DIR),
+              ]),
         ]),
   ].join("\n");
 
@@ -158,7 +180,10 @@ export const botProvisionScript = (
  * never fails the sweep.
  */
 export const retireScriptFor = (user: Pick<SandboxUser, "name" | "home">): string =>
-  [`userdel -r ${user.name} 2>/dev/null || true`, `rm -rf ${user.home} 2>/dev/null || true`].join(
+  [
+    `if id -u ${user.name} >/dev/null 2>&1; then ${warnOnFail(`userdel -r ${user.name}`, `userdel ${user.name}`)}; fi`,
+    warnOnFail(`rm -rf ${user.home}`, `rm ${user.home}`),
+  ].join(
     "\n",
   );
 

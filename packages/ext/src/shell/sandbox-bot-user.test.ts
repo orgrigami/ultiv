@@ -53,8 +53,26 @@ const fakeBuilder = (): ExecBuilderShape & { calls: [string, ...unknown[]][] } =
 };
 
 describe("bootScript (root, per boot)", () => {
-  it("remounts /proc with hidepid=2", () => {
-    expect(bootScript(undefined)).toBe("mount -o remount,hidepid=2 /proc 2>/dev/null || true");
+  it("remounts /proc with hidepid=2 and FAILS the boot when it cannot (no silent fallback)", () => {
+    const script = bootScript(undefined);
+    expect(script).toContain("mount -o remount,hidepid=2 /proc || {");
+    expect(script).toContain("exit 97");
+    // Verified after the remount, not just attempted.
+    expect(script).toContain("/proc/mounts");
+    expect(script).not.toContain("|| true");
+  });
+
+  it("logs every failed chown/chmod/setfacl instead of swallowing it", () => {
+    const script = bootScript(10_001, { gid: 10_002 });
+    expect(script).not.toContain("|| true");
+    expect(script).toContain("|| echo 'spriessen-setup-warn: chown /home/org-shared' >&2");
+    expect(script).toContain("|| echo 'spriessen-setup-warn: setfacl /home/org-shared' >&2");
+  });
+
+  it("a read-only org mount (department VM) skips the store's chown/chmod", () => {
+    const script = bootScript(undefined, { gid: 10_002, readOnly: true });
+    expect(script).not.toContain("chown root:ultiv-org");
+    expect(script).toContain("groupadd -g 10002 ultiv-org");
   });
 
   it("provisions the shared folder root-owned, 2770, per-scope group", () => {
@@ -71,7 +89,7 @@ describe("bootScript (root, per boot)", () => {
       "getent group ultiv-org >/dev/null 2>&1 || groupadd -g 10001 ultiv-org",
     );
     expect(script).toContain("chmod 2775 /home/org-shared");
-    expect(script).toContain("setfacl -d -m g:ultiv-org:rwX /home/org-shared");
+    expect(script).toContain("setfacl -d -m g:ultiv-org:rwX '/home/org-shared'");
     // Running it twice is the same script: the guards decide.
     expect(bootScript(undefined, { gid: 10_001 })).toBe(script);
   });
@@ -135,9 +153,10 @@ describe("retiring a removed bot's user", () => {
   const user: RetiredUser = { name: "bot-aa11bb22cc33", home: "/home/bot-a" };
 
   it("the script deletes the user — group membership goes with it — and its home", () => {
-    expect(retireScriptFor(user)).toBe(
-      "userdel -r bot-aa11bb22cc33 2>/dev/null || true\nrm -rf /home/bot-a 2>/dev/null || true",
-    );
+    const script = retireScriptFor(user);
+    expect(script).toContain("userdel -r bot-aa11bb22cc33 2>/dev/null || echo");
+    expect(script).toContain("rm -rf /home/bot-a 2>/dev/null || echo");
+    expect(script).not.toContain("|| true");
   });
 
   it("runs now when the VM can be reached", async () => {
@@ -222,3 +241,14 @@ describe("the org-wide folder's mount (slice 2c)", () => {
 });
 
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+
+describe("setup warnings reach the log", () => {
+  it("logs each SETUP_WARN line once per VM, ignores other stderr", async () => {
+    const { logSetupWarnings } = await import("./sandbox-backend.ts");
+    const lines: string[] = [];
+    const stderr = "noise\nspriessen-setup-warn: chown /home/x\n";
+    logSetupWarnings("ultiv-log-test", stderr, (line) => lines.push(line));
+    logSetupWarnings("ultiv-log-test", stderr, (line) => lines.push(line));
+    expect(lines).toEqual(["[sandbox ultiv-log-test] spriessen-setup-warn: chown /home/x"]);
+  });
+});

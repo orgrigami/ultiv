@@ -13,6 +13,7 @@
  * (default); the read-only alternative is F-D8.
  */
 import type { Sandbox } from "microsandbox";
+import { SETUP_WARN, setfaclStep, warnOnFail } from "./setup-steps.ts";
 
 /** The guest path of the org VM's department shared folders. */
 export const DEPT_SHARED_DIR = "/home/dept-shared";
@@ -53,7 +54,7 @@ export const deptGroupReconcileScript = (
     `known=' ${depts.map((d) => d.gid).join(" ")} '\n` +
     `for row in $(getent group | awk -F: '$1 ~ /^ultiv-d[0-9]+$/ {print $1":"$3}'); do\n` +
     `  name="\${row%%:*}"; gid="\${row##*:}"\n` +
-    `  case "$known" in *" $gid "*) ;; *) groupdel "$name" 2>/dev/null || true;; esac\n` +
+    `  case "$known" in *" $gid "*) ;; *) groupdel "$name" 2>/dev/null || echo "${SETUP_WARN} groupdel $name" >&2;; esac\n` +
     `done`;
   return [...add, ...members, stale].join("\n");
 };
@@ -71,10 +72,9 @@ export const deptStoreProvisionScript = (depts: readonly DeptStore[]): string =>
       const group = deptGroupName(d.gid);
       return [
         `mkdir -p '${dir}'`,
-        `chown root:${group} '${dir}' 2>/dev/null || true`,
-        `chmod 2770 '${dir}' 2>/dev/null || true`,
-        `command -v setfacl >/dev/null 2>&1 && ` +
-          `setfacl -d -m g:${group}:rwX '${dir}' 2>/dev/null || true`,
+        warnOnFail(`chown root:${group} '${dir}'`, `chown ${dir}`),
+        warnOnFail(`chmod 2770 '${dir}'`, `chmod ${dir}`),
+        setfaclStep(group, dir),
       ];
     })
     .join("\n");

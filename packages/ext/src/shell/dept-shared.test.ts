@@ -50,7 +50,7 @@ describe("deptGroupReconcileScript", () => {
 
   it("deletes a deleted department's group (a gid that is no longer stored)", () => {
     expect(script).toContain("known=' 10002 10003 '");
-    expect(script).toContain('groupdel "$name" 2>/dev/null || true');
+    expect(script).toContain('groupdel "$name" 2>/dev/null || echo "spriessen-setup-warn:');
     expect(script).toMatch(/ultiv-d\[0-9\]/);
   });
 
