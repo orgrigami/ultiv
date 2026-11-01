@@ -85,7 +85,7 @@ describe("connector visibility is per home", () => {
     });
     expect(visibleServers(deps, CONV).map((entry) => entry.record.id)).toEqual(["dept-connector"]);
     const refused = accessOf(deps, CONV, OWNER, "dept-b-connector");
-    expect(refused).toMatchObject({ ok: false, reason: "this connector belongs to another home" });
+    expect(refused).toMatchObject({ ok: false, reason: "connector not found" });
     expect(accessOf(deps, CONV, OWNER, "dept-connector")).toMatchObject({ ok: true });
   });
 
@@ -99,7 +99,7 @@ describe("connector visibility is per home", () => {
     expect(visibleServers(orgBot, CONV).map((entry) => entry.record.id)).toEqual(["org-connector"]);
     expect(accessOf(orgBot, CONV, OWNER, "dept-connector")).toMatchObject({
       ok: false,
-      reason: "this connector belongs to another home",
+      reason: "connector not found",
     });
   });
 

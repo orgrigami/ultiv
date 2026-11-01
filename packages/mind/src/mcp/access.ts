@@ -103,6 +103,13 @@ export const visibleServers = (deps: McpMindDeps, conversationId: string): McpSe
     );
 };
 
+/**
+ * One refusal for every connector the caller may not see — another owner's,
+ * another home's, one not assigned to it, or one that is gone — so a refusal
+ * never confirms that a connector exists elsewhere.
+ */
+export const CONNECTOR_NOT_FOUND = "connector not found";
+
 export const accessOf = (
   deps: McpMindDeps,
   conversationId: string,
@@ -112,16 +119,16 @@ export const accessOf = (
   const scope = deps.profiles.scopeOf(conversationId);
   if (scope === undefined) return { ok: false, reason: "this conversation belongs to no bot" };
   if (scope.owner !== owner)
-    return { ok: false, reason: "this connector belongs to another owner" };
+    return { ok: false, reason: CONNECTOR_NOT_FOUND };
   const view = deps.manager.view(owner, id);
-  if (view === undefined) return { ok: false, reason: "this connector was removed" };
+  if (view === undefined) return { ok: false, reason: CONNECTOR_NOT_FOUND };
   const home = homeOfConversation(deps, conversationId);
   if (home !== undefined && segmentOf(view) !== home) {
-    return { ok: false, reason: "this connector belongs to another home" };
+    return { ok: false, reason: CONNECTOR_NOT_FOUND };
   }
   if (!view.record.enabled) return { ok: false, reason: "this connector is switched off" };
   if (view.record.profiles !== null && !view.record.profiles.includes(scope.profileId)) {
-    return { ok: false, reason: "this connector is not assigned to you" };
+    return { ok: false, reason: CONNECTOR_NOT_FOUND };
   }
   return { ok: true, view };
 };
