@@ -49,6 +49,12 @@ export const OrgInfoSchema = Type.Object({
   vm: VmSettingsSchema,
   /** Host access for the org level; the migration sets it true (today's behaviour). */
   hostAccess: HostAccessSchema,
+  /**
+   * Gid of the org VM's shared-folder group (`/home/shared`): fixed from
+   * 10000 up, never reused. Allocated at creation; rows stored before the
+   * field existed get a deterministic value on read (`normalizeOrgState`).
+   */
+  sharedGid: Type.Optional(Type.Number()),
 });
 
 export type OrgInfo = Static<typeof OrgInfoSchema>;
@@ -62,6 +68,13 @@ export const DepartmentInfoSchema = Type.Object({
   hostAccess: HostAccessSchema,
   /** Standing instructions inherited by the department's bots (before their own). */
   instructions: Type.String(),
+  /**
+   * Gid of the department VM's shared-folder group (`/home/shared`): fixed
+   * from 10000 up, never reused. Allocated at creation; rows stored before
+   * the field existed get a deterministic value on read
+   * (`normalizeOrgState`).
+   */
+  sharedGid: Type.Optional(Type.Number()),
 });
 
 export type DepartmentInfo = Static<typeof DepartmentInfoSchema>;

@@ -26,6 +26,17 @@ import { OrgDoc, defaultVm, emptyOrgState, normalizeOrgState } from "./model.ts"
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
 
+/** Injectable side effects, so tests never touch a VM. */
+export interface OrgServiceOptions {
+  /**
+   * Tears the HOME's microVM down (best effort, bounded) — wired by the
+   * entity with the real `destroySandbox`; tests omit it. A department
+   * removal destroys the department's VM; the org VM is destroyed only
+   * with the org.
+   */
+  readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
+}
+
 /** The whole org state, normalized (missing fields filled, never overwritten). */
 export const readOrgState = (converse: ConverseService): Promise<OrgState> =>
   run(
@@ -96,7 +107,18 @@ const departmentId = (name: string): string =>
       .slice(0, 24) || randomUUID().slice(0, 8)
   }`;
 
-export const orgService = (converse: ConverseService): OrgService => {
+/** The next free shared-folder gid: fixed gids from 10000 up, never reused. */
+const nextGid = (state: OrgState): number =>
+  Math.max(
+    10_000,
+    state.org?.sharedGid ?? 0,
+    ...state.departments.map((row) => row.sharedGid ?? 0),
+  ) + 1;
+
+export const orgService = (
+  converse: ConverseService,
+  options: OrgServiceOptions = {},
+): OrgService => {
   const view = async (): Promise<OrgView> => {
     const state = await readOrgState(converse);
     return {
@@ -119,6 +141,7 @@ export const orgService = (converse: ConverseService): OrgService => {
         createdAt: Date.now(),
         vm: defaultVm(),
         hostAccess,
+        sharedGid: 10_000,
       };
       const member: MemberInfo = { accountId: owner, role: "owner", departmentId: null };
       await commitOrg(converse, (draft) => {
@@ -158,6 +181,7 @@ export const orgService = (converse: ConverseService): OrgService => {
         vm: input.vm ?? defaultVm(),
         hostAccess: input.hostAccess ?? false,
         instructions: input.instructions ?? "",
+        sharedGid: nextGid(state),
       };
       await commitOrg(converse, (draft) => {
         draft.departments = [...draft.departments, row];
@@ -199,6 +223,12 @@ export const orgService = (converse: ConverseService): OrgService => {
             departmentOfHome(grant.resource.home) !== id && departmentOfHome(grant.grantee) !== id,
         );
       });
+      // The department's VM goes with it (best effort, bounded, injected —
+      // tests omit it). The org VM is destroyed only with the org.
+      const owner = state.org?.owner;
+      if (options.destroyHomeVm !== undefined && owner !== undefined) {
+        await options.destroyHomeVm(owner, { kind: "department", departmentId: id });
+      }
       return true;
     },
     setMember: async (input) => {

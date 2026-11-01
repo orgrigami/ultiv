@@ -1,11 +1,16 @@
 /**
  * The purge cascade: every store a bot touches (registry row and sessions,
- * mailbox, memory, vault, schedules, webhooks, watches, rooms, artifacts and
- * its microVM). The DELETE route and the main bot's bot_delete share it.
+ * mailbox, memory, vault, schedules, webhooks, watches, rooms and its
+ * artifact tree). The DELETE route and the main bot's bot_delete share it.
+ *
+ * The bot's microVM is NOT destroyed here (phase 4, one VM per home): the
+ * VM belongs to the bot's home — the org or its department — and is shared
+ * with the home's other bots. A department's VM goes with the department
+ * (`orgService.removeDepartment` tears it down); the org VM only with the
+ * org.
  */
 import { rmSync } from "node:fs";
-import { join } from "node:path";
-import { artifactsDir, destroySandbox, resolveInside, sandboxNameOf } from "@spriessen/ext";
+import { resolveInside, artifactsDir } from "@spriessen/ext";
 import { removeSensorsForSessions } from "@spriessen/mind";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
@@ -36,14 +41,9 @@ export async function purgeBot(
   } catch {
     artifacts = -1;
   }
-  // The bash tool's microVM goes with the bot: same name derivation, best
-  // effort (a missing VM or a stuck runtime never fails the purge).
-  const sandbox = await Promise.race([
-    destroySandbox(sandboxNameOf(join(artifactsDir(), owner, id)))
-      .then(() => true)
-      .catch(() => false),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), 8_000)),
-  ]);
+  // The VM survives the bot (one VM per home, shared with the home's other
+  // bots); the field stays so the answer's shape is stable.
+  const sandbox = false;
   return {
     ok: true,
     sessions: sessionIds.length,
@@ -56,6 +56,8 @@ export async function purgeBot(
     rooms,
     artifacts,
     sandbox,
-    note: "transcripts stay in harness storage (retention); registry rows and files are gone",
+    note:
+      "transcripts stay in harness storage (retention); registry rows and files are gone; " +
+      "the home's shared VM is not touched",
   };
 }

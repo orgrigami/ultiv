@@ -11,10 +11,10 @@
  * through this service; nothing reaches a provider raw.
  */
 import { Context, Effect, Layer } from "effect";
-import { ConfigError } from "effect/Config";
-import { type Storage, type ToolRegistration } from "@earendil-works/pi-durable";
-import { openRuntime, Duplicate, External, Unavailable, type Runtime } from "@spriessen/core";
+import { type ToolRegistration } from "@earendil-works/pi-durable";
+import { openRuntime, type Runtime } from "@spriessen/core";
 import {
+  artifactsDir,
   artifactsPlugin,
   bashPlugin,
   filesPlugin,
@@ -35,13 +35,11 @@ import {
   makeBindingStore,
   type BindingStore,
   type McpManager,
-  type Plugin,
   type VaultStore,
 } from "@spriessen/ext";
 import { Approvals, approvalsLayer, type ApprovalsService } from "./approvals.ts";
 import { actService } from "./act/act.ts";
 import { tasksVisibleTo } from "./act/task-live.ts";
-import type { ScopeHolder } from "@spriessen/ext";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
@@ -56,7 +54,7 @@ import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
 import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { checklistTools } from "./checklist/tools.ts";
-import { adminTools, type MindAdmin, type MindAuthz } from "./admin/index.ts";
+import { adminTools } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService, type RoomsService } from "./profiles/rooms.ts";
 import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
@@ -66,6 +64,8 @@ import {
   orgService,
   type OrgService,
 } from "./org/service.ts";
+import { defaultDestroyHomeVm } from "./org/home-scope.ts";
+import { type MindError, type MindOptions, type MindWiring } from "./entity-options.ts";
 import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
 import { type MemoryService } from "./memory/memory.ts";
@@ -75,12 +75,7 @@ import { type ReceiptsService } from "./routines/receipts.ts";
 import { type WebhooksService } from "./webhooks/webhooks.ts";
 import { type KvService } from "./state/kv.ts";
 import { type SensorsService } from "./sensors/sensors.ts";
-import {
-  Generate,
-  generateLayer,
-  type GenerateOptions,
-  type GenerateService,
-} from "./generate/generate.ts";
+import { Generate, generateLayer, type GenerateService } from "./generate/generate.ts";
 import { Decide, decideLayer, type DecideService } from "./decide/decide.ts";
 import {
   MindModels,
@@ -88,7 +83,7 @@ import {
   modelsLayer,
   type ModelCatalogService,
 } from "./providers/models.ts";
-import { startMcp, type McpOptions, type McpRuntime } from "./mcp/index.ts";
+import { startMcp, type McpRuntime } from "./mcp/index.ts";
 import type { SecretRequestsService } from "./secrets/index.ts";
 
 export interface MindDescription {
@@ -152,58 +147,7 @@ export interface MindService {
 
 export class Mind extends Context.Service<Mind, MindService>()("spriessen/mind/Mind") {}
 
-export interface MindOptions {
-  /** Durable storage override; default is SQLite at HARNESS_DB (tests pass MemoryStorage). */
-  readonly storage?: Storage;
-  /** Extra extension plugins beyond the mind's own. */
-  readonly plugins?: readonly Plugin[];
-  /** Options for the generate faculty (token cap). */
-  readonly generate?: GenerateOptions;
-  /** Options for the vault (directory override). */
-  readonly vault?: { readonly dir?: string };
-  /** Mailbox wiring; `grantArtifacts` materializes envelope artifact grants. */
-  readonly mailbox?: {
-    readonly grantArtifacts?: (
-      owner: string,
-      from: string,
-      to: string,
-      ids: readonly string[],
-    ) => Promise<void>;
-  };
-  /** Schedule-registry wiring: `onChanged` re-arms the server's cron scheduler. */
-  readonly schedules?: { readonly onChanged?: () => Promise<void> };
-  /** MCP connector options (config dir, timeouts, boot). */
-  readonly mcp?: McpOptions;
-  /** Authorization seam from the host app: host access and the admin tools (admin/index.ts). */
-  readonly authz?: MindAuthz;
-}
-
-/** Everything that can fail while booting the mind. */
-export type MindError = External | ConfigError | Unavailable | Duplicate;
-
-/** Wiring built in `mindLayer` that the entity composition consumes. */
-interface MindWiring {
-  readonly holder: ScopeHolder;
-  readonly vaultStore: VaultStore | null;
-  readonly vaultRoot: string | null;
-  readonly bindings: BindingStore | null;
-  /** Late-bound converse: the registry builds before the converse layer. */
-  readonly converseRef: { current?: ConverseService };
-  readonly mcp?: McpOptions;
-  /** Materializes mailbox envelope artifact grants (server copies files). */
-  readonly grantArtifacts?: (
-    owner: string,
-    from: string,
-    to: string,
-    ids: readonly string[],
-  ) => Promise<void>;
-  /** Re-arms the server's cron scheduler after a schedule-registry change. */
-  readonly onSchedulesChanged?: () => Promise<void>;
-  /** The host-access decision, resolved per conversation (undefined = allow). */
-  readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
-  /** Who may manage bots and departments, and the full bot purge (the admin tools). */
-  readonly admin?: MindAdmin;
-}
+export type { MindError, MindOptions } from "./entity-options.ts";
 
 const mindLayerRaw = (
   wiring: MindWiring,
@@ -276,6 +220,12 @@ const mindLayerRaw = (
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
       });
       const profilesRef: ProfilesService = profiles;
+      // One VM per home: a department removal (REST or the main bot's
+      // department_delete) destroys the department's VM — best effort and
+      // never failing the removal. The org VM is destroyed only with the
+      // org; a bot purge destroys no VM at all.
+      const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
+      const org = orgService(converse, { destroyHomeVm });
       // Persona and Instructions files: every existing bot gets both, once.
       void Effect.runPromise(readProfiles(converse))
         .then((rows) => files.migrate(rows))
@@ -287,6 +237,7 @@ const mindLayerRaw = (
           approvals,
           audit,
           converse,
+          org,
           ...(wiring.admin !== undefined ? { admin: wiring.admin } : {}),
         }),
         ...questionTools({ profiles, approvals, audit }),
@@ -316,7 +267,16 @@ const mindLayerRaw = (
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
       });
-      wirePolicies(wiring.holder, approvals, audit, profiles, decide, converse, generate);
+      wirePolicies(
+        wiring.holder,
+        approvals,
+        audit,
+        profiles,
+        decide,
+        converse,
+        generate,
+        artifactsDir(),
+      );
       // Everything rides one pi-durable registry; late installs are legal —
       // the harness reconsiders its tools as the registry changes.
       const piRegistry = yield* PiRegistry;
@@ -372,7 +332,7 @@ const mindLayerRaw = (
         rooms,
         mailbox,
         skills,
-        org: orgService(converse),
+        org,
         ...routines,
         mcp: mcp.manager,
         secrets: mcp.secrets,
@@ -418,6 +378,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     ...(options.schedules?.onChanged !== undefined
       ? { onSchedulesChanged: options.schedules.onChanged }
       : {}),
+    ...(options.destroyHomeVm !== undefined ? { destroyHomeVm: options.destroyHomeVm } : {}),
     ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {

@@ -34,6 +34,11 @@ export interface AdminDeps {
   readonly audit: AuditService;
   readonly converse: ConverseService;
   readonly admin?: MindAdmin;
+  /**
+   * The mind's org service (with the home-VM teardown wired). When absent a
+   * bare one is built — tests, and embedders without a VM per home.
+   */
+  readonly org?: OrgService;
 }
 
 /** The one refusal: the same words for every non-main bot and every admin tool. */
@@ -63,7 +68,7 @@ export const adminGuard =
     return typeof me === "string" ? me : undefined;
   };
 
-export const orgOf = (deps: AdminDeps): OrgService => orgService(deps.converse);
+export const orgOf = (deps: AdminDeps): OrgService => deps.org ?? orgService(deps.converse);
 
 /** "the org" for null; a department id or name otherwise (case-insensitive). */
 export const resolveHome = async (

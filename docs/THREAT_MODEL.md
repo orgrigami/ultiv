@@ -108,9 +108,15 @@ hashing); this file is the map of trust.
   from sources you trust.
 - **The sandboxed `bash`** (microsandbox microVM) is the containment for
   ordinary bot scripts: host files are not mounted, the bot's files tree is
-  synced in. A sandbox escape is out of scope of this document (it would be a
-  microsandbox vulnerability), but `bash_host` exists precisely because some
-  jobs need the real host.
+  synced in. From phase 4 the VM belongs to the bot's HOME, not the bot: the
+  org's bots share the org VM, a department's bots its department VM, each
+  in its own `/home/<bot>` folder beside a shared `/home/shared`. Until
+  slice 2b (per-bot Linux users) the bots in one VM still run as the same
+  user and can read each other's folders — the old per-bot VM boundary is
+  gone the moment the home-scope change lands, and slice 2b is what restores
+  bot-level isolation inside the VM. A sandbox escape is out of scope of
+  this document (it would be a microsandbox vulnerability), but `bash_host`
+  exists precisely because some jobs need the real host.
 - **The credential broker** (`packages/ext/src/broker/`) is the only path a
   vault secret takes to the network: sealed item redeemed inside the binding
   (hosts, methods, path prefixes, placement), https only, SSRF/DNS guard,
@@ -145,14 +151,17 @@ hashing); this file is the map of trust.
 - **Departments are organisation, not isolation (F-A)**: open reach makes
   the whole org the blast radius of one misled bot — from phase 4 it can
   read and write every shared folder, message every bot and run commands in
-  every VM. The audit trail is the compensating control; who reads it and
-  how loudly is an open question (F-E). Network policy can be bypassed by
-  targeting a VM with a looser allowlist (F-B). Any VM may receive work
-  from any bot (F-G capacity). Shared folders and bot-to-bot messages are
-  an injection channel between all bots (F-H): every bot message and every
-  shared-folder file is untrusted input, like web content. A published
-  template carries no vault items, memory or chats; copies are independent
-  from the moment they are made.
+  every VM. Inside a home's VM the bots share one kernel and, until slice
+  2b's per-bot Linux users, one user account; the VM remains the real
+  boundary, per-bot users the inner one. The audit trail is the
+  compensating control; who reads it and how loudly is an open question
+  (F-E). Network policy can be bypassed by targeting a VM with a looser
+  allowlist (F-B). Any VM may receive work from any bot (F-G capacity).
+  Shared folders and bot-to-bot messages are an injection channel between
+  all bots (F-H): every bot message and every shared-folder file is
+  untrusted input, like web content. A published template carries no vault
+  items, memory or chats; copies are independent from the moment they are
+  made.
 - **One account, many roles on paper**: the role matrix (org admin,
   department admin, member, viewer) is enforced by `can()` and tested, but
   today only the org owner can sign in — no second account exists yet, so

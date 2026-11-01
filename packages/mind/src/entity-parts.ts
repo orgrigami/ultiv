@@ -9,6 +9,7 @@ import type { ScopeHolder } from "@spriessen/ext";
 import type { TranscriptEntry } from "@spriessen/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
 import { mayAutoApprove } from "./auto-approve.ts";
+import { homeScopeOfProfile } from "./org/home-scope.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
 import { projectTranscript } from "./converse/steps.ts";
 import type { actService } from "./act/act.ts";
@@ -230,15 +231,28 @@ export const wirePolicies = (
   decide: DecideService,
   converse: ConverseService,
   generate?: GenerateService,
+  homeScopeRoot?: string,
 ): void => {
   // Profile scoping reaches the ext plugins (artifacts dirs, vault lists)
   // through the holder the registry was built with — set now that the
-  // conversation→profile index exists.
+  // conversation→profile index exists. With a home-scope root, the plugins
+  // also learn each conversation's HOME scope (one VM per org/department:
+  // the sandbox name and the bot's folder in it); ext never learns org.
   holder.set({
     scopeOf: (conversationId) => {
       const scope = profiles.scopeOf(conversationId);
       return scope === undefined ? undefined : { owner: scope.owner, profile: scope.profileId };
     },
+    ...(homeScopeRoot === undefined
+      ? {}
+      : {
+          homeScopeOf: (conversationId: string) => {
+            const scope = profiles.scopeOf(conversationId);
+            const profile = profiles.profileOf(conversationId);
+            if (scope === undefined || profile === undefined) return undefined;
+            return homeScopeOfProfile(converse, homeScopeRoot)(scope.owner, profile);
+          },
+        }),
   });
   // Per-profile approval policy (auto-approve lists, Jev gate, timeout
   // escalation). The hard floors stand whatever the mode says.

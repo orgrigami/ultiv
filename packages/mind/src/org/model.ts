@@ -38,10 +38,18 @@ export const emptyOrgState = (): OrgState => ({
 
 /** Fill fields older rows may miss; never overwrites a stored value. */
 export const normalizeOrgState = (state: OrgState): OrgState => ({
-  org: state.org ?? null,
-  departments: (state.departments ?? []).map((row) => ({
+  org:
+    state.org === null || state.org === undefined
+      ? null
+      : // A legacy org row (before the shared folder existed) reads as the
+        // first fixed gid; created rows always carry their own.
+        { ...state.org, sharedGid: state.org.sharedGid ?? 10_000 },
+  departments: (state.departments ?? []).map((row, index) => ({
     ...row,
     instructions: typeof row.instructions === "string" ? row.instructions : "",
+    // Legacy department rows read deterministically by position, after the
+    // org's gid; created rows always carry their own stored gid.
+    sharedGid: row.sharedGid ?? 10_001 + index,
   })),
   members: state.members ?? [],
   grants: state.grants ?? [],

@@ -50,7 +50,11 @@ const call = async (
 };
 
 beforeAll(async () => {
-  handle = await openMind({ storage: new MemoryStorage() });
+  // No VM runtime in tests: department removal's VM teardown is a no-op here.
+  handle = await openMind({
+    storage: new MemoryStorage(),
+    destroyHomeVm: async () => {},
+  });
   // The org exists the way a boot migration leaves it.
   await handle.mind.org.ensureOrg("owner", "Personal", true);
   // The first bot lives in the org and becomes the main bot (the home rules).
