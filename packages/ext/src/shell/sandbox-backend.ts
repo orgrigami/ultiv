@@ -25,7 +25,7 @@
  * surface for bash.ts, the purge path, the mind's home scope and the tests.
  */
 import type { Sandbox } from "microsandbox";
-import type { SandboxUser } from "../plugins/vault.ts";
+import type { SandboxUser, SharedCaps } from "../plugins/vault.ts";
 import {
   DEPT_SHARED_DIR,
   deptStoreProvisionScript,
@@ -59,8 +59,17 @@ import {
   vmSpecOf,
   SETUP_WARN,
   sharedNormalizeScript,
+  sharedWritesOf,
   writableSharedDirs,
+  cappedDirsOf,
 } from "./vm-provision.ts";
+import {
+  capMountScript,
+  overCapNote,
+  overCapRefusal,
+  usageUpTo,
+  type CappedDir,
+} from "./shared-caps.ts";
 
 // Re-exported unchanged: consumers import from here (and `@spriessen/ext`
 // re-exports this module), so the split stays invisible.
@@ -155,6 +164,13 @@ export interface SandboxBackendOptions {
    * use (the same spec fingerprint).
    */
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
+  /**
+   * Size caps of the writable shared folders (fix 2), in bytes: the org's
+   * `/home/org-shared`, a department's own `/home/shared` (its store) and,
+   * in the org VM, each `/home/dept-shared/<id>`. Enforced at the tool path
+   * (see shell/shared-caps.ts); absent means uncapped.
+   */
+  readonly caps?: SharedCaps;
 }
 
 /**
@@ -332,6 +348,46 @@ export const sandboxShellBackend =
     const user = options.user;
 
     const sharedDirs = writableSharedDirs(options);
+    const capped = cappedDirsOf(options);
+    // Applied mount state per capped folder ("ro" | "rw"), valid for one VM
+    // generation; unknown at first so the first call converges the VM.
+    const capState = new Map<string, "ro" | "rw">();
+    let capGeneration = -1;
+
+    /**
+     * Measures every capped folder and moves its mount to match (ro over the
+     * cap, rw under it). Returns the over-cap folders and whether each is
+     * actually read-only now (false: the remount failed — refuse instead).
+     */
+    const enforceCaps = async (): Promise<{ dir: CappedDir; used: number; ro: boolean }[]> => {
+      if (capped.length === 0) return [];
+      if (capGeneration !== generation) {
+        capState.clear();
+        capGeneration = generation;
+      }
+      const over: { dir: CappedDir; used: number; ro: boolean }[] = [];
+      for (const dir of capped) {
+        const used = usageUpTo(dir.host, dir.capBytes);
+        const want = used > dir.capBytes ? "ro" : "rw";
+        let ok = capState.get(dir.guest) === want;
+        if (!ok) {
+          const applied = await rootRun(capMountScript(dir.guest, want === "ro"), HOME, 30_000).catch(
+            () => ({ stdout: "", stderr: "exec failed", exitCode: 1 }),
+          );
+          ok = applied.exitCode === 0;
+          if (ok) capState.set(dir.guest, want);
+          else {
+            capState.delete(dir.guest);
+            logSetupWarnings(
+              options.name,
+              `${SETUP_WARN} shared-folder cap remount (${want}) failed for ${dir.guest}`,
+            );
+          }
+        }
+        if (want === "ro") over.push({ dir, used, ro: ok });
+      }
+      return over;
+    };
 
     const run = async (
       script: string,
@@ -339,13 +395,22 @@ export const sandboxShellBackend =
       timeoutMs: number,
     ): Promise<ShellExecResult> => {
       const sandbox = await ensureVm();
+      const before = await enforceCaps();
+      const unenforced = before.find((row) => !row.ro);
+      if (unenforced !== undefined) {
+        return { stdout: "", stderr: overCapRefusal(unenforced.dir, unenforced.used), exitCode: 1 };
+      }
       // A little slack: the guest clock and mtimes have second granularity.
       const since = Math.floor(Date.now() / 1000) - 2;
       const output = await sandbox.execWith(
         "bash",
         (b) => applyBotExec(b, script, cwd, timeoutMs, user) as never,
       );
-      const result = { stdout: output.stdout(), stderr: output.stderr(), exitCode: output.code };
+      let result: ShellExecResult = {
+        stdout: output.stdout(),
+        stderr: output.stderr(),
+        exitCode: output.code,
+      };
       if (user !== undefined && sharedDirs.length > 0) {
         // umask 077 vs the shared folders: hand what the bot just wrote
         // there to the folder's group (as the bot itself — see the script).
@@ -362,6 +427,8 @@ export const sandboxShellBackend =
               ) as never,
           )
           .then((normalized) => {
+            const writes = sharedWritesOf(normalized.stdout());
+            if (writes.length > 0) result = { ...result, sharedWrites: writes };
             if (normalized.code !== 0) {
               logSetupWarnings(
                 options.name,
@@ -370,6 +437,11 @@ export const sandboxShellBackend =
             }
           })
           .catch(() => {});
+      }
+      const after = await enforceCaps();
+      if (after.length > 0) {
+        const notes = after.map((row) => overCapNote(row.dir, row.used, row.ro)).join("\n");
+        result = { ...result, stderr: result.stderr === "" ? notes : `${result.stderr}\n${notes}` };
       }
       return result;
     };

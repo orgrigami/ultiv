@@ -10,6 +10,7 @@ import { defineDoc } from "@earendil-works/pi-durable";
 import type { ProfileInfo } from "@spriessen/contracts";
 import {
   DEFAULT_ORG_SHARED_CAP_BYTES,
+  DEFAULT_DEPT_SHARED_CAP_BYTES,
   type DepartmentInfo,
   type HomeRef,
   type MemberInfo,
@@ -64,6 +65,7 @@ export const normalizeOrgState = (state: OrgState): OrgState => ({
     // org's gid; created rows always carry their own stored gid.
     sharedGid: row.sharedGid ?? 10_001 + index,
     netAllowlist: Array.isArray(row.netAllowlist) ? row.netAllowlist : [],
+    sharedCapBytes: row.sharedCapBytes ?? DEFAULT_DEPT_SHARED_CAP_BYTES,
   })),
   members: state.members ?? [],
   grants: state.grants ?? [],

@@ -32,6 +32,7 @@ export const AuditEventSchema = Type.Object({
      * execution never cross homes, so there is no surface for them.
      */
     Type.Literal("reach"),
+    Type.Literal("shared_write"),
   ]),
   conversationId: Type.String(),
   /** The profile the acting conversation belongs to; null when unmapped. */
@@ -63,6 +64,20 @@ export const AuditEventSchema = Type.Object({
       from: HomeRefSchema,
       to: HomeRefSchema,
       surface: Type.Literal("message"),
+    }),
+  ),
+  /**
+   * An org bot's write into a cross-home shared folder (`/home/org-shared`
+   * or `/home/dept-shared/<id>`), seen after its `bash` call: the file's
+   * path in the VM, its size, and the department whose store it is (null
+   * for org-shared). Never any content. `profile` is the writing bot.
+   */
+  sharedWrite: Type.Optional(
+    Type.Object({
+      path: Type.String(),
+      bytes: Type.Number(),
+      area: Type.Union([Type.Literal("org-shared"), Type.Literal("dept-shared")]),
+      departmentId: Type.Union([Type.String(), Type.Null()]),
     }),
   ),
 });

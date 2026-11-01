@@ -33,6 +33,7 @@ import {
   WorkspaceLostError,
   type ShellBackend,
   type ShellExecResult,
+  type SharedWrite,
 } from "../shell/backend.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 
@@ -83,6 +84,8 @@ export interface HomeWorld {
   readonly user?: SandboxUser;
   /** The home's network allowlist (slice 3): named hosts, everything else denied. */
   readonly netAllowlist?: readonly string[];
+  /** The writable shared folders' size caps (fix 2). */
+  readonly caps?: HomeScope["caps"];
   /** The home's stored VM size (slice 4): cpus and memory at creation. */
   readonly vm?: HomeScope["vm"];
 }
@@ -108,6 +111,7 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     ...(home.deptShared === undefined ? {} : { deptShared: home.deptShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
     ...(home.netAllowlist === undefined ? {} : { netAllowlist: home.netAllowlist }),
+    ...(home.caps === undefined ? {} : { caps: home.caps }),
     ...(home.vm === undefined ? {} : { vm: home.vm }),
   };
 };
@@ -261,6 +265,7 @@ const sandboxTool = (
   dirOf: (conversationId: string) => string,
   backendOf: (dir: string, conversationId: string) => Promise<ResolvedWorld>,
   sessions: Map<string, Promise<SandboxSession>>,
+  onSharedWrite?: (conversationId: string, rows: readonly SharedWrite[]) => void,
 ): Tool => {
   // The home world is resolved on EVERY call: a cached session keeps its
   // backend only while the world it was built for (VM name, allowlist,
@@ -289,9 +294,12 @@ const sandboxTool = (
     description:
       `Run a bash script in your own workspace inside your home's microVM ` +
       `(the working directory; on a single-bot install that is the whole VM ` +
-      `at ${HOME}). Real Linux in a sandbox: coreutils, pipes, grep, jq, tar, and network ` +
-      "access — install packages with apt-get, run python or whatever the task needs. Every " +
-      "file you create or change under " +
+      `at ${HOME}). Real Linux in a sandbox: coreutils, pipes, grep, jq, tar, python. The ` +
+      "network is OFF by default: only the hosts your owner allowlisted for this home are " +
+      "reachable, so apt-get, pip or curl work only when the policy allows their hosts (for " +
+      "apt-get, the distribution mirrors); a refused connection means the host is not " +
+      "allowed, not that it is down. Shared folders have size caps; over a cap the folder " +
+      "turns read-only. Every file you create or change under " +
       HOME +
       " is an artifact: it persists across restarts and the user can see it. The folder " +
       "/home/org-shared is shared with the whole org: never write vault values, tokens or " +
@@ -328,6 +336,14 @@ const sandboxTool = (
       } catch (cause) {
         return execFailure("bash", cause);
       }
+      if (result.sharedWrites !== undefined && result.sharedWrites.length > 0) {
+        try {
+          onSharedWrite?.(conversationId, result.sharedWrites);
+        } catch {
+          // Auditing never fails the call.
+        }
+      }
+      result = { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
       const cwd = markerCwd(result.stderr);
       if (cwd !== undefined) session.cwd = cwd;
       try {
@@ -438,6 +454,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
       ...(world.user === undefined ? {} : { user: world.user }),
       ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
       ...(world.vm === undefined ? {} : { vm: world.vm }),
+      ...(world.caps === undefined ? {} : { caps: world.caps }),
     };
     return {
       key: JSON.stringify(sandboxOptions),
@@ -456,7 +473,11 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
     description:
       "Two shells: a sandboxed microVM over the durable workspace (files written here are artifacts), and a privileged shell on the host computer.",
     capabilities: [
-      toolCapability(sandboxTool(dirOf, backendOf, sessions)),
+      toolCapability(
+        sandboxTool(dirOf, backendOf, sessions, (conversationId, rows) =>
+          holder?.get()?.sharedWrite?.(conversationId, rows),
+        ),
+      ),
       toolCapability(hostTool(hostSessions)),
     ],
   });

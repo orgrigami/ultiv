@@ -102,6 +102,12 @@ export const VM_CHANGE_NOTE = "The new VM size takes effect the next time this V
 /** The default size cap of the org-wide shared folder (slice 2c). */
 export const DEFAULT_ORG_SHARED_CAP_BYTES = 1_073_741_824;
 
+/** The default size cap of a department's shared folder (its store). */
+export const DEFAULT_DEPT_SHARED_CAP_BYTES = 1_073_741_824;
+
+/** The smallest accepted shared-folder cap (1 MiB). */
+export const MIN_SHARED_CAP_BYTES = 1_048_576;
+
 /** Whether bots of this home may run tools on the server's own machine. */
 export const HostAccessSchema = Type.Boolean();
 
@@ -159,8 +165,11 @@ export const OrgInfoSchema = Type.Object({
   orgSharedGid: Type.Optional(Type.Number()),
   /**
    * Size cap of `/home/org-shared` in bytes, default 1 GiB, owner
-   * configurable. Enforced where the server mediates writes; `bash` writes
-   * into the bind mount are not mediated (docs/SECURITY.md).
+   * configurable. Enforced at the Spriessen tool path, not by a filesystem
+   * quota: before and after every `bash` call the store is measured, and
+   * over the cap the folder is remounted read-only in the VM (or, where
+   * that fails, the call is refused) until usage is back under it. One
+   * call may overshoot (docs/SECURITY.md, "Shared-folder caps").
    */
   orgSharedCapBytes: Type.Optional(Type.Number()),
   /**
@@ -193,6 +202,12 @@ export const DepartmentInfoSchema = Type.Object({
    * denied, including when the field is missing (legacy rows read []).
    */
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  /**
+   * Size cap of the department's shared store (its VM's `/home/shared`,
+   * the org VM's `/home/dept-shared/<id>`), default 1 GiB. Enforced the
+   * same way as `orgSharedCapBytes`.
+   */
+  sharedCapBytes: Type.Optional(Type.Number()),
 });
 
 export type DepartmentInfo = Static<typeof DepartmentInfoSchema>;
@@ -289,6 +304,7 @@ export const DepartmentPatchSchema = Type.Object({
   hostAccess: Type.Optional(Type.Boolean()),
   instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
   netAllowlist: Type.Optional(NetAllowlistSchema),
+  sharedCapBytes: Type.Optional(Type.Integer({ minimum: 1_048_576 })),
 });
 
 export type DepartmentPatch = Static<typeof DepartmentPatchSchema>;

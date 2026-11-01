@@ -10,6 +10,7 @@ import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import type { VaultStore } from "../vault.ts";
+import type { SharedWrite } from "../shell/backend.ts";
 
 /** Resolves a conversation to its profile scope; absent until the mind wires it. */
 export interface ScopeResolver {
@@ -37,6 +38,19 @@ export interface ScopeResolver {
    * pre-slice-6 behaviour (owner-level items visible to every profile).
    */
   readonly homeOf?: (conversationId: string) => HomeRef | undefined;
+  /**
+   * Records an org bot's writes into a cross-home shared folder, seen after
+   * its `bash` call (fix 2 audit: path, size, department). The mind writes
+   * the audit rows; ext only reports what the VM showed.
+   */
+  readonly sharedWrite?: (conversationId: string, rows: readonly SharedWrite[]) => void;
+}
+
+/** Shared-folder size caps in bytes (absent entries are uncapped). */
+export interface SharedCaps {
+  readonly orgShared?: number;
+  readonly shared?: number;
+  readonly dept?: Readonly<Record<string, number>>;
 }
 
 /** The bot's own Linux identity inside a VM (slice 2b); the mind supplies it. */
@@ -109,6 +123,13 @@ export interface HomeScope {
    * absent reads the defaults (1 CPU / 512 MiB).
    */
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
+  /**
+   * Size caps of the writable shared folders (fix 2), in bytes: the org's
+   * `/home/org-shared`, a department's own `/home/shared` (its store) and,
+   * in the org VM, each `/home/dept-shared/<id>`. Enforced at the tool path
+   * (see shell/shared-caps.ts); absent means uncapped.
+   */
+  readonly caps?: SharedCaps;
 }
 
 /** A settable holder, so plugins built before the profiles service resolve lazily. */

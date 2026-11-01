@@ -122,6 +122,23 @@ describe("homeScopeOfProfile (the upgrade from per-bot VMs)", () => {
     await expect(mind.org.updateOrg({ orgSharedCapBytes: 999 })).rejects.toThrow();
     await mind.org.updateOrg({ orgSharedCapBytes: 1_073_741_824 });
   });
+
+  it("caps reach ext: org-shared and every store in the org VM, the own store in a dept VM", async () => {
+    await mind.org.updateDepartment(dept, { sharedCapBytes: 5_242_880 });
+    await expect(mind.org.updateDepartment(dept, { sharedCapBytes: 10 })).rejects.toThrow();
+    const profiles = await mind.profiles.list(owner);
+    const orgBot = profiles.find((row) => row.departmentId == null);
+    const deptBot = profiles.find((row) => row.departmentId === dept);
+    expect(orgBot).toBeDefined();
+    expect(deptBot).toBeDefined();
+    const orgScope = await homeScopeOfProfile(mind.converse, scratch)(owner, orgBot as never);
+    const deptScope = await homeScopeOfProfile(mind.converse, scratch)(owner, deptBot as never);
+    expect(orgScope?.caps?.orgShared).toBe(1_073_741_824);
+    expect(orgScope?.caps?.dept?.[dept]).toBe(5_242_880);
+    expect(orgScope?.caps?.shared).toBeUndefined();
+    expect(deptScope?.caps?.shared).toBe(5_242_880);
+    expect(deptScope?.caps?.dept).toBeUndefined();
+  });
 });
 
 describe("bash stays in the bot's own home VM (reach is messaging only)", () => {

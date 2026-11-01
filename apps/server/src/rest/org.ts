@@ -178,6 +178,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       hostAccess?: boolean;
       instructions?: string;
       netAllowlist?: string[];
+      sharedCapBytes?: number;
     }>(req);
     // A department's admins manage its state (its VM's network allowlist
     // included, slice 3), but a host-access switch is the org owner's alone
@@ -200,6 +201,14 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     const allowProblem =
       body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
     if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
+    if (
+      body.sharedCapBytes !== undefined &&
+      (!Number.isInteger(body.sharedCapBytes) || body.sharedCapBytes < 1_048_576)
+    ) {
+      return (
+        json(400, { error: "sharedCapBytes must be a whole number of at least 1 MiB" }), true
+      );
+    }
     try {
       const department = await mind.org.updateDepartment(id, {
         ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
@@ -207,11 +216,13 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
         ...(body.instructions !== undefined ? { instructions: body.instructions } : {}),
         ...(body.netAllowlist !== undefined ? { netAllowlist: body.netAllowlist } : {}),
+        ...(body.sharedCapBytes !== undefined ? { sharedCapBytes: body.sharedCapBytes } : {}),
       });
       if (body.hostAccess !== undefined) {
         audited(args, "department-host-access");
       }
       if (body.netAllowlist !== undefined) audited(args, "department-net-allowlist");
+      if (body.sharedCapBytes !== undefined) audited(args, "department-shared-cap");
       return (
         json(200, body.vm !== undefined ? { ...department, vmNote: VM_CHANGE_NOTE } : department),
         true

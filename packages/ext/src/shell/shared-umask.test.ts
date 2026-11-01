@@ -37,8 +37,8 @@ describe("writableSharedDirs", () => {
       } as never),
     ).toEqual([
       { dir: "/home/shared", gid: 10_002 },
-      { dir: "/home/org-shared", gid: 10_001 },
-      { dir: "/home/dept-shared/research", gid: 10_007 },
+      { dir: "/home/org-shared", gid: 10_001, audit: true },
+      { dir: "/home/dept-shared/research", gid: 10_007, audit: true },
     ]);
   });
 });

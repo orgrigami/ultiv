@@ -251,6 +251,31 @@ export const wirePolicies = (
       const profile = profiles.profileOf(conversationId);
       return profile === undefined ? undefined : homeOf(profile);
     },
+    // Fix 2 audit: an org bot's writes into org-shared or a department's
+    // store (path, size, department; never content), one row per file,
+    // at most 50 per call.
+    sharedWrite: (conversationId, rows) => {
+      const profile = profiles.profileOf(conversationId);
+      for (const row of rows.slice(0, 50)) {
+        audit.record({
+          at: Date.now(),
+          kind: "shared_write",
+          conversationId,
+          profile: profile?.id ?? null,
+          callId: null,
+          name: row.area,
+          durationMs: null,
+          ok: true,
+          error: null,
+          sharedWrite: {
+            path: row.path,
+            bytes: row.bytes,
+            area: row.area,
+            departmentId: row.departmentId,
+          },
+        });
+      }
+    },
     ...(homeScopeRoot === undefined
       ? {}
       : {

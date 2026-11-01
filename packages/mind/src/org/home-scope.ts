@@ -19,6 +19,10 @@ import { rmSync } from "node:fs";
 import { Effect } from "effect";
 import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
 import {
+  DEFAULT_DEPT_SHARED_CAP_BYTES,
+  DEFAULT_ORG_SHARED_CAP_BYTES,
+} from "@spriessen/contracts";
+import {
   artifactsDir,
   botFolderName,
   destroySandbox,
@@ -103,8 +107,28 @@ export const homeScopeOfProfile =
         users,
       };
     }
+    // Shared-folder caps (fix 2), enforced at the tool path in ext: the
+    // org-shared cap where it is writable, the department's own store cap,
+    // and — org VM — every department store's cap.
+    const caps: NonNullable<HomeScope["caps"]> = {
+      orgShared: state.org.orgSharedCapBytes ?? DEFAULT_ORG_SHARED_CAP_BYTES,
+      ...(department === undefined
+        ? {}
+        : { shared: department.sharedCapBytes ?? DEFAULT_DEPT_SHARED_CAP_BYTES }),
+      ...(home.kind === "org"
+        ? {
+            dept: Object.fromEntries(
+              state.departments.map((row) => [
+                row.id,
+                row.sharedCapBytes ?? DEFAULT_DEPT_SHARED_CAP_BYTES,
+              ]),
+            ),
+          }
+        : {}),
+    };
     return {
       dir: homeScopeDir(root, owner, home),
+      caps,
       ...(sharedGid === undefined ? {} : { sharedGid }),
       orgShared,
       ...(sharedStore === undefined ? {} : { sharedStore }),

@@ -20,7 +20,11 @@ import type {
   ProfileInfo,
   TemplateInfo,
 } from "@spriessen/contracts";
-import { DEFAULT_ORG_SHARED_CAP_BYTES, DEFAULT_VM } from "@spriessen/contracts";
+import {
+  DEFAULT_DEPT_SHARED_CAP_BYTES,
+  DEFAULT_ORG_SHARED_CAP_BYTES,
+  DEFAULT_VM,
+} from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { botUidPeek, botUserName } from "./bot-users.ts";
 import { deptGroupReconcileScript, type DeptStore } from "@spriessen/ext";
@@ -317,6 +321,7 @@ export const orgService = (
         hostAccess: input.hostAccess ?? false,
         instructions: input.instructions ?? "",
         netAllowlist: input.netAllowlist ?? [],
+        sharedCapBytes: DEFAULT_DEPT_SHARED_CAP_BYTES,
         sharedGid: nextGid(state),
       };
       await commit((draft) => {
@@ -328,6 +333,14 @@ export const orgService = (
       return row;
     },
     updateDepartment: async (id, patch) => {
+      if (
+        patch.sharedCapBytes !== undefined &&
+        (!Number.isInteger(patch.sharedCapBytes) || patch.sharedCapBytes < 1_048_576)
+      ) {
+        throw new InvalidInput({
+          reason: "the shared-folder size cap must be a whole number of at least 1 MiB",
+        });
+      }
       const state = await readOrgState(converse);
       const target = state.departments.find((row) => row.id === id);
       if (target === undefined) throw new NotFound({ what: `department ${id}` });
@@ -353,6 +366,9 @@ export const orgService = (
             ...(patch.vm !== undefined ? { vm: { ...patch.vm } } : {}),
             ...(patch.hostAccess !== undefined ? { hostAccess: patch.hostAccess } : {}),
             ...(patch.instructions !== undefined ? { instructions: patch.instructions } : {}),
+            ...(patch.sharedCapBytes !== undefined
+              ? { sharedCapBytes: patch.sharedCapBytes }
+              : {}),
           };
           return updated;
         });

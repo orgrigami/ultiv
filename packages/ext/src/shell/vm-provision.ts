@@ -12,6 +12,8 @@ import { lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { readEnv } from "@spriessen/core";
 import type { SandboxUser } from "../plugins/vault.ts";
+import type { SharedWrite } from "./backend.ts";
+import type { CappedDir } from "./shared-caps.ts";
 import { DEPT_SHARED_DIR, deptGroupName } from "./dept-shared.ts";
 import {
   SETUP_FATAL,
@@ -223,6 +225,8 @@ export const applyBotExec = <B>(
 export interface SharedDir {
   readonly dir: string;
   readonly gid: number;
+  /** Cross-home folders whose writes are audited (org-shared, dept-shared/<id>). */
+  readonly audit?: boolean;
 }
 
 /**
@@ -235,12 +239,74 @@ export const writableSharedDirs = (options: SandboxBackendOptions): SharedDir[] 
   ...(options.sharedGid === undefined ? [] : [{ dir: SHARED_DIR, gid: options.sharedGid }]),
   ...(options.orgShared === undefined || options.orgShared.readOnly
     ? []
-    : [{ dir: ORG_SHARED_DIR, gid: options.orgShared.gid }]),
+    : [{ dir: ORG_SHARED_DIR, gid: options.orgShared.gid, audit: true }]),
   ...(options.deptShared?.depts ?? []).map((d) => ({
     dir: `${DEPT_SHARED_DIR}/${d.id}`,
     gid: d.gid,
+    audit: true,
   })),
 ];
+
+/**
+ * The capped writable shared folders of a VM with their host stores (fix
+ * 2): org-shared where it is writable, a department VM's own /home/shared
+ * (its store), and the org VM's /home/dept-shared/<id>. The org VM's own
+ * /home/shared lives on the VM disk (no host store) and is bounded by it.
+ */
+export const cappedDirsOf = (options: SandboxBackendOptions): CappedDir[] => {
+  const caps = options.caps;
+  if (caps === undefined) return [];
+  const out: CappedDir[] = [];
+  if (options.orgShared !== undefined && !options.orgShared.readOnly && caps.orgShared !== undefined) {
+    out.push({
+      guest: ORG_SHARED_DIR,
+      host: options.orgShared.hostDir,
+      capBytes: caps.orgShared,
+      label: "org-shared",
+    });
+  }
+  if (options.sharedStore !== undefined && caps.shared !== undefined) {
+    out.push({
+      guest: SHARED_DIR,
+      host: options.sharedStore,
+      capBytes: caps.shared,
+      label: "department shared",
+    });
+  }
+  for (const d of options.deptShared?.depts ?? []) {
+    const cap = caps.dept?.[d.id];
+    if (cap === undefined || options.deptShared === undefined) continue;
+    out.push({
+      guest: `${DEPT_SHARED_DIR}/${d.id}`,
+      host: join(options.deptShared.parentDir, d.id),
+      capBytes: cap,
+      label: `department ${d.id} shared`,
+    });
+  }
+  return out;
+};
+
+/** The marker of one audited shared write in the normalization output. */
+export const SHARED_WRITE_MARK = "spriessen-shared-write";
+
+/** Parses the normalization output into shared-write rows (cross-home folders only). */
+export const sharedWritesOf = (stdout: string): SharedWrite[] => {
+  const rows: SharedWrite[] = [];
+  for (const line of stdout.split("\n")) {
+    const parts = line.split("\t");
+    if (parts.length < 3 || parts[0] !== SHARED_WRITE_MARK) continue;
+    const bytes = Number(parts[1]);
+    const path = parts.slice(2).join("\t");
+    if (!Number.isFinite(bytes)) continue;
+    if (path === ORG_SHARED_DIR || path.startsWith(`${ORG_SHARED_DIR}/`)) {
+      rows.push({ path, bytes, area: "org-shared", departmentId: null });
+    } else if (path.startsWith(`${DEPT_SHARED_DIR}/`)) {
+      const departmentId = path.slice(DEPT_SHARED_DIR.length + 1).split("/")[0] ?? "";
+      if (departmentId !== "") rows.push({ path, bytes, area: "dept-shared", departmentId });
+    }
+  }
+  return rows;
+};
 
 /**
  * The mechanism that makes shared folders work under the bot's umask 077
@@ -259,11 +325,12 @@ export const sharedNormalizeScript = (
 ): string =>
   dirs
     .map(
-      ({ dir, gid }) =>
+      ({ dir, gid, audit }) =>
         `if [ -d '${dir}' ]; then ` +
         `find '${dir}' -xdev -user ${uid} -newermt @${sinceEpochSec} -type d ` +
         `-exec chgrp ${gid} {} + -exec chmod g+rwxs {} + ; ` +
         `find '${dir}' -xdev -user ${uid} -newermt @${sinceEpochSec} -type f ` +
+        (audit === true ? `-printf '${SHARED_WRITE_MARK}\\t%s\\t%p\\n' ` : "") +
         `-exec chgrp ${gid} {} + -exec chmod g+rw {} + ; fi`,
     )
     .join("\n");

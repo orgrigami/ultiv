@@ -35,6 +35,18 @@ export interface ShellExecResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly exitCode: number;
+  /** Files the bot wrote into a cross-home shared folder during the call. */
+  readonly sharedWrites?: readonly SharedWrite[];
+}
+
+/** One file written into `/home/org-shared` or `/home/dept-shared/<id>`. */
+export interface SharedWrite {
+  /** Path inside the VM. */
+  readonly path: string;
+  readonly bytes: number;
+  readonly area: "org-shared" | "dept-shared";
+  /** The department whose store it is; null for org-shared. */
+  readonly departmentId: string | null;
 }
 
 export interface ShellBackend {

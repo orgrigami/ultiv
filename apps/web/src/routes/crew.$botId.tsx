@@ -580,6 +580,7 @@ const KIND_LABEL: Record<AuditEvent["kind"], string> = {
   permission: "Access",
   vault: "Vault",
   reach: "Reach",
+  shared_write: "Shared file",
 };
 
 /** Read-only: the newest 50 audit events for this bot, newest first. */
