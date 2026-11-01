@@ -38,6 +38,8 @@ export const profilesService = (deps: {
   readonly generate: GenerateService;
   /** The act's tool registrations, for per-profile allowlists. */
   readonly tools: () => readonly { readonly name: string }[];
+  /** Every registry tool (faculties + late installs); the allowlist never drops a faculty. */
+  readonly allTools?: () => readonly { readonly name: string }[];
   /** Names an allowlist implies (connector helpers). */
   readonly implied?: (allowlist: readonly string[]) => readonly string[];
   /**
@@ -54,7 +56,13 @@ export const profilesService = (deps: {
   readonly retireUserFromHome?: ProfilesContext["retireUserFromHome"];
 }): ProfilesService => {
   const agentFor: ProfilesService["agentFor"] = (profile) =>
-    agentForProfile(profile, deps.tools, deps.implied, deps.hostExcluded?.(profile) ?? []);
+    agentForProfile(
+      profile,
+      deps.tools,
+      deps.implied,
+      deps.hostExcluded?.(profile) ?? [],
+      deps.allTools,
+    );
   const index = conversationIndex(deps.converse, agentFor);
   const ctx: ProfilesContext = {
     converse: deps.converse,

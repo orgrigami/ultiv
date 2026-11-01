@@ -40,18 +40,19 @@ export const HOST_REFUSAL =
 export type HostFlags = Pick<OrgView, "org" | "departments">;
 
 /**
- * The effective answer, with the PRE-MIGRATION state (no org row at all)
- * behaving as before: the switch feature is dormant until the migration
- * creates the org, so nothing is excluded and no approval is refused on its
- * account. A stored org — on or off — decides as `effectiveHostAccess` says.
+ * The effective answer, FAIL-CLOSED exactly like `effectiveHostAccess`: no
+ * flags read yet (the watch has not loaded, or its last read failed), or no
+ * org row at all, both answer NOT allowed — the host-direct tools leave the
+ * list and approvals are refused until a stored org says otherwise. Every
+ * surface (the tool-list exclusion, the per-call guard, the parked-card
+ * refusal, the connector listing) asks this one function or
+ * `effectiveHostAccess` itself, so they cannot disagree.
  */
 export const switchAllows = (
   flags: HostFlags | undefined,
   profile: Pick<ProfileInfo, "departmentId" | "hostAccess">,
 ): boolean =>
-  flags === undefined || flags.org === null
-    ? true
-    : effectiveHostAccess(flags.org, flags.departments, profile).allowed;
+  flags !== undefined && effectiveHostAccess(flags.org, flags.departments, profile).allowed;
 
 /** Which level blocks the switch for this bot, on the live view (null: none). */
 export const hostBlockedBy = (
@@ -133,6 +134,11 @@ export interface HostSwitchWatch {
   readonly onOrgChange: () => void;
   /** Re-apply every profile's agent from the CURRENT exclusion rules. */
   readonly resyncAll: (profiles: readonly ProfileInfo[]) => Promise<void>;
+  /**
+   * Boot: re-apply every STORED bot's agent once, so a conversation created
+   * under an older rule (a fixed list that lacked `message`) heals. Never rejects.
+   */
+  readonly resyncStored: () => Promise<void>;
 }
 
 export const hostSwitchWatch = (deps: {
@@ -174,6 +180,13 @@ export const hostSwitchWatch = (deps: {
           ),
         ),
       ).then(() => {}),
+    resyncStored: async () => {
+      try {
+        await watch.resyncAll(await deps.allProfiles());
+      } catch {
+        // Best effort: boot never fails on a heal pass.
+      }
+    },
   };
   return watch;
 };

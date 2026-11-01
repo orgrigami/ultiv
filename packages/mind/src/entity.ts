@@ -89,7 +89,12 @@ import {
   modelsLayer,
   type ModelCatalogService,
 } from "./providers/models.ts";
-import { startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
+import {
+  MCP_EXTENSION,
+  startMcp,
+  mcpOptionsWithHostSwitch,
+  type McpRuntime,
+} from "./mcp/index.ts";
 import type { SecretRequestsService } from "./secrets/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 
@@ -222,6 +227,7 @@ const mindLayerRaw = (
       const deleteDeptStore = wiring.deleteDeptStore ?? defaultDeleteDeptStore();
       // Slice 10: the switch watch — snapshot for the list exclusion, re-applies on a flip.
       const hostSwitch: { current: HostSwitchWatch | undefined } = { current: undefined };
+      const piRegistryEarly = yield* PiRegistry;
       const profiles = profilesService({
         converse,
         generate,
@@ -232,6 +238,14 @@ const mindLayerRaw = (
           ...botTools,
           ...(mcpRef?.wiring.allowlistTools() ?? []),
         ],
+        // Connector tools are allowlist-governed only through the catalog:
+        // never let a registry-only connector tool slip past an allowlist.
+        allTools: () =>
+          piRegistryEarly
+            .snapshot()
+            .tools()
+            .filter(({ extension }) => !extension.name.startsWith(MCP_EXTENSION))
+            .map(({ tool }) => tool),
         implied: (allowlist) => mcpRef?.wiring.implied(allowlist) ?? [],
         hostExcluded: (profile) =>
           hostExcludedTools(
@@ -349,6 +363,9 @@ const mindLayerRaw = (
       // Slice 10: the watch is live at boot; the awaited read removes the race.
       hostSwitch.current = mindHostSwitchWatch({ org, profiles, converse, tasks });
       yield* Effect.promise(() => hostSwitch.current?.refresh() ?? Promise.resolve());
+      // Heal conversations whose stored tool list predates the current rules
+      // (a fixed list once dropped `message` for every host-switch-off bot).
+      yield* Effect.promise(() => hostSwitch.current?.resyncStored() ?? Promise.resolve());
       yield* Effect.addFinalizer(() => Effect.promise(mcp.close));
       // Turns a restart cut off continue now, with every tool installed
       // (connector tools join as their servers connect). One cut off too many

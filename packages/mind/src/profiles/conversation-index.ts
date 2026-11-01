@@ -114,7 +114,9 @@ export const conversationIndex = (
     keyOfRow,
     ensureConversationFor: async (key, profile, scope) => {
       const change = agentFor(profile);
-      const hasOverride = change.model !== undefined || change.tools !== undefined;
+      // `tools: null` (nothing excluded) is the host default, not an override.
+      const hasOverride =
+        change.model !== undefined || (change.tools !== undefined && change.tools !== null);
       await run(converse.ensure(key, hasOverride ? change : undefined));
       const cid = await run(converse.conversationIdOf(key));
       if (cid !== undefined) {

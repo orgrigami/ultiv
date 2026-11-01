@@ -55,7 +55,16 @@ describe("hostExcludedTools", () => {
       ...HOST_DIRECT_TOOLS,
       ...stdio,
     ]);
-    expect(hostExcludedTools(undefined, orgBot(true), stdio)).toEqual([]);
+    // Fail-closed: before the first read (no flags yet) and with no org
+    // row at all, the host-direct tools are excluded too.
+    expect(hostExcludedTools(undefined, orgBot(true), stdio)).toEqual([
+      ...HOST_DIRECT_TOOLS,
+      ...stdio,
+    ]);
+    expect(hostExcludedTools(flagsOf(null), orgBot(true), stdio)).toEqual([
+      ...HOST_DIRECT_TOOLS,
+      ...stdio,
+    ]);
   });
 });
 
@@ -71,15 +80,16 @@ describe("agentForProfile with the host exclusion", () => {
 
   it("removes the listed tools from the bot's tool set", () => {
     const agent = agentForProfile(profile, tools, undefined, ["bash_host"]);
-    const names = ((agent.tools ?? []) as readonly { readonly name: string }[]).map(
+    // A remove filter, not a frozen list: faculty tools and late installs stay.
+    const removed = (agent.tools as { remove: readonly { readonly name: string }[] }).remove.map(
       (tool) => tool.name,
     );
-    expect(names).toEqual(["bash", "web_search"]);
+    expect(removed).toEqual(["bash_host"]);
   });
 
   it("leaves the list dynamic when the switch allows", () => {
     const agent = agentForProfile(profile, tools, undefined, []);
-    expect(agent.tools).toBeUndefined();
+    expect(agent.tools).toBeNull();
   });
 });
 
@@ -115,6 +125,37 @@ describe("hostSwitchWatch", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     // A flip re-applies: tools null means "everything but the exclusions".
     expect(configured).toEqual([null]);
+  });
+
+  it("resyncStored heals every stored bot at boot, even with no flip", async () => {
+    // A conversation created under the old rule holds a frozen list without
+    // `message`; the boot pass re-applies the CURRENT agent (a remove filter).
+    const configured: unknown[] = [];
+    const watch = hostSwitchWatch({
+      view: (async () => ({ org: { hostAccess: false }, departments: [] })) as never,
+      allProfiles: async () => [{ id: "p1", owner: "o" }, { id: "p2", owner: "o" }] as never,
+      agentFor: () => ({ tools: { remove: [{ name: "bash_host" }] } }) as never,
+      reapply: {
+        converse: {
+          open: () => Effect.succeed({}),
+          conversationIdOf: (key: string) => Effect.succeed(`cid-${key}`) as never,
+          configure: (_chat: unknown, selection: { tools: unknown }) => {
+            configured.push(selection.tools);
+            return Effect.succeed(undefined) as never;
+          },
+        } as never,
+        listSessions: async (_owner: string, id: string) =>
+          [{ profile: id, owner: "o", id: `s-${id}` }] as never,
+        keyOfRow: async (row: { id: string }) => row.id,
+        taskConversations: async () => [],
+      } as never,
+    });
+    await watch.refresh();
+    await watch.resyncStored();
+    expect(configured).toEqual([
+      { remove: [{ name: "bash_host" }] },
+      { remove: [{ name: "bash_host" }] },
+    ]);
   });
 
   it("reapplyAgentTools configures only the profile's own conversations", async () => {
@@ -219,15 +260,16 @@ describe("the switch on a real mind (yolo cannot bypass)", () => {
   it("the tools leave the list while the switch is off, and return with it on", async () => {
     const { handle, bot } = await setup(false, "manual");
     const names = (agent: AgentChange) => {
-      const list = agent.tools;
-      return Array.isArray(list) ? list.map((tool) => tool.name) : [];
+      const list = agent.tools as { remove: readonly { name: string }[] } | null;
+      return list === null ? [] : list.remove.map((tool) => tool.name);
     };
-    const listed = names(handle.mind.profiles.agentFor({ ...bot } as never));
-    expect(listed).not.toContain("bash_host");
+    const removed = names(handle.mind.profiles.agentFor({ ...bot } as never));
+    expect(removed).toContain("bash_host");
+    expect(removed).not.toContain("message");
     await handle.mind.profiles.update("owner-a", bot.id, { hostAccess: true });
     // With the switch on the list is dynamic again: no exclusion, no frozen set.
     const on = handle.mind.profiles.agentFor({ ...bot, hostAccess: true } as never);
-    expect(on.tools).toBeUndefined();
+    expect(on.tools).toBeNull();
     await handle.close();
   });
 });

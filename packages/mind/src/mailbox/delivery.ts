@@ -12,6 +12,7 @@
  *   so `recover` (run on boot) re-sends it along with redelivering pending
  *   messages and re-arming deadlines.
  */
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { NotFound } from "@spriessen/core";
 import type { MailboxEntry, RoomInfo } from "@spriessen/contracts";
 import type { AuditService } from "../audit/audit.ts";
@@ -264,6 +265,28 @@ const afterSettled = async (
   if (signal) await notifySender(e, settled, replySignalText(toName, envelope.id, roomId));
 };
 
+/**
+ * Whether the recipient's conversation can answer through the tunnel: its
+ * resolved agent offers (or can call) `message`. Unknown reads say yes — the
+ * check only turns a certain silent turn into a clear refusal.
+ */
+export const canReply = async (chat: { agent: (ctx: never) => Promise<unknown> }): Promise<boolean> => {
+  try {
+    const agent = (await chat.agent(BACKGROUND_CONTEXT as never)) as {
+      readonly tools?: readonly { readonly name: string }[];
+      readonly callable?: readonly { readonly name: string }[];
+    };
+    const names = [...(agent.tools ?? []), ...(agent.callable ?? [])].map((tool) => tool.name);
+    return names.length === 0 || names.includes("message");
+  } catch {
+    return true;
+  }
+};
+
+const cannotReplyText = (entry: MailboxEntry, toName: string): string =>
+  `[nack from ${toName} • re: ${entry.envelope.id}] ${toName} cannot reply: the message tool is not in its tool list. ` +
+  "Do not resend; tell your owner (its tool settings need a look).";
+
 const attempt = async (e: Engine, id: string): Promise<void> => {
   const { converse, rooms } = e.deps;
   // An unreadable doc (the server closing under a queued retry) leaves the
@@ -274,6 +297,19 @@ const attempt = async (e: Engine, id: string): Promise<void> => {
   let submission;
   try {
     prepared = await prepare(e, entry);
+    // A request to a bot that cannot answer would end in a silent turn: refuse clearly.
+    if (
+      entry.envelope.kind === "request" &&
+      !(await canReply(prepared.chat as unknown as Parameters<typeof canReply>[0]))
+    ) {
+      await finishWithNack(
+        e,
+        id,
+        { retries: entry.retries, error: "recipient has no message tool", status: "dead" },
+        cannotReplyText,
+      );
+      return;
+    }
     const text = envelopeText(entry.envelope, prepared.fromName, prepared.room.topic);
     submission = await run(converse.submit(prepared.chat, text, undefined, requestIdOf(entry)));
     await updatePending(converse, id, {

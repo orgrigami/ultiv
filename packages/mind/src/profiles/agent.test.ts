@@ -20,18 +20,33 @@ const row = (over: Partial<ProfileInfo>): ProfileInfo => ({
 
 const tools = () => [{ name: "bash" }, { name: "bash_host" }, { name: "web_search" }];
 
-/** The tool names of an agent's override, in order. */
-const namesOf = (agent: { tools?: unknown }): readonly string[] =>
-  Array.isArray(agent.tools) ? agent.tools.map((tool) => (tool as { name: string }).name) : [];
+/**
+ * The tool names a conversation ends up with against `registry`, the way
+ * pi-durable resolves them: a list selects exactly, `{ remove }` drops names,
+ * unset/null keeps every registry tool.
+ */
+const namesOf = (
+  agent: { tools?: unknown },
+  registry: readonly { name: string }[] = tools(),
+): readonly string[] => {
+  if (Array.isArray(agent.tools)) {
+    return agent.tools.map((tool) => (tool as { name: string }).name);
+  }
+  const removed =
+    agent.tools !== undefined && agent.tools !== null
+      ? (agent.tools as { remove: readonly { name: string }[] }).remove.map((tool) => tool.name)
+      : [];
+  return registry.map((tool) => tool.name).filter((name) => !removed.includes(name));
+};
 
 describe("the per-profile agent's tool set", () => {
-  it("no allowlist and sandbox on hands the model every tool (no override)", () => {
+  it("no allowlist and sandbox on hands the model every tool (clears any stored filter)", () => {
     expect(
       agentForProfile(row({ policies: { ...defaultPolicies(), sandbox: true } }), tools).tools,
-    ).toBeUndefined();
+    ).toBeNull();
     // Bots created before the toggle existed (no stored key) read as sandboxed too.
     const { sandbox: _sandbox, ...legacy } = defaultPolicies();
-    expect(agentForProfile(row({ policies: legacy }), tools).tools).toBeUndefined();
+    expect(agentForProfile(row({ policies: legacy }), tools).tools).toBeNull();
   });
 
   it("sandbox off removes bash (and only bash) even with no allowlist", () => {
@@ -59,7 +74,7 @@ describe("the per-profile agent's tool set", () => {
       row({ policies: { ...defaultPolicies(), sandbox: false } }),
       withBrowser,
     );
-    expect(namesOf(agent)).toEqual(["bash_host", "web_search"]);
+    expect(namesOf(agent, withBrowser())).toEqual(["bash_host", "web_search"]);
     // And an allowlist naming it does not override the exclusion either.
     const allowlisted = agentForProfile(
       row({
@@ -69,5 +84,69 @@ describe("the per-profile agent's tool set", () => {
       withBrowser,
     );
     expect(namesOf(allowlisted)).toEqual(["web_search"]);
+  });
+});
+
+/**
+ * Regression (Phase 4): a department bot with its host switch off got a FIXED
+ * list built from the act/bot/connector catalog — every mind faculty tool
+ * (`message`, rooms, memory, tasks, schedules) and every late install was
+ * silently gone, so it could not answer its mailbox.
+ */
+describe("faculty tools survive every exclusion", () => {
+  /** The catalog `tools()` (allowlistable) vs the whole registry (faculties too). */
+  const catalog = () => [{ name: "bash" }, { name: "bash_host" }, { name: "web_search" }];
+  const faculties = [
+    { name: "message" },
+    { name: "room_send" },
+    { name: "memory_save" },
+    { name: "task_spawn" },
+    { name: "schedule_create" },
+  ];
+  const stdio = [{ name: "fs_local__read" }];
+  const registry = [...catalog(), ...faculties, ...stdio];
+  const all = () => registry;
+  const orgBot = agentForProfile(row({}), catalog, undefined, [], all);
+  const deptBot = agentForProfile(
+    row({ departmentId: "research" } as Partial<ProfileInfo>),
+    catalog,
+    undefined,
+    ["bash_host", "fs_local__read"],
+    all,
+  );
+
+  it("a host-switch-off department bot has exactly the org bot's tools minus host-direct ones", () => {
+    const org = namesOf(orgBot, registry);
+    const dept = namesOf(deptBot, registry);
+    expect(dept).toEqual(org.filter((name) => name !== "bash_host" && name !== "fs_local__read"));
+    expect(dept).toContain("message");
+  });
+
+  it("a tool installed AFTER the agent was built still reaches the excluded bot", () => {
+    const late = [...registry, { name: "late_faculty" }];
+    expect(namesOf(deptBot, late)).toContain("late_faculty");
+  });
+
+  it("a sandbox-off bot keeps message", () => {
+    const agent = agentForProfile(
+      row({ policies: { ...defaultPolicies(), sandbox: false } }),
+      catalog,
+      undefined,
+      ["bash_host"],
+      all,
+    );
+    const names = namesOf(agent, registry);
+    expect(names).toContain("message");
+    expect(names).not.toContain("bash");
+    expect(names).not.toContain("bash_host");
+  });
+
+  it("an allowlist governs only the catalog: faculties stay", () => {
+    const agent = agentForProfile(row({ toolAllowlist: ["web_search"] }), catalog, undefined, [], all);
+    expect(namesOf(agent, registry)).toEqual([
+      "web_search",
+      ...faculties.map((tool) => tool.name),
+      ...stdio.map((tool) => tool.name),
+    ]);
   });
 });

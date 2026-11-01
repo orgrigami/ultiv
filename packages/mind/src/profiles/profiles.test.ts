@@ -181,12 +181,19 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     // the allowlisted tools this mind really has; unknown names drop out.
     const installed = new Set(handle.mind.act.tools().map((tool) => tool.name));
     expect(installed.has("now")).toBe(true);
-    expect(names).toEqual(["now", "web_search"].filter((name) => installed.has(name)));
+    expect(names.filter((name) => installed.has(name))).toEqual(
+      ["now", "web_search"].filter((name) => installed.has(name)),
+    );
+    // The allowlist governs the catalog only: faculty tools (message) stay.
+    expect(names).toContain("message");
     // No allowlist: all tools stay available.
     const open = profiles.agentFor(
       await profiles.create("harry", { name: "Open", onboard: false }),
     );
-    expect(open.tools).toBeUndefined();
+    // No allowlist: every tool stays except the host-direct ones a bot with
+    // no org/switch read loses (fail-closed) — a remove filter, not a list.
+    const kept = open.tools as { remove: readonly { name: string }[] } | null;
+    expect(kept === null ? [] : kept.remove.map((tool) => tool.name)).not.toContain("message");
     // A fresh workspace starts EMPTY — no default bot materializes.
     expect(await profiles.list("someone-else")).toEqual([]);
     await handle.close();

@@ -14,6 +14,13 @@ export const agentForProfile = (
   implied: (allowlist: readonly string[]) => readonly string[] = () => [],
   /** Host-direct tool names dropped while the bot's host-access switch is off (slice 10). */
   hostExcluded: readonly string[] = [],
+  /**
+   * Every tool on the registry (all extensions, late installs included). The
+   * allowlist governs only the `tools()` catalog; the mind's own faculties
+   * (message, rooms, memory, tasks, schedules, ...) are never allowlistable
+   * and always stay. Absent in bare tests: the catalog is the registry.
+   */
+  allTools?: () => readonly { readonly name: string }[],
 ): AgentChange => {
   // Sandbox off removes the tool outright (never falls back to the host
   // shell — that would quietly change what every approval was approving).
@@ -25,16 +32,27 @@ export const agentForProfile = (
     profile.toolAllowlist === null
       ? null
       : [...profile.toolAllowlist, ...implied(profile.toolAllowlist)];
-  const allowed =
+  // No allowlist: a REMOVE filter, never a fixed list — a fixed list built
+  // from the catalog silently dropped every faculty tool (`message` among
+  // them) and every late install. Nothing to remove clears a stale stored
+  // filter (`null`), so a re-apply heals an old conversation.
+  const allowed: AgentChange["tools"] =
     names === null
       ? excluded.length === 0
-        ? undefined
-        : (tools().filter((tool) => !excluded.includes(tool.name)) as unknown as NonNullable<
+        ? null
+        : ({ remove: excluded.map((name) => ({ name })) } as unknown as NonNullable<
             AgentChange["tools"]
           >)
-      : (tools().filter(
-          (tool) => names.includes(tool.name) && !excluded.includes(tool.name),
-        ) as unknown as NonNullable<AgentChange["tools"]>);
+      : (() => {
+          const catalog = new Set(tools().map((tool) => tool.name));
+          const seen = new Set<string>();
+          return [...tools(), ...(allTools?.() ?? [])].filter((tool) => {
+            if (seen.has(tool.name) || excluded.includes(tool.name)) return false;
+            const keep = !catalog.has(tool.name) || names.includes(tool.name);
+            if (keep) seen.add(tool.name);
+            return keep;
+          }) as unknown as NonNullable<AgentChange["tools"]>;
+        })();
   return {
     ...(profile.model !== null
       ? {
@@ -45,6 +63,6 @@ export const agentForProfile = (
             : {}),
         }
       : {}),
-    ...(allowed !== undefined ? { tools: allowed } : {}),
+    tools: allowed,
   };
 };
