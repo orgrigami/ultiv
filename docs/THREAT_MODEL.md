@@ -25,13 +25,14 @@ hashing); this file is the map of trust.
 
 - **The org model (phase 3)**: one org holds flat departments (no nesting,
   no parent) and bots; every bot has exactly one home — one department or
-  the org itself. **Departments are not a security boundary between bots**
-  (F-A): open reach lets every bot reach every home, so a prompt-injected
-  bot can act in every department. Departments remain organisation, VM
-  sizing (phase 4), vault/connector scoping and audit grouping — nothing
-  more. Every resource (bot, memory record, file, skill, vault item,
-  routine, sandbox) belongs to exactly one home through its bot
-  (`checkHomes` in `packages/mind/src/org/model.ts`).
+  the org itself. **Departments are a boundary between bots' VMs, files and
+  vaults** (owner decision, 1 Nov 2026): a department bot cannot enter,
+  read or run commands in another home's VM, and each home's `/home/shared`
+  is for that home's bots only. Messaging and the org-wide
+  `/home/org-shared` folder (slice 2c) are the only paths between homes.
+  Every resource (bot, memory record, file, skill, vault item, routine,
+  sandbox) belongs to exactly one home through its bot (`checkHomes` in
+  `packages/mind/src/org/model.ts`).
 - **The org owner**, through REST and the chord WebSocket: every route for
   their account. The gate is one module (`apps/server/src/auth/`, the
   session cookie) and one decision helper (`can()` in
@@ -39,17 +40,18 @@ hashing); this file is the map of trust.
   exactly like a missing item, so ids cannot be probed. Before a passcode
   is set, a loopback request can only set the first passcode (one-time
   bootstrap); every other request needs a session, loopback included.
-- **Open reach (an owner decision, 1 Nov 2026)**: no reach rule limits by
-  department. Every bot, in any home, can (1) read and write any
-  department's or the org's shared folder (phase 4 mounts it), (2) message
-  any bot, and (3) run commands in another home's VM (phase 4). The control
-  is the audit, not denial: each cross-home use writes a `reach` row (from,
-  to, surface — never content) into the audit trail (`org/reach.ts`).
-  Reach does NOT cover: another bot's chats, memory or home folder; vault
-  items and connectors of another home (those need a NAMED grant, audited,
-  revoked stops access at once); department and org settings for anyone
-  without the role. Messaging itself is unchanged: admission-only through
-  the mailbox with its caps, `canInitiate: ["*"]`.
+- **Open reach is messaging only (owner decision, 1 Nov 2026)**: no reach
+  rule limits by department, and the ONLY cross-home surface is messaging.
+  Every bot, in any home, can message any bot; each cross-home message
+  writes a `reach` row (from, to, surface — always `message`, never
+  content) into the audit trail (`org/reach.ts`). A VM is for its home's
+  bots only: `bash` runs only in the bot's own home VM (the tool takes no
+  target), and no bot uses another home's `/home/shared`. Reach does NOT
+  cover: another bot's chats, memory or home folder; vault items and
+  connectors of another home (those need a NAMED grant, audited, revoked
+  stops access at once); department and org settings for anyone without the
+  role. Messaging itself is unchanged: admission-only through the mailbox
+  with its caps, `canInitiate: ["*"]`.
 - **Chats stay private**: a chat belongs to whoever started it — org owner
   and org admins see only a department's summary (counts, bots, activity
   timestamps), never chat contents, over REST or the socket (the socket
@@ -151,21 +153,22 @@ hashing); this file is the map of trust.
   reset the passcode (`vp run --filter @spriessen/server recover:access`) and
   read everything. The host is the trust root; this is the same power
   `bash_host` has.
-- **Departments are organisation, not isolation (F-A)**: open reach makes
-  the whole org the blast radius of one misled bot — from phase 4 it can
-  read and write every shared folder, message every bot and run commands in
-  every VM. Inside a home's VM the bots share one kernel; the inner boundary
-  is per-bot Linux users with `hidepid=2` (slice 2b), the VM remains the
-  real boundary — per-bot users are not a defence against kernel bugs or a
-  malicious root step. Removing a bot retires its user and shared-folder
-  group membership from its home's VM (marked for the next boot when the VM
-  is stopped); a stale member would keep shared-folder access, which is why
-  the sweep runs in the purge itself. The audit trail is the
-  compensating control; who reads it and how loudly is an open question
-  (F-E). Network policy can be bypassed by targeting a VM with a looser
-  allowlist (F-B). Any VM may receive work from any bot (F-G capacity).
-  Shared folders and bot-to-bot messages are an injection channel between
-  all bots (F-H): every bot message and every shared-folder file is
+- **Departments are a boundary between bots' VMs, files and vaults
+  (F-A)**: a bot's commands run only in its own home's VM (the `bash` tool
+  takes no target; owner decision, 1 Nov 2026) and its files stay in its
+  home, so a misled bot's cross-home reach is its messages. The
+  conversational blast radius is still the org: any bot can message any
+  bot, and message content is untrusted input. Inside a home's VM the
+  home's bots share one kernel; the inner boundary is per-bot Linux users
+  with `hidepid=2` (slice 2b), the VM remains the real boundary — per-bot
+  users are not a defence against kernel bugs or a malicious root step.
+  Removing a bot retires its user and shared-folder group membership from
+  its home's VM (marked for the next boot when the VM is stopped); a stale
+  member would keep shared-folder access, which is why the sweep runs in
+  the purge itself. The audit trail is the compensating control; who reads
+  it and how loudly is an open question (F-E). Shared folders are an
+  injection channel between the bots of one home, and bot-to-bot messages
+  between all bots (F-H): every bot message and every shared-folder file is
   untrusted input, like web content. A published template carries no vault
   items, memory or chats; copies are independent from the moment they are
   made.

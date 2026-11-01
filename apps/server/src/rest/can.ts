@@ -22,9 +22,11 @@ export type Action = "view" | "change" | "remove" | "decide";
  * things on the server's own machine. Org kinds: `org-settings` and
  * `member` are org-level state; `department` is one department's own state;
  * `department-summary` its read-only digest; `approval` deciding a pending
- * card; `shared-folder` and `vm` are the open-reach surfaces (every bot may
- * reach any home's). `bot-admin` is a bot managing bots and departments
- * on its account's behalf (the main bot's admin tools).
+ * card. Reach is MESSAGING ONLY (owner decision, 1 Nov 2026): no resource
+ * here opens another home's VM or shared folder — those belong to their
+ * home's own bots alone, and cross-home messaging is audited in the mind
+ * (`org/reach.ts`), not gated here. `bot-admin` is a bot managing bots and
+ * departments on its account's behalf (the main bot's admin tools).
  */
 export type Resource =
   | {
@@ -56,13 +58,11 @@ export type Resource =
       readonly home?: HomeRef;
     }
   | {
-      /** `caller` (a bot) managing bots and departments; `main` is its account's main bot. */
+      /** A bot (`caller`) managing bots and departments; `main` is its account's main bot. */
       readonly type: "bot-admin";
       readonly caller: string;
       readonly main: string | null;
-    }
-  | { readonly type: "shared-folder"; readonly home: HomeRef }
-  | { readonly type: "vm"; readonly home: HomeRef };
+    };
 
 /**
  * The org slice a decision may need: who owns the org, which members hold
@@ -188,11 +188,6 @@ export const can = (actor: string, action: Action, resource: Resource, view?: Or
       // The main bot alone manages bots and departments, and only for an
       // account at org level; every other bot gets the same refusal.
       return level !== null && resource.caller !== "" && resource.caller === resource.main;
-    case "shared-folder":
-    case "vm":
-      // Open reach: every bot reaches every home. The audit rows land with
-      // the resources themselves in Phase 4.
-      return true;
     default: {
       // Bot-owned resources: the filing account, then the role ladder.
       if (actor === resource.owner) return true;

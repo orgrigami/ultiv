@@ -127,18 +127,17 @@ describe("can with the org view (slice 3)", () => {
     expect(can("admin-x", "view", { type: "chat", owner: "owner-a", id: "s1" }, view)).toBe(false);
   });
 
-  it("open reach: shared folders and VMs are reachable across homes", () => {
-    for (const actor of ["admin-x", "member-x", "viewer-x", "owner-a"]) {
-      expect(
-        can(
-          actor,
-          "view",
-          { type: "shared-folder", home: { kind: "department", departmentId: "dept-y" } },
-          view,
-        ),
-      ).toBe(true);
-      expect(can(actor, "change", { type: "vm", home: { kind: "org" } }, view)).toBe(true);
-    }
+  it("no resource opens another home's VM or shared folder: reach is messaging only", () => {
+    // The resource types were removed (owner decision, 1 Nov 2026): shared
+    // folders and command execution never cross homes, so can() has no case
+    // that lets a bot reach another home's VM or folder. The type-level
+    // probe below compiles ONLY while both literals are absent from
+    // `Resource` — the typecheck gate fails the moment either returns.
+    type Resource = Parameters<typeof can>[2];
+    const noVm: "vm" extends Resource["type"] ? true : false = false;
+    const noFolder: "shared-folder" extends Resource["type"] ? true : false = false;
+    expect(noVm).toBe(false);
+    expect(noFolder).toBe(false);
   });
 
   it("a viewer of one department gets no summary of another", () => {

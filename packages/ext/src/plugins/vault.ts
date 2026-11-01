@@ -20,7 +20,9 @@ export interface ScopeResolver {
    * or a department) its own sandbox instead of each bot: `dir` names the
    * home's VM (a stable scope dir; the sandbox name derives from it) and
    * `sharedGid` is the home's shared-folder group id, when it provisions
-   * one. ext never learns org concepts — the mind supplies both. Absent
+   * one. ext never learns org concepts — the mind supplies both. The
+   * resolver takes NO target: a bot's `bash` runs only in its home's VM
+   * (owner decision, 1 Nov 2026 — no cross-home command execution). Absent
    * (or undefined per conversation) keeps the per-bot sandbox of older
    * embedders.
    */

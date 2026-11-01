@@ -152,17 +152,22 @@ like a missing item. Approval cards route to their approvers
 org owner; an org bot's to the org owner and org admins — deciding never
 reads the chat.
 
-**Open reach** (owner decision, 1 Nov 2026): every bot reaches every home —
-shared folders, messaging, commands in another home's VM (the run lands in
-phase 4). There is no denial; the control is the `reach` audit row each
-cross-home use writes (`org/reach.ts`, the mailbox wrapper is wired in
-`entity.ts`), carrying from, to and surface — never content. Reach does NOT
-cover another bot's chats, memory or home folder, or another home's vault
-items and connectors: those need a **grant** (REST `/api/org/grants`), which
-names the resource, the grantee home and the action; creating, using and
-revoking are audited, and a revoke stops access at once (the broker's
-granted-credential fallback consults the live grant table on every spend).
-Messaging itself needs no grant and stays under the mailbox caps.
+**Open reach is messaging only** (owner decision, 1 Nov 2026, superseding
+the earlier note that listed shared folders and commands among the reach
+surfaces): any bot can message any bot, across homes, with the mailbox caps;
+each CROSS-HOME message writes a `reach` audit row (`org/reach.ts`, the
+mailbox wrapper is wired in `entity.ts`), carrying from, to and the
+`message` surface — never content. Nothing else crosses homes: a VM is for
+its home's bots only (`bash` runs only in the bot's own home VM — the tool
+takes no target), each home's `/home/shared` is usable only by that home's
+bots, and `can()` refuses another home's VM, shared folder and files,
+another bot's chats, memory or home, and another home's vault items,
+connectors or settings with the uniform "not found" answer. Those need a
+**grant** (REST `/api/org/grants`), which names the resource, the grantee
+home and the action; creating, using and revoking are audited, and a revoke
+stops access at once (the broker's granted-credential fallback consults the
+live grant table on every spend). Messaging itself needs no grant and stays
+under the mailbox caps.
 
 **Department memory**: a department bot proposes one of its own facts for the
 department's shared store; only an admin of that department (or the org
@@ -227,7 +232,10 @@ VM (`packages/mind/src/org/home-scope.ts` computes the home's scope dir,
 Each bot works in its own folder inside the shared VM (`/home/<bot>`,
 synced from its artifact tree); `prepare` wipes and refills ONLY that
 folder, never another bot's and never `/home/shared`. Embedders that set no
-home-scope resolver keep the older per-bot VMs.
+home-scope resolver keep the older per-bot VMs. A VM is for its home's bots
+only: the `bash` tool takes no target, so a command never runs in another
+home's VM, and a bot's Linux user is provisioned in its home VM only (owner
+decision, 1 Nov 2026).
 
 **Every bot in a shared VM runs as its own Linux user (slice 2b).** On a
 bot's first use of a VM, ext provisions — idempotently, as root, checking

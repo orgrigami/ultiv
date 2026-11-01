@@ -26,9 +26,10 @@ export const AuditEventSchema = Type.Object({
     /** A vault item was READ (masked metadata only; never the secret). */
     Type.Literal("vault"),
     /**
-     * A cross-home use of an open-reach surface (a message to a bot in
-     * another home; from Phase 4, a shared folder or another home's VM).
-     * Reach is allowed for every bot; the audit row is the control.
+     * A cross-home use of an open-reach surface. Reach is MESSAGING ONLY
+     * (owner decision, 1 Nov 2026): a message to a bot in another home,
+     * audited per message as phase 3 wired it. Shared folders and command
+     * execution never cross homes, so there is no surface for them.
      */
     Type.Literal("reach"),
   ]),
@@ -56,16 +57,12 @@ export const AuditEventSchema = Type.Object({
       status: Type.Union([Type.Number(), Type.Null()]),
     }),
   ),
-  /** `reach` events: which homes and which surface — no content, ever. */
+  /** `reach` events: which homes — messaging only, never content, ever. */
   reach: Type.Optional(
     Type.Object({
       from: HomeRefSchema,
       to: HomeRefSchema,
-      surface: Type.Union([
-        Type.Literal("message"),
-        Type.Literal("shared-folder"),
-        Type.Literal("vm"),
-      ]),
+      surface: Type.Literal("message"),
     }),
   ),
 });

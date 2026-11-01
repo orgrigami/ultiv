@@ -91,8 +91,10 @@ export type MemberInfo = Static<typeof MemberInfoSchema>;
 
 /**
  * A reach grant: permission for one home to use a NAMED resource of another
- * home (a vault item or a connector). Shared folders, messaging and commands
- * in another home's VM need no grant — open reach covers them.
+ * home (a vault item or a connector). Messaging needs no grant — open reach
+ * (messaging only, owner decision 1 Nov 2026) covers it. Shared folders and
+ * VMs never cross homes, so they need no grant either: they belong to their
+ * home's own bots alone.
  */
 export const GrantInfoSchema = Type.Object({
   id: Type.String(),

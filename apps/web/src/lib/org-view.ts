@@ -82,8 +82,6 @@ const homeOf = (
 
 const SURFACE: Record<NonNullable<AuditEvent["reach"]>["surface"], string> = {
   message: "message",
-  "shared-folder": "shared folder",
-  vm: "VM",
 };
 
 /** One reach row in words: "Atelier → Yard · message", or null when it isn't one. */

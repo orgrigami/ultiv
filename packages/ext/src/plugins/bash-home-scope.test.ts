@@ -91,6 +91,46 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
   });
 });
 
+describe("bash stays in the bot's own home VM (no cross-VM target)", () => {
+  it("the tool schema ships no target parameter", () => {
+    const bash = toolOf(bashPlugin({ root: join(scratch, "schema") }), "bash");
+    const properties = (bash.parameters as { properties?: Record<string, unknown> }).properties;
+    expect(properties && "target" in properties).toBe(false);
+  });
+
+  it("a target-shaped extra argument never leaves the bot's own home VM", async () => {
+    const root = join(scratch, "no-target");
+    const disk = join(scratch, "no-target-disk");
+    const home: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x"), sharedGid: 10001 };
+    const asked: (string | undefined)[] = [];
+    const holder = createScopeHolder();
+    holder.set({
+      scopeOf: () => ({ owner: "owner-a", profile: "bot-1" }),
+      homeScopeOf: async (_conversationId: string, target?: string) => {
+        asked.push(target);
+        return home;
+      },
+    });
+    const bash = toolOf(
+      bashPlugin({
+        root,
+        holder,
+        backend: (_d, _s, guestRoot) => localShellBackend(join(disk, guestRoot), guestRoot),
+      }),
+      "bash",
+    );
+    const ran = await bash.execute(
+      { script: "pwd", target: "dept-y" } as never,
+      api("conv-1"),
+      {} as never,
+    );
+    // The resolver was asked for the bot's OWN home only — no target was
+    // forwarded, so the command ran in the home VM at the bot's own folder.
+    expect(asked).toEqual([undefined]);
+    expect(ran.structuredOutput).toMatchObject({ stdout: "/home/bot-1\n", exitCode: 0 });
+  });
+});
+
 describe("bash in a shared home VM (local backend standing in for the VM disk)", () => {
   it("two department bots colocate; prepare for one leaves the other's folder", async () => {
     const root = join(scratch, "shared");

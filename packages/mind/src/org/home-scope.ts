@@ -9,8 +9,10 @@
  * Slice 2b rides the same seam: the resolver also hands ext the bot's own
  * Linux user (fixed uid from the `ultiv.bot-uids` ledger, the same uid in
  * every VM) so the VM provisions it at first use and runs every command as
- * it. Removing a bot retires that user from its home's VM — the only VM a
- * bot uses until slice 2c adds cross-VM targets.
+ * it. A bot's `bash` runs ONLY in its home's VM — the home VM is the only VM
+ * a bot ever uses (owner decision, 1 Nov 2026: no cross-home targeting, no
+ * cross-home command execution), so retiring the user from that one VM is
+ * the whole removal sweep.
  */
 import { join } from "node:path";
 import type { HomeRef, ProfileInfo } from "@spriessen/contracts";

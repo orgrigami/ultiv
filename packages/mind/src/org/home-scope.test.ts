@@ -96,6 +96,27 @@ describe("homeScopeOfProfile (the upgrade from per-bot VMs)", () => {
   });
 });
 
+describe("bash stays in the bot's own home VM (reach is messaging only)", () => {
+  it("the resolver maps a bot to its home and nothing else — no target to name another VM", async () => {
+    const profiles = await mind.profiles.list(owner);
+    const scout = profiles.find((row) => row.name === "Scout");
+    const digger = profiles.find((row) => row.name === "Digger");
+    expect(scout).toBeDefined();
+    expect(digger).toBeDefined();
+    const orgScope = await homeScopeOfProfile(mind.converse, scratch)(owner, scout as never);
+    const deptScope = await homeScopeOfProfile(mind.converse, scratch)(owner, digger as never);
+    // Each bot lands in exactly its own home's VM, never another's.
+    expect(orgScope?.dir).toBe(homeScopeDir(scratch, owner, { kind: "org" }));
+    expect(deptScope?.dir).toBe(
+      homeScopeDir(scratch, owner, { kind: "department", departmentId: dept }),
+    );
+    // The resolver takes the bot alone: two parameters, no target argument —
+    // there is no way to name another home's VM (owner decision, 1 Nov 2026).
+    const resolve = homeScopeOfProfile(mind.converse, scratch);
+    expect(resolve.length).toBe(2);
+  });
+});
+
 describe("department removal destroys the department's VM (injected)", () => {
   it("the destroyer gets the department home; the org VM is never passed", async () => {
     const destroyed: { owner: string; home: HomeRef }[] = [];

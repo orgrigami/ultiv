@@ -1,10 +1,10 @@
 /**
- * Open reach: every bot reaches every department and the org. Reach covers
- * three surfaces — the shared folder, messaging any bot, and commands in
- * another home's VM (the run itself is Phase 4). There is no denial here;
- * the control is the audit row each CROSS-HOME use writes. Grants are the
- * other side: they unlock what reach does NOT cover, a NAMED vault item or
- * connector of another home.
+ * Open reach is MESSAGING ONLY (owner decision, 1 Nov 2026, narrowing the
+ * phase-3 model): every bot can message every bot, and each CROSS-HOME
+ * message writes its audit row. Shared folders and command execution never
+ * cross homes — each home's `/home/shared` and its VM belong to that home's
+ * own bots alone — so there is no reach surface for them. Grants are the
+ * other side: they unlock a NAMED vault item or connector of another home.
  */
 import { Effect } from "effect";
 import type { AuditEvent, CredentialBinding, HomeRef, VaultItemInfo } from "@spriessen/contracts";
