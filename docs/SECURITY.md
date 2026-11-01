@@ -229,50 +229,77 @@ synced from its artifact tree); `prepare` wipes and refills ONLY that
 folder, never another bot's and never `/home/shared`. Embedders that set no
 home-scope resolver keep the older per-bot VMs.
 
-**Until slice 2b lands, every bot in a VM still runs as the SAME user
-(root): the per-bot folder is bookkeeping, not isolation — bots sharing a VM
-can read each other's folders.** Slice 2b gives each bot its own Linux user,
-fixed uid from 10000, a mode-700 home and `hidepid=2`; that is when
-isolation inside the VM becomes real.
+**Every bot in a shared VM runs as its own Linux user (slice 2b).** On a
+bot's first use of a VM, ext provisions — idempotently, as root, checking
+`/etc/passwd` first (the writable layer persists) — a user named
+`bot-<hash of the profile id>` with a FIXED uid from 10000 up (uid 1000 is
+the image's `node` user). The uid is allocated once per bot by the mind into
+the `ultiv.bot-uids` ledger document and never reused: rows survive bot
+removal, and the SAME uid is used in every VM. The user's home is the bot's
+own folder, mode 700, so one bot cannot reach another bot's files. At every
+VM boot root also remounts `/proc` with `hidepid=2`, so a bot sees only its
+own processes. Every bot COMMAND runs as that bot's `uid:gid` — never root
+(root stays only for provisioning, `prepare`, the chown handover and the
+file sync) — with `USER` set, a per-bot `TMPDIR` under its home, and umask
+077, which is also what keeps files a bot drops in the sticky `/tmp` from
+being read by other bots. The same umask applies in `/home/shared`: the
+setgid directory gives a shared file the right GROUP, not readability — a
+bot that means to share a file must relax its mode (`chmod`), which keeps
+accidental writes private by default. Remaining limits: unprivileged user
+namespaces are left on (the optional `user.max_user_namespaces=0` hardening
+is not applied), and bind-mounted host folders have no host-side isolation
+between bots — on the host every file belongs to the host user.
 
 Each VM provisions `/home/shared` on boot (idempotent, as root): owned by
 `root`, group `ultiv-shared` with a fixed per-home gid from 10000 up
 (`sharedGid`, stored with the org or department and allocated at creation;
 rows stored before the field existed read a deterministic value from
-`normalizeOrgState`), mode 2770 (setgid). Group MEMBERS — the bots' Linux
-users, added at a bot's first use of that VM and removed when the bot is —
-are slice 2b. Files bots put there are group-readable and group-writable on
-purpose; treat the folder as untrusted input (F-H).
+`normalizeOrgState`), mode 2770 (setgid). Group MEMBERSHIP is created at a
+bot's first use of that VM (`usermod -aG` in the same provisioning step) and
+never pre-created. Files bots put there are group-readable and
+group-writable on purpose; treat the folder as untrusted input (F-H).
 
 **Purge**: deleting a bot never destroys a VM (the VM belongs to its home;
-`apps/server/src/rest/bot-purge.ts` answers `sandbox: false`). Deleting a
-department destroys the department's VM — both paths (`DELETE
-/api/org/departments/:id` and the main bot's `department_delete`) go through
-`orgService.removeDepartment`, which tears the VM down best-effort (stop,
-then remove; bounded 8 s, never failing the removal; injectable as
-`openMind`'s `destroyHomeVm`, so tests touch no runtime). The org VM is
-destroyed only with the org; the org cannot be deleted today, so no route
-destroys it.
+`apps/server/src/rest/bot-purge.ts` answers `sandbox: false`), but it
+RETIREES the bot's Linux user from its home's VM — `userdel -r`, which also
+removes its shared-folder group membership — immediately when the VM is
+running, otherwise marked in a pending-removal file that the VM's next boot
+applies and clears (`retireSandboxUser` in
+`packages/ext/src/shell/sandbox-backend.ts`). A bot that never ran `bash`
+has no uid and no user anywhere. Deleting a department destroys the
+department's VM — both paths (`DELETE /api/org/departments/:id` and the main
+bot's `department_delete`) go through `orgService.removeDepartment`, which
+tears the VM down best-effort (stop, then remove; bounded 8 s, never failing
+the removal; injectable as `openMind`'s `destroyHomeVm`, so tests touch no
+runtime; the same route injects `retireBotUser`). The org VM is destroyed
+only with the org; the org cannot be deleted today, so no route destroys it.
 
 **Upgrade**: bots that ran in per-bot VMs (`ultiv-<hash of the bot's dir>`)
 move to their home's VM by the scope change alone; each bot's files refill
-into its folder from its artifact tree on the first call (the upgrade test:
-`packages/mind/src/org/home-scope.test.ts`, with the folder behaviour in
-`packages/ext/src/plugins/bash-home-scope.test.ts`; homes owned by each
-bot's uid is slice 2b). Old per-bot VMs are no longer used and are NOT
-destroyed automatically — remove them by hand (`msb rm`) after checking.
-VM state outside the artifact tree (installed packages) is lost when a bot's
-home changes, because the folder is refilled from artifacts. Slice 2b's
-per-bot uid work (`useradd`, chown of the moved homes) is tracked there.
+into its folder from its artifact tree on the first call, and that first
+`prepare` runs `chown -R uid:gid` over the folder — homes that predate
+per-bot users were root-owned, and the bot could not have written them
+(the upgrade test: `packages/mind/src/org/home-scope.test.ts`, with the
+folder behaviour in `packages/ext/src/plugins/bash-home-scope.test.ts`).
+Old per-bot VMs are no longer used and are NOT destroyed automatically —
+remove them by hand (`msb rm`) after checking. VM state outside the artifact
+tree (installed packages) is lost when a bot's home changes, because the
+folder is refilled from artifacts.
 
 Tests: `packages/ext/src/plugins/bash-home-scope.test.ts` (naming,
-colocation, prepare isolation, per-bot fallback), `packages/mind/src/org/
+colocation, prepare isolation, per-bot fallback),
+`packages/ext/src/shell/sandbox-bot-user.test.ts` (the provisioning, exec
+and retire command construction at unit level), `packages/mind/src/org/
+bot-users.test.ts` (uid allocation, never-reuse across removal, the home
+scope carrying the user, the injected removal sweep), `packages/mind/src/org/
 home-scope.test.ts` (the resolver, gid allocation, the rerun-stable
 upgrade, the injected department teardown), and
 `apps/server/src/rest/home-vm-purge.test.ts` (a bot purge destroys no VM; a
 department delete destroys the department's). The real-VM behaviour
-(colocation inside one microVM, per-bot prepare isolation, `/home/shared`
-mode/owner/group) was verified with throwaway probe VMs, not in the suite.
+(colocation inside one microVM, per-bot prepare isolation with ownership,
+mode-700 homes, hidepid=2, `/tmp` under umask 077, idempotent `useradd`
+keeping the same uid, retirement, and ownership + hidepid surviving a VM
+restart) was verified with throwaway probe VMs, not in the suite.
 
 ## Owner scoping and the one account
 

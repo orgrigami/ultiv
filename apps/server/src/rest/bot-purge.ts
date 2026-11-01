@@ -22,6 +22,14 @@ export async function purgeBot(
   owner: string,
   id: string,
 ): Promise<unknown> {
+  // The VM-side sweep needs the bot's home, so it reads the row before the
+  // registry remove. Slice 2b: the bot's Linux user (and with it its
+  // shared-folder group membership) is retired from the home's VM —
+  // immediately when it runs, otherwise marked for its next boot; a bot
+  // that never ran `bash` has no user anywhere. Best effort, never fails
+  // the purge.
+  const profile = await mind.profiles.get(owner, id).catch(() => undefined);
+  if (profile !== undefined) await mind.org.retireBotUser(owner, profile).catch(() => {});
   const sessions = await mind.profiles.remove(owner, id);
   const sessionIds = sessions.map((row) => row.id);
   const [mailbox, memory, vault, cron, webhooks, sensors, rooms] = await Promise.all([
@@ -42,7 +50,9 @@ export async function purgeBot(
     artifacts = -1;
   }
   // The VM survives the bot (one VM per home, shared with the home's other
-  // bots); the field stays so the answer's shape is stable.
+  // bots); the bot's Linux USER does not — `retireBotUser` above removed it
+  // (or marked it for the VM's next boot). The field stays so the answer's
+  // shape is stable.
   const sandbox = false;
   return {
     ok: true,
@@ -58,6 +68,6 @@ export async function purgeBot(
     sandbox,
     note:
       "transcripts stay in harness storage (retention); registry rows and files are gone; " +
-      "the home's shared VM is not touched",
+      "the home's shared VM stays but no longer has this bot's Linux user",
   };
 }

@@ -110,11 +110,14 @@ hashing); this file is the map of trust.
   ordinary bot scripts: host files are not mounted, the bot's files tree is
   synced in. From phase 4 the VM belongs to the bot's HOME, not the bot: the
   org's bots share the org VM, a department's bots its department VM, each
-  in its own `/home/<bot>` folder beside a shared `/home/shared`. Until
-  slice 2b (per-bot Linux users) the bots in one VM still run as the same
-  user and can read each other's folders — the old per-bot VM boundary is
-  gone the moment the home-scope change lands, and slice 2b is what restores
-  bot-level isolation inside the VM. A sandbox escape is out of scope of
+  in its own `/home/<bot>` folder beside a shared `/home/shared`. Slice 2b
+  gives each bot its own Linux user inside every VM it uses: a fixed uid
+  from 10000 up (the same uid everywhere, allocated once and never reused),
+  a mode-700 home, `hidepid=2` on `/proc` so it sees only its own
+  processes, a per-bot `TMPDIR` and umask 077, and every command run as that
+  `uid:gid` — never root. Per-bot users are the inner boundary; the VM
+  remains the real one (they are not a defence against kernel bugs or a
+  malicious root step). A sandbox escape is out of scope of
   this document (it would be a microsandbox vulnerability), but `bash_host`
   exists precisely because some jobs need the real host.
 - **The credential broker** (`packages/ext/src/broker/`) is the only path a
@@ -151,9 +154,13 @@ hashing); this file is the map of trust.
 - **Departments are organisation, not isolation (F-A)**: open reach makes
   the whole org the blast radius of one misled bot — from phase 4 it can
   read and write every shared folder, message every bot and run commands in
-  every VM. Inside a home's VM the bots share one kernel and, until slice
-  2b's per-bot Linux users, one user account; the VM remains the real
-  boundary, per-bot users the inner one. The audit trail is the
+  every VM. Inside a home's VM the bots share one kernel; the inner boundary
+  is per-bot Linux users with `hidepid=2` (slice 2b), the VM remains the
+  real boundary — per-bot users are not a defence against kernel bugs or a
+  malicious root step. Removing a bot retires its user and shared-folder
+  group membership from its home's VM (marked for the next boot when the VM
+  is stopped); a stale member would keep shared-folder access, which is why
+  the sweep runs in the purge itself. The audit trail is the
   compensating control; who reads it and how loudly is an open question
   (F-E). Network policy can be bypassed by targeting a VM with a looser
   allowlist (F-B). Any VM may receive work from any bot (F-G capacity).

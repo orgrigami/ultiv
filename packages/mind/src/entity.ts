@@ -64,7 +64,7 @@ import {
   orgService,
   type OrgService,
 } from "./org/service.ts";
-import { defaultDestroyHomeVm } from "./org/home-scope.ts";
+import { defaultDestroyHomeVm, defaultRetireBotUser } from "./org/home-scope.ts";
 import { type MindError, type MindOptions, type MindWiring } from "./entity-options.ts";
 import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
@@ -225,7 +225,8 @@ const mindLayerRaw = (
       // never failing the removal. The org VM is destroyed only with the
       // org; a bot purge destroys no VM at all.
       const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
-      const org = orgService(converse, { destroyHomeVm });
+      const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
+      const org = orgService(converse, { destroyHomeVm, retireBotUser });
       // Persona and Instructions files: every existing bot gets both, once.
       void Effect.runPromise(readProfiles(converse))
         .then((rows) => files.migrate(rows))
@@ -379,6 +380,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       ? { onSchedulesChanged: options.schedules.onChanged }
       : {}),
     ...(options.destroyHomeVm !== undefined ? { destroyHomeVm: options.destroyHomeVm } : {}),
+    ...(options.retireBotUser !== undefined ? { retireBotUser: options.retireBotUser } : {}),
     ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {

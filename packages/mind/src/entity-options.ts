@@ -44,6 +44,12 @@ export interface MindOptions {
    * scope dir; tests inject a recorder so no VM runtime is touched.
    */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
+  /**
+   * Retires a removed bot's Linux user from its home's VM (slice 2b).
+   * Defaults to the real `retireSandboxUser` path (immediate when the VM
+   * runs, marked for its next boot otherwise); tests inject a recorder.
+   */
+  readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
 }
 
 /** Everything that can fail while booting the mind. */
@@ -73,4 +79,6 @@ export interface MindWiring {
   readonly admin?: MindAdmin;
   /** Home-VM teardown for a department removal; the entity supplies the default. */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
+  /** Bot-user teardown for a bot purge; the entity supplies the default. */
+  readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
 }

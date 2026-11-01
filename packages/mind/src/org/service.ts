@@ -17,11 +17,13 @@ import type {
   MemberPut,
   OrgInfo,
   OrgState,
+  ProfileInfo,
   TemplateInfo,
 } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
+import { botUidPeek } from "./bot-users.ts";
 import { readProfiles } from "../profiles/docs.ts";
-import { OrgDoc, defaultVm, emptyOrgState, normalizeOrgState } from "./model.ts";
+import { OrgDoc, defaultVm, emptyOrgState, homeOf, normalizeOrgState } from "./model.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -35,6 +37,13 @@ export interface OrgServiceOptions {
    * with the org.
    */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
+  /**
+   * Retires a removed bot's Linux user (and so its shared-folder group
+   * membership) from its home's VM (slice 2b) — wired by the entity with
+   * the real `retireSandboxUser` path; tests inject a recorder. Absent in
+   * bare service tests, where the sweep is a no-op.
+   */
+  readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
 }
 
 /** The whole org state, normalized (missing fields filled, never overwritten). */
@@ -91,6 +100,15 @@ export interface OrgService {
   readonly activeGrants: () => Promise<readonly GrantInfo[]>;
   readonly putTemplate: (template: TemplateInfo) => Promise<TemplateInfo>;
   readonly removeTemplate: (id: string) => Promise<boolean>;
+  /**
+   * Retire a removed bot's Linux user from its home's VM (slice 2b). False
+   * when there is nothing to do: no sweep wired (bare tests) or the bot
+   * never ran `bash`, so it has no uid and no user in any VM.
+   */
+  readonly retireBotUser: (
+    owner: string,
+    profile: Pick<ProfileInfo, "id" | "departmentId">,
+  ) => Promise<boolean>;
 }
 
 /** The department a HomeRef names, or null for the org. */
@@ -297,6 +315,14 @@ export const orgService = (
       await commitOrg(converse, (draft) => {
         draft.templates = draft.templates.filter((row) => row.id !== id);
       });
+      return true;
+    },
+    retireBotUser: async (owner, profile) => {
+      const sweep = options.retireBotUser;
+      if (sweep === undefined) return false;
+      // A bot that never ran `bash` has no uid, so no user in any VM.
+      if ((await botUidPeek(converse)(profile.id)) === undefined) return false;
+      await sweep(owner, homeOf(profile), profile.id);
       return true;
     },
   };

@@ -29,12 +29,30 @@ export interface ScopeResolver {
   ) => HomeScope | undefined | Promise<HomeScope | undefined>;
 }
 
+/** The bot's own Linux identity inside a VM (slice 2b); the mind supplies it. */
+export interface SandboxUser {
+  /** Linux user name (`bot-<hash>`; /etc/passwd length rules apply). */
+  readonly name: string;
+  /** Fixed per-bot uid from 10000 up; the SAME uid in every VM. */
+  readonly uid: number;
+  /** The user's own group id (allocated equal to the uid). */
+  readonly gid: number;
+  /** The bot's home directory inside the VM (`/home/<folder>`). */
+  readonly home: string;
+}
+
 /** The home scope one conversation's bot shares with its home's other bots. */
 export interface HomeScope {
   /** Stable scope dir naming the home's VM (the sandbox name derives from it). */
   readonly dir: string;
   /** Gid of the home's `/home/shared` group, when the home provisions one. */
   readonly sharedGid?: number;
+  /**
+   * The bot's own Linux user in the VM (uid, group, home). When set, the VM
+   * provisions it idempotently on boot and every bot command runs as it;
+   * root remains only for provisioning, `prepare` and the file sync.
+   */
+  readonly user?: SandboxUser;
 }
 
 /** A settable holder, so plugins built before the profiles service resolve lazily. */

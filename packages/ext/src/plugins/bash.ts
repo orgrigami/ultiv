@@ -26,7 +26,7 @@ import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
-import { scopeDir, type HomeScope, type ScopeHolder } from "./vault.ts";
+import { scopeDir, type HomeScope, type SandboxUser, type ScopeHolder } from "./vault.ts";
 import { artifactsDir } from "./artifacts.ts";
 import { localShellBackend, type ShellBackend, type ShellExecResult } from "../shell/backend.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
@@ -65,10 +65,12 @@ export interface HomeWorld {
   readonly vmDir: string;
   readonly guestRoot: string;
   readonly sharedGid?: number;
+  /** The bot's own Linux user in the VM (slice 2b), when the home gives one. */
+  readonly user?: SandboxUser;
 }
 
 /** Safe folder name for the bot inside the shared VM; an opaque hash otherwise. */
-const botFolderOf = (dir: string): string => {
+export const botFolderName = (dir: string): string => {
   const base = basename(dir);
   // "shared" is reserved: it is every VM's /home/shared.
   return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(base) && base !== "shared"
@@ -81,8 +83,9 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
   if (home === undefined) return { vmDir: botDir, guestRoot: HOME };
   return {
     vmDir: home.dir,
-    guestRoot: `${HOME}/${botFolderOf(botDir)}`,
+    guestRoot: `${HOME}/${botFolderName(botDir)}`,
     ...(home.sharedGid === undefined ? {} : { sharedGid: home.sharedGid }),
+    ...(home.user === undefined ? {} : { user: home.user }),
   };
 };
 
@@ -381,12 +384,13 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
             ...(options.image === undefined ? {} : { image: options.image }),
             guestRoot: world.guestRoot,
             ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
+            ...(world.user === undefined ? {} : { user: world.user }),
           })(staging);
     return { backend, guestRoot: world.guestRoot };
   };
   return definePlugin({
     id: "ultiv.bash",
-    version: "2.1.0",
+    version: "2.2.0",
     description:
       "Two shells: a sandboxed microVM over the durable workspace (files written here are artifacts), and a privileged shell on the host computer.",
     capabilities: [

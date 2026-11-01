@@ -8,10 +8,24 @@
  * `listFiles`/`readFile` pull state back for the sync loop in bash.ts. The
  * VM keeps running between calls (the runtime idle monitor retires it); the
  * sandbox name makes it reattachable across server restarts.
+ *
+ * Per-bot Linux users (phase 4 slice 2b): when the caller supplies `user`,
+ * the VM provisions it idempotently as root on every boot (fixed uid,
+ * mode-700 home, membership of the shared-folder group) and remounts `/proc`
+ * with `hidepid=2`; `prepare` fills the bot's home as root and hands it to
+ * the bot's uid:gid; `exec` runs every bot command AS that user (with
+ * `USER`, a per-bot `TMPDIR` and umask 077). Root stays only for setup.
+ * A removed bot's user is retired from the VM — immediately when it is
+ * running, otherwise marked for the next boot (a pending file, applied and
+ * cleared by `ensureVm`).
  */
 import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { Sandbox } from "microsandbox";
 import { readEnv } from "@spriessen/core";
+import { artifactsDir } from "../plugins/artifacts.ts";
+import type { SandboxUser } from "../plugins/vault.ts";
 import type { ShellBackend, ShellFile, ShellExecResult } from "./backend.ts";
 
 export interface SandboxBackendOptions {
@@ -28,16 +42,22 @@ export interface SandboxBackendOptions {
   /**
    * Gid of the home's shared-folder group. When set, the VM's `/home/shared`
    * is provisioned on every boot: root:`ultiv-shared`, mode 2770 (setgid),
-   * idempotent. Group MEMBERS (the bots' Linux users) are a later slice.
+   * idempotent, and the bot's user joins the group.
    */
   readonly sharedGid?: number;
+  /**
+   * The bot's own Linux user in this VM. When set, every `exec` runs as
+   * `uid:gid` (never root) and the user is provisioned idempotently at boot.
+   */
+  readonly user?: SandboxUser;
 }
 
 const HOME = "/home";
 const VM_CPUS = 1;
 const VM_MEMORY_MIB = 512;
 const SHARED_DIR = "/home/shared";
-const SHARED_GROUP = "ultiv-shared";
+/** The per-scope group every VM's shared folder and its bots' users share. */
+export const SHARED_GROUP = "ultiv-shared";
 /**
  * The default VM image: built from `packages/ext/sandbox/Dockerfile`
  * (node 24, python 3 + pip, jq, tar, curl, git on Debian slim) and loaded
@@ -65,11 +85,150 @@ export const scopeHash = (value: string): string =>
 /** The deterministic sandbox name for one workspace scope dir. */
 export const sandboxNameOf = (dir: string): string => `ultiv-${scopeHash(dir)}`;
 
+/** The root boot script: hidepid=2 on /proc, plus the shared folder. */
+export const bootScript = (sharedGid: number | undefined): string =>
+  [
+    // Each bot sees only its own processes; a bot cannot undo the remount.
+    "mount -o remount,hidepid=2 /proc 2>/dev/null || true",
+    ...(sharedGid === undefined
+      ? []
+      : [
+          `getent group ${SHARED_GROUP} >/dev/null 2>&1 || groupadd -g ${sharedGid} ${SHARED_GROUP}`,
+          `mkdir -p ${SHARED_DIR}`,
+          `chown root:${SHARED_GROUP} ${SHARED_DIR}`,
+          `chmod 2770 ${SHARED_DIR}`,
+        ]),
+  ].join("\n");
+
+/**
+ * The per-bot provisioning, idempotent against the writable layer (check
+ * `/etc/passwd` first): fixed uid, own group (falls back to an existing group
+ * when the gid is taken — the shared folder's), mode-700 home, and membership
+ * of the shared-folder group created at first use, never pre-created.
+ */
+export const botProvisionScript = (user: SandboxUser, sharedGid: number | undefined): string =>
+  [
+    `getent group ${user.gid} >/dev/null 2>&1 || groupadd -g ${user.gid} ${user.name}`,
+    `getent passwd ${user.name} >/dev/null 2>&1 || ` +
+      `useradd -m -s /bin/bash -u ${user.uid} -g ${user.gid} -d ${user.home} ${user.name}`,
+    ...(sharedGid === undefined ? [] : [`usermod -aG ${SHARED_GROUP} ${user.name}`]),
+    `mkdir -p ${user.home}`,
+    `chown ${user.uid}:${user.gid} ${user.home}`,
+    `chmod 700 ${user.home}`,
+  ].join("\n");
+
+/**
+ * The removal script for a retired bot: delete the user (its membership of
+ * every group goes with it) and its home. Guarded so a half-removed state
+ * never fails the sweep.
+ */
+export const retireScriptFor = (user: Pick<SandboxUser, "name" | "home">): string =>
+  [`userdel -r ${user.name} 2>/dev/null || true`, `rm -rf ${user.home} 2>/dev/null || true`].join(
+    "\n",
+  );
+
+/**
+ * Applies the bot-user exec options: the command runs as `uid:gid`, with
+ * `USER` set (it comes through empty otherwise), a per-bot `TMPDIR` under the
+ * bot's home, umask 077, an explicit cwd (it stays `/home` otherwise) and the
+ * timeout. Structural so tests can pass a recording fake.
+ */
+export interface ExecBuilderShape {
+  args(args: string[]): ExecBuilderShape;
+  cwd(cwd: string): ExecBuilderShape;
+  timeout(ms: number): ExecBuilderShape;
+  user(user: string): ExecBuilderShape;
+  env(key: string, value: string): ExecBuilderShape;
+}
+
+export const applyBotExec = <B>(
+  builder: B,
+  script: string,
+  cwd: string,
+  timeoutMs: number,
+  user: SandboxUser | undefined,
+): B => {
+  const b = builder as ExecBuilderShape;
+  const wrapped = user === undefined ? script : `umask 077; ${script}`;
+  b.args(["-c", wrapped]).cwd(cwd).timeout(timeoutMs);
+  if (user !== undefined) {
+    b.user(`${user.uid}:${user.gid}`).env("USER", user.name).env("TMPDIR", `${user.home}/.tmp`);
+  }
+  return builder;
+};
+
+// ---- retiring a removed bot's user ---------------------------------------
+
+/** A user (and its shared-folder group) to remove from one VM. */
+export type RetiredUser = Pick<SandboxUser, "name" | "home">;
+
+/** The pending-removal record for one VM, kept beside the artifact store. */
+const pendingPath = (name: string): string =>
+  join(artifactsDir(), "..", "sandbox-pending", `${scopeHash(name)}.json`);
+
+/** Pending removals recorded for one VM (empty when none or unreadable). */
+export const readPendingRemovals = (name: string, file?: string): RetiredUser[] => {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file ?? pendingPath(name), "utf8"));
+    return Array.isArray(parsed) ? (parsed as RetiredUser[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Records a removal for the next VM boot; dedupes by user name. */
+export const markPendingRemoval = (name: string, user: RetiredUser, file?: string): void => {
+  const path = file ?? pendingPath(name);
+  const rest = readPendingRemovals(name, file).filter((row) => row.name !== user.name);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify([...rest, user]));
+};
+
+/** Drops one VM's pending-removal file (after applying it, or on destroy). */
+export const clearPendingRemovals = (name: string, file?: string): void => {
+  rmSync(file ?? pendingPath(name), { force: true });
+};
+
+/** Where a removal is applied: "removed" now, or "marked" for the next boot. */
+export type RetireOutcome = "removed" | "marked";
+
+/**
+ * Retire a removed bot's user from one VM. When the VM can be reached (and
+ * `io.exec` is not injected) the script runs now; otherwise the removal is
+ * marked and `ensureVm` applies it at the next boot. Never throws.
+ */
+export const retireSandboxUser = async (
+  name: string,
+  user: RetiredUser,
+  io: { readonly exec?: (script: string) => Promise<void>; readonly file?: string } = {},
+): Promise<RetireOutcome> => {
+  const exec =
+    io.exec ??
+    (async (script: string) => {
+      const { Sandbox } = await import("microsandbox");
+      const handle = await Sandbox.get(name);
+      if (handle.status === "stopped") throw new Error("vm is stopped");
+      const sandbox = await handle.connect();
+      const output = await sandbox.execWith(
+        "bash",
+        (b) => applyBotExec(b, script, HOME, 30_000, undefined) as never,
+      );
+      if (output.code !== 0) throw new Error(output.stderr());
+    });
+  try {
+    await exec(retireScriptFor(user));
+    return "removed";
+  } catch {
+    markPendingRemoval(name, user, io.file);
+    return "marked";
+  }
+};
+
 /**
  * Destroy a workspace's microVM by name: stop it first when it is still
  * running (the runtime refuses to remove a running sandbox — purge paths
  * destroy VMs that may be mid-use), then remove it. A missing VM throws;
- * callers catch.
+ * callers catch. Any pending user removals die with the VM.
  */
 export const destroySandbox = async (name: string): Promise<void> => {
   const { Sandbox } = await import("microsandbox");
@@ -80,33 +239,39 @@ export const destroySandbox = async (name: string): Promise<void> => {
     // Already gone, or the runtime is down: remove below reports it.
   }
   await Sandbox.remove(name);
-};
-
-/**
- * Provisions the home's shared folder, once per VM boot, as root: the
- * per-scope group (fixed gid) if missing, then `/home/shared` root-owned,
- * mode 2770 (setgid, so files inside carry the group). Idempotent.
- */
-const provisionShared = async (sandbox: Sandbox, gid: number): Promise<void> => {
-  const output = await sandbox.execWith("bash", (b) =>
-    b
-      .args([
-        "-c",
-        `getent group ${SHARED_GROUP} >/dev/null 2>&1 || groupadd -g ${gid} ${SHARED_GROUP}\n` +
-          `mkdir -p ${SHARED_DIR}\n` +
-          `chown root:${SHARED_GROUP} ${SHARED_DIR}\n` +
-          `chmod 2770 ${SHARED_DIR}`,
-      ])
-      .cwd(HOME)
-      .timeout(30_000),
-  );
-  if (output.code !== 0) throw new Error(`shared folder provisioning failed: ${output.stderr()}`);
+  clearPendingRemovals(name);
 };
 
 export const sandboxShellBackend =
   (options: SandboxBackendOptions): ((homeDir: string) => ShellBackend) =>
   (): ShellBackend => {
     let vm: Sandbox | null = null;
+
+    /** Root steps only: prepare's wipe/refill, the chown handover, listFiles. */
+    const rootRun = async (
+      script: string,
+      cwd: string,
+      timeoutMs: number,
+    ): Promise<ShellExecResult> => {
+      const sandbox = await ensureVm();
+      const output = await sandbox.execWith(
+        "bash",
+        (b) => applyBotExec(b, script, cwd, timeoutMs, undefined) as never,
+      );
+      return { stdout: output.stdout(), stderr: output.stderr(), exitCode: output.code };
+    };
+
+    /** Applies recorded user removals once, then drops the pending file. */
+    const applyPending = async (sandbox: Sandbox): Promise<void> => {
+      const pending = readPendingRemovals(options.name);
+      if (pending.length === 0) return;
+      const script = pending.map(retireScriptFor).join("\n");
+      const output = await sandbox.execWith(
+        "bash",
+        (b) => applyBotExec(b, script, HOME, 30_000, undefined) as never,
+      );
+      if (output.code === 0) clearPendingRemovals(options.name);
+    };
 
     const ensureVm = async (): Promise<Sandbox> => {
       if (vm !== null) return vm;
@@ -119,11 +284,22 @@ export const sandboxShellBackend =
         .memory(VM_MEMORY_MIB)
         .workdir(HOME)
         .connectOrCreate();
-      if (options.sharedGid !== undefined) await provisionShared(vm, options.sharedGid);
+      await applyPending(vm);
+      const user = options.user;
+      const script = [
+        bootScript(options.sharedGid),
+        ...(user === undefined ? [] : [botProvisionScript(user, options.sharedGid)]),
+      ].join("\n");
+      const output = await vm.execWith(
+        "bash",
+        (b) => applyBotExec(b, script, HOME, 30_000, undefined) as never,
+      );
+      if (output.code !== 0) throw new Error(`VM provisioning failed: ${output.stderr()}`);
       return vm;
     };
 
     const root = options.guestRoot ?? HOME;
+    const user = options.user;
 
     const run = async (
       script: string,
@@ -131,8 +307,9 @@ export const sandboxShellBackend =
       timeoutMs: number,
     ): Promise<ShellExecResult> => {
       const sandbox = await ensureVm();
-      const output = await sandbox.execWith("bash", (b) =>
-        b.args(["-c", script]).cwd(cwd).timeout(timeoutMs),
+      const output = await sandbox.execWith(
+        "bash",
+        (b) => applyBotExec(b, script, cwd, timeoutMs, user) as never,
       );
       return { stdout: output.stdout(), stderr: output.stderr(), exitCode: output.code };
     };
@@ -143,9 +320,12 @@ export const sandboxShellBackend =
         // The artifact tree is the source of truth: wipe, recreate, refill —
         // the scope's own folder only, so a shared VM keeps every other bot's
         // folder and /home/shared untouched. (The mkdir runs from /home: the
-        // folder may not exist yet, and exec needs an existing cwd.)
-        await run(`mkdir -p '${root}'`, HOME, 30_000);
-        await run(`find '${root}' -mindepth 1 -delete`, root, 30_000);
+        // folder may not exist yet, and exec needs an existing cwd.) As root,
+        // then handed to the bot's uid:gid — mode 700, so only the bot (and
+        // root) reaches its files. The chown doubles as the upgrade path:
+        // homes that predate per-bot users were root-owned.
+        await rootRun(`mkdir -p '${root}'`, HOME, 30_000);
+        await rootRun(`find '${root}' -mindepth 1 -delete`, root, 30_000);
         const dirs = new Set<string>();
         for (const file of files) {
           const parts = file.path.split("/");
@@ -157,16 +337,26 @@ export const sandboxShellBackend =
           }
         }
         if (dirs.size > 0) {
-          await run(`mkdir -p ${[...dirs].map((d) => `'${d}'`).join(" ")}`, root, 30_000);
+          await rootRun(`mkdir -p ${[...dirs].map((d) => `'${d}'`).join(" ")}`, root, 30_000);
         }
         const fs = sandbox.fs();
         for (const file of files) await fs.write(`${root}/${file.path}`, file.bytes);
+        if (user !== undefined) {
+          await rootRun(
+            `chown -R ${user.uid}:${user.gid} '${root}'\n` +
+              `chmod 700 '${root}'\n` +
+              `mkdir -p '${root}/.tmp'\n` +
+              `chown ${user.uid}:${user.gid} '${root}/.tmp'`,
+            HOME,
+            30_000,
+          );
+        }
       },
 
       exec: (script, cwd, timeoutMs) => run(script, cwd, timeoutMs),
 
       listFiles: async (): Promise<readonly string[]> => {
-        const result = await run(
+        const result = await rootRun(
           `cd ${root} && find . -type f -print0 | xargs -0 -n1 printf '%s\\n' | sed 's|^\\./||'`,
           root,
           30_000,
