@@ -31,8 +31,9 @@ Open http://localhost:5173 and create your first bot. **Settings** shows a quick
 
 - **One place for everything.** The phone tab bar and the desktop sidebar both show Chat, Past chats, Needs you, Crew and Settings, so an old chat is one tap away. The sidebar also keeps your recent chats and a Find box (Cmd/Ctrl-K) that jumps to any bot, chat or screen; N starts a new chat and ? lists the shortcuts. Needs you lists pending approvals, work that restarts cut off too many times in a row (with a Retry button, since it won't run again by itself), failed tasks, routines that gave up and memory tidy suggestions, and you can approve or deny right there. On a wide screen, a task, a file or a bot's memory opens in a work pane beside the chat. Crew lists your bots; each one has its own character and a profile with Memory, Routines, Access, Files and Activity tabs that show their counts.
 - **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
+- **An org with departments.** Bots can belong to departments. Each home — the org, each department — has one microVM shared by its bots and a shared folder of its own; department folders mount read-write into the org VM and the org's folder mounts read-only into department VMs, all with size caps. Messaging reaches across homes; `bash` never does — a bot's scripts always run in its own home's VM.
 - **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
-- **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM, which is a real Linux box with python, network access and `apt-get`. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and asks first, unless the bot is in fully automatic mode.
+- **Two shells.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM — a real Linux box with python. Its network is off unless you allowlist hosts for the bot's home. Files it writes end up in the bot's file store. `bash_host` runs directly on your computer and asks first, unless the bot is in fully automatic mode — and only bots you've granted host access have it at all.
 - **A vault for credentials.** Items are sealed with AES-256-GCM, and bots only see names and masked hints. When a bot needs to use a secret, the credential broker makes the HTTP request itself, only to the hosts, methods and paths that secret is bound to. Responses are scrubbed before the bot sees them.
 - **Routines.** Bots can wake on cron schedules, on webhooks they set up themselves, or on sensors (RSS, a calendar ICS feed, watched URLs). Schedules respect time zones. Webhooks are validated against a schema, retried, and dead-lettered if they keep failing.
 - **Background tasks.** A bot can hand long work to a sub-agent and keep chatting. The task runs in its own conversation and reports back when it's done. If the server restarts, tasks pick up where they left off.
@@ -112,14 +113,16 @@ Push notifications need HTTPS. `tailscale serve` gives you that. On an iPhone, p
 
 | Tool        | Where it runs                        | What it can reach                                              | Approval                                                              |
 | ----------- | ------------------------------------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `bash`      | a microsandbox microVM per workspace | full Linux: coreutils, pipes, python3, pip, network, `apt-get` | asks per call (can be auto-approved)                                  |
-| `bash_host` | **your computer, directly**          | your whole real filesystem                                     | asks per call, **except in fully automatic mode, where it just runs** |
+| `bash`      | a microsandbox microVM per home: the org's bots share one VM, each department's bots theirs | Linux in the VM: coreutils, pipes, python3, pip. Network is off unless you allowlist hosts for the home; shared folders mount as configured | asks per call (can be auto-approved)                                  |
+| `bash_host` | **your computer, directly**          | your whole real filesystem                                     | asks per call, **except in fully automatic mode, where it just runs**; only bots with the host-access switch on have the tool at all |
 
-Both keep the working directory between calls. Anything a `bash` script writes under `/home` becomes an artifact: it shows up in `artifact_list`, the web UI serves it, and it survives restarts. Deletions sync too. The file store is the source of truth. Each call copies it into the VM and copies changes back out, so if the VM crashes you don't lose anything that was already synced.
+Both keep the working directory between calls. Anything a `bash` script writes under `/home` becomes an artifact: it shows up in `artifact_list`, the web UI serves it, and it survives restarts. Deletions sync too. The file store is the source of truth. Each call copies it into the VM and copies changes back out, so if the VM crashes you don't lose anything that was already synced — and a sync only deletes a file after a verified listing, so a failed read or a VM that was recreated re-prepares instead of wiping the store.
+
+Every bot runs as its own Linux user inside its home's VM — it can't see another bot's processes or files, and `/tmp` is per-bot. The shared folders are the deliberate exceptions: `/home/shared` among a home's bots, the org's folder (read-only in a department VM) and each department's folder (read-write in the org VM). Each has a size cap (1 GiB by default, editable in Crew): past it the folder turns read-only until files are removed. An org bot writing into a department folder is audited per file (path, size, bot — never content).
 
 The microVM needs an Apple Silicon Mac, or Linux with KVM. Without virtualization, the `bash` tool reports an error and the rest of the app works fine.
 
-Use `bash_host` only when a task really needs your actual machine. In manual and Jev mode it asks every time: Jev never decides it. Its card offers "Always allow this exact command on this computer", which saves a rule for that exact script only, character for character; any other script, even one that differs by a space, still asks. The rule shows in the bot's Access tab, where you can remove it. Fully automatic mode runs it without asking, so only use that mode for a bot you'd trust with a shell on your computer.
+Use `bash_host` only when a task really needs your actual machine. A bot has it only when you've turned host access on — the switch sits at org, department and bot level in Crew, and with it off the tool leaves the bot's list entirely; even fully automatic mode can't run it. In manual and Jev mode it asks every time: Jev never decides it. Its card offers "Always allow this exact command on this computer", which saves a rule for that exact script only, character for character; any other script, even one that differs by a space, still asks. The rule shows in the bot's Access tab, where you can remove it. Fully automatic mode runs it without asking, so only use that mode for a bot you'd trust with a shell on your computer.
 
 ## Approval modes
 
@@ -165,6 +168,7 @@ vp install                                  # dependencies
 vp check --fix                              # format and lint
 vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all seven have to pass)
 vp test                                     # unit tests (offline: no models.dev, no providers)
+SPRIESSEN_REAL_VM=1 vp test --run packages/ext/src/shell/real-vm.test.ts   # opt-in: the isolation suite on real VMs (boots throwaway microVMs, ~15 s)
 vp -C apps/web build                        # production web build
 vp run smoke                                # starts the whole stack offline on a random port and hits the REST API
 ```
@@ -177,4 +181,6 @@ Before a change goes in, I run `vp check`, the seven typechecks, `vp test`, the 
 - `docs/ROUTINES.md`: how cron, webhooks and sensors stay durable and get delivered
 - `docs/MEMORY.md`: how memory works (tiers, recall, guard, tidy)
 - `docs/SKILLS.md`: how skills are stored, loaded, installed and improved
-- `docs/SECURITY.md`: path confinement, owner scoping and webhook token storage
+- `docs/SECURITY.md`: path confinement, owner scoping, VM isolation and shared-folder caps, webhook token storage
+- `docs/THREAT_MODEL.md`: what the isolation does and doesn't claim, per surface
+- `docs/CAPACITY.md`: measured VM footprint, boot times and the cost of the folder caps
