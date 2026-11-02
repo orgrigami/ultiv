@@ -1,2 +1,2 @@
 [tools]
-node = "24" # Active LTS line; @earendil-works/* require >= 22.19
+node = "26" # Active LTS line; @earendil-works/* require >= 22.19

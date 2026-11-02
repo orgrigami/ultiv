@@ -11,12 +11,12 @@
     "smoke": "vp run --filter @spriessen/server smoke"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
+    "@types/node": "^26.0.0",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:"
   },
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "packageManager": "pnpm@12.15.0"
 }

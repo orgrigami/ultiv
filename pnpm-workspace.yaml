@@ -31,6 +31,9 @@ catalog:
   pele: 1.12.0
 overrides:
   vite@*: "catalog:"
+  # GHSA-rj75-hqrm-r3gf (moderate): patch bump within v6, build-time only
+  # (apps/web > @tailwindcss/typography). Drop when typography bumps it.
+  postcss-selector-parser@6: ^6.1.5
 peerDependencyRules:
   allowAny:
     - vite
