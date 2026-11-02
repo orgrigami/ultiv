@@ -24,12 +24,13 @@ type TileProps = useRender.ComponentProps<"div"> & {
 };
 
 /** The one box surface: a tone, a radius, a hairline. Layout stays with the caller. */
-export function Tile({ tone = "card", radius = "xl", className, ...props }: TileProps) {
+export function Tile({ tone = "card", radius = "xl", render, className, ...props }: TileProps) {
   return useRender({
     defaultTagName: "div",
     props: mergeProps<"div">(
       { className: cn("border", tileTone[tone], tileRadius[radius], className) },
       props,
     ),
+    render,
   });
 }

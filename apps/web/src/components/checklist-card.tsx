@@ -7,7 +7,7 @@
 import { CheckIcon } from "lucide-react";
 import type { ChecklistDetails, ChecklistItem } from "@spriessen/contracts";
 import { cn } from "../lib/utils.ts";
-import { Tile } from "@/components/ui/tile";
+import { Tile } from "./ui/tile.tsx";
 
 const SPOKEN: Record<ChecklistItem["status"], string> = {
   done: "done",

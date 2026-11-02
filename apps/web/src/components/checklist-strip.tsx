@@ -11,7 +11,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { ChecklistDetails } from "@spriessen/contracts";
 import { ChecklistBox } from "./checklist-card.tsx";
 import { DONE_LINGER_MS, planKey, stripLine } from "../lib/checklist-strip.ts";
-import { RowButton } from "@/components/ui/row-button";
+import { RowButton } from "./ui/row-button.tsx";
 import { cn } from "../lib/utils.ts";
 
 /** Whether a finished plan should still show: only right after it finished here. */
