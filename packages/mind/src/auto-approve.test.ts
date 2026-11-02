@@ -277,3 +277,34 @@ describe("matchAutoApprove", () => {
     expect(kindOf(["bash:git *"], "bash", { script: "GIT status" })).toBe("none");
   });
 });
+
+describe("target-aware matching (the merged bash tool)", () => {
+  it("a bare bash grant covers ONLY the vm target — by definition, not by migration", () => {
+    expect(kindOf(["bash"], "bash", { script: "rm -rf /" })).toBe("bare");
+    expect(kindOf(["bash"], "bash", { script: "ls", target: "vm" })).toBe("bare");
+    expect(kindOf(["bash"], "bash", { script: "ls", target: "host" })).toBe("none");
+    expect(kindOf(["bash"], "bash", { script: "ls", target: "node" })).toBe("none");
+    // Merging never widened anything: the old bare entry approves exactly
+    // what it approved before the merge, nothing more.
+    expect(kindOf(["bash"], "bash", { script: "ls" })).toBe("bare");
+  });
+
+  it("patterns match vm calls only", () => {
+    expect(kindOf(["bash:git *"], "bash", { script: "git status", target: "host" })).toBe("none");
+    expect(kindOf(["bash:git *"], "bash", { script: "git status", target: "node" })).toBe("none");
+    expect(kindOf(["bash:git *"], "bash", { script: "git status" })).toBe("pattern");
+  });
+
+  it("legacy bash_host entries are inert: the tool is gone", () => {
+    expect(kindOf(["bash_host"], "bash", { script: "ls", target: "host" })).toBe("none");
+    expect(kindOf(["bash_host:git *"], "bash", { script: "git status", target: "host" })).toBe(
+      "none",
+    );
+    expect(kindOf(["bash_host:=ls"], "bash", { script: "ls", target: "host" })).toBe("none");
+  });
+
+  it("an invalid target matches nothing at all", () => {
+    expect(kindOf(["bash"], "bash", { script: "ls", target: "sdn" })).toBe("none");
+    expect(kindOf(["bash:git *"], "bash", { script: "git status", target: 7 })).toBe("none");
+  });
+});

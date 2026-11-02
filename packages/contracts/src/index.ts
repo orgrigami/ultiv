@@ -244,6 +244,10 @@ export {
   CHECKLIST_MAX_TEXT,
   CHECKLIST_MAX_TITLE,
   CHECKLIST_TOOL,
+  BASH_TARGETS,
+  BASH_TOOL,
+  bashNodeNameOf,
+  bashTargetOf,
   ChecklistItemSchema,
   ChecklistParamsSchema,
   ChecklistStatusSchema,
@@ -253,6 +257,7 @@ export {
   GraphParamsSchema,
 } from "./chat-tools.ts";
 export type {
+  BashTarget,
   ChecklistDetails,
   ChecklistItem,
   ChecklistParams,

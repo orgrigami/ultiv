@@ -91,14 +91,18 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
   });
 });
 
-describe("bash stays in the bot's own home VM (no cross-VM target)", () => {
-  it("the tool schema ships no target parameter", () => {
+describe("bash's target never names another home's VM (phase 6 merge)", () => {
+  it("the target parameter is the three-VALUE enum only — no VM-, home- or department-naming argument", () => {
     const bash = toolOf(bashPlugin({ root: join(scratch, "schema") }), "bash");
     const properties = (bash.parameters as { properties?: Record<string, unknown> }).properties;
-    expect(properties && "target" in properties).toBe(false);
+    const union = ((properties?.target as { anyOf?: { const?: string }[] })?.anyOf ?? []).map(
+      (arm) => arm.const,
+    );
+    expect(Object.keys(properties ?? {})).toEqual(["script", "target"]);
+    expect(union).toEqual(["vm", "host", "node"]);
   });
 
-  it("a target-shaped extra argument never leaves the bot's own home VM", async () => {
+  it("a target value outside the enum is refused and never forwarded anywhere", async () => {
     const root = join(scratch, "no-target");
     const disk = join(scratch, "no-target-disk");
     const home: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x"), sharedGid: 10001 };
@@ -124,10 +128,10 @@ describe("bash stays in the bot's own home VM (no cross-VM target)", () => {
       api("conv-1"),
       {} as never,
     );
-    // The resolver was asked for the bot's OWN home only — no target was
-    // forwarded, so the command ran in the home VM at the bot's own folder.
-    expect(asked).toEqual([undefined]);
-    expect(ran.structuredOutput).toMatchObject({ stdout: "/home/bot-1\n", exitCode: 0 });
+    // Refused before anything resolved or ran: the target never picks a VM.
+    expect(ran.isError).toBe(true);
+    expect(asked).toEqual([]);
+    expect(((ran.output ?? [])[0] as { text: string }).text).toContain("unknown target");
   });
 });
 

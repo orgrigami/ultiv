@@ -2,15 +2,15 @@
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
-import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
+import { bashNodeNameOf, type HomeRef, type ProfileInfo } from "@spriessen/contracts";
 import {
   actionTextsOf,
-  EXACT_ONLY,
-  exactEntry,
+  exactOnlyCall,
   exactScriptInput,
   globEscape,
   MAX_EXACT_SCRIPT_CHARS,
   mayAutoApprove,
+  targetExactEntry,
 } from "../auto-approve.ts";
 import {
   SettingsDoc,
@@ -212,19 +212,36 @@ export const lifecycleOps = (
       const rows = await run(readProfiles(converse));
       const current = rows.find((p) => p.owner === owner && p.id === profileId);
       if (current === undefined) throw new NotFound({ what: `profile ${profileId}` });
-      // The privileged host shell is never granted as a whole or by pattern
-      // from a card: "Always allow" saves THIS exact script only
-      // (`bash_host:=<script>`), so a different script still asks. Nothing is
-      // saved when the call isn't a plain `{ script }` or the script is too
-      // long to keep; the call stays gated. The script itself is never logged.
-      if (EXACT_ONLY.includes(tool)) {
-        const script = exactScriptInput(input);
-        const entry = script === undefined ? undefined : exactEntry(tool, script);
+      // The merged bash tool's beyond-VM targets are never granted as a whole
+      // or by pattern from a card: "Always allow" saves THIS exact script
+      // only, pinned to the target (`bash@host:=<script>` /
+      // `bash@node:<id>:=<script>`), so a different script — or the same
+      // script on another target — still asks. Nothing is saved when the
+      // call isn't a plain `{ script, target }` or the script is too long to
+      // keep; the call stays gated. The script itself is never logged.
+      if (exactOnlyCall(tool, input)) {
+        const exact = exactScriptInput(input);
+        // A node rule pins the RESOLVED paired node. Without the registry's
+        // resolver, only a call that names its node can be pinned (slice 2
+        // wires the real lookup in); an unnamed node call stays gated.
+        const named = bashNodeNameOf(input);
+        const target =
+          exact === undefined
+            ? undefined
+            : exact.target === "host"
+              ? { kind: "host" as const }
+              : named === null
+                ? undefined
+                : { kind: "node" as const, nodeId: named };
+        const entry =
+          exact !== undefined && target !== undefined
+            ? targetExactEntry(target, exact.script)
+            : undefined;
         const full = current.policies.autoApprove.length >= PROFILE_LIMITS.autoApproveEntries;
         if (
-          script === undefined ||
-          script === "" ||
-          script.length > MAX_EXACT_SCRIPT_CHARS ||
+          exact === undefined ||
+          exact.script === "" ||
+          exact.script.length > MAX_EXACT_SCRIPT_CHARS ||
           entry === undefined ||
           (full && !current.policies.autoApprove.includes(entry)) ||
           !mayAutoApprove([entry], { callId: "always", name: tool, input })

@@ -1,8 +1,9 @@
 /**
- * "Always allow this exact command on this computer" for the host shell,
- * over the real REST handler and an offline mind: the server saves an exact
- * rule, the same script then runs without a card, any other script still
- * asks, and removing the rule in the bot's Access list brings the card back.
+ * "Always allow this exact command" for bash's host target, over the real
+ * REST handler and an offline mind: the server saves an exact target rule,
+ * the same script on the same target then runs without a card, any other
+ * script (or the same script in the VM) still asks, and removing the rule in
+ * the bot's Access list brings the card back.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -38,14 +39,14 @@ const call = async (method: string, path: string, body?: unknown) => {
   return { status: response.status, json: (await response.json()) as any };
 };
 
-/** Ask the gate for one bash_host call: true/false if it settles alone, "card" if it parks. */
-const gate = async (script: string) => {
+/** Ask the gate for one host-target bash call: true/false if it settles alone, "card" if it parks. */
+const gate = async (script: string, target: string = "host") => {
   const callId = `c${++calls}`;
   const pending = Effect.runPromise(
     handle.mind.approvals.request(conversation, callId, {
       callId,
-      name: "bash_host",
-      input: { script },
+      name: "bash",
+      input: target === "vm" ? { script } : { script, target },
     }),
   );
   for (let i = 0; i < 50; i++) {
@@ -94,7 +95,7 @@ afterAll(async () => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
-describe("bash_host: always allow this exact command", () => {
+describe("bash host target: always allow this exact command", () => {
   it("saves an exact rule, matches only that script, and can be revoked", async () => {
     const first = await gate("git status");
     expect(first.outcome).toBe("card");
@@ -103,12 +104,17 @@ describe("bash_host: always allow this exact command", () => {
       always: true,
     });
     expect(decided.status).toBe(200);
-    expect(decided.json.stored).toEqual(["bash_host:=git status"]);
+    expect(decided.json.stored).toEqual(["bash@host:=git status"]);
     expect(await first.pending).toBe(true);
-    expect(await autoApprove()).toEqual(["bash_host:=git status"]);
+    expect(await autoApprove()).toEqual(["bash@host:=git status"]);
 
-    // The same script runs without a card; anything else still asks.
+    // The same script on the same target runs without a card; anything else
+    // (a different script, or the same script in the VM) still asks.
     expect((await gate("git status")).outcome).toBe(true);
+    const vmAsk = await gate("git status", "vm");
+    expect(vmAsk.outcome).toBe("card");
+    handle.mind.approvals.decide(conversation, vmAsk.callId, false);
+    expect(await vmAsk.pending).toBe(false);
     for (const other of ["git status ", "git status; rm -rf /tmp/x", "git", "git push"]) {
       const asked = await gate(other);
       expect(asked.outcome, other).toBe("card");
@@ -121,7 +127,7 @@ describe("bash_host: always allow this exact command", () => {
     const row = (listed.json as { id: string; policies: { autoApprove: string[] } }[]).find(
       (profile) => profile.id === bot,
     );
-    expect(row?.policies.autoApprove).toEqual(["bash_host:=git status"]);
+    expect(row?.policies.autoApprove).toEqual(["bash@host:=git status"]);
     const revoked = await call("PATCH", `/api/profiles/${bot}`, {
       policies: { ...row?.policies, autoApprove: [] },
     });

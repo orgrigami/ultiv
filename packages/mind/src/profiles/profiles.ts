@@ -43,8 +43,10 @@ export const profilesService = (deps: {
   /** Names an allowlist implies (connector helpers). */
   readonly implied?: (allowlist: readonly string[]) => readonly string[];
   /**
-   * Host-direct tool names a bot loses while its host-access switch is off
-   * (slice 10): `bash_host` plus its home's stdio connector tools. Absent in
+   * Tool names a bot loses from its LIST while its host-access switch is off
+   * (slice 10): its home's stdio connector tools. The merged `bash` tool
+   * never leaves the list (its default vm target is ordinary sandboxed
+   * work); its host/node targets are refused per call instead. Absent in
    * bare tests, where every tool stays listed.
    */
   readonly hostExcluded?: (profile: ProfileInfo) => readonly string[];

@@ -80,6 +80,17 @@ export const AuditEventSchema = Type.Object({
       departmentId: Type.Union([Type.String(), Type.Null()]),
     }),
   ),
+  /**
+   * `tool_call` events of the merged `bash` tool: where the script ran.
+   * "Where did this run" is a lookup, never a guess — every bash line
+   * carries the target, and the node's stored name when targeted.
+   */
+  bashTarget: Type.Optional(
+    Type.Object({
+      target: Type.Union([Type.Literal("vm"), Type.Literal("host"), Type.Literal("node")]),
+      node: Type.Union([Type.String(), Type.Null()]),
+    }),
+  ),
 });
 
 export type AuditEvent = Static<typeof AuditEventSchema>;

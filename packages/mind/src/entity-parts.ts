@@ -293,9 +293,10 @@ export const wirePolicies = (
     // A credential's first use on a host, and a connector's first use, are
     // always asked, whatever the list says. Entries are tool names or
     // `tool:glob` sub-action patterns (see auto-approve.ts): a bare name is
-    // the owner's whole-tool grant; a pattern match is refused when the
-    // matched text crosses a command boundary or the call looks destructive,
-    // and the privileged bash_host never pattern-matches.
+    // the owner's whole-tool grant (the default vm target only); a pattern
+    // match is refused when the matched text crosses a command boundary or
+    // the call looks destructive, and bash calls beyond the VM (host/node
+    // targets) never bare- or pattern-match — only exact target entries.
     autoApprove: (conversationId, request) => {
       const profile = profiles.profileOf(conversationId);
       const mode = profile?.policies.approvalMode;
@@ -303,7 +304,7 @@ export const wirePolicies = (
       if (mode === "yolo") return true;
       return mayAutoApprove(profile?.policies.autoApprove ?? [], request);
     },
-    // 'jev': floors and bash_host always reach the owner; see jev-gate.ts.
+    // 'jev': floors and bash's host/node targets always reach the owner; see jev-gate.ts.
     adjudicate: makeAdjudicator({
       decide,
       record: (event) => audit.record(event),

@@ -215,7 +215,7 @@ describe("presentationOf", () => {
       step({ name: "bash", input: { script: "ls -la\nrm -rf nothing" } }),
     );
     if (view.kind !== "human") return fail();
-    expect(view.view.done).toBe("Ran a script");
+    expect(view.view.done).toBe("Ran a script in its workspace VM");
     expect(view.view.detail).toBe("ls -la rm -rf nothing");
   });
 

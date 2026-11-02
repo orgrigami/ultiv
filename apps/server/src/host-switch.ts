@@ -9,18 +9,25 @@
  * check the same effective flag BEFORE any approval, so a stored allow rule
  * only ever applies once the switch passes.
  */
-import { isHostDirectServer, switchAllows, type MindService } from "@spriessen/mind";
+import {
+  isHostDirectServer,
+  isBeyondVmCall,
+  switchAllows,
+  type MindService,
+} from "@spriessen/mind";
 
 /** The note a refused approval carries back to the tool (and the audit row). */
 export const HOST_SWITCH_NOTE =
   "refused by the host-access switch: this bot's host access is off, so the call does not run even approved";
 
 /**
- * True when the waiting call runs host-direct: `bash_host`, or a tool of a
- * stdio server (tool names are unique per server slug, so one view matches).
+ * True when the waiting call runs beyond the VM: `bash` with `target:
+ * "host"` / `target: "node"` (the merged tool; the input decides), or a tool
+ * of a stdio server (tool names are unique per server slug, so one view
+ * matches).
  */
-export const isHostDirectCall = (mind: MindService, name: string): boolean => {
-  if (name === "bash_host") return true;
+export const isHostDirectCall = (mind: MindService, name: string, input?: unknown): boolean => {
+  if (isBeyondVmCall(name, input)) return true;
   return mind.mcp
     .views()
     .some((view) => isHostDirectServer(view) && view.tools.some((tool) => tool.name === name));
@@ -37,8 +44,9 @@ export const hostSwitchRefusal = async (
   mind: MindService,
   conversationId: string,
   name: string,
+  input?: unknown,
 ): Promise<string | null> => {
-  if (!isHostDirectCall(mind, name)) return null;
+  if (!isHostDirectCall(mind, name, input)) return null;
   const profile = mind.profiles.profileOf(conversationId);
   if (profile === undefined) return HOST_SWITCH_NOTE;
   const view = await mind.org.view().catch(() => undefined);

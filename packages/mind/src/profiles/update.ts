@@ -12,9 +12,9 @@ import {
   type ProfileInfo,
 } from "@spriessen/contracts";
 import {
-  exactEntry,
   exactScriptOf,
   MAX_EXACT_SCRIPT_CHARS,
+  targetExactEntry,
   validAutoApproveEntry,
 } from "../auto-approve.ts";
 import { validTimezone } from "./docs.ts";
@@ -66,11 +66,13 @@ export const validatePatch = (
       });
     }
     for (const entry of autoApprove) {
-      // An exact bash_host entry holds a whole script, compared as a string.
+      // An exact bash entry (target form or the legacy pre-merge form) holds
+      // a whole script, compared as a string.
       const exact = exactScriptOf(entry);
       const max =
         exact !== undefined
-          ? exactEntry(exact.tool, "").length + MAX_EXACT_SCRIPT_CHARS
+          ? (exact.target === "legacy" ? "bash_host:=" : targetExactEntry(exact.target, ""))
+              .length + MAX_EXACT_SCRIPT_CHARS
           : PROFILE_LIMITS.autoApproveEntryChars;
       if (entry.length > max) {
         throw new InvalidInput({

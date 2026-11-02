@@ -1,26 +1,37 @@
 /**
- * The bash faculty, two modes over one plugin:
+ * The bash faculty, ONE tool over one plugin, with three targets:
  *
- * 1. `bash` — the durable workspace as a shell, executed in a
- *    hardware-isolated microsandbox microVM (real Linux: coreutils, python,
- *    node, network). The workspace's artifact tree is the source of truth:
- *    each call pushes it into the VM's /home, runs the script, then syncs
- *    every file the script touched back into the artifact store — so VM
- *    files ARE artifacts: visible in `artifact_list`, served by the web UI,
- *    kept across restarts. Gated as a whole: a script can delete or
- *    overwrite any file in the profile's tree (artifact_delete's gate would
- *    otherwise be bypassed), so each call waits for approval unless
- *    policies.autoApprove lists `bash`.
- * 2. `bash_host` — a privileged shell that runs DIRECTLY on the host
- *    computer running this server. No sandbox, no isolation, the whole
- *    filesystem is reachable. Gated per call: the only list entries for
- *    it are the owner's own, and "Always allow" on its card saves just
- *    that exact script (`bash_host:=<script>`, see auto-approve.ts).
+ * `bash` (default `target: "vm"`) — the durable workspace as a shell,
+ * executed in a hardware-isolated microsandbox microVM (real Linux:
+ * coreutils, python, node, network). The workspace's artifact tree is the
+ * source of truth: each call pushes it into the VM's /home, runs the script,
+ * then syncs every file the script touched back into the artifact store —
+ * so VM files ARE artifacts: visible in `artifact_list`, served by the web
+ * UI, kept across restarts. Gated as a whole: a script can delete or
+ * overwrite any file in the profile's tree (artifact_delete's gate would
+ * otherwise be bypassed), so each call waits for approval unless
+ * policies.autoApprove lists `bash` — a grant that covers the vm target
+ * ONLY (see auto-approve.ts in the mind).
+ *
+ * `target: "host"` — the privileged shell that runs DIRECTLY on the host
+ * computer running this server, the old standalone `bash_host` tool merged
+ * in. No sandbox, no isolation, the whole filesystem is reachable. Gated per
+ * call and per target: bare grants and patterns never cover it; the only
+ * list entry for it is the owner's own exact script
+ * (`bash@host:=<script>`, see auto-approve.ts), the host-access switch must
+ * be on, and Jev never decides it.
+ *
+ * `target: "node"` — a paired node agent (the owner's other machine). Same
+ * rule shape as host (`bash@node:<nodeId>:=<script>`), the same switch, and
+ * it additionally needs a paired node; without one the call fails with a
+ * structured, owner-actionable error. The backend arrives with the node
+ * transport; until a node is paired every node call answers that error.
  */
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
+import { BASH_TARGETS, bashTargetOf, type BashTarget } from "@spriessen/contracts";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -130,7 +141,15 @@ const truncate = (text: string): string => {
 
 const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
-const present = (result: ShellExecResult) => {
+/** The where-it-ran line every result carries, per target. */
+const whereText = (target: BashTarget, node: string | null): string =>
+  target === "vm"
+    ? "(ran in the home VM)"
+    : target === "host"
+      ? "(ran on the host)"
+      : `(ran on node ${node ?? "?"})`;
+
+const present = (result: ShellExecResult, target: BashTarget, node: string | null = null) => {
   const stderr = truncate(
     result.stderr
       .split("\n")
@@ -147,10 +166,19 @@ const present = (result: ShellExecResult) => {
     output: [
       {
         type: "text" as const,
-        text: parts.length === 0 ? `(exit ${result.exitCode}, no output)` : parts.join("\n"),
+        text:
+          parts.length === 0
+            ? `(exit ${result.exitCode}, no output) ${whereText(target, node)}`
+            : `${parts.join("\n")}\n${whereText(target, node)}`,
       },
     ],
-    structuredOutput: { stdout, stderr, exitCode: result.exitCode },
+    structuredOutput: {
+      stdout,
+      stderr,
+      exitCode: result.exitCode,
+      target,
+      ...(node !== null ? { node } : {}),
+    },
   };
 };
 
@@ -258,10 +286,23 @@ const reconcile = async (session: SandboxSession): Promise<void> => {
   }
 };
 
-const SandboxParams = Type.Object({
+const TARGET_SCHEMA = Type.Union(BASH_TARGETS.map((target) => Type.Literal(target)));
+
+const BashParams = Type.Object({
   script: Type.String({
     description: "The bash script to run. Files persist in your workspace as artifacts.",
   }),
+  target: Type.Optional(
+    Type.Union(
+      BASH_TARGETS.map((target) => Type.Literal(target)),
+      {
+        description:
+          'Where to run: "vm" (default) in your home\'s sandboxed microVM, "host" directly on the ' +
+          'server computer (privileged), or "node" on a node your owner paired. Each target needs ' +
+          "its own approval: a rule for one target never approves another.",
+      },
+    ),
+  ),
 });
 
 const sandboxTool = (
@@ -269,6 +310,7 @@ const sandboxTool = (
   backendOf: (dir: string, conversationId: string) => Promise<ResolvedWorld>,
   sessions: Map<string, Promise<SandboxSession>>,
   onSharedWrite?: (conversationId: string, rows: readonly SharedWrite[]) => void,
+  hostSessions?: Map<string, HostSession>,
 ): Tool => {
   // The home world is resolved on EVERY call: a cached session keeps its
   // backend only while the world it was built for (VM name, allowlist,
@@ -295,9 +337,13 @@ const sandboxTool = (
     name: "bash",
     gated: true,
     description:
-      `Run a bash script in your own workspace inside your home's microVM ` +
-      `(the working directory; on a single-bot install that is the whole VM ` +
-      `at ${HOME}). Real Linux in a sandbox: coreutils, pipes, grep, jq, tar, python. The ` +
+      `Run a bash script. Three targets: "vm" (the DEFAULT) in your own workspace inside ` +
+      `your home's microVM (the working directory; on a single-bot install that is the whole VM ` +
+      `at ${HOME}); "host" DIRECTLY on the host computer running this server (privileged, no ` +
+      "sandbox: the whole real filesystem, configuration, and every program are reachable, and " +
+      'changes are permanent — only when the task genuinely needs the host); and "node" on a ' +
+      "node your owner paired (their other machine). " +
+      "In the VM: real Linux in a sandbox: coreutils, pipes, grep, jq, tar, python. The " +
       "network is OFF by default: only the hosts your owner allowlisted for this home are " +
       "reachable, so apt-get, pip or curl work only when the policy allows their hosts (for " +
       "apt-get, the distribution mirrors); a refused connection means the host is not " +
@@ -308,18 +354,42 @@ const sandboxTool = (
       " is an artifact: it persists across restarts and the user can see it. The folder " +
       "/home/org-shared is shared with the whole org: never write vault values, tokens or " +
       "credentials there. Working directory " +
-      "carries over between calls. Each call waits for your owner's approval (unless they " +
-      "chose always-allow): batch work into few scripts, and first say in a sentence what " +
-      "the script will change. Never delete or overwrite files you did not create for the " +
-      "current task without asking.",
-    parameters: SandboxParams,
+      "carries over between calls (per target). Each call waits for your owner's approval " +
+      "(unless they chose always-allow, and always-allow for host and node covers THAT exact " +
+      "script on THAT target only): batch work into few scripts, and first say in a sentence " +
+      "what the script will change and where it will run. Never delete or overwrite files you " +
+      "did not create for the current task without asking.",
+    parameters: BashParams,
     structuredOutputSchema: Type.Object({
       stdout: Type.String(),
       stderr: Type.String(),
       exitCode: Type.Number(),
+      target: TARGET_SCHEMA,
+      node: Type.Optional(Type.String()),
     }),
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
+      const target = bashTargetOf(args);
+      if (target === "invalid") {
+        return execFailure("bash", 'unknown target: use "vm" (default), "host" or "node"');
+      }
+      if (target === "node") {
+        // Slice 4 wires the paired-node backend; until then every node call
+        // answers the owner-actionable error (no pairing, no execution).
+        return nodeUnpaired();
+      }
+      if (target === "host") {
+        if (hostSessions === undefined) return execFailure("bash", "host shell not wired");
+        let session = hostSessions.get(conversationId);
+        if (session === undefined) {
+          session = { cwd: homedir() };
+          hostSessions.set(conversationId, session);
+        }
+        const result = await runOnHost(args.script, session.cwd, HOST_TIMEOUT_MS);
+        const cwd = markerCwd(result.stderr);
+        if (cwd !== undefined) session.cwd = cwd;
+        return present(result, "host");
+      }
       const dir = dirOf(conversationId);
       let session: SandboxSession;
       try {
@@ -357,16 +427,30 @@ const sandboxTool = (
           stderr: `${result.stderr}\n[sync] warning: workspace sync to artifacts failed: ${String(cause)}`,
         };
       }
-      return present(result);
+      return present(result, "vm");
     },
   });
 };
 
-// ---- mode 2: the privileged host shell ----------------------------------
+// ---- the privileged host shell (the `host` target) -----------------------
 
 interface HostSession {
   cwd: string;
 }
+
+/** The structured, owner-actionable error a node call reads without a paired node. */
+const nodeUnpaired = () => ({
+  output: [
+    {
+      type: "text" as const,
+      text:
+        'no node is paired for target "node": ask your owner to pair one in Settings → Nodes ' +
+        "(pairing mints a token their node agent dials in with), or name a paired node with " +
+        'the "node" field once they have more than one',
+    },
+  ],
+  isError: true as const,
+});
 
 const runOnHost = (script: string, cwd: string, timeoutMs: number): Promise<ShellExecResult> =>
   new Promise((resolve) => {
@@ -389,43 +473,7 @@ const runOnHost = (script: string, cwd: string, timeoutMs: number): Promise<Shel
     );
   });
 
-const HostParams = Type.Object({
-  script: Type.String({ description: "The bash script to run on the host computer." }),
-});
-
-const hostTool = (sessions: Map<string, HostSession>): Tool =>
-  defineTool({
-    name: "bash_host",
-    gated: true,
-    description:
-      "Run a bash script DIRECTLY on the host computer (privileged). No sandbox: the whole " +
-      "real filesystem, configuration, and every program on the machine are reachable, and " +
-      "changes are permanent. Only use this when the task genuinely needs the host — " +
-      "everything else belongs in the sandboxed `bash` tool. Working directory carries over " +
-      "between calls. Each call waits for the owner's approval; never ask for this to be " +
-      "always-allowed. Prefer the smallest script that does the job, and never touch files " +
-      "outside the task's scope.",
-    parameters: HostParams,
-    structuredOutputSchema: Type.Object({
-      stdout: Type.String(),
-      stderr: Type.String(),
-      exitCode: Type.Number(),
-    }),
-    execute: async (args, api) => {
-      const conversationId = String(api.conversationId);
-      let session = sessions.get(conversationId);
-      if (session === undefined) {
-        session = { cwd: homedir() };
-        sessions.set(conversationId, session);
-      }
-      const result = await runOnHost(args.script, session.cwd, HOST_TIMEOUT_MS);
-      const cwd = markerCwd(result.stderr);
-      if (cwd !== undefined) session.cwd = cwd;
-      return present(result);
-    },
-  });
-
-/** The bash plugin: the durable workspace in a microVM, plus the host shell. */
+/** The bash plugin: one shell, three targets — the home VM, the host, a paired node. */
 export const bashPlugin = (options: BashOptions = {}): Plugin => {
   const root = options.root ?? artifactsDir();
   const holder = options.holder;
@@ -471,16 +519,19 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   };
   return definePlugin({
     id: "ultiv.bash",
-    version: "2.2.0",
+    version: "3.0.0",
     description:
-      "Two shells: a sandboxed microVM over the durable workspace (files written here are artifacts), and a privileged shell on the host computer.",
+      "One shell, three targets: a sandboxed microVM over the durable workspace (files written here are artifacts, the default), a privileged shell on the host computer, and a paired node agent — each target gated on its own terms.",
     capabilities: [
       toolCapability(
-        sandboxTool(dirOf, backendOf, sessions, (conversationId, rows) =>
-          holder?.get()?.sharedWrite?.(conversationId, rows),
+        sandboxTool(
+          dirOf,
+          backendOf,
+          sessions,
+          (conversationId, rows) => holder?.get()?.sharedWrite?.(conversationId, rows),
+          hostSessions,
         ),
       ),
-      toolCapability(hostTool(hostSessions)),
     ],
   });
 };

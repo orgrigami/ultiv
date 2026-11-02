@@ -6,13 +6,10 @@
  */
 import { defineExtension, type Extension } from "@earendil-works/pi-durable";
 import type { RegistryService, Tool } from "@spriessen/ext";
-import { HOST_DIRECT_TOOLS, HOST_REFUSAL } from "../org/host-switch.ts";
+import { HOST_REFUSAL, isBeyondVmCall } from "../org/host-switch.ts";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { withTaskNudge, type NudgeGate } from "./nudge.ts";
-
-/** Tools that run directly on the server's own machine (see can()'s host capability). */
-const HOST_TOOLS: ReadonlySet<string> = new Set(HOST_DIRECT_TOOLS);
 
 export interface ActService {
   readonly tools: () => readonly Tool[];
@@ -29,19 +26,21 @@ export const actService = (
   nudge?: NudgeGate | undefined,
   /**
    * The host capability, resolved per conversation (undefined = the owner's
-   * bots keep today's behaviour). A host tool refused here never reaches a
-   * card: the call comes back refused to the model.
+   * bots keep today's behaviour). A beyond-VM call (bash targeting `host`
+   * or `node`) refused here never reaches a card: the call comes back
+   * refused to the model.
    */
   hostAccess?: (conversationId: string) => boolean | Promise<boolean>,
 ): ActService => {
   const gate = (tool: Tool): Tool => {
     if (tool.gated !== true) return tool;
     const guard =
-      HOST_TOOLS.has(tool.name) && hostAccess !== undefined
-        ? async (_args: unknown, api: unknown): Promise<string | undefined> =>
-            (await hostAccess(String((api as { conversationId?: unknown }).conversationId ?? "")))
-              ? undefined
-              : HOST_REFUSAL
+      hostAccess !== undefined
+        ? async (args: unknown, api: unknown): Promise<string | undefined> =>
+            isBeyondVmCall(tool.name, args) &&
+            !(await hostAccess(String((api as { conversationId?: unknown }).conversationId ?? "")))
+              ? HOST_REFUSAL
+              : undefined
         : undefined;
     return withApproval(approvals, tool, guard !== undefined ? { guard } : undefined);
   };

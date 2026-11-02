@@ -20,7 +20,13 @@
  * the owner as a card instead, so a bot can never loop on the gate.
  */
 import { Effect } from "effect";
-import type { AuditEvent, ProfileInfo, TranscriptEntry } from "@spriessen/contracts";
+import {
+  BASH_TOOL,
+  bashTargetOf,
+  type AuditEvent,
+  type ProfileInfo,
+  type TranscriptEntry,
+} from "@spriessen/contracts";
 import { FIRST_USE_APPROVAL } from "@spriessen/ext";
 import { isMcpFirstUse } from "./mcp/access.ts";
 import { isNeverAutoApproved } from "./mcp/manage.ts";
@@ -37,12 +43,14 @@ import type { DecideService } from "./decide/decide.ts";
 export const isApprovalFloor = (name: string): boolean =>
   name === FIRST_USE_APPROVAL || isMcpFirstUse(name) || isNeverAutoApproved(name);
 
-/** Tools Jev never decides (on top of the floors). YOLO is unaffected. */
-export const JEV_NEVER_DECIDES: readonly string[] = ["bash_host"];
-
-/** True when Jev may answer this gate at all. */
-export const jevMayDecide = (name: string): boolean =>
-  !isApprovalFloor(name) && !JEV_NEVER_DECIDES.includes(name);
+/**
+ * The merged `bash` tool's beyond-VM targets (`host`, `node`): Jev never
+ * decides these calls — same trust class as the old standalone `bash_host`
+ * tool, they always reach the owner's card. YOLO is unaffected. A target
+ * the tool never declared ("invalid") is also never Jev's to decide.
+ */
+export const jevMayDecide = (name: string, input?: unknown): boolean =>
+  !isApprovalFloor(name) && !(name === BASH_TOOL && bashTargetOf(input) !== "vm");
 
 /** A justified destructive call needs Jev this sure to run without the owner. */
 export const DESTRUCTIVE_APPROVE_AT = 0.9;
@@ -373,7 +381,7 @@ export const makeAdjudicator = (deps: AdjudicatorDeps) => {
       const profile = deps.profileOf(conversationId);
       // The gate reads the profile LIVE: a switch applies to the next call.
       if (profile?.policies.approvalMode !== "jev" || !deps.decide.available) return undefined;
-      if (!jevMayDecide(request.name)) return undefined;
+      if (!jevMayDecide(request.name, request.input)) return undefined;
       const verdict = (outcome: Outcome, reason: string): AdjudicationVerdict => {
         const text =
           outcome === "split"

@@ -32,10 +32,10 @@ const viewOf = (over: Partial<ToolStep>) => {
 };
 
 describe("the arguments the tools take", () => {
-  it("both shell tools take `script`", () => {
+  it("the shell tool takes `script` and the target enum", () => {
     const bash = source("bash.ts");
-    expect(bash).toMatch(/const SandboxParams = Type\.Object\(\{\s*script: Type\.String/);
-    expect(bash).toMatch(/const HostParams = Type\.Object\(\{\s*script: Type\.String/);
+    expect(bash).toMatch(/const BashParams = Type\.Object\(\{\s*script: Type\.String/);
+    expect(bash).toMatch(/BASH_TARGETS\.map\(\(target\) => Type\.Literal\(target\)\)/);
   });
 
   it("web_fetch takes `urls` and answers `pages`", () => {
@@ -56,9 +56,13 @@ describe("the arguments the tools take", () => {
 describe("shell cards", () => {
   const script = "set -e\ndf -h /\necho done";
 
-  it("show the script as written, for the sandbox and the host", () => {
-    for (const name of ["bash", "bash_host"]) {
-      const view = viewOf({ name, input: { script }, output: "overlay 3.9G 60K 3.9G 1% /" });
+  it("show the script as written, wherever the call ran", () => {
+    for (const input of [
+      { script },
+      { script, target: "host" },
+      { script, target: "node", node: "node-x" },
+    ]) {
+      const view = viewOf({ name: "bash", input, output: "overlay 3.9G 60K 3.9G 1% /" });
       expect(view.detail).toBe("set -e df -h / echo done");
       expect(view.structured).toEqual({
         t: "term",
@@ -66,7 +70,15 @@ describe("shell cards", () => {
         output: "overlay 3.9G 60K 3.9G 1% /",
       });
     }
-    expect(viewOf({ name: "bash_host", input: { script } }).done).toBe("Ran a script on the host");
+    expect(viewOf({ name: "bash", input: { script } }).done).toBe(
+      "Ran a script in its workspace VM",
+    );
+    expect(viewOf({ name: "bash", input: { script, target: "host" } }).done).toBe(
+      "Ran a script on the host",
+    );
+    expect(viewOf({ name: "bash", input: { script, target: "node", node: "node-x" } }).done).toBe(
+      "Ran a script on node node-x",
+    );
   });
 
   it("still read `command` from older stored calls", () => {

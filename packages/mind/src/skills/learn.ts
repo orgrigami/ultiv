@@ -64,7 +64,6 @@ export const LEARN_UNTRUSTED_TOOLS: readonly string[] = [
   "skill_file",
   "skill_install",
   "bash",
-  "bash_host",
 ];
 
 /** Tools whose results are vault data: never copied into a skill. */

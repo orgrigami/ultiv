@@ -60,19 +60,19 @@ describe("Act", () => {
     expect(gated?.execute).not.toBe(echo.execute);
   });
 
-  it("refuses a host tool before any card when the capability is absent", async () => {
+  it("refuses a beyond-VM bash call before any card when the capability is absent", async () => {
     const approvals = makeApprovals();
     const act = actService(
-      registry([{ ...echo, name: "bash_host", gated: true }]),
+      registry([{ ...echo, name: "bash", gated: true }]),
       approvals,
       audit,
       undefined,
       undefined,
       () => false,
     );
-    const tool = act.extension().tools?.find((entry) => entry.name === "bash_host");
+    const tool = act.extension().tools?.find((entry) => entry.name === "bash");
     const result = (await tool?.execute(
-      { text: "x" } as never,
+      { text: "x", target: "host" } as never,
       { conversationId: "c1", callId: "h1" } as never,
       {} as never,
     )) as { isError?: boolean; output: { text: string }[] };
@@ -85,16 +85,16 @@ describe("Act", () => {
   it("keeps the host capability open when the seam allows it", async () => {
     const approvals = makeApprovals();
     const act = actService(
-      registry([{ ...echo, name: "bash_host", gated: true }]),
+      registry([{ ...echo, name: "bash", gated: true }]),
       approvals,
       audit,
       undefined,
       undefined,
       () => true,
     );
-    const tool = act.extension().tools?.find((entry) => entry.name === "bash_host");
+    const tool = act.extension().tools?.find((entry) => entry.name === "bash");
     const run = tool?.execute(
-      { text: "x" } as never,
+      { text: "x", target: "host" } as never,
       { conversationId: "c2", callId: "h2" } as never,
       {} as never,
     ) as Promise<unknown>;

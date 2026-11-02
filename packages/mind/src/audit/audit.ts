@@ -9,9 +9,14 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { Config, Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
+import {
+  bashNodeNameOf,
+  bashTargetOf,
+  type AuditEvent,
+  type BashTarget,
+} from "@spriessen/contracts";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import type { AuditEvent } from "@spriessen/contracts";
 
 export interface AuditService {
   /** Append one event; never throws. */
@@ -96,6 +101,22 @@ const callIdOf = (api: unknown): string | null => {
 };
 
 /**
+ * Where a bash call ran: the audit must answer "where did this run" as a
+ * lookup, never a guess. Every `bash` tool_call line carries the target (and
+ * the named node, when the call names one). Non-bash tools carry nothing.
+ */
+const bashTargetDetail = (name: string, args: unknown) => {
+  if (name !== "bash") return undefined;
+  const target = bashTargetOf(args);
+  if (target === "invalid") return undefined;
+  const detail: { target: BashTarget; node: string | null } = {
+    target,
+    node: bashNodeNameOf(args),
+  };
+  return detail;
+};
+
+/**
  * Wrap a tool so every execution lands in the audit trail: name, duration,
  * outcome, profile scope, and (on failure) the error text. Approval denials
  * are recorded by the surface's decide call, not here — this sees only
@@ -110,6 +131,7 @@ export const withAudit = <TParameters extends TSchema>(
   execute: async (args, api, context) => {
     const startedAt = Date.now();
     const conversation = conversationOf(api);
+    const bashTarget = bashTargetDetail(tool.name, args);
     const event = (ok: boolean, error: string | null): AuditEvent => ({
       at: startedAt,
       kind: "tool_call",
@@ -120,6 +142,7 @@ export const withAudit = <TParameters extends TSchema>(
       durationMs: Date.now() - startedAt,
       ok,
       error,
+      ...(bashTarget !== undefined ? { bashTarget } : {}),
     });
     try {
       const result = await tool.execute(args, api, context);

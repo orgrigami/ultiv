@@ -96,7 +96,9 @@ export function approveMethod({ mind, owner, conversationId, cells }: MethodScop
     // host-direct call is refused when the switch went false after the card
     // was parked, whatever the approver says.
     const switchRefusal =
-      approved && waiting !== undefined ? await hostSwitchRefusal(mind, id, waiting.name) : null;
+      approved && waiting !== undefined
+        ? await hostSwitchRefusal(mind, id, waiting.name, waiting.input)
+        : null;
     const effective = approved && switchRefusal === null;
     // "Always allow" saves the tool on the profile's autoApprove list;
     // the broker's hook reads policies live, so the next call skips the

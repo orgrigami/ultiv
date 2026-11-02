@@ -22,16 +22,11 @@ const toolOf = (plugin: ReturnType<typeof bashPlugin>, name: string) => {
 const propertyNames = (tool: ReturnType<typeof toolOf>): string[] =>
   Object.keys((tool.parameters as { properties?: Record<string, unknown> }).properties ?? {});
 
-const bashPluginTool = (name: "bash" | "bash_host"): string[] =>
-  propertyNames(toolOf(bashPlugin(), name));
+const bashPluginTool = (name: "bash"): string[] => propertyNames(toolOf(bashPlugin(), name));
 
 describe("no tool parameter opens another home's VM", () => {
-  it("bash takes exactly a script — no vm, home, department or target argument", () => {
-    expect(bashPluginTool("bash")).toEqual(["script"]);
-  });
-
-  it("bash_host takes exactly a script either (the host switch gates it, not a target)", () => {
-    expect(bashPluginTool("bash_host")).toEqual(["script"]);
+  it("bash takes exactly a script and an optional target — no vm, home or department argument", () => {
+    expect(bashPluginTool("bash")).toEqual(["script", "target"]);
   });
 });
 

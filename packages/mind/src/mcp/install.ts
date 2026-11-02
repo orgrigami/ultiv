@@ -49,7 +49,7 @@ const signatureOf = (view: McpServerView): string =>
 export interface McpWiring {
   /** Every connector tool registration, for per-bot allowlists. */
   readonly allowlistTools: () => readonly ToolRegistration[];
-  /** Tool names of the host-direct (stdio) servers — host-direct like bash_host (slice 10). */
+  /** Tool names of the host-direct (stdio) servers — host-direct like bash's host/node targets (slice 10). */
   readonly hostDirectToolNames: () => readonly string[];
   /** Allowlisting any connector tool implies the helper tools. */
   readonly implied: (allowlist: readonly string[]) => readonly string[];

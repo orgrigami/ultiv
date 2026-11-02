@@ -13,12 +13,7 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { AgentChange } from "@earendil-works/pi-durable";
 import { agentForProfile } from "../profiles/agent.ts";
-import {
-  HOST_DIRECT_TOOLS,
-  hostExcludedTools,
-  hostSwitchWatch,
-  reapplyAgentTools,
-} from "./host-switch.ts";
+import { hostExcludedTools, hostSwitchWatch, reapplyAgentTools } from "./host-switch.ts";
 
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 20));
 
@@ -34,42 +29,31 @@ const orgBot = (hostAccess: boolean) => ({ departmentId: null, hostAccess }) as 
 describe("hostExcludedTools", () => {
   const stdio = ["notes_search", "notes_write"];
 
-  it("drops the host-direct tools whenever one level is off", () => {
+  it("drops the stdio connector tools whenever one level is off — bash never leaves the list", () => {
     expect(hostExcludedTools(flagsOf(true, [["dept-x", true]]), deptBot(true), stdio)).toEqual([]);
     expect(hostExcludedTools(flagsOf(false, [["dept-x", true]]), deptBot(true), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
       ...stdio,
     ]);
     expect(hostExcludedTools(flagsOf(true, [["dept-x", false]]), deptBot(true), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
       ...stdio,
     ]);
-    expect(hostExcludedTools(flagsOf(true), orgBot(false), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
-      ...stdio,
-    ]);
+    expect(hostExcludedTools(flagsOf(true), orgBot(false), stdio)).toEqual([...stdio]);
   });
 
   it("blocks a bot whose department is gone, and everything before the first read", () => {
-    expect(hostExcludedTools(flagsOf(true, []), deptBot(true), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
-      ...stdio,
-    ]);
+    expect(hostExcludedTools(flagsOf(true, []), deptBot(true), stdio)).toEqual([...stdio]);
     // Fail-closed: before the first read (no flags yet) and with no org
-    // row at all, the host-direct tools are excluded too.
-    expect(hostExcludedTools(undefined, orgBot(true), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
-      ...stdio,
-    ]);
-    expect(hostExcludedTools(flagsOf(null), orgBot(true), stdio)).toEqual([
-      ...HOST_DIRECT_TOOLS,
-      ...stdio,
-    ]);
+    // row at all, the stdio tools are excluded too. The merged bash tool is
+    // NEVER in the exclusion — its default vm target is ordinary work; the
+    // per-call guard refuses its host/node targets instead.
+    expect(hostExcludedTools(undefined, orgBot(true), stdio)).toEqual([...stdio]);
+    expect(hostExcludedTools(flagsOf(null), orgBot(true), stdio)).toEqual([...stdio]);
+    expect(hostExcludedTools(flagsOf(false), orgBot(true), [])).toEqual([]);
   });
 });
 
 describe("agentForProfile with the host exclusion", () => {
-  const tools = () => [{ name: "bash" }, { name: "bash_host" }, { name: "web_search" }];
+  const tools = () => [{ name: "bash" }, { name: "notes_search" }, { name: "web_search" }];
   const profile = {
     model: null,
     toolAllowlist: null,
@@ -79,12 +63,12 @@ describe("agentForProfile with the host exclusion", () => {
   } as never;
 
   it("removes the listed tools from the bot's tool set", () => {
-    const agent = agentForProfile(profile, tools, undefined, ["bash_host"]);
+    const agent = agentForProfile(profile, tools, undefined, ["notes_search"]);
     // A remove filter, not a frozen list: faculty tools and late installs stay.
     const removed = (agent.tools as { remove: readonly { readonly name: string }[] }).remove.map(
       (tool) => tool.name,
     );
-    expect(removed).toEqual(["bash_host"]);
+    expect(removed).toEqual(["notes_search"]);
   });
 
   it("leaves the list dynamic when the switch allows", () => {
@@ -138,7 +122,7 @@ describe("hostSwitchWatch", () => {
           { id: "p1", owner: "o" },
           { id: "p2", owner: "o" },
         ] as never,
-      agentFor: () => ({ tools: { remove: [{ name: "bash_host" }] } }) as never,
+      agentFor: () => ({ tools: { remove: [{ name: "notes_search" }] } }) as never,
       reapply: {
         converse: {
           open: () => Effect.succeed({}),
@@ -157,8 +141,8 @@ describe("hostSwitchWatch", () => {
     await watch.refresh();
     await watch.resyncStored();
     expect(configured).toEqual([
-      { remove: [{ name: "bash_host" }] },
-      { remove: [{ name: "bash_host" }] },
+      { remove: [{ name: "notes_search" }] },
+      { remove: [{ name: "notes_search" }] },
     ]);
   });
 
@@ -220,8 +204,12 @@ describe("the switch on a real mind (yolo cannot bypass)", () => {
     return { handle, bot, conversationId };
   };
 
-  const callBashHost = async (handle: Awaited<ReturnType<typeof setup>>["handle"], cid: string) => {
-    const tool = handle.mind.act.extension().tools?.find((entry) => entry.name === "bash_host") as
+  const callBash = async (
+    handle: Awaited<ReturnType<typeof setup>>["handle"],
+    cid: string,
+    input: Record<string, unknown> = { script: "echo hi", target: "host" },
+  ) => {
+    const tool = handle.mind.act.extension().tools?.find((entry) => entry.name === "bash") as
       | {
           execute: (
             a: never,
@@ -230,26 +218,43 @@ describe("the switch on a real mind (yolo cannot bypass)", () => {
           ) => Promise<{ isError?: boolean; output: { text: string }[] }>;
         }
       | undefined;
-    if (tool === undefined) throw new Error("bash_host is not registered");
+    if (tool === undefined) throw new Error("bash is not registered");
     return (await tool.execute(
-      { script: "echo hi" } as never,
+      input as never,
       { conversationId: cid, callId: "h1" } as never,
       {} as never,
     )) as { isError?: boolean; output: { text: string }[] };
   };
 
-  it("a false switch refuses bash_host in yolo mode, before any card", async () => {
+  it("a false switch refuses bash beyond the VM in yolo mode, before any card", async () => {
     const { handle, conversationId } = await setup(false, "yolo");
-    const result = await callBashHost(handle, conversationId);
-    expect(result.isError).toBe(true);
-    expect(result.output[0]?.text).toContain("does not have access to this computer");
+    for (const target of ["host", "node"]) {
+      const result = await callBash(handle, conversationId, { script: "echo hi", target });
+      expect(result.isError, target).toBe(true);
+      expect(result.output[0]?.text).toContain("does not have access to this computer");
+    }
     expect(handle.mind.approvals.pendingFor(conversationId)).toEqual([]);
+    await handle.close();
+  });
+
+  it("a false switch leaves the vm target alone: the call takes the normal approval path", async () => {
+    const { handle, conversationId } = await setup(false, "manual");
+    const run = callBash(handle, conversationId, { script: "echo hi" });
+    let parked = false;
+    for (let i = 0; i < 200 && !parked; i += 1) {
+      parked = handle.mind.approvals.pendingFor(conversationId).length > 0;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    // Parked on the broker, NOT refused by the switch guard.
+    expect(parked).toBe(true);
+    handle.mind.approvals.decide(conversationId, "h1", false);
+    await run;
     await handle.close();
   });
 
   it("with every level on, the call passes the switch into the approval path", async () => {
     const { handle, conversationId } = await setup(true, "manual");
-    const run = callBashHost(handle, conversationId);
+    const run = callBash(handle, conversationId);
     let parked = false;
     for (let i = 0; i < 200 && !parked; i += 1) {
       parked = handle.mind.approvals.pendingFor(conversationId).length > 0;
@@ -261,14 +266,15 @@ describe("the switch on a real mind (yolo cannot bypass)", () => {
     await handle.close();
   });
 
-  it("the tools leave the list while the switch is off, and return with it on", async () => {
+  it("the merged bash tool stays listed while the switch is off, and no exclusion appears with it on", async () => {
     const { handle, bot } = await setup(false, "manual");
     const names = (agent: AgentChange) => {
       const list = agent.tools as { remove: readonly { name: string }[] } | null;
       return list === null ? [] : list.remove.map((tool) => tool.name);
     };
     const removed = names(handle.mind.profiles.agentFor({ ...bot } as never));
-    expect(removed).toContain("bash_host");
+    // bash never leaves the list: its vm target is ordinary sandboxed work.
+    expect(removed).not.toContain("bash");
     expect(removed).not.toContain("message");
     await handle.mind.profiles.update("owner-a", bot.id, { hostAccess: true });
     // With the switch on the list is dynamic again: no exclusion, no frozen set.

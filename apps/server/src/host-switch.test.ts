@@ -1,7 +1,7 @@
 /**
  * Slice 10: the host-access switch at DECIDE time. A queued host-direct
- * call (bash_host here; the stdio connector shape is `isHostDirectCall`'s
- * second arm) is refused when approved after the switch turned off — the
+ * call (bash beyond the VM here; the stdio connector shape is
+ * `isHostDirectCall`'s second arm) is refused when approved after the switch turned off — the
  * "always allow" save is skipped while off, and the audit row reads refused.
  * Over a real in-memory mind, with the conversation mapped to its bot.
  */
@@ -48,14 +48,16 @@ const setup = async () => {
 };
 
 describe("the switch at decide time", () => {
-  it("names bash_host as host-direct and ordinary tools not", async () => {
+  it("names bash beyond the VM as host-direct and ordinary calls not", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
-    expect(isHostDirectCall(handle.mind, "bash_host")).toBe(true);
+    expect(isHostDirectCall(handle.mind, "bash", { script: "ls", target: "host" })).toBe(true);
+    expect(isHostDirectCall(handle.mind, "bash", { script: "ls", target: "node" })).toBe(true);
+    expect(isHostDirectCall(handle.mind, "bash", { script: "ls" })).toBe(false);
     expect(isHostDirectCall(handle.mind, "web_search")).toBe(false);
     await handle.close();
   });
 
-  it("refuses approving a queued bash_host while the switch is off", async () => {
+  it("refuses approving a queued beyond-VM call while the switch is off", async () => {
     const handle = await setup();
     const { mind } = handle;
     const bot = await mind.profiles.create("owner-a", { name: "Kestrel", onboard: false });
@@ -63,12 +65,14 @@ describe("the switch at decide time", () => {
     const parked = Effect.runPromise(
       mind.approvals.request(CID, "k1", {
         callId: "k1",
-        name: "bash_host",
-        input: { script: "ls" },
+        name: "bash",
+        input: { script: "ls", target: "host" },
       }),
     );
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(await hostSwitchRefusal(stubbed, CID, "bash_host")).toContain("host access is off");
+    expect(
+      await hostSwitchRefusal(stubbed, CID, "bash", { script: "ls", target: "host" }),
+    ).toContain("host access is off");
     const approve = approveMethod(scope(stubbed));
     const out = await approve({ callId: "k1", approved: true, always: true }, {} as never);
     expect(out.ok).toBe(true);
@@ -89,12 +93,14 @@ describe("the switch at decide time", () => {
     const parked = Effect.runPromise(
       mind.approvals.request(CID, "k2", {
         callId: "k2",
-        name: "bash_host",
-        input: { script: "ls" },
+        name: "bash",
+        input: { script: "ls", target: "host" },
       }),
     );
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(await hostSwitchRefusal(stubbed, CID, "bash_host")).toBeNull();
+    expect(
+      await hostSwitchRefusal(stubbed, CID, "bash", { script: "ls", target: "host" }),
+    ).toBeNull();
     const approve = approveMethod(scope(stubbed));
     await approve({ callId: "k2", approved: true }, {} as never);
     expect(await parked).toBe(true);

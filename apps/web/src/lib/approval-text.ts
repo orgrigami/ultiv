@@ -178,8 +178,8 @@ export const isConnectorChange = (name: string): boolean =>
 
 /**
  * Cards "Always allow" may not cover: a credential's or connector's first
- * use, connector changes and secure inputs are asked every time. The host
- * shell (`bash_host`) is covered only for the exact script on the card (see
+ * use, connector changes and secure inputs are asked every time. bash's
+ * host/node targets are covered only for the exact script on the card (see
  * `alwaysAllowText`).
  */
 export const canAlwaysAllow = (name: string): boolean =>
@@ -189,14 +189,24 @@ export const canAlwaysAllow = (name: string): boolean =>
   name !== "secret_request" &&
   name !== "ask_user_question";
 
-/** Tools whose "Always allow" saves only the exact script on the card. */
-const EXACT_ONLY_TOOLS: readonly string[] = ["bash_host"];
+/** The merged bash tool's beyond-VM targets: "Always allow" saves only the exact script there. */
+const beyondVm = (input: unknown): boolean => {
+  if (typeof input !== "object" || input === null) return false;
+  const target = (input as Record<string, unknown>)["target"];
+  return target === "host" || target === "node";
+};
 
 /** The "Always allow" menu item's label and explanation for one card. */
-export const alwaysAllowText = (name: string): { title: string; detail: string } =>
-  EXACT_ONLY_TOOLS.includes(name)
+export const alwaysAllowText = (
+  name: string,
+  input?: unknown,
+): { title: string; detail: string } =>
+  name === "bash" && beyondVm(input)
     ? {
-        title: "Always allow this exact command on this computer",
+        title:
+          (input as Record<string, unknown>)["target"] === "host"
+            ? "Always allow this exact command on this computer"
+            : "Always allow this exact command on that node",
         detail: "Runs this same script again without asking. Any other script still asks.",
       }
     : {
@@ -205,17 +215,28 @@ export const alwaysAllowText = (name: string): { title: string; detail: string }
       };
 
 /**
- * How the Access tab shows one always-allow entry: exact host-shell rules
- * (`bash_host:=<script>`) show their script, everything else as stored.
+ * How the Access tab shows one always-allow entry: exact bash target rules
+ * (`bash@host:=<script>`, `bash@node:<id>:=<script>`) show their script,
+ * everything else as stored.
  */
 export const describeAllowEntry = (entry: string): { label: string; full: string } => {
-  const exact = /^([A-Za-z0-9_-]+):=([\s\S]*)$/.exec(entry);
-  if (exact === null || !EXACT_ONLY_TOOLS.includes(exact[1] ?? ""))
-    return { label: entry, full: entry };
-  const script = (exact[2] ?? "").replace(/\s+/g, " ").trim();
-  const short = script.length > 48 ? `${script.slice(0, 47)}…` : script;
-  return {
-    label: `${exact[1]} exactly: ${short}`,
-    full: `${exact[1]} exactly:\n${exact[2] ?? ""}`,
-  };
+  const target = /^bash@host:=([\s\S]*)$/.exec(entry) ?? null;
+  if (target !== null) {
+    const script = (target[1] ?? "").replace(/\s+/g, " ").trim();
+    const short = script.length > 48 ? `${script.slice(0, 47)}…` : script;
+    return {
+      label: `on this computer, exactly: ${short}`,
+      full: `on this computer, exactly:\n${target[1] ?? ""}`,
+    };
+  }
+  const node = /^bash@node:([A-Za-z0-9_-]+):=([\s\S]*)$/.exec(entry);
+  if (node !== null) {
+    const script = (node[2] ?? "").replace(/\s+/g, " ").trim();
+    const short = script.length > 48 ? `${script.slice(0, 47)}…` : script;
+    return {
+      label: `on node ${node[1]}, exactly: ${short}`,
+      full: `on node ${node[1]}, exactly:\n${node[2] ?? ""}`,
+    };
+  }
+  return { label: entry, full: entry };
 };

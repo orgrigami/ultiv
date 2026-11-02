@@ -87,29 +87,41 @@ describe("bash tool (durable workspace, shell backend)", () => {
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 });
 
-describe("bash_host tool (privileged shell)", () => {
+describe("bash target host (privileged shell)", () => {
   const hostDir = mkdtempSync(join(tmpdir(), "spriessen-host-"));
   it("runs on the real host and carries cwd", async () => {
     const plugin = wrap(hostDir);
-    const host = toolOf(plugin, "bash_host");
+    const host = toolOf(plugin, "bash");
     expect(host.gated).toBe(true);
 
-    const ran = await host.execute({ script: "echo hi-from-host" }, api, {} as never);
+    const ran = await host.execute(
+      { script: "echo hi-from-host", target: "host" },
+      api,
+      {} as never,
+    );
     expect(ran.isError).toBeUndefined();
-    expect(ran.structuredOutput).toMatchObject({ stdout: "hi-from-host\n", exitCode: 0 });
+    expect(ran.structuredOutput).toMatchObject({
+      stdout: "hi-from-host\n",
+      exitCode: 0,
+      target: "host",
+    });
 
     // cwd defaults to the server user's home; cd carries over between calls.
-    const cd = await host.execute({ script: `cd "${hostDir}"` }, api, {} as never);
+    const cd = await host.execute({ script: `cd "${hostDir}"`, target: "host" }, api, {} as never);
     expect(cd.isError).toBeUndefined();
-    const pwd = await host.execute({ script: "pwd" }, api, {} as never);
+    const pwd = await host.execute({ script: "pwd", target: "host" }, api, {} as never);
     // bash reports the resolved physical path on macOS (/var → /private/var).
     expect(pwd.structuredOutput).toMatchObject({ stdout: `${realpathSync(hostDir)}\n` });
   });
 
   it("reports failing commands via exit code and stderr", async () => {
     const plugin = wrap(hostDir);
-    const host = toolOf(plugin, "bash_host");
-    const failed = await host.execute({ script: "ls /definitely-not-here-xyz" }, api, {} as never);
+    const host = toolOf(plugin, "bash");
+    const failed = await host.execute(
+      { script: "ls /definitely-not-here-xyz", target: "host" },
+      api,
+      {} as never,
+    );
     expect(failed.isError).toBeUndefined();
     // BSD ls exits 1 on a missing path, GNU ls exits 2: any non-zero proves the failure surfaced.
     expect((failed.structuredOutput as { exitCode: number }).exitCode).toBeGreaterThan(0);
@@ -117,4 +129,44 @@ describe("bash_host tool (privileged shell)", () => {
   });
 
   afterAll(() => rmSync(hostDir, { recursive: true, force: true }));
+});
+
+describe("bash: one tool, three targets", () => {
+  it("the plugin carries exactly the merged bash tool; the host tool is gone", () => {
+    const plugin = wrap(dir);
+    const names = plugin.capabilities
+      .filter((capability) => capability.kind === "tool")
+      .map((capability) => (capability as { tool: { name: string } }).tool.name);
+    expect(names).toEqual(["bash"]);
+  });
+
+  it("every result states where the script ran", async () => {
+    const vm = await toolOf(wrap(dir), "bash").execute({ script: "true" }, api, {} as never);
+    expect(((vm.output ?? [])[0] as { text: string }).text).toContain("(ran in the home VM)");
+    expect(vm.structuredOutput).toMatchObject({ target: "vm" });
+    const host = await toolOf(wrap(dir), "bash").execute(
+      { script: "true", target: "host" },
+      api,
+      {} as never,
+    );
+    expect(((host.output ?? [])[0] as { text: string }).text).toContain("(ran on the host)");
+    expect(host.structuredOutput).toMatchObject({ target: "host" });
+  });
+
+  it("an unknown target is refused, never read as the default", async () => {
+    const bash = toolOf(wrap(dir), "bash");
+    const refused = await bash.execute({ script: "true", target: "sdn" }, api, {} as never);
+    expect(refused.isError).toBe(true);
+    expect(((refused.output ?? [])[0] as { text: string }).text).toContain("unknown target");
+  });
+});
+
+describe("bash target node (no pairing yet)", () => {
+  it("a node call answers the structured owner-actionable error, and runs nothing", async () => {
+    const plugin = wrap(dir);
+    const bash = toolOf(plugin, "bash");
+    const refused = await bash.execute({ script: "echo pwned", target: "node" }, api, {} as never);
+    expect(refused.isError).toBe(true);
+    expect(((refused.output ?? [])[0] as { text: string }).text).toContain("no node is paired");
+  });
 });

@@ -27,25 +27,28 @@
  * globs). The action text is data, not instructions: a pattern only ever
  * matches text.
  *
- * - `"bash_host:=<script>"` — an EXACT entry, the only rule the privileged
- *   host shell accepts besides the owner's bare grant. It approves a call
- *   whose `script` is character-for-character the stored text and nothing
- *   else: no wildcards, no prefix match, no other field. "Always allow this
- *   exact command on this computer" on a bash_host card saves one. Jev
- *   still never decides bash_host; this is the owner's own rule.
+ * - `"bash@host:=<script>"` / `"bash@node:<nodeId>:=<script>"` — the EXACT
+ *   entries, the only rules the `host` and `node` targets of the merged
+ *   `bash` tool accept. They approve a call whose `script` is
+ *   character-for-character the stored text and the target is the entry's
+ *   own — no wildcards, no prefix match, no other field. "Always allow this
+ *   exact command" on a host/node card saves one. Jev never decides a
+ *   host/node call; this is the owner's own rule.
+ *
+ * TARGET-AWARE BARE/PATTERN RULE (the security design): bare `bash` grants
+ * and `bash:glob` patterns cover ONLY the default `vm` target — by
+ * definition, not by migration. A `host` or `node` call never matches a
+ * bare or patterned entry, so merging the old `bash_host` tool into `bash`
+ * widened nothing. Legacy `bash_host` entries are inert (the tool is gone;
+ * boot migrates the exact ones to `bash@host:=`).
  *
  * Floors still outrank the list — the hook checks `isApprovalFloor` before
  * consulting this matcher, so no entry (bare or patterned) ever waves a
  * first-use credential/connector or `secret_request` call through.
  */
+import { BASH_TOOL, bashNodeNameOf, bashTargetOf, type BashTarget } from "@spriessen/contracts";
 import type { ApprovalRequest } from "./approvals.ts";
-import {
-  CHAIN_OPS,
-  JEV_NEVER_DECIDES,
-  SUBSHELL_OR_HEREDOC,
-  SUBSTITUTION,
-  destructiveOf,
-} from "./jev-gate.ts";
+import { CHAIN_OPS, SUBSHELL_OR_HEREDOC, SUBSTITUTION, destructiveOf } from "./jev-gate.ts";
 
 /** Input fields that hold a command or script (same heuristic as jev-gate). */
 const COMMAND_FIELDS = /^(command|cmd|script|code|shell|sql|query)$/i;
@@ -183,13 +186,16 @@ export const parseAutoApproveEntry = (entry: string): { tool: string; pattern?: 
  */
 const MAX_WILDCARDS = 4;
 
-export const validAutoApproveEntry = (entry: string): boolean =>
-  /^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
-  // An exact entry is compared as a string, never compiled: wildcards are literal there.
-  (exactScriptOf(entry) !== undefined || (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS);
+/**
+ * The exact-entry shapes (target form and the pre-merge legacy form) are
+ * compared as strings, never compiled — wildcards in them are literal.
+ */
+const EXACT_SHAPED = /^bash@(host|node:[A-Za-z0-9_-]+):=([\s\S]*)$|^[A-Za-z0-9_-]+:=([\s\S]*)$/;
 
-/** Tools whose only list entries are a bare grant or an EXACT entry (no globs). */
-export const EXACT_ONLY: readonly string[] = JEV_NEVER_DECIDES;
+export const validAutoApproveEntry = (entry: string): boolean =>
+  EXACT_SHAPED.test(entry) ||
+  (/^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
+    (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS);
 
 /** The marker after `tool:` that makes an entry an exact match. */
 const EXACT_MARK = "=";
@@ -197,33 +203,80 @@ const EXACT_MARK = "=";
 /** An exact entry stores the whole script; longer than this isn't saved. */
 export const MAX_EXACT_SCRIPT_CHARS = 2000;
 
-/** The exact entry for one call's script (`bash_host:=<script>`). */
-export const exactEntry = (tool: string, script: string): string =>
-  `${tool}:${EXACT_MARK}${script}`;
+/** The target an exact entry pins: host, or a node by its stored id. */
+export type BashEntryTarget =
+  | { readonly kind: "host" }
+  | { readonly kind: "node"; readonly nodeId: string };
 
-/** The stored script of an exact entry for an exact-only tool, or undefined. */
-export const exactScriptOf = (entry: string): { tool: string; script: string } | undefined => {
+/**
+ * The exact entry for one call's script: `bash@host:=<script>` or
+ * `bash@node:<nodeId>:=<script>`. Plain-text storage, compared as a string —
+ * wildcards in the script are literal there.
+ */
+export const targetExactEntry = (target: BashEntryTarget, script: string): string =>
+  target.kind === "host"
+    ? `bash@host:${EXACT_MARK}${script}`
+    : `bash@node:${target.nodeId}:${EXACT_MARK}${script}`;
+
+const TARGET_EXACT_RE = /^bash@host:=([\s\S]*)$/;
+const TARGET_NODE_EXACT_RE = /^bash@node:([A-Za-z0-9_-]+):=([\s\S]*)$/;
+
+/** Parse a target exact entry; undefined for every other string. */
+export const parseTargetExactEntry = (
+  entry: string,
+): { readonly target: BashEntryTarget; readonly script: string } | undefined => {
+  const host = TARGET_EXACT_RE.exec(entry);
+  if (host !== null) return { target: { kind: "host" }, script: host[1] ?? "" };
+  const node = TARGET_NODE_EXACT_RE.exec(entry);
+  if (node !== null)
+    return { target: { kind: "node", nodeId: node[1] ?? "" }, script: node[2] ?? "" };
+  return undefined;
+};
+
+/** The legacy (pre-merge) host exact form, `bash_host:=<script>`; the boot migration rewrites it. */
+export const legacyExactScriptOf = (entry: string): { readonly script: string } | undefined => {
   const { tool, pattern } = parseAutoApproveEntry(entry);
-  return EXACT_ONLY.includes(tool) && pattern?.startsWith(EXACT_MARK) === true
-    ? { tool, script: pattern.slice(EXACT_MARK.length) }
+  return tool === "bash_host" && pattern?.startsWith(EXACT_MARK) === true
+    ? { script: pattern.slice(EXACT_MARK.length) }
     : undefined;
+};
+
+/** The stored script of an exact entry in either stored form, or undefined. */
+export const exactScriptOf = (
+  entry: string,
+): { readonly target: BashEntryTarget | "legacy"; readonly script: string } | undefined => {
+  const targetForm = parseTargetExactEntry(entry);
+  if (targetForm !== undefined) return targetForm;
+  const legacy = legacyExactScriptOf(entry);
+  return legacy === undefined ? undefined : { target: "legacy", ...legacy };
 };
 
 /**
  * The one script an exact entry can match: the input must be exactly
- * `{ script: string }` — any other field (or shape) and nothing matches.
+ * `{ script }` (a vm-target legacy call) or `{ script, target }` (and
+ * optionally `node`, the paired node's name) — any other field or shape and
+ * nothing matches.
  */
-export const exactScriptInput = (input: unknown): string | undefined => {
+export const exactScriptInput = (
+  input: unknown,
+): { readonly script: string; readonly target: BashTarget } | undefined => {
   if (input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
   const keys = Object.keys(input);
+  if (keys.some((key) => key !== "script" && key !== "target" && key !== "node")) return undefined;
   const script = (input as Record<string, unknown>)["script"];
-  return keys.length === 1 && typeof script === "string" ? script : undefined;
+  if (typeof script !== "string") return undefined;
+  const target = bashTargetOf(input);
+  return target === "invalid" ? undefined : { script, target };
 };
+
+/** True when this call belongs to an exact-only surface: bash beyond the vm target. */
+export const exactOnlyCall = (name: string, input: unknown): boolean =>
+  name === BASH_TOOL && bashTargetOf(input) !== "vm";
 
 /** How the list matches one call. */
 export type AutoApproveMatch =
   | { readonly kind: "none" }
-  /** An exact entry for an exact-only tool (bash_host) matched the whole script. */
+  /** An exact target entry (`bash@host:=` / `bash@node:<id>:=`) matched the whole script. */
   | { readonly kind: "exact" }
   /** A bare tool name matched — the owner's whole-tool grant, no sub-action checks. */
   | { readonly kind: "bare" }
@@ -234,17 +287,42 @@ export type AutoApproveMatch =
    */
   | { readonly kind: "pattern"; readonly destructive: string | undefined };
 
-/** Tools that never match a `tool:pattern` autoApprove entry — derived from Jev's list so the two cannot drift (bare entries stay the owner's grant). */
-export const NEVER_PATTERN_MATCHED: readonly string[] = JEV_NEVER_DECIDES;
+/**
+ * The sync node resolver the matcher MAY be given: the call's node name (or
+ * null when the call names none — the single paired node) to its stored id.
+ * The mind passes the registry-backed view so a saved exact node rule
+ * matches the next identical call; without one, only a call that names the
+ * node by its stored id can match.
+ */
+export type NodeIdOf = (name: string | null) => string | undefined;
+
+/** The entry's target against the call's: host↔host, node↔node by resolved id. */
+const targetMatches = (
+  entry: BashEntryTarget,
+  input: unknown,
+  nodeIdOf: NodeIdOf | undefined,
+): boolean => {
+  if (entry.kind === "host") return bashTargetOf(input) === "host";
+  if (bashTargetOf(input) !== "node") return false;
+  const named = bashNodeNameOf(input);
+  const resolved = nodeIdOf === undefined ? (named ?? undefined) : nodeIdOf(named);
+  return resolved !== undefined && resolved === entry.nodeId;
+};
 
 /**
  * The one predicate for "would the autoApprove list approve this call" —
  * the broker hook answers gates with it, and rule saves (allowTool)
  * verify candidates with it, so a stored entry is exactly one the gate
- * would accept. Floors and yolo live above this in the hook.
+ * would accept. Floors and yolo live above this in the hook. `nodeIdOf`
+ * resolves a node call's paired node (see `NodeIdOf`); omit it when no
+ * registry is wired.
  */
-export const mayAutoApprove = (entries: readonly string[], request: ApprovalRequest): boolean => {
-  const match = matchAutoApprove(entries, request);
+export const mayAutoApprove = (
+  entries: readonly string[],
+  request: ApprovalRequest,
+  nodeIdOf?: NodeIdOf,
+): boolean => {
+  const match = matchAutoApprove(entries, request, nodeIdOf);
   return (
     match.kind === "bare" ||
     match.kind === "exact" ||
@@ -269,33 +347,46 @@ const globMatch = (glob: string, texts: readonly ActionText[]): boolean => {
 };
 
 /**
- * Match the list against one call. A bare name wins outright; a pattern
- * must match the action text (any command field, else top-level string
- * values, else the serialised input) without crossing a command boundary
- * or carrying a shell escape hatch, and is reported with the call's
- * destructive read for the hook to refuse. Safe by default: an empty
- * pattern (`"tool:"`) matches only an empty action text, so it approves
- * nothing in practice.
+ * Match the list against one call. A bare name wins outright — for the
+ * default `vm` target only; a `host`/`node` bash call matches ONLY a target
+ * exact entry. A pattern must match the action text (any command field,
+ * else top-level string values, else the serialised input) without crossing
+ * a command boundary or carrying a shell escape hatch, and is reported with
+ * the call's destructive read for the hook to refuse. Safe by default: an
+ * empty pattern (`"tool:"`) matches only an empty action text, so it
+ * approves nothing in practice.
  */
 export const matchAutoApprove = (
   entries: readonly string[],
   request: ApprovalRequest,
+  nodeIdOf?: NodeIdOf,
 ): AutoApproveMatch => {
   let bare = false;
   let exact = false;
   let pattern = false;
-  const script = EXACT_ONLY.includes(request.name) ? exactScriptInput(request.input) : undefined;
+  // Beyond-VM reach (host/node): no bare grant, no pattern — an exact
+  // target entry is the only rule form. An invalid target matches nothing.
+  const restricted = exactOnlyCall(request.name, request.input);
+  const script = request.name === BASH_TOOL ? exactScriptInput(request.input)?.script : undefined;
   const texts = actionTextsOf(request.input);
-  // Never-pattern-matched tools (bash_host) are excluded HERE, so a caller
-  // reading `kind` directly cannot re-open the host shell by forgetting the
-  // exclusion: a pattern simply never matches for them.
-  const mayPattern = matchable(texts) && !NEVER_PATTERN_MATCHED.includes(request.name);
+  const mayPattern = matchable(texts) && !restricted;
   for (const entry of entries) {
+    const targetEntry = parseTargetExactEntry(entry);
+    if (targetEntry !== undefined) {
+      if (
+        request.name === BASH_TOOL &&
+        script !== undefined &&
+        targetEntry.script === script &&
+        targetMatches(targetEntry.target, request.input, nodeIdOf)
+      )
+        exact = true;
+      continue;
+    }
     const { tool, pattern: glob } = parseAutoApproveEntry(entry);
     if (tool !== request.name) continue;
-    if (glob === undefined) bare = true;
-    else if (script !== undefined && exactScriptOf(entry)?.script === script) exact = true;
-    else if (!pattern && mayPattern && globMatch(glob, texts)) pattern = true;
+    if (glob === undefined) {
+      if (!restricted) bare = true;
+    } else if (!pattern && mayPattern && globMatch(glob, texts)) pattern = true;
   }
   if (bare) return { kind: "bare" };
   if (exact) return { kind: "exact" };

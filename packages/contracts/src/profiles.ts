@@ -27,10 +27,11 @@ export const ProfilePoliciesSchema = Type.Object({
    * `tool:pattern` sub-action rule ("bash:git *"): an anchored glob over the
    * call's command/action text (`*` any run, `?` one char — wildcards cannot
    * cross a `;`/`&&`/`|` boundary; else literal, case-sensitive). A pattern
-   * match that looks destructive is refused to the normal gate, and
-   * `bash_host` never pattern-matches: its only rule besides a bare grant is
-   * an exact one, `bash_host:=<script>`, matching that script and nothing
-   * else ("Always allow this exact command on this computer"). Floors (first-use
+   * match that looks destructive is refused to the normal gate, and bash
+   * calls beyond the VM (`target: "host"` / `target: "node"`) never bare- or
+   * pattern-match: their only rule is an exact one, `bash@host:=<script>` /
+   * `bash@node:<nodeId>:=<script>`, matching that script on that target and
+   * nothing else ("Always allow this exact command"). Floors (first-use
    * credential/connector, `secret_request`) outrank every entry.
    */
   autoApprove: Type.Array(Type.String()),
@@ -41,7 +42,7 @@ export const ProfilePoliciesSchema = Type.Object({
   /**
    * Whether this bot gets the sandboxed `bash` tool (a microsandbox microVM
    * over its durable workspace). Default true; false removes the tool from
-   * its every conversation (the privileged `bash_host` is unaffected). Bots
+   * its every conversation — including its host and node targets. Bots
    * created before the toggle existed read as true.
    */
   sandbox: Type.Optional(Type.Boolean()),

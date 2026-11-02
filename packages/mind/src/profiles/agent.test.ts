@@ -18,7 +18,7 @@ const row = (over: Partial<ProfileInfo>): ProfileInfo => ({
   ...over,
 });
 
-const tools = () => [{ name: "bash" }, { name: "bash_host" }, { name: "web_search" }];
+const tools = () => [{ name: "bash" }, { name: "notes_search" }, { name: "web_search" }];
 
 /**
  * The tool names a conversation ends up with against `registry`, the way
@@ -54,7 +54,7 @@ describe("the per-profile agent's tool set", () => {
       row({ policies: { ...defaultPolicies(), sandbox: false } }),
       tools,
     );
-    expect(namesOf(agent)).toEqual(["bash_host", "web_search"]);
+    expect(namesOf(agent)).toEqual(["notes_search", "web_search"]);
   });
 
   it("an allowlist naming bash does not override a sandbox-off bot", () => {
@@ -74,7 +74,7 @@ describe("the per-profile agent's tool set", () => {
       row({ policies: { ...defaultPolicies(), sandbox: false } }),
       withBrowser,
     );
-    expect(namesOf(agent, withBrowser())).toEqual(["bash_host", "web_search"]);
+    expect(namesOf(agent, withBrowser())).toEqual(["notes_search", "web_search"]);
     // And an allowlist naming it does not override the exclusion either.
     const allowlisted = agentForProfile(
       row({
@@ -95,7 +95,7 @@ describe("the per-profile agent's tool set", () => {
  */
 describe("faculty tools survive every exclusion", () => {
   /** The catalog `tools()` (allowlistable) vs the whole registry (faculties too). */
-  const catalog = () => [{ name: "bash" }, { name: "bash_host" }, { name: "web_search" }];
+  const catalog = () => [{ name: "bash" }, { name: "notes_search" }, { name: "web_search" }];
   const faculties = [
     { name: "message" },
     { name: "room_send" },
@@ -111,14 +111,16 @@ describe("faculty tools survive every exclusion", () => {
     row({ departmentId: "research" } as Partial<ProfileInfo>),
     catalog,
     undefined,
-    ["bash_host", "fs_local__read"],
+    ["notes_search", "fs_local__read"],
     all,
   );
 
   it("a host-switch-off department bot has exactly the org bot's tools minus host-direct ones", () => {
     const org = namesOf(orgBot, registry);
     const dept = namesOf(deptBot, registry);
-    expect(dept).toEqual(org.filter((name) => name !== "bash_host" && name !== "fs_local__read"));
+    expect(dept).toEqual(
+      org.filter((name) => name !== "notes_search" && name !== "fs_local__read"),
+    );
     expect(dept).toContain("message");
   });
 
@@ -132,13 +134,13 @@ describe("faculty tools survive every exclusion", () => {
       row({ policies: { ...defaultPolicies(), sandbox: false } }),
       catalog,
       undefined,
-      ["bash_host"],
+      ["notes_search"],
       all,
     );
     const names = namesOf(agent, registry);
     expect(names).toContain("message");
     expect(names).not.toContain("bash");
-    expect(names).not.toContain("bash_host");
+    expect(names).not.toContain("notes_search");
   });
 
   it("an allowlist governs only the catalog: faculties stay", () => {

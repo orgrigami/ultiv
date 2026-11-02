@@ -61,19 +61,26 @@ describe("hintOf", () => {
   });
 });
 
-describe("always allow for the host shell", () => {
-  it("offers the exact-command rule on bash_host cards", () => {
-    expect(canAlwaysAllow("bash_host")).toBe(true);
-    expect(alwaysAllowText("bash_host").title).toBe(
+describe("always allow for bash beyond the VM", () => {
+  it("offers the exact-command rule on host and node cards, plain allow on vm cards", () => {
+    expect(canAlwaysAllow("bash")).toBe(true);
+    expect(alwaysAllowText("bash", { script: "ls", target: "host" }).title).toBe(
       "Always allow this exact command on this computer",
     );
-    expect(alwaysAllowText("bash").title).toBe("Always allow");
+    expect(alwaysAllowText("bash", { script: "ls", target: "node" }).title).toBe(
+      "Always allow this exact command on that node",
+    );
+    expect(alwaysAllowText("bash", { script: "ls" }).title).toBe("Always allow");
   });
 
-  it("lists an exact rule by its script in the Access tab", () => {
-    expect(describeAllowEntry("bash_host:=git status")).toEqual({
-      label: "bash_host exactly: git status",
-      full: "bash_host exactly:\ngit status",
+  it("lists an exact target rule by its script in the Access tab", () => {
+    expect(describeAllowEntry("bash@host:=git status")).toEqual({
+      label: "on this computer, exactly: git status",
+      full: "on this computer, exactly:\ngit status",
+    });
+    expect(describeAllowEntry("bash@node:node-x:=make test")).toEqual({
+      label: "on node node-x, exactly: make test",
+      full: "on node node-x, exactly:\nmake test",
     });
     expect(describeAllowEntry("bash:git *").label).toBe("bash:git *");
     expect(describeAllowEntry("bash").label).toBe("bash");

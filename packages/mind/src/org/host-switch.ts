@@ -2,14 +2,15 @@
  * Slice 10: the host-access switch as ONE seam. The effective flag (org AND
  * department AND bot, `effectiveHostAccess` in `./model.ts`) decides three
  * things, all reading the same predicate:
- * - the per-call gates (the act's guard for `bash_host`, the connector call
- *   gate for stdio servers) — checked BEFORE any approval decision, so a
+ * - the per-call gates (the act's guard for beyond-VM `bash` targets —
+ *   `target: "host"` / `target: "node"` — and the connector call gate for
+ *   stdio servers) — checked BEFORE any approval decision, so a
  *   false switch wins over yolo, Jev and every stored allow rule (those go
  *   dormant, not deleted: they apply again when the switch turns on);
  * - the tool LIST: `hostExcludedTools` names what a bot loses while the
  *   switch is off, the same exclusion the sandbox toggle uses;
- * - decide time: a queued host-direct call is refused when approved after
- *   the switch turned off (the server's decide paths ask `hostSwitchWatch`'s
+ * - decide time: a queued beyond-VM call is refused when approved after the
+ *   switch turned off (the server's decide paths ask `hostSwitchWatch`'s
  *   live view through `apps/server`'s shared helper).
  *
  * The watch keeps the LAST org view in memory so the tool-list exclusion can
@@ -19,7 +20,7 @@
  */
 import type { AgentChange } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
+import { BASH_TOOL, bashTargetOf, type ProfileInfo, type SessionInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { readProfiles } from "../profiles/docs.ts";
 import { taskConversationKey } from "../tasks/tasks.ts";
@@ -29,8 +30,14 @@ import type { OrgView } from "./service.ts";
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
 
-/** Tools that run on the server's own machine, never in a bot's home VM. */
-export const HOST_DIRECT_TOOLS: readonly string[] = ["bash_host"];
+/**
+ * True when a call reaches BEYOND the bot's VM: the merged `bash` tool with
+ * `target: "host"` or `target: "node"` (the standalone host shell of older
+ * embedders merged into `bash` in phase 6). These are the calls the
+ * host-access switch gates — never the default vm target.
+ */
+export const isBeyondVmCall = (name: string, args: unknown): boolean =>
+  name === BASH_TOOL && bashTargetOf(args) !== "vm";
 
 /** The refusal a host-direct call reads when the switch is off. */
 export const HOST_REFUSAL =
@@ -63,17 +70,20 @@ export const hostBlockedBy = (
 
 /**
  * The names to drop from a bot's tool list while its effective host access
- * is false: the host-direct tools plus the stdio connector tools it could
- * load (`bash` and the browser run in the bot's own VM — never here).
- * Unknown flags (before the first read) exclude nothing: the per-call gates
- * still refuse, so this only shapes the list, never opens access.
+ * is false: the stdio connector tools it could load (their servers run as
+ * host processes). The merged `bash` tool NEVER leaves the list — its
+ * default vm target is ordinary sandboxed work — so beyond-VM calls are
+ * refused by the per-call guard instead (absent-from-list would strand the
+ * vm target with it). Unknown flags (before the first read) exclude
+ * nothing: the per-call gates still refuse, so this only shapes the list,
+ * never opens access.
  */
 export const hostExcludedTools = (
   flags: HostFlags | undefined,
   profile: Pick<ProfileInfo, "departmentId" | "hostAccess">,
   stdioToolNames: readonly string[],
 ): string[] => {
-  if (!switchAllows(flags, profile)) return [...HOST_DIRECT_TOOLS, ...stdioToolNames];
+  if (!switchAllows(flags, profile)) return [...stdioToolNames];
   return [];
 };
 

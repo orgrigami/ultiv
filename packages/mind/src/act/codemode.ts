@@ -31,18 +31,19 @@ export const codemodeExtension = (namespaces: readonly CodemodeNamespace[] = [])
     namespaces: [
       {
         // The section's budget selector lists tools cheapest-first per group,
-        // so `bash` (~360 tokens) and `bash_host` (~190) — the priciest core
-        // declarations and the ones scripts most need — were dropped from the
-        // listing on every render at the default budget: bots never learned
-        // they can shell from a script (raising the budget does not help —
-        // the ~60 cheaper unnamespaced tools fill any budget first). A
-        // namespace is round-robin guaranteed representation, so both
-        // declarations always render at the same prompt cost.
+        // so `bash` (~360 tokens) — the priciest core declaration and the one
+        // scripts most need — was dropped from the listing on every render at
+        // the default budget: bots never learned they can shell from a script
+        // (raising the budget does not help — the ~60 cheaper unnamespaced
+        // tools fill any budget first). A namespace is round-robin guaranteed
+        // representation, so the declaration always renders at the same
+        // prompt cost.
         name: "shell",
         prefix: "bash",
         description:
-          "Run shell scripts: `bash` inside the sandboxed workspace VM, " +
-          "`bash_host` directly on the host computer (each call waits for the owner's approval).",
+          "Run shell scripts with `bash` and its optional target: in the sandboxed workspace VM " +
+          "(the default), directly on the host computer, or on a node your owner paired (each " +
+          "call waits for the owner's approval).",
       },
       ...namespaces,
     ],

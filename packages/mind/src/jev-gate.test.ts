@@ -92,10 +92,9 @@ const FLOORS = [
   "secret_request",
   FIRST_USE_APPROVAL,
   "mcp (first use of github)",
-  "bash_host",
 ];
 
-describe("jev gate: floors and bash_host", () => {
+describe("jev gate: floors and bash's beyond-VM targets", () => {
   for (const probability of [0.99, 0.01]) {
     it(`always produce a card and never consult Jev (fake Jev says ${probability})`, async () => {
       const r = rig({ mode: "jev", probability });
@@ -169,23 +168,37 @@ describe("autoApprove entries (bare names and tool:glob sub-actions)", () => {
     expect(r.asked).toEqual([]);
   });
 
-  it("bash_host never pattern-matches; a bare bash_host entry is still the owner's grant", async () => {
-    const patterned = rig({ mode: "manual", autoApprove: ["bash_host:git *"] });
-    expect(await patterned.outcome(call("bash_host", { script: "git status" }))).toBe("card");
-    const bare = rig({ mode: "manual", autoApprove: ["bash_host"] });
-    expect(await bare.outcome(call("bash_host", { script: "git status" }))).toBe(true);
+  it("bash beyond the VM never pattern- or bare-matches; a bare vm grant covers vm only", async () => {
+    // host/node: a stored pattern is inert and a bare grant is vm-only.
+    const patterned = rig({ mode: "manual", autoApprove: ["bash:git *"] });
+    expect(await patterned.outcome(call("bash", { script: "git status", target: "host" }))).toBe(
+      "card",
+    );
+    const bare = rig({ mode: "manual", autoApprove: ["bash"] });
+    expect(await bare.outcome(call("bash", { script: "git status" }))).toBe(true);
+    expect(await bare.outcome(call("bash", { script: "git status", target: "host" }))).toBe("card");
+    expect(await bare.outcome(call("bash", { script: "git status", target: "node" }))).toBe("card");
+    expect(await bare.outcome(call("bash", { script: "git status" }))).toBe(true);
   });
 
-  it("an exact bash_host rule runs that script only; Jev is never asked for bash_host", async () => {
-    for (const mode of ["manual", "jev"] as const) {
-      const r = rig({ mode, autoApprove: ["bash_host:=git status"], probability: 0.99 });
-      expect(await r.outcome(call("bash_host", { script: "git status" })), mode).toBe(true);
-      expect(await r.outcome(call("bash_host", { script: "git status; rm -rf x" })), mode).toBe(
-        "card",
-      );
-      expect(await r.outcome(call("bash_host", { script: "git push" })), mode).toBe("card");
-      expect(r.asked, mode).toEqual([]);
-    }
+  it("an exact target rule runs that script on that target only", async () => {
+    // Manual mode: nothing else can wave a call through.
+    const r = rig({ mode: "manual", autoApprove: ["bash@host:=git status"] });
+    expect(await r.outcome(call("bash", { script: "git status", target: "host" }))).toBe(true);
+    expect(await r.outcome(call("bash", { script: "git status; rm -rf x", target: "host" }))).toBe(
+      "card",
+    );
+    expect(await r.outcome(call("bash", { script: "git push", target: "host" }))).toBe("card");
+    // The same script in the VM is NOT covered by the host rule.
+    expect(await r.outcome(call("bash", { script: "git status" }))).toBe("card");
+    expect(r.asked).toEqual([]);
+  });
+
+  it("Jev is never asked for a host or node call, in jev mode", async () => {
+    const r = rig({ mode: "jev", probability: 0.99 });
+    expect(await r.outcome(call("bash", { script: "ls", target: "host" }))).toBe("card");
+    expect(await r.outcome(call("bash", { script: "ls", target: "node" }))).toBe("card");
+    expect(r.asked).toEqual([]);
   });
 
   it("floors go to the card; nothing was judged or escalated", async () => {
@@ -225,11 +238,12 @@ describe("jev gate: timeout", () => {
 });
 
 describe("yolo is unchanged", () => {
-  it("auto-approves everything but the floors; bash_host runs; Jev is never asked", async () => {
+  it("auto-approves everything but the floors; host and node bash run; Jev is never asked", async () => {
     const r = rig({ mode: "yolo", probability: 0.01 });
-    expect(await r.outcome(call("bash_host", { command: "rm -rf x" }))).toBe(true);
+    expect(await r.outcome(call("bash", { command: "rm -rf x", target: "host" }))).toBe(true);
+    expect(await r.outcome(call("bash", { command: "ls", target: "node" }))).toBe(true);
     expect(await r.outcome(call("artifact_delete", { id: "a" }))).toBe(true);
-    for (const name of FLOORS.filter((n) => n !== "bash_host")) {
+    for (const name of FLOORS) {
       expect(await r.outcome(call(name))).toBe("card");
     }
     expect(r.asked).toEqual([]);

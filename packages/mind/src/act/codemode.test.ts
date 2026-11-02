@@ -57,7 +57,7 @@ describe("Codemode section listing", () => {
     execute: async () => ({ output: [{ type: "text", text: "ok" }] }),
   });
 
-  it("always lists bash and bash_host, however large the unnamespaced group", () => {
+  it("always lists bash (all targets), however large the unnamespaced group", () => {
     const registry = createRegistry();
     registry.install(codemodeExtension());
     const entry = registry
@@ -66,16 +66,18 @@ describe("Codemode section listing", () => {
       .find((candidate) => candidate.section.key === "codemode");
     if (entry === undefined) throw new Error("the codemode section is not installed");
     // Enough cheap filler to exhaust the inline budget many times over — the
-    // shells are among the priciest declarations and dropped before the fix.
+    // shell is among the priciest declarations and dropped before the fix.
     const callable = [
       ...Array.from({ length: 40 }, (_, i) => fakeTool(`filler_${i}`, "Cheap filler tool.")),
-      fakeTool("bash", "Run a bash script in the sandboxed workspace VM."),
-      fakeTool("bash_host", "Run a bash script DIRECTLY on the host computer."),
+      fakeTool(
+        "bash",
+        "Run a bash script in the sandboxed workspace VM, on the host, or on a node.",
+      ),
     ];
     const text = entry.section.render({ agent: { callable } } as never, {} as never) ?? "";
     expect(text).toContain("## shell");
     expect(text).toMatch(/### `bash`/);
-    expect(text).toMatch(/### `bash_host`/);
+    expect(text).not.toContain("bash_host");
   });
 
   it("keeps the script-callable contract: reads and chat surfaces in, installs and org mutations out", () => {

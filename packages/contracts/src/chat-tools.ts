@@ -93,3 +93,31 @@ export type GraphDetails = {
   readonly height: number;
   readonly title: string | null;
 };
+
+// ---------------------------------------------------------------------------
+// The merged `bash` tool's targets: one tool, three places a script can run.
+
+export const BASH_TARGETS = ["vm", "host", "node"] as const;
+export type BashTarget = (typeof BASH_TARGETS)[number];
+
+export const BASH_TOOL = "bash";
+
+/**
+ * The target a `bash` call asks for: `vm` when the field is absent (the
+ * default, never stored anywhere as a widening), `"host"`, or `"node"`.
+ * Anything else answers `"invalid"` — the gate and the tool both refuse an
+ * unknown target, they never read it as the default.
+ */
+export const bashTargetOf = (input: unknown): BashTarget | "invalid" => {
+  if (input === null || typeof input !== "object") return "vm";
+  const target = (input as Record<string, unknown>)["target"];
+  if (target === undefined) return "vm";
+  return (BASH_TARGETS as readonly unknown[]).includes(target) ? (target as BashTarget) : "invalid";
+};
+
+/** The node a `target: "node"` call names, or null — the tool resolves the single paired node. */
+export const bashNodeNameOf = (input: unknown): string | null => {
+  if (input === null || typeof input !== "object") return null;
+  const node = (input as Record<string, unknown>)["node"];
+  return typeof node === "string" && node !== "" ? node : null;
+};

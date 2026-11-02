@@ -602,22 +602,33 @@ const browserView = (step: ToolStep): ToolView => {
 };
 
 /**
- * The script a shell call ran. Both shell tools (`bash`, `bash_host`) take
- * it as `script`; `command` is read too for older stored calls. Kept as
- * written (newlines and all), so the copy button copies a runnable script.
+ * The script a shell call ran. `bash` takes it as `script`; `command` is
+ * read too for older stored calls. Kept as written (newlines and all), so
+ * the copy button copies a runnable script.
  */
 const scriptOf = (input: unknown): string => {
   const record = recordOf(input);
   return rawOf(record.script) ?? rawOf(record.command) ?? "";
 };
 
+/** Where a bash call ran, in owner words ("in its workspace VM", "on the host", "on node x"). */
+const bashWhere = (input: unknown): string => {
+  const target = recordOf(input).target;
+  if (target === "host") return "on the host";
+  if (target === "node") {
+    const node = rawOf(recordOf(input).node);
+    return node === undefined ? "on its node" : `on node ${node}`;
+  }
+  return "in its workspace VM";
+};
+
 const bashView = (step: ToolStep): ToolView => {
   const script = scriptOf(step.input);
-  const host = step.name === "bash_host";
+  const where = bashWhere(step.input);
   return {
     family: "code",
-    done: host ? "Ran a script on the host" : "Ran a script",
-    live: host ? "Running a host script…" : "Running a script…",
+    done: `Ran a script ${where}`,
+    live: `Running a script ${where}…`,
     detail: clip(flatOf(script), 44),
     structured: { t: "term", command: script, output: outputBesidesError(step) ?? "" },
   };
@@ -797,7 +808,6 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     case "task_spawn":
       return { kind: "human", view: taskView(step) };
     case "bash":
-    case "bash_host":
       return { kind: "human", view: bashView(step) };
     case "http_request":
       return { kind: "human", view: requestView(step) };

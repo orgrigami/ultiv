@@ -210,9 +210,9 @@ function DecisionCard({
                     className={item}
                     onClick={() => void decide("always", () => onDecide(true, true))}
                   >
-                    {alwaysAllowText(name).title}
+                    {alwaysAllowText(name, input).title}
                     <span className="text-muted-foreground text-xs">
-                      {alwaysAllowText(name).detail}
+                      {alwaysAllowText(name, input).detail}
                     </span>
                   </Menu.Item>
                 )}

@@ -65,7 +65,7 @@ export async function approvalRoutes(args: RouteArgs): Promise<boolean> {
     // (they apply again when the switch turns on).
     const switchRefusal =
       waiting !== undefined
-        ? await hostSwitchRefusal(mind, conversationId ?? "", waiting.name)
+        ? await hostSwitchRefusal(mind, conversationId ?? "", waiting.name, waiting.input)
         : null;
     // A stale decide (the call already resolved) is a 409, not a silent ok —
     // the chord path throws for the same race, and the surfaces agree. The

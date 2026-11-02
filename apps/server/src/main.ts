@@ -22,6 +22,7 @@ import {
   effectiveHostAccess,
   migrateOrg,
   migrateOwners,
+  migrateShellTargets,
   openMind,
   sealWebhookTokens,
 } from "@spriessen/mind";
@@ -101,6 +102,11 @@ export async function buildStack(options?: {
   // One-time, repeatable: every pre-sign-in owner label (guest, or whatever
   // an older client sent) moves to the ONE account before anything listens.
   const migration = await migrateOwners(mind.converse, { to: OWNER_ID });
+  // One-time, repeatable: the merged bash tool's stored exact rules move to
+  // their target form (`bash_host:=` → `bash@host:=`). Counts only, never a
+  // script (they may carry secrets).
+  const shellRules = await migrateShellTargets(mind.converse);
+  if (shellRules > 0) console.log(`bash: migrated ${shellRules} stored host rule(s) to targets`);
   const storageMove = migrateStorage({ to: OWNER_ID, from: migration.movedFrom });
   const movedRows =
     migration.sessions + migration.profiles + migration.tasks + migration.rooms + migration.mailbox;

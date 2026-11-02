@@ -241,12 +241,12 @@ describe("Profiles: rooms, removal, tool allowlists (offline, MemoryStorage)", (
     expect((await profiles.get("harry", http.id))?.policies.autoApprove).toEqual([
       "http_request:api.example.com",
     ]);
-    // The privileged host shell is never granted whole from a card: only the
-    // exact script on the card is saved.
-    expect(await profiles.allowTool("harry", http.id, "bash_host", { script: "ls" })).toEqual([
-      "bash_host:=ls",
-    ]);
-    expect((await profiles.get("harry", http.id))?.policies.autoApprove).not.toContain("bash_host");
+    // The merged bash tool is never granted whole from a host-target card:
+    // only the exact script pinned to the target is saved.
+    expect(
+      await profiles.allowTool("harry", http.id, "bash", { script: "ls", target: "host" }),
+    ).toEqual(["bash@host:=ls"]);
+    expect((await profiles.get("harry", http.id))?.policies.autoApprove).not.toContain("bash");
     // A profile with no pattern for the tool keeps today's bare-name grant.
     const plain = await profiles.create("harry", { name: "Plain", onboard: false });
     await profiles.allowTool("harry", plain.id, "bash", { script: "ls" });
