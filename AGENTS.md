@@ -28,7 +28,7 @@ Effect-first, AI-native web app as a pnpm-workspace monorepo. The **core is thre
 ## Commands (verified)
 
 - `vp check` — format + lint gate (`--fix` to apply). It does NOT run our project typechecks.
-- `vp exec tsc -p <pkg>/tsconfig.json` — the type gate, for each of `packages/contracts`, `packages/core`, `packages/ext`, `packages/mind`, `packages/about`, `apps/server`, `apps/web`. All seven must pass.
+- `vp exec tsc -p <pkg>/tsconfig.json` — the type gate, for each of `packages/contracts`, `packages/core`, `packages/ext`, `packages/mind`, `packages/about`, `apps/server`, `apps/web`, `apps/agent`. All eight must pass.
 - `vp test` — Vitest from the root over every workspace's tests (`packages/about`, `packages/contracts`, `packages/core`, `packages/ext`, `packages/mind`, `apps/server`, `apps/web`; one package: `vp run --filter @spriessen/core test` — `apps/web` has no `test` script, so filter by path there: `vp test apps/web`).
 - `vp -C apps/web build` — production build of `apps/web` (root `vp build` needs the `-C` target; `vpr build` wraps this).
 - `vp run smoke` — boots the whole server stack on an ephemeral port, offline (`apps/server/src/smoke.ts`; delegates to the server workspace script because `vp node` cannot resolve node inside a nested `vp run`), and exercises the REST surface: owner-scoped sessions, artifact upload/download, webhook auth, cron validation, task spawn.
@@ -48,7 +48,7 @@ Not run automatically (long-running or live):
 
 **The owner's live dev server runs in tmux session `ultiv`** (API on 8787 under `node --watch`, Vite on 5173; the tailnet serves them as `https://<mac>.ts.net` and `:8443`). Do NOT restart it: `--watch` already reloads on source and `.env` changes. Only if it errors or a dependency change forces it, restart it yourself in that tmux session and read its log. Smoke tests and screenshot stacks use a spare random port, never 8787/5173.
 
-**Gate for every change:** `vp check` → the seven `vp exec tsc -p …` → `vp test` → `vp -C apps/web build` → `vp run smoke`. Re-run smoke after any dependency change; a clean typecheck alone does not prove runtime ESM wiring.
+**Gate for every change:** `vp check` → the eight `vp exec tsc -p …` → `vp test` → `vp -C apps/web build` → `vp run smoke`. Re-run smoke after any dependency change; a clean typecheck alone does not prove runtime ESM wiring.
 
 ## Layout
 
