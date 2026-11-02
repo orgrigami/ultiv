@@ -28,6 +28,9 @@ const meOf = (deps: BotsToolDeps, conversationId: string) =>
 
 const listTool = (deps: BotsToolDeps) =>
   defineTool({
+    // No `callers` restriction: read-only discovery is script-callable too
+    // (codemode). Allowance scoping is unchanged — the allowlist filters the
+    // enabled set that model and scripts share.
     name: BOTS_LIST,
     description:
       "List your owner's bots: id, name, one-line role, whether you may message each, and " +
@@ -35,7 +38,6 @@ const listTool = (deps: BotsToolDeps) =>
     parameters: Type.Object({
       includeArchived: Type.Optional(Type.Boolean({ description: "Also list archived bots." })),
     }),
-    callers: ["model"],
     replay: "safe",
     execute: async (args, api) => {
       const me = meOf(deps, String(api.conversationId));
@@ -56,7 +58,6 @@ const infoTool = (deps: BotsToolDeps) =>
       "One bot's public profile by name or id: role, persona's first line, whether you may " +
       "message it (and it you), tool groups, busy/idle. Not its memory or files.",
     parameters: Type.Object({ bot: Type.String({ description: "The bot's name or id." }) }),
-    callers: ["model"],
     replay: "safe",
     execute: async (args, api) => {
       const me = meOf(deps, String(api.conversationId));

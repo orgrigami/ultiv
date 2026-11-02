@@ -78,8 +78,8 @@ const listTool = (deps: AdminDeps) =>
       "List the org's homes: the org itself and every department, each with its bots, VM size, " +
       "host-access state and first line of Instructions. Main bot only. Use it before " +
       "creating, moving or deleting so you name the right department.",
+    // Read-only, so script-callable: main-bot-only stays in execute (adminOf).
     parameters: Type.Object({}),
-    callers: ["model"],
     replay: "safe",
     execute: async (_args, api) => {
       const me = await adminOf(deps, String(api.conversationId));

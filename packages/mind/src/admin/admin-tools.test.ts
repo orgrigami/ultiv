@@ -220,4 +220,38 @@ describe("the admin tools", () => {
     expect(asked).toEqual(["bot_delete", "department_delete"]);
     await handle.close();
   });
+
+  it("lets scripts call the read-only discovery tools, never the mutating ones", async () => {
+    // No `callers` field = callable by model AND scripts (codemode). The
+    // mutating admin tools stay model-direct: a restart mid-script abandons
+    // an unfinished mutation, so org changes never batch inside a script.
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { profiles, org, converse, audit } = handle.mind;
+    await org.ensureOrg("owner-a", "Org A", true);
+    const scriptCallable = (
+      name: string,
+      tools: readonly { name?: string; callers?: readonly string[] }[],
+    ) => {
+      const tool = tools.find((entry) => entry.name === name);
+      if (tool === undefined) throw new Error(`missing ${name}`);
+      return tool.callers === undefined || tool.callers.includes("tools");
+    };
+    const tools = adminTools({ profiles, approvals: gate().approvals, audit, converse });
+    for (const name of ["bot_details", "departments_list"]) {
+      expect(scriptCallable(name, tools)).toBe(true);
+    }
+    for (const name of [
+      "bot_create",
+      "bot_update",
+      "bot_move",
+      "bot_pause",
+      "bot_delete",
+      "department_create",
+      "department_update",
+      "department_delete",
+    ]) {
+      expect(scriptCallable(name, tools)).toBe(false);
+    }
+    await handle.close();
+  });
 });

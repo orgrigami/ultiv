@@ -46,8 +46,10 @@ const detailsTool = (deps: AdminDeps) =>
       "One bot's full settings: home, role, model and effort, tool allowlist, sandbox, paused, " +
       "whether it is main, its host-access switch (read only) and the start of its persona and " +
       "Instructions. Main bot only. Read this before bot_update so you change the right thing.",
+    // Read-only, so script-callable: the main-bot-only rule stays in execute
+    // (adminOf reads the live org view per call) — a script gets the same
+    // word-for-word refusal a direct call would.
     parameters: Type.Object({ bot: botParam }),
-    callers: ["model"],
     replay: "safe",
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
