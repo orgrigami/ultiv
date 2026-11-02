@@ -5,6 +5,7 @@
  * /api/artifacts/:id, never in the transcript state.
  */
 import { useState } from "react";
+import { RowButton } from "@/components/ui/row-button";
 import type { AttachmentRef } from "@spriessen/contracts";
 import { api } from "@/lib/api";
 import { useOpenWork } from "@/lib/work-pane";
@@ -32,10 +33,9 @@ export function AttachmentChips({ attachments }: { attachments: readonly Attachm
     <span className="mt-1 flex flex-wrap items-end gap-1.5">
       {attachments.map((ref) =>
         ref.mime.startsWith("image/") ? (
-          <button
+          <RowButton
             key={ref.id}
-            type="button"
-            className="focus-visible:ring-ring/50 block overflow-hidden rounded-lg border border-border/70 focus-visible:ring-2 focus-visible:outline-none"
+            className="block overflow-hidden rounded-lg border border-border/70"
             onClick={() => preview(ref)}
             aria-label={`Open ${ref.name}`}
             title={ref.name}
@@ -46,7 +46,7 @@ export function AttachmentChips({ attachments }: { attachments: readonly Attachm
               className="size-20 object-cover"
               loading="lazy"
             />
-          </button>
+          </RowButton>
         ) : (
           <FileCard key={ref.id} file={ref} className="w-56" />
         ),

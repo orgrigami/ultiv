@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { TemplateInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
+import { ListCard } from "@/components/ui/list-card";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/select";
 import { useApp } from "@/lib/app-state";
@@ -59,7 +60,7 @@ export function DeptTemplates({ departmentId }: { departmentId: string }) {
   const from = (id: string): string =>
     others.find((row) => row.id === id)?.name ?? "another department";
   return (
-    <div className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+    <ListCard>
       {mine.length === 0 && theirs.length === 0 && (
         <EmptyState className="px-3 py-2.5">
           No templates yet. Publish a bot from here so other departments can copy it.
@@ -141,6 +142,6 @@ export function DeptTemplates({ departmentId }: { departmentId: string }) {
         </div>
       )}
       {error !== null && <ErrorState className="m-2" message={error} />}
-    </div>
+    </ListCard>
   );
 }

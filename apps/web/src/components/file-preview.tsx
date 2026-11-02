@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DownloadIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   CodeBlock,
   CodeBlockActions,
@@ -77,13 +78,9 @@ function MarkdownPreview({ file }: { file: FileRef }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setSource((value) => !value)}
-          className="readout text-muted-foreground hover:text-foreground rounded-md border px-2 py-1 outline-none"
-        >
+        <Button variant="outline" size="xs" onClick={() => setSource((value) => !value)}>
           {source ? "Rendered" : "Source"}
-        </button>
+        </Button>
       </div>
       {source ? (
         <TextPreview file={file} text={text} />
@@ -144,7 +141,7 @@ function DelimitedPreview({ file }: { file: FileRef }) {
   const { text, failed } = useArtifactText(file.id);
   const rows = useMemo(() => {
     if (text === null) return [];
-    const delimiter = file.name.toLowerCase().endsWith(".tsv") ? "\t" : ",";
+    const delimiter = file.name.toLowerCase("en").endsWith(".tsv") ? "\t" : ",";
     return parseDelimited(text, delimiter)
       .slice(0, CSV_ROWS)
       .map((row) => row.slice(0, CSV_COLS));

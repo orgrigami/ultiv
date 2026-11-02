@@ -90,7 +90,7 @@ function FileEditor({
           disabled={busy || problem !== null}
           onClick={() => void settle(() => api.botFileSave(botId, file, draft))}
         >
-          Save {meta.label.toLowerCase()}
+          Save {meta.label.toLowerCase("en")}
         </Button>
         <Button
           size="sm"
@@ -161,7 +161,7 @@ export function BotFilesEditor({ botId, onSaved }: { botId: string; onSaved: () 
   if (files === null) return <SkeletonRows label="Loading persona and instructions" />;
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeader title="Persona and Instructions" />
+      <SectionHeader title="Persona and instructions" />
       <FileEditor
         key={`${botId}-p`}
         botId={botId}

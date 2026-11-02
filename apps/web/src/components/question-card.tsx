@@ -10,6 +10,7 @@ import type { DecideOutcome } from "@/components/approval-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { answerInput, MAX_ANSWER_CHARS, type QuestionAsk } from "@/lib/question";
+import { Tile } from "@/components/ui/tile";
 
 export function QuestionCard({
   ask,
@@ -47,10 +48,10 @@ export function QuestionCard({
   };
 
   return (
-    <div
+    <Tile
       role="group"
       aria-label="Question for you"
-      className="bg-card border-ring/50 flex w-full flex-col gap-3 rounded-xl border p-3"
+      className="flex w-full flex-col gap-3 p-3"
     >
       <p className="flex items-start gap-2 text-sm">
         <MessageCircleQuestionIcon className="text-live mt-0.5 size-4 shrink-0" aria-hidden />
@@ -64,7 +65,8 @@ export function QuestionCard({
           <Button
             key={`${index}-${option.label}`}
             variant="outline"
-            className="h-auto min-h-11 w-full flex-col items-start gap-0.5 py-2 text-left whitespace-normal sm:min-h-9"
+            size="fit"
+            className="w-full flex-col items-start text-left whitespace-normal"
             disabled={busy}
             onClick={() => answer(`option-${index}`, option.label)}
           >
@@ -112,6 +114,6 @@ export function QuestionCard({
       >
         {sending === "dismiss" ? "Sending…" : "Dismiss"}
       </Button>
-    </div>
+    </Tile>
   );
 }

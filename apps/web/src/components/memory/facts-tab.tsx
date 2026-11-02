@@ -29,8 +29,8 @@ type View = "current" | "history";
 
 const matches = (fact: MemoryV2Fact, query: string): boolean =>
   query === "" ||
-  fact.text.toLowerCase().includes(query) ||
-  fact.tags.some((tag) => tag.toLowerCase().includes(query));
+  fact.text.toLowerCase("en").includes(query) ||
+  fact.tags.some((tag) => tag.toLowerCase("en").includes(query));
 
 export function FactsTab({ data, profileId, name, reload, initialQuery }: TabProps) {
   const [query, setQuery] = useState(initialQuery ?? "");
@@ -38,7 +38,7 @@ export function FactsTab({ data, profileId, name, reload, initialQuery }: TabPro
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim().toLowerCase("en");
   const botFacts = data.facts.filter((fact) => fact.status !== "forgotten");
   const sharedFacts = data.sharedFacts.filter((fact) => fact.status !== "forgotten");
 
@@ -124,20 +124,15 @@ function ViewToggle({ view, onView }: { view: View; onView: (next: View) => void
       className="border-border flex shrink-0 gap-0.5 rounded-lg border p-0.5"
     >
       {(["current", "history"] as const).map((option) => (
-        <button
+        <Button
           key={option}
-          type="button"
+          variant="tab"
+          size="xs"
           aria-pressed={view === option}
           onClick={() => onView(option)}
-          className={cn(
-            "focus-visible:ring-ring/50 pointer-coarse:min-h-11 rounded-md px-2 py-1 text-xs font-medium outline-none focus-visible:ring-3",
-            view === option
-              ? "bg-secondary text-secondary-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
         >
           {option === "current" ? t.viewCurrent : t.viewHistory}
-        </button>
+        </Button>
       ))}
     </div>
   );

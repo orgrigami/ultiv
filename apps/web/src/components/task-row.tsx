@@ -6,6 +6,7 @@
 import type { TaskInfo } from "@spriessen/contracts";
 import { TaskStatusIcon } from "@/components/task-status-icon";
 import { StopTask } from "@/components/task-sheet/stop-task";
+import { RowButton } from "@/components/ui/row-button";
 import { taskElapsed, taskLatest, taskStatusWord, taskTitle } from "@/lib/task-text";
 import { useOpenWork } from "@/lib/work-pane";
 
@@ -24,10 +25,9 @@ export function TaskRow({
   return (
     <li className="flex items-center gap-2.5 rounded-2xl px-2.5 py-1.5">
       <TaskStatusIcon status={task.status} />
-      <button
-        type="button"
+      <RowButton
         onClick={() => openWork?.({ kind: "task", task })}
-        className="focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center rounded-lg text-left outline-none focus-visible:ring-3"
+        className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg"
         title={task.prompt}
       >
         <span className="truncate text-sm font-medium">{taskTitle(task)}</span>
@@ -35,7 +35,7 @@ export function TaskRow({
           {taskStatusWord(task.status)} · {taskElapsed(task, now)}
           {latest !== undefined && ` · ${latest}`}
         </span>
-      </button>
+      </RowButton>
       {task.status === "running" && <StopTask id={task.id} onStopped={onChanged} />}
     </li>
   );

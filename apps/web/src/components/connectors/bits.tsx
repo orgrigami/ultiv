@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { McpState, VaultItemInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { NewKeyField } from "@/components/secure/new-key";
 import { stateTone, type SecretRow } from "@/lib/connector-text";
@@ -44,17 +45,10 @@ export function ToggleRow(props: {
           <span className="text-muted-foreground text-xs">{props.hint}</span>
         )}
       </span>
-      <input
-        type="checkbox"
-        role="switch"
-        className="peer sr-only"
-        checked={props.checked}
-        disabled={props.disabled}
-        onChange={(event) => props.onChange(event.target.checked)}
-      />
+      <Checkbox className="peer sr-only" checked={props.checked} disabled={props.disabled} onCheckedChange={(on) => props.onChange(on === true)} />
       <span
         aria-hidden
-        className="bg-input peer-checked:bg-primary peer-focus-visible:ring-ring/50 relative h-6 w-10 shrink-0 rounded-full transition-colors peer-focus-visible:ring-3 motion-reduce:transition-none dark:bg-input/80 peer-checked:*:translate-x-4"
+        className="bg-input peer-data-checked:bg-primary peer-focus-visible:ring-ring/50 relative h-6 w-10 shrink-0 rounded-full transition-colors peer-focus-visible:ring-3 motion-reduce:transition-none dark:bg-input/80 peer-data-checked:*:translate-x-4"
       >
         <span className="bg-background absolute top-0.5 left-0.5 size-5 rounded-full shadow-sm transition-transform motion-reduce:transition-none" />
       </span>
@@ -70,12 +64,7 @@ export function Chip(props: { label: string; checked: boolean; onChange: (on: bo
         props.checked ? "border-primary bg-primary/10 font-medium" : "text-muted-foreground",
       )}
     >
-      <input
-        type="checkbox"
-        className="sr-only"
-        checked={props.checked}
-        onChange={(event) => props.onChange(event.target.checked)}
-      />
+      <Checkbox className="sr-only" checked={props.checked} onCheckedChange={(on) => props.onChange(on === true)} />
       {props.label}
     </label>
   );
@@ -208,18 +197,14 @@ export function ParamRows(props: {
     <div className="flex flex-col gap-2">
       {props.rows.map((row, index) => (
         <div key={index} className="flex flex-wrap items-center gap-2 rounded-lg border p-2">
-          <Input
-            className="min-w-28 flex-1 font-mono"
-            aria-label="Parameter name"
+          <Input mono className="min-w-28 flex-1" aria-label="Parameter name"
             placeholder="access_type"
             autoComplete="off"
             spellCheck={false}
             value={row.name}
             onChange={(event) => set(index, { name: event.target.value })}
           />
-          <Input
-            className="min-w-28 flex-[2] font-mono"
-            aria-label="Parameter value"
+          <Input mono className="min-w-28 flex-[2]" aria-label="Parameter value"
             placeholder="offline"
             autoComplete="off"
             spellCheck={false}

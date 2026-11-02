@@ -11,7 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { SectionHeader } from "@/components/ui/section-header";
+import { Badge } from "@/components/ui/badge";
+import { ListCard } from "@/components/ui/list-card";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import type { NodeInfo } from "@spriessen/contracts";
@@ -67,11 +70,11 @@ export function NodesPanel() {
           No nodes paired yet — pair one to let your bots run scripts on another machine you own.
         </EmptyState>
       ) : (
-        <ul className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+        <ListCard as="ul">
           {nodes.map((node) => (
             <NodeRow key={node.id} node={node} onChanged={load} />
           ))}
-        </ul>
+        </ListCard>
       )}
       <PairDialog
         open={pairing}
@@ -115,15 +118,9 @@ function NodeRow({ node, onChanged }: { node: NodeInfo; onChanged: () => Promise
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-2 text-sm">
           {node.name}
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              paired ? "bg-ok/15 text-ok" : "bg-muted text-muted-foreground",
-              paired && node.connected && "bg-live/15 text-live",
-            )}
-          >
+          <Badge variant={paired ? (node.connected ? "live" : "ok") : "muted"}>
             {paired ? (node.connected ? "connected" : "paired") : "revoked"}
-          </span>
+          </Badge>
         </span>
         <span className="text-muted-foreground font-mono text-xs truncate">
           {rootsText(node.roots)} · last seen {relative(node.lastSeenAt)}
@@ -183,10 +180,7 @@ function PairDialog({
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Allowed roots (one absolute path per line)
-          <textarea
-            className="bg-background border-border text-sm rounded-md border p-2 font-mono"
-            rows={3}
-            value={roots}
+          <Textarea mono rows={3} value={roots}
             onChange={(event) => setRoots(event.target.value)}
             placeholder={"/home/me/repos"}
           />

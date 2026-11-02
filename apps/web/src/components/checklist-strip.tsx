@@ -11,6 +11,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { ChecklistDetails } from "@spriessen/contracts";
 import { ChecklistBox } from "./checklist-card.tsx";
 import { DONE_LINGER_MS, planKey, stripLine } from "../lib/checklist-strip.ts";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "../lib/utils.ts";
 
 /** Whether a finished plan should still show: only right after it finished here. */
@@ -37,12 +38,11 @@ function StripBody({ list }: { list: ChecklistDetails | null }) {
   const label = `Tasks, ${line.done} of ${line.total} done`;
   return (
     <div className="animate-in fade-in slide-in-from-bottom-1 chrome-float flex w-full max-w-md flex-col self-center overflow-hidden rounded-2xl duration-200 motion-reduce:animate-none">
-      <button
-        type="button"
+      <RowButton
         aria-expanded={open}
         aria-label={open ? `${label}. Hide the steps` : `${label}. Show the steps`}
         onClick={() => setOpen((now) => !now)}
-        className="focus-visible:ring-ring/50 press flex min-h-11 w-full cursor-pointer items-center gap-2 px-3.5 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        className="press flex min-h-11 w-full items-center gap-2 px-3.5 text-sm focus-visible:ring-inset"
       >
         <ChecklistBox status={line.finished ? "done" : "in_progress"} />
         <span className="shrink-0 font-medium">Tasks</span>
@@ -64,7 +64,7 @@ function StripBody({ list }: { list: ChecklistDetails | null }) {
             open && "rotate-180",
           )}
         />
-      </button>
+      </RowButton>
       {open && (
         <ol className="border-border/60 flex max-h-[min(30dvh,16rem)] flex-col gap-2 overflow-y-auto border-t px-3.5 py-3">
           {list.items.map((item, index) => (

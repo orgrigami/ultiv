@@ -64,10 +64,10 @@ function WhereFields({ form, patch }: { form: ConnectorForm; patch: Patch }) {
       ) : (
         <>
           <Input
+            mono
             aria-label="Command"
             autoComplete="off"
             spellCheck={false}
-            className="font-mono"
             placeholder="npx -y @modelcontextprotocol/server-everything"
             value={form.commandLine}
             onChange={(event) => patch({ commandLine: event.target.value })}
@@ -263,10 +263,10 @@ export function ConnectorFormView(props: {
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" className="min-h-11 flex-1" disabled={busy}>
+        <Button type="submit" size="xl" className="flex-1" disabled={busy}>
           {busy ? "Saving…" : props.submitLabel}
         </Button>
-        <Button type="button" variant="outline" className="min-h-11" onClick={props.onCancel}>
+        <Button type="button" variant="outline" size="xl" onClick={props.onCancel}>
           Cancel
         </Button>
       </div>

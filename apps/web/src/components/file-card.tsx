@@ -17,6 +17,7 @@ import {
   TableIcon,
 } from "lucide-react";
 import { FilePreviewDialog } from "@/components/file-preview";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useOpenWork } from "@/lib/work-pane";
 import {
@@ -105,14 +106,9 @@ export function FileCard({ file, className }: { file: FileRef; className?: strin
         </span>
       </span>
       {!missing && (
-        <button
-          type="button"
-          aria-label={`Preview ${known.name}`}
-          onClick={preview}
-          className={ACTION}
-        >
+        <Button variant="quiet" size="icon" className="shrink-0" aria-label={`Preview ${known.name}`} onClick={preview}>
           <EyeIcon className="size-4" />
-        </button>
+        </Button>
       )}
       <a
         href={api.artifactUrl(known.id, true)}

@@ -6,6 +6,7 @@
  * knows takes a humanized title and raw receipts as its body.
  */
 import { memo, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import {
   BrainIcon,
   CalendarClockIcon,
@@ -144,13 +145,14 @@ function Body({
           <span key={tag}>{tag}</span>
         ))}
         {view.lookup !== undefined && onOpenMemory !== undefined && fragment !== undefined && (
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="inline"
             onClick={() => onOpenMemory(fragment)}
-            className="hover:text-foreground inline-flex cursor-pointer items-center gap-0.5 underline-offset-2 hover:underline"
+            className="items-center underline-offset-2 hover:underline"
           >
             Open in Memory
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -186,14 +188,15 @@ function LearnedUndo({ learned }: { learned: LearnedRef }) {
   return (
     <div className="text-muted-foreground/80 mb-1 ml-[3.75rem] pl-3 text-xs">
       {step === "idle" || step === "busy" ? (
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="inline"
           disabled={step === "busy"}
           onClick={() => void undo()}
-          className="hover:text-foreground inline-flex min-h-6 cursor-pointer items-center underline-offset-2 hover:underline disabled:cursor-default disabled:opacity-60"
+          className="items-center underline-offset-2 hover:underline disabled:cursor-default disabled:opacity-60"
         >
           {step === "busy" ? "Undoing…" : "Undo"}
-        </button>
+        </Button>
       ) : (
         <span role="status">{UNDO_NOTES[step]}</span>
       )}

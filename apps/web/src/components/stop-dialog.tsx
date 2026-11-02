@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { plural } from "@/lib/plural";
 
 export function StopDialog({
   open,
@@ -33,7 +34,7 @@ export function StopDialog({
       setBusy(false);
     }
   };
-  const noun = running === 1 ? "task" : "tasks";
+  const noun = plural(running, "task", "tasks");
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -45,26 +46,17 @@ export function StopDialog({
         </p>
         {error !== null && <p className="text-destructive mt-2 text-sm">{error}</p>}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
-          <Button
-            variant="destructive"
-            className="pointer-coarse:min-h-11"
-            disabled={busy}
+          <Button variant="destructive" disabled={busy}
             onClick={() => void stop(true)}
           >
             Stop reply and {noun}
           </Button>
-          <Button
-            variant="outline"
-            className="pointer-coarse:min-h-11"
-            disabled={busy}
+          <Button variant="outline" disabled={busy}
             onClick={() => void stop(false)}
           >
             Stop reply only
           </Button>
-          <Button
-            variant="ghost"
-            className="pointer-coarse:min-h-11 sm:mr-auto"
-            disabled={busy}
+          <Button variant="ghost" className="sm:mr-auto" disabled={busy}
             onClick={() => onOpenChange(false)}
           >
             Keep going

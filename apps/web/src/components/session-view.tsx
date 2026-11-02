@@ -106,8 +106,9 @@ function JumpToLatest({ bottom, onJump }: { bottom: string; onJump: () => void }
     <Button
       variant="outline"
       size="sm"
+      pill
       onClick={onJump}
-      className="bg-background/70 absolute left-1/2 z-10 -translate-x-1/2 rounded-full shadow-sm backdrop-blur-md"
+      className="chrome-float absolute left-1/2 z-10 -translate-x-1/2"
       style={{ bottom }}
     >
       <ArrowDownIcon /> Jump to latest

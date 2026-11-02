@@ -12,6 +12,7 @@ import { TaskStatusIcon } from "@/components/task-status-icon";
 import { pillLabel, pillTasks, taskLatest } from "@/lib/task-text";
 import type { ChatTasks } from "@/lib/use-tasks";
 import { useNow } from "@/lib/use-now";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 const glass = "chrome-float";
@@ -45,14 +46,13 @@ export function TasksPill({ chatTasks }: { chatTasks: ChatTasks }) {
           ))}
         </ul>
       )}
-      <button
-        type="button"
+      <RowButton
         aria-expanded={open}
         aria-controls="task-pill-list"
         onClick={() => setOpen((value) => !value)}
         className={cn(
           glass,
-          "focus-visible:ring-ring/50 flex min-h-11 max-w-full cursor-pointer items-center gap-2 rounded-full px-4 text-sm outline-none focus-visible:ring-3",
+          "flex min-h-11 max-w-full items-center gap-2 rounded-full px-4 text-sm",
         )}
       >
         <TaskStatusIcon status={running.length > 0 ? "running" : lead.status} />
@@ -67,7 +67,7 @@ export function TasksPill({ chatTasks }: { chatTasks: ChatTasks }) {
             open && "rotate-180",
           )}
         />
-      </button>
+      </RowButton>
     </div>
   );
 }

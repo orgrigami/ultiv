@@ -21,10 +21,7 @@ export function StopTask({ id, onStopped }: { id: string; onStopped: () => void 
   };
   if (!asking)
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="shrink-0 pointer-coarse:min-h-11"
+      <Button variant="ghost" size="sm" className="shrink-0"
         onClick={() => setAsking(true)}
       >
         Stop
@@ -37,18 +34,12 @@ export function StopTask({ id, onStopped }: { id: string; onStopped: () => void 
           Couldn't stop
         </span>
       )}
-      <Button
-        variant="destructive"
-        size="sm"
-        className="pointer-coarse:min-h-11"
+      <Button variant="destructive" size="sm">
         onClick={() => void stop()}
       >
         Stop task
       </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="pointer-coarse:min-h-11"
+      <Button variant="ghost" size="sm">
         onClick={() => setAsking(false)}
       >
         Keep

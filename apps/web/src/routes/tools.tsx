@@ -5,6 +5,7 @@
  */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Page } from "@/components/page";
+import { Button } from "@/components/ui/button";
 import { ConnectorsPanel } from "@/components/connectors/connectors-panel";
 import { SkillsContent } from "@/components/skills-panel";
 import { VaultContent } from "@/components/vault-panel";
@@ -37,21 +38,17 @@ function ToolsPage() {
         className="bg-muted/60 mb-4 inline-flex self-start gap-1 rounded-xl p-1"
       >
         {TABS.map((entry) => (
-          <Link
+          <Button
             key={entry.id}
-            to="/tools"
-            search={entry.id === "connectors" ? {} : { tab: entry.id }}
+            variant="segment"
+            size="lg"
+            nativeButton={false}
             role="tab"
             aria-current={active === entry.id ? "page" : undefined}
-            className={cn(
-              "focus-visible:ring-ring/50 rounded-lg px-3 py-1.5 text-sm outline-none focus-visible:ring-3",
-              active === entry.id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+            render={<Link to="/tools" search={entry.id === "connectors" ? {} : { tab: entry.id }} />}
           >
             {entry.label}
-          </Link>
+          </Button>
         ))}
       </div>
       {active === "connectors" && <ConnectorsPanel profiles={sessions.profiles} />}

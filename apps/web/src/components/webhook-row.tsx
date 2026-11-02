@@ -34,8 +34,7 @@ function TestFire({ hook, onChanged }: { hook: WebhookInfo; onChanged: () => Pro
         void run();
       }}
     >
-      <Input
-        className="min-w-0 flex-1 font-mono"
+      <Input mono className="min-w-0 flex-1"
         value={payload}
         onChange={(event) => setPayload(event.target.value)}
         aria-label={`Test payload for ${hook.name ?? "this webhook"}`}
@@ -264,9 +263,7 @@ export function CreateWebhook({
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-            <Textarea
-              aria-label="JSON Schema (optional)"
-              className="min-h-20 font-mono text-sm"
+            <Textarea mono aria-label="JSON Schema (optional)"
               placeholder='Expected format as JSON Schema (optional), e.g. {"type":"object","required":["event"]}'
               value={schema}
               onChange={(event) => setSchema(event.target.value)}

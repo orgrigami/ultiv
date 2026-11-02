@@ -44,8 +44,9 @@ export function EmptyChat({
           <Button
             key={text}
             variant="outline"
-            size="sm"
-            className="h-auto rounded-full py-1.5 whitespace-normal"
+            size="fit"
+            pill
+            className="whitespace-normal"
             onClick={() => onPick(text)}
           >
             {text}

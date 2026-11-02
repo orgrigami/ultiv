@@ -6,6 +6,7 @@
 import { CheckIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ListCard } from "@/components/ui/list-card";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { orgApi, type SharedMemory } from "@/lib/org-api";
@@ -44,7 +45,7 @@ export function DeptMemory({ departmentId }: { departmentId: string }) {
     }
   };
   return (
-    <div className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+    <ListCard>
       {open.map((proposal) => (
         <div key={proposal.id} className="flex items-center gap-2 px-3 py-2.5">
           <span className="text-ui min-w-0 flex-1">
@@ -87,6 +88,6 @@ export function DeptMemory({ departmentId }: { departmentId: string }) {
         </p>
       )}
       {error !== null && <ErrorState className="m-2" message={error} />}
-    </div>
+    </ListCard>
   );
 }

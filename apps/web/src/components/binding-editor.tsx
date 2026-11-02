@@ -20,6 +20,7 @@ import {
   type BindingDraft,
 } from "@/lib/binding-text";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /** A toggle chip: a checkbox that reads as a pill. */
 function Chip(props: { label: string; checked: boolean; onChange: (on: boolean) => void }) {
@@ -30,12 +31,7 @@ function Chip(props: { label: string; checked: boolean; onChange: (on: boolean) 
         props.checked ? "border-primary bg-primary/10 font-medium" : "text-muted-foreground",
       )}
     >
-      <input
-        type="checkbox"
-        className="sr-only"
-        checked={props.checked}
-        onChange={(event) => props.onChange(event.target.checked)}
-      />
+      <Checkbox className="sr-only" checked={props.checked} onCheckedChange={(on) => props.onChange(on === true)} />
       {props.label}
     </label>
   );
@@ -174,12 +170,7 @@ export function BindingEditor(props: {
       <AuthField draft={draft} update={update} />
       <BotsField draft={draft} profiles={props.profiles} update={update} />
       <label className="flex min-h-11 items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="size-4"
-          checked={draft.allowLocalhostHttp}
-          onChange={(event) => update({ allowLocalhostHttp: event.target.checked })}
-        />
+        <Checkbox checked={draft.allowLocalhostHttp} onCheckedChange={(on) => update({ allowLocalhostHttp: on === true })} />
         Allow plain http to localhost (development only)
       </label>
       {error !== null && <p className="text-destructive text-sm">{error}</p>}

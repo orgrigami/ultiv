@@ -14,6 +14,7 @@ import { InputRecord } from "@/components/tool-bodies";
 import { DevDetails } from "@/components/ui/dev-details";
 import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
+import { MenuPopup } from "@/components/ui/menu-popup";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
 import { QuestionCard } from "@/components/question-card";
@@ -21,6 +22,7 @@ import { SecretCard, secretAskOf } from "@/components/secure/secret-card";
 import { alwaysAllowText, canAlwaysAllow, describeTool, hintOf } from "@/lib/approval-text";
 import { ASK_USER_QUESTION, questionOf } from "@/lib/question";
 import { cn } from "@/lib/utils";
+import { Tile } from "@/components/ui/tile";
 
 export interface DecideOutcome {
   /** The autoApprove entries "always allow" stored; 0 = the call stays gated by its pattern. */
@@ -126,13 +128,10 @@ function DecisionCard({
     "data-highlighted:bg-muted focus-visible:ring-ring/50 focus-visible:ring-3 flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm outline-none pointer-coarse:min-h-11";
 
   return (
-    <div
+    <Tile
       role="group"
       aria-label="Approval needed"
-      className={cn(
-        "bg-card flex w-full flex-col gap-2 rounded-xl border p-3",
-        risky ? "border-destructive/60" : "border-ring/50",
-      )}
+      className={cn("flex w-full flex-col gap-2 p-3", risky ? "border-destructive/60" : "border-ring/50")}
     >
       <p className="flex items-start gap-2 text-sm font-medium">
         <Mark
@@ -156,20 +155,15 @@ function DecisionCard({
         {risk}
       </p>
       {reason !== null && reason !== undefined && reason !== "" && (
-        <p className="text-muted-foreground border-l-2 border-border pl-2 text-xs italic">
+        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">
           {reason}
         </p>
       )}
       {change !== null && <ChangeDetails change={change} />}
-      <button
-        type="button"
-        aria-expanded={details}
-        onClick={() => setDetails((open) => !open)}
-        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 flex w-fit cursor-pointer items-center gap-1 rounded-md text-xs outline-none focus-visible:ring-3 pointer-coarse:min-h-11"
-      >
+      <Button variant="quiet" size="xs" className="w-fit" aria-expanded={details} onClick={() => setDetails((open) => !open)}>
         <ChevronRightIcon className={cn("size-3.5 transition-transform", details && "rotate-90")} />
         Details
-      </button>
+      </Button>
       {details && (
         <div className="flex flex-col gap-2">
           <p className="section-label">{name}</p>
@@ -204,7 +198,7 @@ function DecisionCard({
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner side="top" align="end" sideOffset={6} className="z-50">
-              <Menu.Popup className="bg-popover text-popover-foreground w-64 rounded-xl border p-1 shadow-lg outline-none">
+              <MenuPopup className="w-64">
                 {canAlwaysAllow(name) && (
                   <Menu.Item
                     className={item}
@@ -225,7 +219,7 @@ function DecisionCard({
                     Decline and tell the bot you'll do it yourself.
                   </span>
                 </Menu.Item>
-              </Menu.Popup>
+              </MenuPopup>
             </Menu.Positioner>
           </Menu.Portal>
         </Menu.Root>
@@ -248,6 +242,6 @@ function DecisionCard({
           )}
         </Button>
       </div>
-    </div>
+    </Tile>
   );
 }

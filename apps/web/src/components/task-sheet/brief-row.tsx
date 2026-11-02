@@ -1,6 +1,7 @@
 /** The task's brief, folded to a two-line preview; tap to read it all. */
 import { useId, useState } from "react";
 import { ChevronDownIcon, FileTextIcon } from "lucide-react";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 export function BriefRow({ brief }: { brief: string }) {
@@ -8,12 +9,11 @@ export function BriefRow({ brief }: { brief: string }) {
   const id = useId();
   return (
     <div className="bg-muted/40 rounded-xl">
-      <button
-        type="button"
+      <RowButton
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((value) => !value)}
-        className="focus-visible:ring-ring/50 flex min-h-11 w-full cursor-pointer items-start gap-2.5 rounded-xl px-3 py-2.5 text-left outline-none focus-visible:ring-3"
+        className="flex min-h-11 w-full items-start gap-2.5 rounded-xl px-3 py-2.5"
       >
         <FileTextIcon aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
         <span className="min-w-0 flex-1">
@@ -35,7 +35,7 @@ export function BriefRow({ brief }: { brief: string }) {
             open && "rotate-180",
           )}
         />
-      </button>
+      </RowButton>
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import { BotAvatar } from "@/components/bot-avatar";
 import { BrandMark } from "@/components/brand-mark";
 import { cn } from "@/lib/utils";
+import { Tile } from "@/components/ui/tile";
 
 export function CharacterEmpty({
   title,
@@ -20,11 +21,9 @@ export function CharacterEmpty({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        "bg-card flex flex-col items-center gap-1.5 rounded-3xl border px-4 py-8 text-center",
-        className,
-      )}
+    <Tile
+      radius="3xl"
+      className={cn("flex flex-col items-center gap-1.5 px-4 py-8 text-center", className)}
     >
       {bot === undefined ? (
         <BrandMark className="mb-1 size-12" />
@@ -35,6 +34,6 @@ export function CharacterEmpty({
       {children !== undefined && (
         <p className="text-muted-foreground max-w-xs text-sm">{children}</p>
       )}
-    </div>
+    </Tile>
   );
 }

@@ -29,9 +29,7 @@ export function BrandLockup({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center gap-2", className)}>
       <BrandMark />
-      <span className="font-heading text-[1.0625rem] font-semibold tracking-tight">
-        {BRAND.wordmark}
-      </span>
+      <span className="font-heading text-base font-semibold">{BRAND.wordmark}</span>
     </span>
   );
 }

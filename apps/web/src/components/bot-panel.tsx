@@ -5,6 +5,7 @@
  * and the Crew page render the same list.
  */
 import { Popover } from "@base-ui/react/popover";
+import { RowButton } from "@/components/ui/row-button";
 import { useNavigate } from "@tanstack/react-router";
 import { BrainIcon, PlusIcon, UserRoundCogIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import { useApp } from "@/lib/app-state";
 import { useNow } from "@/lib/use-now";
 
 const row =
-  "hover:bg-muted focus-visible:bg-muted flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-1.5 text-left text-sm outline-none";
+  "hover:bg-muted focus-visible:bg-muted flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-sm";
 
 function UtilityRow({
   icon: Icon,
@@ -66,7 +67,7 @@ export function BotPanel({
     <>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="center" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover/95 text-popover-foreground flex max-h-[min(28rem,70dvh)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-y-auto rounded-xl border p-1.5 shadow-lg backdrop-blur-xl outline-none">
+          <Popover.Popup className="bg-popover/95 text-popover-foreground flex max-h-[min(28rem,70dvh)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-y-auto rounded-xl border p-1.5 shadow-lg backdrop-blur-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <CrewList
               variant="menu"
               activeId={currentId}
@@ -93,12 +94,12 @@ export function BotPanel({
                 onClick={() => void navigate({ to: "/crew/$botId", params: { botId: current.id } })}
               />
             )}
-            <button type="button" className={row} onClick={() => setCreating(true)}>
+            <RowButton className={row} onClick={() => setCreating(true)}>
               <span className="bg-muted inline-flex size-7 shrink-0 items-center justify-center rounded-full">
                 <PlusIcon className="size-4" />
               </span>
               New bot
-            </button>
+            </RowButton>
             <UtilityRow
               icon={UsersIcon}
               label="All of the crew"

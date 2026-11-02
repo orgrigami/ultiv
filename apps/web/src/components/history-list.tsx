@@ -5,6 +5,8 @@ import { useNewChat, useOpenChat } from "@/components/app-nav";
 import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import { RowButton } from "@/components/ui/row-button";
 import { Input } from "@/components/ui/input";
 import { useApp } from "@/lib/app-state";
 import { pastChats } from "@/lib/chats";
@@ -36,17 +38,20 @@ export function HistoryList() {
             aria-hidden
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
           />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find a chat or a bot"
-            className="h-10 rounded-full pl-9"
-          />
+          <InputGroup className="h-10 rounded-full">
+            <InputGroupInput
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Find a chat or a bot"
+              className="pl-9"
+            />
+          </InputGroup>
         </label>
         <Button
           variant="outline"
-          className="h-10 rounded-full"
+          size="xl"
+          pill
           disabled={!newChat.ready}
           title={newChat.ready ? undefined : "Waiting for the server"}
           onClick={() => void newChat.start()}
@@ -66,10 +71,9 @@ export function HistoryList() {
         <ul aria-label="Past chats" className="bg-card divide-border divide-y rounded-2xl border">
           {rows.map((row) => (
             <li key={row.id} className="flex items-center gap-1 pr-1">
-              <button
-                type="button"
+              <RowButton
                 onClick={() => open(row)}
-                className="hover:bg-muted/60 focus-visible:ring-ring/50 press flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-2xl py-2 pl-3 text-left outline-none focus-visible:ring-3"
+                className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2 pl-3"
               >
                 <BotAvatar id={row.botId} name={row.botName} />
                 <span className="flex min-w-0 flex-1 flex-col">
@@ -78,7 +82,7 @@ export function HistoryList() {
                     {row.main ? "Main chat" : row.botName} · {formatWhen(row.at)}
                   </span>
                 </span>
-              </button>
+              </RowButton>
               {!row.main && (
                 <ConfirmDialog
                   title="Delete this chat?"

@@ -26,6 +26,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { formatWhen } from "@/lib/format";
 import type { NeedsItem, NeedsKind } from "@/lib/needs-you";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 import { useOpenWork } from "@/lib/work-pane";
 
@@ -155,10 +156,9 @@ export function NeedsList({ className }: { className?: string }) {
             return (
               <li key={item.id} className="flex flex-col">
                 <div className="flex items-center gap-1 pr-1">
-                  <button
-                    type="button"
+                  <RowButton
                     onClick={() => open(item)}
-                    className="hover:bg-muted/60 focus-visible:ring-ring/50 press flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-2xl py-2.5 pl-3 text-left outline-none focus-visible:ring-3"
+                    className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2.5 pl-3"
                   >
                     <span className="relative shrink-0">
                       <BotAvatar id={item.botId} name={item.botName} />

@@ -45,7 +45,8 @@ export function QueuedChips({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="shrink-0 rounded-full pointer-coarse:size-11"
+              pill
+              className="shrink-0"
               aria-label={`Cancel queued message: ${displayText(item.text)}`}
               title="Cancel"
               onClick={() => onWithdraw(item.id)}
@@ -60,11 +61,7 @@ export function QueuedChips({
       ))}
       {stalled && onRetry !== undefined && (
         <li className="flex self-end">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-full"
+          <Button type="button" variant="outline" size="sm" pill
             aria-label={
               queued.length === 1
                 ? "Retry: send the queued message"

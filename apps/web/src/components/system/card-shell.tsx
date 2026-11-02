@@ -4,6 +4,7 @@
  * optional body. Fades/slides in once, still under reduced motion.
  */
 import { formatClock, formatFull } from "@/lib/format";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 const tones = {
@@ -64,14 +65,13 @@ export function ShowMore({
   controls: string;
 }) {
   return (
-    <button
-      type="button"
+    <RowButton
       aria-expanded={open}
       aria-controls={controls}
       onClick={onToggle}
-      className="text-primary focus-visible:ring-ring/50 -ml-1 cursor-pointer rounded-md px-1 text-xs font-medium outline-none hover:underline focus-visible:ring-3 pointer-coarse:min-h-11"
+      className="text-primary -ml-1 rounded-md px-1 text-xs font-medium hover:underline"
     >
       {open ? less : more}
-    </button>
+    </RowButton>
   );
 }

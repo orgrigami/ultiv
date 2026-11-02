@@ -8,6 +8,7 @@ import { useMemo } from "react";
 import type { TaskInfo } from "@spriessen/contracts";
 import { ArrowDownIcon } from "lucide-react";
 import { FileCard } from "@/components/file-card";
+import { Button } from "@/components/ui/button";
 import { ApprovalCard } from "@/components/approval-card";
 import { BriefRow } from "@/components/task-sheet/brief-row";
 import { ResultCard } from "@/components/task-sheet/result-card";
@@ -18,12 +19,15 @@ import { useTaskActivity } from "@/components/task-sheet/use-task-activity";
 import type { ArtifactRow } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { timelineOf } from "@/lib/task-steps";
+import { Heading } from "@/components/ui/heading";
 
 function Files({ files }: { files: readonly ArtifactRow[] }) {
   if (files.length === 0) return null;
   return (
     <section aria-label="Files from this task" className="flex flex-col gap-1.5">
-      <h3 className="text-muted-foreground text-xs font-medium">Files</h3>
+      <Heading level={3} size="xs" className="text-muted-foreground font-medium">
+        Files
+      </Heading>
       {files.map((file) => (
         <FileCard key={file.id} file={file} />
       ))}
@@ -83,14 +87,16 @@ export function TaskWork({ task }: { task: TaskInfo }) {
         </p>
       </div>
       {!follow.atBottom && (
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="lg"
+          pill
           onClick={follow.jump}
-          className="bg-background/80 border-border/70 focus-visible:ring-ring/50 animate-in fade-in absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 flex min-h-11 -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-full border px-4 text-sm font-medium shadow-md outline-none backdrop-blur-xl focus-visible:ring-3 motion-reduce:animate-none"
+          className="chrome-float animate-in fade-in absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 motion-reduce:animate-none"
         >
           <ArrowDownIcon aria-hidden className="size-4" />
           Jump to latest
-        </button>
+        </Button>
       )}
     </>
   );

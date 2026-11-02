@@ -3,6 +3,7 @@
  * machinery notes, grouped so consecutive tool steps read as one sequence.
  */
 import { memo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AttachmentChips } from "@/components/attachment-chips";
 import { BotAvatar } from "@/components/bot-avatar";
 import { useApp } from "@/lib/app-state";
@@ -90,22 +91,14 @@ const Output = memo(function Output({
             )}
           </div>
           {foldable && (
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 outline-none"
-            >
+            <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen(true)}>
               Show more
-            </button>
+            </Button>
           )}
           {open && text.length > FOLD_CHARS && (
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 outline-none"
-            >
+            <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen(false)}>
               Show less
-            </button>
+            </Button>
           )}
         </div>
       )}

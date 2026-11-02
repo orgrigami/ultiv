@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tile } from "@/components/ui/tile";
 
 /** The form state: one editable field per tool arg. */
 export interface BotProposal {
@@ -256,10 +257,10 @@ export function BotCreateCard(props: {
   };
   const named = proposal.name.trim() !== "";
   return (
-    <div
+    <Tile
       role="group"
       aria-label="Bot proposal"
-      className="bg-card flex w-full flex-col gap-3 rounded-xl border border-ring/60 p-3"
+      className="flex w-full flex-col gap-3 border-ring/60 p-3"
     >
       <p className="text-sm font-medium">
         {props.who ?? "Your bot"} wants to create a bot
@@ -268,7 +269,7 @@ export function BotCreateCard(props: {
         )}
       </p>
       {props.reason && (
-        <p className="text-muted-foreground border-l-2 border-border pl-2 text-xs italic">
+        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">
           {props.reason}
         </p>
       )}
@@ -292,6 +293,6 @@ export function BotCreateCard(props: {
           onCreate={() => void submit(true)}
         />
       </form>
-    </div>
+    </Tile>
   );
 }

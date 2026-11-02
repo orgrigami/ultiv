@@ -39,7 +39,7 @@ function Gutter({ icon: Icon, live }: { icon: LucideIcon; live: boolean }) {
 function ThinkFold({ text, live }: { text: string; live: boolean }) {
   return (
     <details className="group/think py-1">
-      <summary className="text-muted-foreground hover:text-foreground flex min-h-9 w-fit cursor-pointer list-none items-center gap-2 text-sm outline-none">
+      <summary className="text-muted-foreground hover:text-foreground flex min-h-9 w-fit cursor-pointer list-none items-center gap-2 text-sm rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
         {live ? "Thinking…" : "Thought for a moment"}
       </summary>
       <p className="text-muted-foreground mt-1 text-sm break-words whitespace-pre-wrap">{text}</p>

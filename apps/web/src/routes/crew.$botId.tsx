@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
+import { ListCard } from "@/components/ui/list-card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -48,6 +49,7 @@ import { useApp } from "@/lib/app-state";
 import { describeTool } from "@/lib/approval-text";
 import { formatWhen } from "@/lib/format";
 import { ACTIVITY_LIMIT, cardLine, tabCount, type ProfileCounts } from "@/lib/profile-summary";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 export const PROFILE_TABS = [
@@ -195,16 +197,10 @@ function Profile({
           </p>
           <HomeLabel bot={bot} />
           <div className="mt-1 flex gap-2">
-            <Button
-              className="rounded-full px-4"
-              onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}
-            >
+            <Button size="lg" pill onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}>
               <MessageCircleIcon /> Open chat
             </Button>
-            <Button
-              variant="outline"
-              className="rounded-full px-4"
-              onClick={() => setEditing(true)}
+            <Button variant="outline" size="lg" pill onClick={() => setEditing(true)}>
             >
               <PencilIcon /> Edit
             </Button>
@@ -227,39 +223,35 @@ function Profile({
         {PROFILE_TABS.map((entry) => {
           const count = tabCount(entry.id, counts, bot);
           return (
-            <Link
+            <Button
               key={entry.id}
-              to="/crew/$botId"
-              params={{ botId }}
-              search={entry.id === "overview" ? {} : { tab: entry.id }}
-              role="tab"
-              aria-selected={active === entry.id}
-              // Keep the open tab in view when the strip scrolls on a phone.
-              ref={(node) => {
-                if (node !== null && active === entry.id) {
-                  node.scrollIntoView({ block: "nearest", inline: "nearest" });
-                }
-              }}
-              className={cn(
-                "press focus-visible:ring-ring/50 flex min-h-11 shrink-0 snap-start items-center gap-1.5 rounded-full border px-3.5 text-sm outline-none focus-visible:ring-3 sm:min-h-9",
-                active === entry.id
-                  ? "bg-foreground text-background border-transparent font-medium"
-                  : "text-muted-foreground hover:text-foreground bg-card",
-              )}
+              variant="filter"
+              pill
+              nativeButton={false}
+              render={
+                <Link
+                  to="/crew/$botId"
+                  params={{ botId }}
+                  search={entry.id === "overview" ? {} : { tab: entry.id }}
+                  role="tab"
+                  aria-selected={active === entry.id}
+                  // Keep the open tab in view when the strip scrolls on a phone.
+                  ref={(node) => {
+                    if (node !== null && active === entry.id) {
+                      node.scrollIntoView({ block: "nearest", inline: "nearest" });
+                    }
+                  }}
+                />
+              }
+              className="press shrink-0 snap-start"
             >
               {entry.label}
               {count !== undefined && (
-                <span
-                  className={cn(
-                    "min-w-5 rounded-full px-1.5 text-center text-xs tabular-nums",
-                    active === entry.id ? "bg-background/15" : "bg-muted",
-                  )}
-                >
-                  {" "}
+                <Badge size="count" variant={active === entry.id ? "overlay" : "muted"}>
                   {count}
-                </span>
+                </Badge>
               )}
-            </Link>
+            </Button>
           );
         })}
       </div>
@@ -378,7 +370,7 @@ function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts 
         <Fact label="Created">{formatWhen(bot.createdAt)}</Fact>
       </dl>
       <SectionHeader title="Manage" />
-      <div className="bg-card divide-border flex flex-col divide-y rounded-2xl border">
+      <ListCard className="rounded-2xl">
         <BotHomeField bot={bot} isMain={isMain} />
         {!isMain && !archived && (
           <ManageRow
@@ -413,7 +405,7 @@ function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: ProfileCounts 
           disabled={deleteBlocked !== null}
           onClick={() => setRemoving(true)}
         />
-      </div>
+      </ListCard>
       <ConfirmDialog
         title={`Delete ${bot.name}?`}
         warning="This permanently removes the bot with all of their chats, memory and artifacts. It cannot be undone."
@@ -445,15 +437,14 @@ function ManageRow({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <RowButton
       disabled={disabled}
       onClick={onClick}
-      className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5 text-left outline-none first:rounded-t-2xl last:rounded-b-2xl focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-60"
+      className="hover:bg-muted/60 flex min-h-11 flex-col items-start gap-0.5 px-3 py-2.5 first:rounded-t-2xl last:rounded-b-2xl disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className={cn("text-sm", destructive && "text-destructive")}>{title}</span>
       <span className="text-muted-foreground text-xs">{detail}</span>
-    </button>
+    </RowButton>
   );
 }
 
@@ -516,7 +507,7 @@ function AccessTab({ bot }: { bot: ProfileInfo }) {
           ) : (
             <span className="flex flex-wrap gap-1">
               {bot.toolAllowlist.map((tool) => (
-                <Badge key={tool} variant="secondary" className="font-mono">
+                <Badge key={tool} variant="secondary" mono>
                   {tool}
                 </Badge>
               ))}

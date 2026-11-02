@@ -8,6 +8,8 @@
  * you count.
  */
 import { BrandLockup } from "@/components/brand-mark";
+import { Badge } from "@/components/ui/badge";
+import { RowButton } from "@/components/ui/row-button";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellDotIcon,
@@ -111,14 +113,9 @@ function CountBadge({ count, className }: { count: number; className?: string })
   const text = badgeText(count);
   if (text === null) return null;
   return (
-    <span
-      className={cn(
-        "bg-signal text-signal-foreground tnum inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 text-[0.6875rem] leading-none font-semibold",
-        className,
-      )}
-    >
+    <Badge variant="signal" size="count" className={className}>
       {text}
-    </span>
+    </Badge>
   );
 }
 
@@ -129,20 +126,20 @@ function RailLink({ section, current }: { section: Section; current: boolean }) 
   const target = linkOf(section, lastBot);
   const count = section === "needs" ? needsCount : 0;
   return (
-    <Link
+    <RowLink
       to={target.to}
       search={target.search as never}
       aria-current={current ? "page" : undefined}
       aria-label={count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : undefined}
       className={cn(
-        "focus-visible:ring-ring/40 hover:bg-sidebar-accent/60 text-muted-foreground hover:text-sidebar-foreground press flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm outline-none focus-visible:ring-2",
+        "hover:bg-sidebar-accent/60 text-muted-foreground hover:text-sidebar-foreground press flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm",
         current && "bg-sidebar-accent text-sidebar-foreground font-medium",
       )}
     >
       <Icon className="size-5 shrink-0" />
       <span className="flex-1">{SECTION_LABEL[section]}</span>
       <CountBadge count={count} />
-    </Link>
+    </RowLink>
   );
 }
 
@@ -181,13 +178,12 @@ function Recents() {
       {rows.map((row) => {
         const current = !row.main && path === `/c/${row.id}`;
         return (
-          <button
+          <RowButton
             key={row.id}
-            type="button"
             onClick={() => open(row)}
             aria-current={current ? "page" : undefined}
             className={cn(
-              "hover:bg-sidebar-accent/60 focus-visible:ring-ring/40 press flex min-h-11 w-full cursor-pointer flex-col justify-center rounded-xl px-3 py-1.5 text-left outline-none focus-visible:ring-2",
+              "hover:bg-sidebar-accent/60 press flex min-h-11 w-full flex-col justify-center rounded-xl px-3 py-1.5",
               current && "bg-sidebar-accent",
             )}
           >
@@ -195,12 +191,12 @@ function Recents() {
             <span className="text-muted-foreground truncate text-xs">
               {row.main ? formatWhen(row.at) : `${row.botName} · ${formatWhen(row.at)}`}
             </span>
-          </button>
+          </RowButton>
         );
       })}
       <Link
         to="/history"
-        className="text-muted-foreground hover:text-sidebar-foreground focus-visible:ring-ring/40 flex min-h-9 items-center rounded-xl px-3 text-xs outline-none focus-visible:ring-2"
+        className="text-muted-foreground hover:text-sidebar-foreground focus-visible:ring-ring/50 flex min-h-9 items-center rounded-xl px-3 text-xs outline-none focus-visible:ring-3"
       >
         All past chats
       </Link>
@@ -222,26 +218,24 @@ export function SideNav() {
     >
       <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-3">
         <Wordmark />
-        <button
-          type="button"
+        <RowButton
           disabled={!newChat.ready}
           onClick={() => void newChat.start()}
-          className="bg-sidebar-accent hover:bg-sidebar-accent/80 focus-visible:ring-ring/40 press mb-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="bg-sidebar-accent hover:bg-sidebar-accent/80 press mb-2 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
         >
           <SquarePenIcon className="size-5 shrink-0" />
           <span className="flex-1 text-left">New chat</span>
           <kbd className="text-muted-foreground readout">N</kbd>
-        </button>
+        </RowButton>
         {quick !== null && (
-          <button
-            type="button"
+          <RowButton
             onClick={quick.openSwitcher}
-            className="hover:bg-sidebar-accent/60 focus-visible:ring-ring/40 press text-muted-foreground mb-2 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-3 text-sm outline-none focus-visible:ring-2"
+            className="hover:bg-sidebar-accent/60 press text-muted-foreground mb-2 flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm"
           >
             <SearchIcon className="size-5 shrink-0" />
             <span className="flex-1 text-left">Find</span>
             <kbd className="readout">{modKey()}K</kbd>
-          </button>
+          </RowButton>
         )}
         <RailLink section="chat" current={section === "chat"} />
         <RailLink section="history" current={section === "history"} />
@@ -277,7 +271,7 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
         count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : SECTION_LABEL[section]
       }
       className={cn(
-        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-[0.6875rem] leading-none whitespace-nowrap outline-none focus-visible:ring-3",
+        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs leading-none whitespace-nowrap outline-none focus-visible:ring-3",
         current ? "text-foreground font-medium" : "text-muted-foreground",
       )}
     >

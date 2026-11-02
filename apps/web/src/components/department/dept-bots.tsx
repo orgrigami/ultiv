@@ -10,6 +10,8 @@ import type { ProfileInfo } from "@spriessen/contracts";
 import { BotAvatar } from "@/components/bot-avatar";
 import { NewBotDialog } from "@/components/new-bot-dialog";
 import { Button } from "@/components/ui/button";
+import { ListCard } from "@/components/ui/list-card";
+import { RowButton } from "@/components/ui/row-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Select } from "@/components/ui/select";
@@ -89,7 +91,7 @@ export function DeptBots({ departmentId }: { departmentId: string }) {
           </Button>
         }
       />
-      <div className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+      <ListCard>
         {here.length === 0 ? (
           <EmptyState className="px-3 py-2.5">
             No bots here yet. Start one, or move one in.
@@ -98,10 +100,9 @@ export function DeptBots({ departmentId }: { departmentId: string }) {
           <ul aria-label="Bots in this department" className="divide-border flex flex-col divide-y">
             {here.map((bot) => (
               <li key={bot.id}>
-                <button
-                  type="button"
+                <RowButton
                   onClick={() => open(bot.id)}
-                  className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none focus-visible:ring-2"
+                  className="hover:bg-muted flex min-h-11 w-full items-center gap-3 px-3 py-2"
                 >
                   <BotAvatar id={bot.id} name={bot.name} size="sm" />
                   <span className="min-w-0 flex-1">
@@ -111,13 +112,13 @@ export function DeptBots({ departmentId }: { departmentId: string }) {
                     </span>
                   </span>
                   <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
-                </button>
+                </RowButton>
               </li>
             ))}
           </ul>
         )}
         <MoveHere departmentId={departmentId} others={others} />
-      </div>
+      </ListCard>
       <NewBotDialog
         departmentId={departmentId}
         open={creating}

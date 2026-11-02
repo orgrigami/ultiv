@@ -216,7 +216,7 @@ function EventRow({ event }: { event: RoutineEvent }) {
       </time>
       <span>{SOURCE_LABEL[event.source] ?? event.source}</span>
       <Badge variant={STATUS_VARIANT[event.status] ?? "outline"}>
-        {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+        {event.status.charAt(0).toUpperCase("en") + event.status.slice(1)}
       </Badge>
       {event.reason !== null && (
         <span className="text-muted-foreground min-w-0 text-xs break-words">{event.reason}</span>
@@ -243,7 +243,7 @@ function Section({
       {children.length === 0 ? (
         <EmptyState>{empty}</EmptyState>
       ) : (
-        <ul className="divide-border/70 divide-y rounded-[14px] border">{children}</ul>
+        <ul className="divide-border/70 divide-y rounded-xl border">{children}</ul>
       )}
     </section>
   );

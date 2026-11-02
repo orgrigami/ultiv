@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { api, type RoomDetail, type RoomLine } from "@/lib/api";
 import { notifyError } from "@/lib/notify";
 import { formatWhen } from "@/lib/format";
+import { Tile } from "@/components/ui/tile";
 
 /** Plain-language delivery status; a delivered message shows nothing. */
 const STATUS_LABEL: Record<string, string> = {
@@ -115,7 +116,7 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
 
   return (
     <div className="mt-3 flex flex-col gap-3">
-      <div className="bg-background max-h-[45dvh] overflow-y-auto rounded-lg border p-3 text-sm">
+      <Tile tone="surface" radius="lg" className="max-h-[45dvh] overflow-y-auto p-3 text-sm">
         {detail.timeline.length === 0 ? (
           <p className="text-muted-foreground text-xs">No messages yet.</p>
         ) : (
@@ -126,7 +127,7 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
             </div>
           ))
         )}
-      </div>
+      </Tile>
       <div className="flex gap-2">
         <Select className="w-36" value={to} onChange={(event) => setTo(event.target.value)}>
           {detail.participants.map((participant) => (
@@ -144,7 +145,7 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
             if (event.key === "Enter") void send();
           }}
         />
-        <Button size="sm" disabled={busy || say.trim() === ""} onClick={() => void send()}>
+        <Button size="sm" aria-label="Send message" disabled={busy || say.trim() === ""} onClick={() => void send()}>
           <SendIcon />
         </Button>
       </div>

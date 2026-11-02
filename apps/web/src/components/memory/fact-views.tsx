@@ -105,7 +105,7 @@ export function FactRow({
             aria-label={t.factTextLabel}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            className="mt-1 text-sm"
+            className="mt-1"
           />
           <div className="mt-1 flex gap-2">
             <Button variant="outline" size="sm" disabled={busy} onClick={() => void save()}>
@@ -152,7 +152,7 @@ export function HistoryView({
         <div key={chain.current.id} className="flex flex-col gap-1">
           <FactRow fact={chain.current} shared={false} profileId={profileId} reload={reload} />
           {chain.old.map((fact) => (
-            <div key={fact.id} className="border-border/60 ml-3 border-l-2 pl-2 text-xs">
+            <div key={fact.id} className="border-border/60 ml-3 border-l pl-2 text-xs">
               <p className="text-muted-foreground break-words">{fact.text}</p>
               <p className="text-muted-foreground/70 mt-0.5">{formatWhen(fact.createdAt)}</p>
             </div>
@@ -170,7 +170,7 @@ function HistoryBucket({ title, facts }: { title: string; facts: MemoryV2Fact[] 
     <section className="flex flex-col gap-1">
       <p className="text-muted-foreground mt-1 text-xs font-semibold">{title}</p>
       {facts.map((fact) => (
-        <div key={fact.id} className="border-border/60 ml-3 border-l-2 pl-2 text-xs">
+        <div key={fact.id} className="border-border/60 ml-3 border-l pl-2 text-xs">
           <p className="text-muted-foreground break-words">{fact.text}</p>
           <p className="text-muted-foreground/70 mt-0.5">{formatWhen(fact.createdAt)}</p>
         </div>

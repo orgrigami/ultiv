@@ -202,7 +202,7 @@ export function VaultContent({ profiles }: { profiles: ProfileInfo[] }) {
         {loadFailed && items.length === 0 ? (
           <p className="text-destructive flex items-center gap-2 text-sm">
             Couldn't load the vault.
-            <Button variant="link" size="xs" className="h-auto p-0" onClick={() => void load()}>
+            <Button variant="link" size="inline" onClick={() => void load()}>
               Retry
             </Button>
           </p>
@@ -279,7 +279,7 @@ export function VaultContent({ profiles }: { profiles: ProfileInfo[] }) {
             >
               {KINDS.map((candidate) => (
                 <option key={candidate} value={candidate}>
-                  {candidate.charAt(0).toUpperCase() + candidate.slice(1)}
+                  {candidate.charAt(0).toUpperCase("en") + candidate.slice(1)}
                 </option>
               ))}
             </Select>

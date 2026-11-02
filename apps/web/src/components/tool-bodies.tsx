@@ -7,6 +7,7 @@
  * transcript; they scroll inside their own bounded box.
  */
 import { ArrowUpRightIcon, TerminalIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Mark } from "@/components/state-mark";
@@ -91,7 +92,7 @@ function SearchBody({ query, hits }: { query: string; hits: readonly SearchHit[]
               href={hit.url}
               target="_blank"
               rel="noreferrer"
-              className="group hover:bg-muted/60 -mx-2 block rounded-lg px-2 py-1.5 outline-none"
+              className="group hover:bg-muted/60 -mx-2 block rounded-lg px-2 py-1.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <span className="readout text-muted-foreground/80 flex items-center gap-1.5">
                 <span className="w-5 text-right">{String(index + 1).padStart(2, "0")}</span>
@@ -103,7 +104,7 @@ function SearchBody({ query, hits }: { query: string; hits: readonly SearchHit[]
                 {hit.title}
               </span>
               {hit.snippet !== undefined && (
-                <span className="text-muted-foreground mt-0.5 line-clamp-2 block text-[0.8125rem] leading-snug">
+                <span className="text-muted-foreground mt-0.5 line-clamp-2 block text-sm leading-snug">
                   {hit.snippet}
                 </span>
               )}
@@ -183,7 +184,7 @@ function PageBody({ url, host, text }: { url: string; host: string; text: string
         href={url}
         target="_blank"
         rel="noreferrer"
-        className="readout text-muted-foreground hover:text-foreground inline-flex w-fit items-center gap-1.5 outline-none"
+        className="readout text-muted-foreground hover:text-foreground inline-flex w-fit items-center gap-1.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {host}
         <ArrowUpRightIcon className="size-3" />
@@ -409,13 +410,9 @@ export function FoldText({
         {text}
       </p>
       {long && (
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="readout text-muted-foreground hover:text-foreground mt-1 inline-flex cursor-pointer rounded-md px-1 py-0.5 outline-none"
-        >
+        <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen((value) => !value)}>
           {open ? "Show less" : "Show more"}
-        </button>
+        </Button>
       )}
     </div>
   );

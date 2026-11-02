@@ -37,7 +37,7 @@ export function NewDepartmentDialog({
   const vm = readVmInput(cpus, memory);
   const hostList = hosts
     .split(/[\s,]+/)
-    .map((entry) => entry.trim().toLowerCase())
+    .map((entry) => entry.trim().toLowerCase("en"))
     .filter((entry) => entry !== "");
   const hostProblem = hostList.length === 0 ? null : netAllowlistProblem(hostList);
   const submit = async (): Promise<void> => {

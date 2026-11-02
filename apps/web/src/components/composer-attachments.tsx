@@ -104,9 +104,10 @@ export function PlusMenu({
         render={
           <Button
             type="button"
-            variant="ghost"
+            variant="muted"
             size="icon-lg"
-            className="shrink-0 rounded-full bg-muted/70"
+            pill
+            className="shrink-0"
             aria-label="Add images, files, or quick prompts"
           >
             <PlusIcon />
@@ -115,7 +116,7 @@ export function PlusMenu({
       />
       <Popover.Portal>
         <Popover.Positioner side="top" align="start" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none">
+          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             <Popover.Close
               render={
                 <Button variant="ghost" className={menuItem} onClick={pick(images)}>
@@ -135,10 +136,7 @@ export function PlusMenu({
               <Popover.Close
                 key={text}
                 render={
-                  <Button
-                    variant="ghost"
-                    className="h-auto justify-start py-2 text-left whitespace-normal"
-                  />
+                  <Button variant="ghost" size="fit" className="justify-start text-left whitespace-normal" />
                 }
                 onClick={() => onDraft(text)}
               >
@@ -200,11 +198,7 @@ export function StagedChips({
           )}
           <span className="max-w-40 truncate">{item.file.name}</span>
           <span className="text-muted-foreground readout">{formatBytes(item.file.size)}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 rounded-full"
+          <Button type="button" variant="ghost" size="icon-sm" pill className="shrink-0"
             aria-label={`Remove ${item.file.name}`}
             title="Remove"
             onClick={() => onRemove(item.key)}

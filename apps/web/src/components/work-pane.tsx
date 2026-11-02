@@ -89,7 +89,7 @@ function Frame({ item, Title }: { item: WorkItem; Title: ElementType }) {
           {subtitle !== null && (
             <span className="text-muted-foreground truncate text-xs">{subtitle}</span>
           )}
-          <Title className="line-clamp-2 text-base leading-snug font-semibold break-words outline-none">
+          <Title className="line-clamp-2 text-base leading-snug font-semibold break-words outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             {title}
           </Title>
         </div>

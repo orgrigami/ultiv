@@ -157,21 +157,24 @@ export function AutoApproveField({
           <Badge
             key={tool}
             variant="secondary"
-            className="h-6 max-w-full pr-1"
+            size="chip"
+            className="max-w-full"
             title={describeAllowEntry(tool).full}
           >
             <span className="truncate font-mono">{describeAllowEntry(tool).label}</span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              pill
+              className="shrink-0"
               aria-label={`Stop always allowing ${describeAllowEntry(tool).label}`}
               disabled={busyTool !== null}
-              className="rounded-full p-0.5 hover:bg-foreground/10 disabled:opacity-50"
               onClick={() => {
                 void remove(tool);
               }}
             >
               <XIcon className="size-3" />
-            </button>
+            </Button>
           </Badge>
         ))}
       </div>

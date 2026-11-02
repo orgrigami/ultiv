@@ -123,7 +123,7 @@ function PurgeControl({
         await reload();
       }}
     >
-      <Button variant="ghost" size="sm" className="text-destructive">
+      <Button variant="ghost-destructive" size="sm">
         {t.purgeLabel} ({pending.length})
       </Button>
     </ConfirmDialog>

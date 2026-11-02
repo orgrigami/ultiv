@@ -82,7 +82,7 @@ export function ProposalCard({ proposal, facts, profileId, reload }: CardProps) 
           <p>{t.affectedTitle}</p>
           <ul className="mt-1 flex flex-col gap-1">
             {affected.map((fact) => (
-              <li key={fact.id} className="border-border/60 border-l-2 pl-2 break-words">
+              <li key={fact.id} className="border-border/60 border-l pl-2 break-words">
                 {fact.text}
                 {fact.status !== "current" && ` (${fact.status})`}
               </li>
@@ -122,7 +122,7 @@ export function ProposalCard({ proposal, facts, profileId, reload }: CardProps) 
             {t.editAcceptLabel}
           </Button>
         )}
-        <span className="text-muted-foreground ml-auto text-[10px]">{t.rejectNote}</span>
+        <span className="text-muted-foreground ml-auto text-xs">{t.rejectNote}</span>
       </div>
       {canEdit && Object.keys(edits).length > 0 && (
         <EditForm
@@ -166,7 +166,6 @@ function EditForm({
             aria-label="Affected fact text"
             value={edits[fact.id] ?? fact.text}
             onChange={(event) => onEdit(fact.id, event.target.value)}
-            className="min-h-16 text-sm"
           />
         </label>
       ))}

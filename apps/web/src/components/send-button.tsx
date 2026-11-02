@@ -52,7 +52,8 @@ export function SendButton({
         ref={anchor}
         type="submit"
         size="icon-lg"
-        className="send-btn shrink-0 rounded-full select-none [-webkit-touch-callout:none]"
+        pill
+        className="send-btn shrink-0 select-none [-webkit-touch-callout:none]"
         aria-label="Send"
         aria-busy={sending || undefined}
         aria-haspopup={menu ? "menu" : undefined}
@@ -91,12 +92,13 @@ export function SendButton({
       </Button>
       <Popover.Portal>
         <Popover.Positioner anchor={anchor} side="top" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none">
+          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
             {SEND_CHOICES.map((choice) => (
               <Button
                 key={choice.mode}
-                variant="ghost"
-                className={`h-auto min-h-11 flex-col items-start justify-center gap-0 py-2 text-left whitespace-normal ${choice.mode === "redirect" ? "text-destructive" : ""}`}
+                variant={choice.mode === "redirect" ? "ghost-destructive" : "ghost"}
+                size="fit"
+                className="flex-col items-start justify-center text-left whitespace-normal"
                 onClick={() => pick(choice.mode)}
               >
                 <span>{choice.label}</span>

@@ -7,6 +7,7 @@
 import { CheckIcon } from "lucide-react";
 import type { ChecklistDetails, ChecklistItem } from "@spriessen/contracts";
 import { cn } from "../lib/utils.ts";
+import { Tile } from "@/components/ui/tile";
 
 const SPOKEN: Record<ChecklistItem["status"], string> = {
   done: "done",
@@ -45,9 +46,10 @@ export function ChecklistCard({
   const total = list.items.length;
   const settled = done === total;
   return (
-    <section
-      aria-label={`Tasks, ${done} of ${total} done`}
-      className={cn("bg-card min-w-0 max-w-prose rounded-2xl border px-3.5 pt-3 pb-3.5", className)}
+    <Tile
+      radius="2xl"
+      render={<section aria-label={`Tasks, ${done} of ${total} done`} />}
+      className={cn("min-w-0 max-w-prose px-3.5 pt-3 pb-3.5", className)}
     >
       <header className="flex items-baseline gap-2">
         <span className="text-sm font-medium">Tasks</span>
@@ -85,6 +87,6 @@ export function ChecklistCard({
           </li>
         ))}
       </ol>
-    </section>
+    </Tile>
   );
 }

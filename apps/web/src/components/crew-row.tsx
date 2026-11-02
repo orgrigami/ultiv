@@ -9,6 +9,7 @@ import { BotAvatar } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { Badge } from "@/components/ui/badge";
 import { formatWhen } from "@/lib/format";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 export type CrewVariant = "rail" | "menu" | "page";
@@ -74,12 +75,11 @@ export function CrewRow({
       : role;
   return (
     <li>
-      <button
-        type="button"
+      <RowButton
         onClick={() => onPick(bot.id)}
         aria-current={active ? "true" : undefined}
         className={cn(
-          "focus-visible:ring-ring/50 flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2",
+          "flex min-h-11 w-full min-w-0 items-center gap-3 rounded-lg px-2.5",
           variant === "rail" ? "hover:bg-sidebar-accent/60 py-1" : "hover:bg-muted py-1.5",
           active && (variant === "rail" ? "bg-sidebar-accent text-sidebar-foreground" : "bg-muted"),
           variant === "rail" && !active && "text-muted-foreground hover:text-sidebar-foreground",
@@ -134,7 +134,7 @@ export function CrewRow({
         {variant === "page" && (
           <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
         )}
-      </button>
+      </RowButton>
     </li>
   );
 }

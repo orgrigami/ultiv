@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Page } from "@/components/page";
+import { Badge } from "@/components/ui/badge";
 import { PushToggle } from "@/components/push-toggle";
 import { OrgSection } from "@/components/org-admin";
 import { NodesPanel } from "@/components/nodes-panel";
@@ -38,6 +39,7 @@ import {
 import { authEventText } from "@/lib/auth-text";
 import { APPROVAL_MODES, MODE_CHIP } from "@/lib/approval-mode";
 import { cn } from "@/lib/utils";
+import { Tile } from "@/components/ui/tile";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -437,14 +439,9 @@ function ServerSection({
                 {key.names.join(" + ")}
               </span>
             </span>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                key.set ? "bg-ok/15 text-ok" : "bg-muted text-muted-foreground",
-              )}
-            >
+            <Badge variant={key.set ? "ok" : "muted"} className="shrink-0">
               {key.set ? "Set" : "Not set"}
-            </span>
+            </Badge>
           </li>
         ))}
       </ul>
@@ -456,7 +453,7 @@ function ApprovalsSection() {
   return (
     <section aria-label="Approvals" className="flex flex-col gap-2">
       <SectionHeader title="Approvals" />
-      <div className="bg-card flex flex-col gap-3 rounded-xl border p-3 text-sm">
+      <Tile className="flex flex-col gap-3 p-3 text-sm">
         <p className="text-muted-foreground">
           New bots start in Manual: they ask you before each step that needs approval, such as
           running a command or sending something. You can change this per bot from the chip next to
@@ -481,7 +478,7 @@ function ApprovalsSection() {
           Whatever the mode, a saved login's or connector's first use, connector changes and secret
           requests always ask you.
         </p>
-      </div>
+      </Tile>
     </section>
   );
 }

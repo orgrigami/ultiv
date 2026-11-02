@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { SecureField } from "./secure-field";
+import { Tile } from "@/components/ui/tile";
 
 export interface SecretAsk {
   label: string;
@@ -71,10 +72,7 @@ export function SecretCard({
 
   if (phase.kind === "saved" || phase.kind === "cancelled") {
     return (
-      <div
-        role="status"
-        className="bg-card flex w-full items-start gap-2 rounded-xl border p-3 text-sm"
-      >
+      <Tile role="status" className="flex w-full items-start gap-2 p-3 text-sm">
         {phase.kind === "saved" ? (
           <>
             <CheckCircle2Icon className="text-ok mt-0.5 size-4 shrink-0" aria-hidden />
@@ -86,7 +84,7 @@ export function SecretCard({
         ) : (
           <span className="text-muted-foreground">Cancelled. Nothing was stored.</span>
         )}
-      </div>
+      </Tile>
     );
   }
   return (

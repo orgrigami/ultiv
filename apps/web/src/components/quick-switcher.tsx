@@ -43,6 +43,7 @@ import {
 import { QuickSwitchContext } from "@/lib/quick-switch-context";
 import { setThemeChoice } from "@/lib/theme";
 import { useOrg } from "@/lib/use-org";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface Entry extends QuickItem {
@@ -227,7 +228,7 @@ function useEntries(close: () => void, showHelp: () => void, newDepartment: () =
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="bg-muted text-muted-foreground readout inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-[0.6875rem]">
+    <kbd className="bg-muted text-muted-foreground readout inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-xs">
       {children}
     </kbd>
   );
@@ -254,9 +255,10 @@ function Switcher({
   }, [current]);
   return (
     <>
-      <div className="flex items-center gap-2 border-b px-4">
+      <div className="flex h-14 items-center gap-2 border-b px-4">
         <SearchIcon className="text-muted-foreground size-4 shrink-0" />
-        <input
+        <Input
+          variant="bare"
           autoFocus
           role="combobox"
           aria-expanded
@@ -278,7 +280,7 @@ function Switcher({
               rows[current]?.run();
             }
           }}
-          className="placeholder:text-muted-foreground h-14 min-w-0 flex-1 bg-transparent text-base outline-none"
+          className="min-w-0 flex-1 self-stretch"
         />
         <Kbd>Esc</Kbd>
       </div>
@@ -378,7 +380,7 @@ function Floating({
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none" />
         <DialogPrimitive.Popup
           aria-label={label}
-          className="bg-popover text-popover-foreground fixed top-[12dvh] left-1/2 z-50 w-[min(36rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-3xl border shadow-2xl outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 motion-reduce:transition-none"
+          className="bg-popover text-popover-foreground fixed top-[12dvh] left-1/2 z-50 w-[min(36rem,calc(100vw-1.5rem))] -translate-x-1/2 overflow-hidden rounded-3xl border shadow-2xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50 transition-[opacity,scale] duration-150 data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 motion-reduce:transition-none"
         >
           {children}
         </DialogPrimitive.Popup>

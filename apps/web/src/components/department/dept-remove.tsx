@@ -9,6 +9,7 @@ import { DownloadIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import type { DepartmentInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
+import { RowButton } from "@/components/ui/row-button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -37,7 +38,7 @@ export const exportDepartment = async (
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${department.name.replace(/[^\w-]+/g, "-").toLowerCase() || "department"}.json`;
+  link.download = `${department.name.replace(/[^\w-]+/g, "-").toLowerCase("en") || "department"}.json`;
   link.click();
   URL.revokeObjectURL(url);
 };
@@ -75,10 +76,9 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
     });
   return (
     <>
-      <button
-        type="button"
+      <RowButton
         onClick={() => setOpen(true)}
-        className="bg-card hover:bg-muted text-destructive flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm"
+        className="bg-card hover:bg-muted text-destructive flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm"
       >
         <Trash2Icon className="size-4 shrink-0" />
         <span className="flex-1">
@@ -87,7 +87,7 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
             Warns first and offers an export. Its bots move to the org before it goes.
           </span>
         </span>
-      </button>
+      </RowButton>
       <Dialog
         open={open}
         onOpenChange={(next) => {

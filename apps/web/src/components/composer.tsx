@@ -12,6 +12,7 @@
 import type { SendMode } from "@spriessen/contracts";
 import { CornerUpRightIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { canSend, SendButton } from "@/components/send-button";
 import { isImageMime } from "@/lib/attachments";
 import { PlusMenu, StagedChips, type Staged } from "@/components/composer-attachments";
@@ -76,7 +77,7 @@ export function Composer({
         </p>
       )}
       <div
-        className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 rounded-[1.75rem] p-1.5 focus-within:ring-2"
+        className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 rounded-full p-1.5 focus-within:ring-2"
         onPaste={(event) => {
           const files = Array.from(event.clipboardData.files);
           if (files.length === 0) return;
@@ -92,13 +93,14 @@ export function Composer({
         }}
       >
         <PlusMenu disabled={!live} onAdd={onAttach} onDraft={onDraft} />
-        <textarea
+        <Textarea
+          variant="bare"
           aria-label="Message"
           placeholder={placeholder}
           value={draft}
           disabled={!live}
           rows={1}
-          className="placeholder:text-muted-foreground field-sizing-content max-h-[40dvh] min-h-10 min-w-0 pointer-coarse:min-h-11 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2.5 text-chat outline-none disabled:opacity-60"
+          className="max-h-[40dvh] min-w-0 flex-1 resize-none overflow-y-auto disabled:opacity-60"
           onChange={(event) => onDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || coarsePointer()) return;
@@ -111,9 +113,10 @@ export function Composer({
         {busy && (
           <Button
             type="button"
-            variant="outline"
+            variant="signal"
             size="icon-lg"
-            className="working-ring shrink-0 rounded-full text-signal"
+            pill
+            className="working-ring shrink-0"
             aria-label="Stop"
             title="Stop"
             disabled={!live}
@@ -135,7 +138,7 @@ export function Composer({
           className="chrome-float flex w-fit items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm"
         >
           <span className="text-signal">Not sent.</span>
-          <Button type="submit" variant="link" size="xs" className="h-auto p-0">
+          <Button type="submit" variant="link" size="inline">
             Retry
           </Button>
         </div>
@@ -151,7 +154,9 @@ function RedirectPill({ onRedirect }: { onRedirect: () => void }) {
       <Button
         type="button"
         variant="outline"
-        className="bg-background/70 h-11 gap-1.5 rounded-full px-4 shadow-sm backdrop-blur-md"
+        size="xl"
+        pill
+        className="chrome-float"
         title="Stop this reply at a safe point and answer your message instead (Ctrl/Cmd+Shift+Enter)"
         onClick={onRedirect}
       >

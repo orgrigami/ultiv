@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { TRANSPORT_LABEL, formOfInfo, statusLine, targetOf, toolKind } from "@/lib/connector-text";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 import { ConnectorFormView } from "./connector-form";
 import { StatusDot, ToggleRow } from "./bits";
@@ -50,11 +51,10 @@ function ToolList({ info, act }: Pick<CardProps, "info" | "act">) {
   const on = info.tools.filter((tool) => tool.enabled).length;
   return (
     <div className="flex flex-col">
-      <button
-        type="button"
+      <RowButton
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm outline-none focus-visible:ring-3"
+        className="hover:bg-muted/60 flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm"
       >
         <span className="flex-1">
           Tools{" "}
@@ -68,7 +68,7 @@ function ToolList({ info, act }: Pick<CardProps, "info" | "act">) {
             open && "rotate-180",
           )}
         />
-      </button>
+      </RowButton>
       {open &&
         info.tools.map((tool) => (
           <ToggleRow
@@ -114,15 +114,12 @@ function StatusRow({ info, act, connect }: Pick<CardProps, "info" | "act" | "con
           : ""}
       </p>
       {info.enabled && needsConnect && (
-        <Button className="min-h-11" onClick={() => connect(info)}>
+        <Button size="xl" onClick={() => connect(info)}>
           Connect
         </Button>
       )}
       {info.enabled && !needsConnect && info.state !== "connected" && (
-        <Button
-          variant="outline"
-          className="min-h-11"
-          onClick={() => void act(() => api.mcpReconnect(info.id))}
+        <Button variant="outline" size="xl" onClick={() => void act(() => api.mcpReconnect(info.id))}
         >
           <RefreshCwIcon />
           Try again

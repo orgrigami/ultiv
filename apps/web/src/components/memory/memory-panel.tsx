@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api, type ArtifactRow, type MemoryV2Fact, type MemoryV2State } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -71,28 +72,24 @@ function TabStrip({
       className="border-border mt-3 flex gap-1 overflow-x-auto border-b pb-1"
     >
       {tabItems(openCount, tabs).map((item) => (
-        <button
+        <Button
           key={item.id}
-          type="button"
+          variant="tab"
+          size="xs"
           role="tab"
           id={`memory-tab-${item.id}`}
           aria-selected={tab === item.id}
           aria-controls={`memory-tabpanel-${item.id}`}
           onClick={() => onTab(item.id)}
-          className={cn(
-            "focus-visible:ring-ring/50 pointer-coarse:min-h-11 pointer-coarse:min-w-11 flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium outline-none focus-visible:ring-3",
-            tab === item.id
-              ? "bg-secondary text-secondary-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          className="shrink-0"
         >
           {item.label}
           {item.badge !== undefined && (
-            <span className="bg-destructive/10 text-destructive rounded-4xl px-1.5 py-0.5 text-[10px] leading-none font-semibold">
+            <span className="bg-destructive/10 text-destructive rounded-4xl px-1.5 py-0.5 text-xs leading-none font-semibold">
               {item.badge}
             </span>
           )}
-        </button>
+        </Button>
       ))}
     </div>
   );

@@ -25,7 +25,8 @@ import { useNewChat } from "@/components/app-nav";
 export { BotAvatar, type ChatBot, type LinkState } from "@/components/bot-avatar";
 
 function formatTokens(n: number): string {
-  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+  const short = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
+  return n >= 1000 ? `${short.format(n / 1000)}k` : String(n);
 }
 
 /** Model, effort, this session's spend and the link state. */
@@ -180,7 +181,7 @@ export function ChatHeader({
         />
         <Popover.Portal>
           <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-            <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col gap-3 rounded-xl border p-4 shadow-lg outline-none">
+            <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col gap-3 rounded-xl border p-4 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
               <SessionDetails
                 link={link}
                 usage={usage}

@@ -61,7 +61,7 @@ export function RawValue({
         variant="ghost"
         size="icon-xs"
         className="shrink-0"
-        aria-label={`Copy ${label.replace(/:$/, "").toLowerCase()}`}
+        aria-label={`Copy ${label.replace(/:$/, "").toLowerCase("en")}`}
         onClick={() => void copyText(value)}
       >
         <CopyIcon />
@@ -86,10 +86,7 @@ export function RoutineRow({
     <li className="flex items-start gap-2 px-3 py-2.5">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">{children}</div>
       <ConfirmDialog title={`Delete ${what}?`} warning={warning} onConfirm={onDelete}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground -mr-1 shrink-0"
+        <Button variant="quiet" size="icon" className="-mr-1 shrink-0"
           aria-label={`Delete ${what}`}
         >
           <Trash2Icon />

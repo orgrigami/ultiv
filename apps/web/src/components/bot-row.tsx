@@ -5,6 +5,8 @@
  * remove purges everything and asks for the name.
  */
 import { Menu } from "@base-ui/react/menu";
+import { RowButton } from "@/components/ui/row-button";
+import { MenuPopup } from "@/components/ui/menu-popup";
 import { EllipsisIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { EditBotDialog } from "@/components/bot-dialog";
@@ -51,12 +53,11 @@ export function BotRow(props: BotRowProps) {
   const sub = `${needsYou ? "Needs your approval" : role} · ${modelName(bot, models)}`;
   return (
     <li className={cn("flex items-center gap-1 py-1 pr-1 pl-1", archived && "opacity-60")}>
-      <button
-        type="button"
+      <RowButton
         aria-current={active ? "true" : undefined}
         onClick={() => onOpenMain(bot.id)}
         className={cn(
-          "hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left outline-none focus-visible:ring-3",
+          "hover:bg-muted/60 flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1.5",
           active && "bg-muted",
         )}
       >
@@ -95,7 +96,7 @@ export function BotRow(props: BotRowProps) {
             {sub}
           </span>
         </span>
-      </button>
+      </RowButton>
       <BotMenu {...props} />
     </li>
   );
@@ -122,7 +123,7 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
-            <Menu.Popup className="bg-popover text-popover-foreground w-60 rounded-xl border p-1 shadow-lg outline-none">
+            <MenuPopup className="w-60">
               <Menu.Item className={item} onClick={() => setOpen("memory")}>
                 What {bot.name} remembers
               </Menu.Item>
@@ -170,7 +171,7 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
                   <span className="text-muted-foreground text-xs">{deleteBlocked}</span>
                 )}
               </Menu.Item>
-            </Menu.Popup>
+            </MenuPopup>
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>

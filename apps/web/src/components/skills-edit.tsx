@@ -6,12 +6,12 @@
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/empty-state";
 import { api } from "@/lib/api";
 
-const textareaClass =
-  "h-80 w-full resize-y rounded-[10px] border bg-background p-3 font-mono text-xs";
 
 function SkillForm({
   title,
@@ -42,18 +42,9 @@ function SkillForm({
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
         {initialName === undefined && (
-          <input
-            className="mt-2 w-full rounded-[10px] border bg-background px-3 py-2 font-mono text-sm"
-            placeholder="skill-name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+          <Input mono className="mt-2" placeholder="skill-name" value={name} onChange={(event) => setName(event.target.value)} />
         )}
-        <textarea
-          className={`mt-2 ${textareaClass}`}
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-        />
+        <Textarea mono size="editor" className="mt-2 w-full resize-none" value={body} onChange={(event) => setBody(event.target.value)} />
         {error !== null && <ErrorState message={error} />}
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="outline" size="sm" disabled={busy} onClick={onClose}>

@@ -5,6 +5,8 @@
  * what still asks you.
  */
 import { Menu } from "@base-ui/react/menu";
+import { RowButton } from "@/components/ui/row-button";
+import { MenuPopup } from "@/components/ui/menu-popup";
 import { CheckIcon, ShieldAlertIcon, ShieldCheckIcon, ShieldIcon } from "lucide-react";
 import { useState } from "react";
 import type { ProfileApprovalMode } from "@spriessen/contracts";
@@ -92,7 +94,7 @@ export function ApprovalModeChip({
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner side="bottom" align="center" sideOffset={6} className="z-50">
-            <Menu.Popup className="bg-popover text-popover-foreground w-72 rounded-xl border p-1 shadow-lg outline-none">
+            <MenuPopup className="w-72">
               <p className="text-muted-foreground px-3 pt-2 pb-1 text-xs">
                 Who approves {botName}'s steps
               </p>
@@ -114,7 +116,7 @@ export function ApprovalModeChip({
                   </Menu.RadioItem>
                 ))}
               </Menu.RadioGroup>
-            </Menu.Popup>
+            </MenuPopup>
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
@@ -150,14 +152,13 @@ export function ApprovalModeChoice({
           const Icon = ICON[value];
           const selected = value === mode;
           return (
-            <button
+            <RowButton
               key={value}
-              type="button"
               role="radio"
               aria-checked={selected}
               onClick={() => request(value)}
               className={cn(
-                "focus-visible:ring-ring/50 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left outline-none focus-visible:ring-3",
+                "flex min-h-11 items-start gap-3 rounded-lg border px-3 py-2.5",
                 selected ? "border-ring bg-muted" : "hover:bg-muted/60 border-transparent",
               )}
             >
@@ -172,7 +173,7 @@ export function ApprovalModeChoice({
                 <span className="text-sm font-medium">{MODE_CHIP[value].label}</span>
                 <span className="text-muted-foreground text-xs">{help[value]}</span>
               </span>
-            </button>
+            </RowButton>
           );
         })}
       </div>

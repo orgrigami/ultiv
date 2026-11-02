@@ -353,7 +353,7 @@ svg.lucide {
   animation: settle-in 180ms ease-out both;
 }
 .settle-mark {
-  animation: settle-pop 200ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  animation: settle-pop 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes settle-in {
   from {
@@ -391,7 +391,7 @@ svg.lucide {
   animation: char-look 1.6s ease-in-out infinite;
 }
 .char[data-mood="alert"] {
-  animation: char-hop 420ms cubic-bezier(0.3, 1.5, 0.5, 1) 2;
+  animation: char-hop 420ms cubic-bezier(0.16, 1, 0.3, 1) 2;
 }
 @keyframes char-blink {
   50% {
@@ -428,7 +428,7 @@ svg.lucide {
 
 /* Press feedback: a tap sinks the control to 98% for a beat. */
 .press {
-  transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition: transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 .press:active:not(:disabled) {
   transform: scale(0.98);
@@ -444,7 +444,7 @@ svg.lucide {
 /* Send: shrinks back while there is nothing to send, lifts while a send is in flight. */
 .send-btn {
   transition:
-    transform 150ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    transform 150ms cubic-bezier(0.2, 0.9, 0.3, 1),
     background-color 150ms,
     opacity 150ms;
 }

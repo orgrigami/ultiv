@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import type { DepartmentInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
+import { ListCard } from "@/components/ui/list-card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,7 +56,7 @@ export function DeptSettings({
     }
   };
   return (
-    <div className="bg-card divide-border flex flex-col divide-y rounded-xl border">
+    <ListCard>
       <form
         className="flex flex-col gap-3 p-3"
         onSubmit={(event) => {
@@ -134,6 +135,6 @@ export function DeptSettings({
           await orgApi.patchDepartment(department.id, { netAllowlist: draft, netOpen: open });
         }}
       />
-    </div>
+    </ListCard>
   );
 }

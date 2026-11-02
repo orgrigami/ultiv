@@ -22,6 +22,8 @@ import type {
   SkillProposal,
 } from "@spriessen/contracts";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { plural } from "@/lib/plural";
+import { RowButton } from "@/components/ui/row-button";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { SkillAdd, SkillEditor } from "@/components/skills-edit";
 import { Mark } from "@/components/state-mark";
@@ -121,15 +123,14 @@ function ReferenceFile({
   }, [open, content, profile, name, path]);
   return (
     <li>
-      <button
-        type="button"
+      <RowButton
         aria-expanded={open}
         onClick={onToggle}
-        className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-xs outline-none focus-visible:ring-2"
+        className="hover:bg-muted/60 flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-xs"
       >
         <FileTextIcon className="text-muted-foreground size-3.5 shrink-0" />
         <span className="min-w-0 flex-1 truncate font-mono">{path}</span>
-      </button>
+      </RowButton>
       {open && (
         <div className="mt-1 mb-2 ml-6">
           {error !== null ? (
@@ -614,7 +615,7 @@ export function SkillsContent() {
       {overview.openProposals > 0 && (
         <p className="flex items-center gap-2 text-sm">
           <Badge>
-            {overview.openProposals} open {overview.openProposals === 1 ? "proposal" : "proposals"}
+            {overview.openProposals} open {plural(overview.openProposals, "proposal", "proposals")}
           </Badge>
           <span className="text-muted-foreground">Open a skill to decide.</span>
         </p>

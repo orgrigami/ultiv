@@ -13,11 +13,12 @@ import { NewDepartmentDialog } from "@/components/department/new-department-dial
 import type { CrewVariant } from "@/components/crew-row";
 import type { CrewGroup } from "@/lib/org-view";
 import { useCollapsed } from "@/lib/use-collapsed";
+import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
 
 const headRow = (variant: CrewVariant): string =>
   cn(
-    "focus-visible:ring-ring/50 flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2",
+    "flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5",
     variant === "rail"
       ? "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground text-xs font-medium"
       : "hover:bg-muted text-muted-foreground text-meta font-medium",
@@ -41,7 +42,7 @@ function GroupHead({
 }) {
   return (
     <div className="flex items-center gap-0.5">
-      <button type="button" aria-expanded={open} onClick={onToggle} className={headRow(variant)}>
+      <RowButton aria-expanded={open} onClick={onToggle} className={headRow(variant)}>
         <ChevronDownIcon
           aria-hidden
           className={cn(
@@ -51,16 +52,15 @@ function GroupHead({
         />
         <span className="truncate">{group.name}</span>
         {!open && <span className="readout ml-auto shrink-0 opacity-70">{group.bots.length}</span>}
-      </button>
-      <button
-        type="button"
+      </RowButton>
+      <RowButton
         aria-label={`Open ${group.name}`}
         title={`Open ${group.name}`}
         onClick={onOpen}
-        className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring/50 inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none focus-visible:ring-2 sm:size-8"
+        className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-11 shrink-0 items-center justify-center rounded-lg sm:size-8"
       >
         <SettingsIcon className="size-3.5" />
-      </button>
+      </RowButton>
     </div>
   );
 }
@@ -138,14 +138,13 @@ export function CrewGroups({
           </section>
         );
       })}
-      <button
-        type="button"
+      <RowButton
         onClick={() => (onNewDepartment !== undefined ? onNewDepartment() : setCreating(true))}
         className={cn(headRow(variant), "flex-none")}
       >
         <PlusIcon aria-hidden className="size-3.5 shrink-0" />
         New department
-      </button>
+      </RowButton>
       {onNewDepartment === undefined && (
         <NewDepartmentDialog open={creating} onOpenChange={setCreating} />
       )}

@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Select } from "@/components/ui/select";
@@ -284,12 +285,7 @@ function AddCoreForm({
         </span>
       </div>
       <label className="text-muted-foreground flex w-fit items-center gap-1.5 text-xs">
-        <input
-          type="checkbox"
-          checked={pinned}
-          onChange={(event) => setPinned(event.target.checked)}
-          className="accent-[var(--color-primary)] size-3.5"
-        />
+        <Checkbox checked={pinned} onCheckedChange={(on) => setPinned(on === true)} />
         {t.pinOnAddLabel}
       </label>
       {hint !== null && (

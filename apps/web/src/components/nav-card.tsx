@@ -1,5 +1,6 @@
 /** A file-style card: a tinted icon tile, a title, one line, and a chevron. */
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link
+import { Tile } from "@/components/ui/tile";, type LinkProps } from "@tanstack/react-router";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,10 +17,11 @@ export function NavCard({
   className?: string;
 }) {
   return (
-    <Link
-      {...link}
+    <Tile
+      radius="2xl"
+      render={<Link {...link} />}
       className={cn(
-        "press bg-card hover:bg-muted/50 focus-visible:ring-ring/50 group flex min-h-16 items-center gap-3 rounded-2xl border px-3 py-3 outline-none focus-visible:ring-3",
+        "press hover:bg-muted/50 focus-visible:ring-ring/50 group flex min-h-16 items-center gap-3 px-3 py-3 outline-none focus-visible:ring-3",
         className,
       )}
     >
@@ -31,6 +33,6 @@ export function NavCard({
         <span className="text-muted-foreground truncate text-xs">{detail}</span>
       </span>
       <ChevronRightIcon className="text-muted-foreground size-4 shrink-0 transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none" />
-    </Link>
+    </Tile>
   );
 }

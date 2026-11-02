@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 
-const normalize = (raw: string): string => raw.trim().toLowerCase();
+const normalize = (raw: string): string => raw.trim().toLowerCase("en");
 
 const sameList = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((entry, i) => entry === b[i]);
@@ -122,15 +122,9 @@ export function NetAllowlistEditor({
                   className="bg-muted text-foreground flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
                 >
                   {host}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${host}`}
-                    disabled={busy}
-                    onClick={() => remove(host)}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-                  >
+                  <Button variant="quiet" size="inline" aria-label={`Remove ${host}`} disabled={busy} onClick={() => remove(host)}>
                     <XIcon className="size-3" />
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -139,7 +133,7 @@ export function NetAllowlistEditor({
             <Input
               value={newHost}
               placeholder="api.example.com or *.example.com"
-              className="h-8 flex-1 text-sm"
+              className="flex-1"
               disabled={busy || draft.length >= 64}
               onChange={(event) => setNewHost(event.target.value)}
               onKeyDown={(event) => {

@@ -5,6 +5,8 @@ import { CheckIcon, CircleAlertIcon, CopyIcon } from "lucide-react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Button } from "@/components/ui/button";
 import { writeClipboard } from "@/lib/clipboard";
+import { Tile } from "@/components/ui/tile";
+import { Heading } from "@/components/ui/heading";
 
 function CopyButton({ text }: { text: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
@@ -30,7 +32,7 @@ function CopyButton({ text }: { text: string }) {
 export function ResultCard({ task }: { task: TaskInfo }) {
   if (task.status === "failed")
     return (
-      <div className="border-destructive/30 bg-destructive/5 flex gap-2.5 rounded-xl border p-3 text-sm">
+      <Tile tone="danger" className="flex gap-2.5 p-3 text-sm">
         <CircleAlertIcon aria-hidden className="text-destructive mt-0.5 size-4 shrink-0" />
         <div className="min-w-0">
           <p className="font-medium">It didn't finish</p>
@@ -38,16 +40,16 @@ export function ResultCard({ task }: { task: TaskInfo }) {
             {task.error ?? "Unknown failure."}
           </p>
         </div>
-      </div>
+      </Tile>
     );
   if (task.status === "cancelled")
     return <p className="text-muted-foreground text-center text-sm">You stopped this task.</p>;
   if (task.status !== "done") return null;
   const text = task.result ?? "";
   return (
-    <section aria-label="Result" className="bg-background rounded-xl border p-3 shadow-xs">
+    <Tile tone="surface" render={<section aria-label="Result" />} className="p-3">
       <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-sm font-semibold">Result</h3>
+        <Heading level={3} size="sm" className="flex-1">Result</Heading>
         {text !== "" && <CopyButton text={text} />}
       </div>
       {text === "" ? (
@@ -57,6 +59,6 @@ export function ResultCard({ task }: { task: TaskInfo }) {
           <LazyMarkdown text={text} />
         </div>
       )}
-    </section>
+    </Tile>
   );
 }

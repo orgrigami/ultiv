@@ -7,6 +7,7 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RowButton } from "@/components/ui/row-button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { MemoryData } from "@/components/memory/memory-panel";
 import type { MemoryV2Entity, MemoryV2Fact } from "@/lib/api";
@@ -46,13 +47,12 @@ function EntityRow({ entity, facts }: { entity: MemoryV2Entity; facts: MemoryV2F
     <Dialog>
       <DialogTrigger
         render={
-          <button
-            type="button"
+          <RowButton
             aria-label={t.entityAria(entity.name)}
-            className="focus-visible:ring-ring/50 hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-sm outline-none focus-visible:ring-3"
+            className="hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-sm"
           >
             <span className="bg-secondary text-secondary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
-              {entity.name.slice(0, 1).toUpperCase()}
+              {entity.name.slice(0, 1).toUpperCase("en")}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{entity.name}</span>
@@ -113,7 +113,7 @@ function EntitySheet({ entity, about }: { entity: MemoryV2Entity; about: MemoryV
         ) : (
           <ul className="mt-1 flex flex-col gap-1">
             {about.slice(0, 12).map((fact) => (
-              <li key={fact.id} className="border-border/60 border-l-2 pl-2 break-words">
+              <li key={fact.id} className="border-border/60 border-l pl-2 break-words">
                 {fact.text}
               </li>
             ))}

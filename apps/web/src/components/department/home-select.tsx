@@ -12,9 +12,9 @@ export const matchHome = (
   departments: readonly { id: string; name: string }[],
 ): string | null => {
   if (value === "" || value === "org") return "";
-  const wanted = value.trim().toLowerCase();
+  const wanted = value.trim().toLowerCase("en");
   return (
-    departments.find((row) => row.id === value || row.name.toLowerCase() === wanted)?.id ?? null
+    departments.find((row) => row.id === value || row.name.toLowerCase("en") === wanted)?.id ?? null
   );
 };
 
