@@ -94,7 +94,8 @@ const listTool = (deps: ManageDeps) =>
     description:
       "List your owner's connectors (state, tools, bots) and the presets connector_add accepts.",
     parameters: Type.Object({}),
-    callers: ["model"],
+    // Read-only, so script-callable (codemode): the never-auto-approved rule
+    // is about connector CHANGES, not this listing.
     replay: "safe",
     execute: async (_args, api) => {
       const scope = scopeOf(deps, String(api.conversationId));

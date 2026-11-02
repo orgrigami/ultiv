@@ -52,7 +52,8 @@ const checklistTool = (deps: ChecklistToolDeps) =>
     name: CHECKLIST_TOOL,
     description: CHECKLIST_DESCRIPTION,
     parameters: ChecklistParamsSchema,
-    callers: ["model"],
+    // Script-callable (codemode): replay-safe chat surface, no side effects
+    // beyond the bot's own visible plan.
     replay: "safe",
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);

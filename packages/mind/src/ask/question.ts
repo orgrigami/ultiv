@@ -93,7 +93,8 @@ const toolOf = (deps: QuestionDeps) =>
         Type.Boolean({ description: "Let the owner type their own answer (default true)." }),
       ),
     }),
-    callers: ["model"],
+    // Script-callable (codemode): a script may ask mid-flight and branch on
+    // the answer — the card parks the script and resumes on reply.
     // Asking has no side effect: after a restart the call runs again and the
     // card comes back, instead of the question being lost as "interrupted".
     replay: "safe",

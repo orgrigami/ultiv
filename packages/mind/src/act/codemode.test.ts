@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { CodemodeSandbox } from "@earendil-works/pi-codemode";
 import { createRegistry } from "@earendil-works/pi-durable";
+import { checklistTools } from "../checklist/tools.ts";
+import { questionTools } from "../ask/question.ts";
+import { connectorTools } from "../mcp/connector-tools.ts";
+import { manageTools } from "../mcp/manage-tools.ts";
 import { codemodeExtension } from "./codemode.ts";
 
 const sandboxWithDemoTool = async (): Promise<CodemodeSandbox> => {
@@ -72,5 +76,67 @@ describe("Codemode section listing", () => {
     expect(text).toContain("## shell");
     expect(text).toMatch(/### `bash`/);
     expect(text).toMatch(/### `bash_host`/);
+  });
+
+  it("keeps the script-callable contract: reads and chat surfaces in, installs and org mutations out", () => {
+    const audit = { record: () => undefined, tail: () => [] } as never;
+    const callable = (tools: readonly { name?: string; callers?: readonly string[] }[]) =>
+      Object.fromEntries(
+        tools.map((tool) => [
+          tool.name ?? "",
+          tool.callers === undefined || tool.callers.includes("tools"),
+        ]),
+      );
+    const contract = {
+      ...callable(
+        questionTools({
+          approvals: audit,
+          profiles: { scopeOf: () => undefined, profileOf: () => null },
+          audit,
+        } as never),
+      ),
+      ...callable(
+        checklistTools({ converse: {}, profiles: { profileOf: () => undefined }, audit } as never),
+      ),
+      ...callable(
+        connectorTools({
+          manager: { list: () => [] },
+          approvals: audit,
+          audit,
+          profiles: { profileOf: () => null },
+          notes: [],
+          callTimeoutMs: 1_000,
+        } as never),
+      ),
+      ...callable(
+        manageTools({
+          manager: { list: () => [] },
+          approvals: audit,
+          audit,
+          profiles: { profileOf: () => null },
+          notes: [],
+          callTimeoutMs: 1_000,
+        } as never),
+      ),
+    };
+    // Reads and the replay-safe chat surfaces compose inside a script.
+    for (const name of ["connector_list", "ask_user_question", "checklist"]) {
+      expect(contract[name], name).toBe(true);
+    }
+    // Installs with wrong interruption semantics stay model-direct: a script
+    // may add or flip a connector (each change still parks its never-auto-
+    // approved card), but connector_load pulls a live tool surface into the
+    // conversation and codemode itself must not recurse.
+    for (const name of ["connector_load"]) {
+      expect(contract[name], name).toBe(false);
+    }
+    // Codemode itself is model-only: no scripts starting scripts.
+    const registry = createRegistry();
+    registry.install(codemodeExtension());
+    const codemode = registry
+      .snapshot()
+      .tools()
+      .find((row) => row.tool.name === "codemode");
+    expect(codemode?.tool.callers).toEqual(["model"]);
   });
 });
