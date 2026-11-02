@@ -24,6 +24,7 @@ import {
 } from "./store.ts";
 import { addProposal, decideProposal, listProposals } from "./proposals.ts";
 import { applyOps as applySkillOps, type SkillOp, type SkillOpOutcome } from "./batch.ts";
+import { applyAbsorb, curateProfile, proposalKind, staleAbsorbReason } from "./curate.ts";
 import { MAX_SKILL_CHARS, secretIn } from "./guard.ts";
 import type { Version, VersionAuthor } from "../versions/store.ts";
 
@@ -123,6 +124,12 @@ export interface SkillsService {
     id: string,
     verdict: "accepted" | "rejected",
   ) => Promise<SkillProposal | undefined>;
+  /**
+   * Run the deterministic consolidation pass over one bot's learned
+   * skills and park an absorb proposal per overlapping pair; returns the
+   * proposals parked this run.
+   */
+  readonly curate: (owner: string, profile: string) => Promise<readonly SkillProposal[]>;
 }
 
 /** Built-in skills from the app package: parse once, fail loudly on drift. */
@@ -212,9 +219,26 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
       });
     },
     proposalsOf: async (owner, profile) => listProposals(root, owner, profile),
+    curate: async (owner, profile) => curateProfile(root, owner, profile, builtins),
     decide: async (owner, profile, id, verdict) => {
+      // An absorb accept refuses cleanly when the store drifted since the
+      // plan was drafted: stale proposals never half-apply.
+      const pending = listProposals(root, owner, profile).find((entry) => entry.id === id);
+      if (
+        verdict === "accepted" &&
+        pending !== undefined &&
+        pending.status === "open" &&
+        proposalKind(pending) === "absorb"
+      ) {
+        const stale = staleAbsorbReason(root, owner, profile, pending, builtins);
+        if (stale !== undefined) throw new Error(stale);
+      }
       const decided = decideProposal(root, owner, profile, id, verdict);
       if (decided === undefined || verdict === "rejected") return decided;
+      if (proposalKind(decided) === "absorb") {
+        await applyAbsorb(root, owner, profile, decided, builtins);
+        return decided;
+      }
       writeSkill(
         root,
         owner,

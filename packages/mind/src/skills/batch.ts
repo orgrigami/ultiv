@@ -310,7 +310,7 @@ export const applyOps = async (
               : existing.meta.authorProfile,
           by: options.by ?? (options.origin === "owner" ? "owner" : "bot"),
           ...(options.turn !== undefined ? { turn: options.turn } : {}),
-          note: `${options.note ?? "batch"} ${item.op}`,
+          note: `${options.note ?? "batch"}: ${item.op}`,
         },
         builtins,
       );

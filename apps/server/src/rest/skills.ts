@@ -78,12 +78,23 @@ export async function skillRoutes(args: RouteArgs): Promise<boolean> {
   const detail = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)$/);
   const file = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/files\/(.+)$/);
   const proposal = path.match(/^\/api\/skills\/([^/]+)\/proposals\/([^/]+)\/(accept|reject)$/);
+  const curate = path.match(/^\/api\/skills\/([^/]+)\/curate$/);
   const revert = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/revert$/);
   const versions = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/versions$/);
   const restore = path.match(/^\/api\/skills\/([^/]+)\/([^/]+)\/restore$/);
   try {
     if (path === "/api/skills" && method === "GET") {
       json(200, await overview(args));
+      return true;
+    }
+    if (curate !== null && method === "POST") {
+      const [, profileId] = curate;
+      if (!(await knownProfile(args, profileId))) return notFound(json, "profile", profileId);
+      let parked: readonly SkillProposal[] = [];
+      await audited(args, profileId ?? "", "skills.owner.curate", async () => {
+        parked = await args.mind.skills.curate(args.owner, profileId ?? "");
+      });
+      json(200, { proposals: parked });
       return true;
     }
     if (proposal !== null && method === "POST") {

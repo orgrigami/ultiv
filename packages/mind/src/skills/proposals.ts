@@ -43,6 +43,10 @@ export interface SkillPropose {
   readonly note: string;
   /** The proposing profile; null for owner drafts. */
   readonly byProfile: string | null;
+  /** The proposal's kind; absent reads as "update" (a new body for one skill). */
+  readonly kind?: "update" | "absorb";
+  /** For kind "absorb": each source skill and the version drafted against. */
+  readonly absorbed?: readonly { readonly name: string; readonly version: number }[];
 }
 
 /** Park one proposal (oldest evicted beyond the cap). */
@@ -62,6 +66,10 @@ export const addProposal = (
     note: input.note.slice(0, 300),
     status: "open",
     decidedAt: null,
+    ...(input.kind !== undefined ? { kind: input.kind } : {}),
+    ...(input.absorbed !== undefined
+      ? { absorbed: input.absorbed.map((source) => ({ ...source })) }
+      : {}),
   };
   const all = readAll(root, owner, profile);
   all.unshift(proposal);

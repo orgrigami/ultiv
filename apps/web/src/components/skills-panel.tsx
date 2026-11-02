@@ -268,9 +268,17 @@ function ProposalCard({
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
       <p className="min-w-0 break-words">{proposal.note}</p>
-      <p className="text-muted-foreground text-xs">
-        Proposes a new version (base v{proposal.baseVersion})
-      </p>
+      {proposal.kind === "absorb" ? (
+        <p className="text-muted-foreground text-xs">
+          Keeps “{proposal.skill}” and removes{" "}
+          {(proposal.absorbed ?? []).map((source) => source.name).join(", ")} (merged body drafted
+          against v{proposal.baseVersion})
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          Proposes a new version (base v{proposal.baseVersion})
+        </p>
+      )}
       <div className="flex gap-2">
         <Button variant="outline" size="sm" disabled={busy} onClick={() => onDecide("accept")}>
           Accept

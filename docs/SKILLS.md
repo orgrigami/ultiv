@@ -141,6 +141,36 @@ against the per-turn save cap (`MAX_LEARNED_PER_TURN`): the audit event
 carries the op count (`saves`), and a batch larger than the turn's
 remaining allowance is refused wholesale.
 
+## Consolidation (absorb)
+
+The owner can consolidate a bot's overlapping learned skills with
+`POST /api/skills/:profile/curate` (`packages/mind/src/skills/curate.ts`,
+owner-scoped like every skills route and audited under kind `skills`).
+Detection is DETERMINISTIC, no model: each non-builtin skill's
+distinctive-word set (name + description + body, minus the memory stop
+words) is scored pairwise, and a pair sharing at least 40 percent of the
+smaller set (`ABSORB_OVERLAP`) becomes a merge candidate. The kept skill
+is the OLDER of the pair (higher version count wins a dead heat); the
+drafted body is the target's body plus, per source, an
+`## Absorbed from <name>` section carrying that source's body — a source
+whose section would push past `MAX_SKILL_CHARS` is skipped and named in
+the proposal's note. Each candidate lands in the proposals inbox as a NEW
+proposal kind `absorb` (older rows without the kind keep working, reading
+as their existing `update` kind); the Skills page shows kept + absorbed
+lists with the usual Accept/Reject. Built-ins are never sources and never
+targets.
+
+Accepting an absorb proposal applies through the batch engine ATOMICALLY:
+the target is updated (new version, reason `absorbed <source names>`) and
+every source is removed, in one all-or-nothing batch, with the absorbed
+names recorded on the target's index metadata (`absorbed`) and each
+source's version history retained — `GET .../versions` still answers for
+a removed source though nothing lists it. If the store drifted since the
+plan was drafted (a source was removed or changed, or the target was
+rewritten), the accept refuses with a structured, owner-actionable error
+and nothing is applied: stale proposals never half-apply. Reject works as
+today.
+
 ## Evolution
 
 `skill_evolve` runs the loop as a background task (the bot's own, so it
@@ -173,7 +203,8 @@ nothing is lost. Built-ins never evolve: copy one first.
 PUT (body and/or `enabled`), DELETE, `GET .../versions` (newest first; a
 removed skill's history still answers, though nothing lists the skill),
 `POST .../restore` `{ version }`, `POST .../revert` (undo: the version
-before the current one becomes current) and
+before the current one becomes current),
+`POST /api/skills/:profile/curate` (the consolidation pass above) and
 `POST .../proposals/:id/accept|reject` are per-skill routes, all
 owner-scoped (another owner gets the unknown-bot 404) and audited under
 kind `skills`. The web page groups skills per bot, badges origin, renders
