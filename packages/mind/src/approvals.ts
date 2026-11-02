@@ -67,8 +67,15 @@ export interface AdjudicationVerdict {
 
 /** Late-wired policy hooks: per-profile auto-approve, Jev adjudication, timeout escalation. */
 export interface ApprovalsHooks {
-  /** Return true to approve without waiting (policies.autoApprove). */
-  readonly autoApprove?: (conversationId: string, request: ApprovalRequest) => boolean;
+  /**
+   * Return true to approve without waiting (policies.autoApprove). May be
+   * async: the node-target matcher resolves the call's paired node through
+   * the registry (a doc read) before it answers.
+   */
+  readonly autoApprove?: (
+    conversationId: string,
+    request: ApprovalRequest,
+  ) => boolean | Promise<boolean>;
   /**
    * Ask a delegated judge (Jev) before parking the gate. True approves, false
    * denies immediately (the note rides `noteFor` to the tool's denial
@@ -193,9 +200,18 @@ export const makeApprovals = (
         notes.delete(k); // a stale note must not leak into this call's denial
         overrides.delete(k);
         // An owner-only gate skips the hooks entirely: delegation never
-        // answers an act that mints actors.
-        if (options?.owner !== true && hooks.autoApprove?.(conversationId, request) === true) {
-          return true;
+        // answers an act that mints actors. The hook may be async (the node
+        // target resolves through the registry); a rejection is no approval.
+        if (options?.owner !== true && hooks.autoApprove !== undefined) {
+          const approved = yield* Effect.match(
+            Effect.promise(() =>
+              Promise.resolve(hooks.autoApprove?.(conversationId, request)).then(
+                (value) => value === true,
+              ),
+            ),
+            { onFailure: () => false, onSuccess: (value) => value },
+          );
+          if (approved) return true;
         }
         if (options?.owner !== true && hooks.adjudicate !== undefined) {
           // A failing or slow judge is no verdict: fall through to the owner.

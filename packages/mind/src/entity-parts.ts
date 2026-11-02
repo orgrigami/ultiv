@@ -8,7 +8,9 @@ import { defineExtension, type ToolRegistration } from "@earendil-works/pi-durab
 import type { ScopeHolder } from "@spriessen/ext";
 import type { TranscriptEntry } from "@spriessen/contracts";
 import type { ApprovalRequest, ApprovalsService } from "./approvals.ts";
-import { mayAutoApprove } from "./auto-approve.ts";
+import { mayAutoApprove, type NodeIdOf } from "./auto-approve.ts";
+import { bashNodeNameOf, bashTargetOf } from "@spriessen/contracts";
+import { resolveNodeId } from "./nodes/nodes.ts";
 import { homeOf } from "./org/model.ts";
 import { homeScopeOfProfile } from "./org/home-scope.ts";
 import { CONTEXT_ENTRIES, isApprovalFloor, makeAdjudicator } from "./jev-gate.ts";
@@ -302,7 +304,23 @@ export const wirePolicies = (
       const mode = profile?.policies.approvalMode;
       if (isApprovalFloor(request.name)) return false;
       if (mode === "yolo") return true;
-      return mayAutoApprove(profile?.policies.autoApprove ?? [], request);
+      // A node call names its node by NAME (or none — the single paired
+      // node); the exact rule names the stored id. Resolve it like the tool
+      // does so a saved rule matches the next identical call. The hook may
+      // answer async (approvals awaits it); the resolver itself stays the
+      // matcher's sync shape, closed over the one resolved id.
+      let nodeIdOf: Promise<NodeIdOf | undefined> = Promise.resolve(undefined);
+      if (bashTargetOf(request.input) === "node") {
+        const scope = profiles.scopeOf(conversationId);
+        if (scope !== undefined) {
+          nodeIdOf = resolveNodeId(converse, scope.owner, bashNodeNameOf(request.input)).then(
+            (id) => (id === undefined ? undefined : () => id),
+          );
+        }
+      }
+      return nodeIdOf.then((resolved) =>
+        mayAutoApprove(profile?.policies.autoApprove ?? [], request, resolved),
+      );
     },
     // 'jev': floors and bash's host/node targets always reach the owner; see jev-gate.ts.
     adjudicate: makeAdjudicator({

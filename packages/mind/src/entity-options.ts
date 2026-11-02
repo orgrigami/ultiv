@@ -61,6 +61,16 @@ export interface MindOptions {
    * F-D9 default: delete). Defaults to removing the store directory.
    */
   readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  /**
+   * The node agents' exec transport (phase 6 slice 4): the server injects
+   * the /agent dial here. The mind builds the bash tool's `node` facade
+   * from it plus its own node registry; without it every node call answers
+   * the owner-actionable "no node" error.
+   */
+  readonly nodeExec?: (
+    nodeId: string,
+    request: { readonly script: string; readonly cwd?: string; readonly timeoutMs: number },
+  ) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 }
 
 /** Everything that can fail while booting the mind. */
@@ -96,4 +106,9 @@ export interface MindWiring {
   readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
   /** Department-store deletion with the purge; the entity supplies the default. */
   readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  /** The /agent exec dial injected by the server (the `node` target's transport). */
+  readonly nodeExec?: (
+    nodeId: string,
+    request: { readonly script: string; readonly cwd?: string; readonly timeoutMs: number },
+  ) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 }

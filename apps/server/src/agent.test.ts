@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
+import { Effect } from "effect";
 import { NODE_OUTPUT_CAP, type NodeInfo } from "@spriessen/contracts";
 import { pairNode, revokeNode } from "@spriessen/mind";
 import WebSocket from "ws";
@@ -196,5 +197,66 @@ describe("the node agent endpoint", () => {
       timeoutMs: 10_000,
     });
     expect(result.stdout).toBe("back\n");
+  });
+
+  it("a full turn: the merged bash tool runs target node on the spawned agent", async () => {
+    // The bot works in yolo (a recorded default: node rides the bash_host
+    // trust class), the org migration leaves the host-access switch on.
+    // A DEDICATED owner: unnamed node resolution needs exactly ONE paired
+    // node, and the tests above paired theirs under owner-a.
+    const owner = "owner-b";
+    const { profiles, converse, act, audit } = stack.mind;
+    const bot = await profiles.create(owner, { name: "Kestrel", onboard: false });
+    await profiles.update(owner, bot.id, {
+      hostAccess: true,
+      policies: { ...bot.policies, approvalMode: "yolo", autoApprove: [] },
+    });
+    const chat = await profiles.ensureMain(owner, bot.id);
+    const row = await profiles.rowOf(chat.id);
+    const key = row !== undefined ? await profiles.keyOfRow(row) : "";
+    const cid = String(await Effect.runPromise(converse.conversationIdOf(key as never)));
+    const paired = await pairNode(stack.mind.converse, owner, {
+      name: "node-e2e",
+      roots: ["/tmp"],
+    });
+    const node = paired.node;
+    spawnAgent(paired.token);
+    await waitConnected(node.id);
+    const tool = act.extension().tools?.find((entry) => entry.name === "bash") as
+      | {
+          execute: (
+            a: never,
+            b: never,
+            c: never,
+          ) => Promise<{
+            isError?: boolean;
+            output: { text: string }[];
+            structuredOutput?: Record<string, unknown>;
+          }>;
+        }
+      | undefined;
+    if (tool === undefined) throw new Error("bash is not registered");
+    const result = await tool.execute(
+      { script: "echo hi", target: "node" } as never,
+      { conversationId: cid, callId: "h1" } as never,
+      {} as never,
+    );
+    expect(result.isError).toBeUndefined();
+    expect(result.output[0]?.text).toContain("hi");
+    expect(result.output[0]?.text).toContain("(ran on node node-e2e)");
+    expect(result.structuredOutput).toMatchObject({ target: "node", node: "node-e2e" });
+    // The audit answers "where did this run": target + the resolved node id.
+    const line = [...audit.tail(20)]
+      .reverse()
+      .find((event) => event.kind === "tool_call" && event.name === "bash" && event.ok === true);
+    expect(line?.bashTarget).toEqual({ target: "node", node: node.id });
+    // A name that resolves to nothing refuses with the structured error.
+    const bad = await tool.execute(
+      { script: "echo hi", target: "node", node: "nope" } as never,
+      { conversationId: cid, callId: "h2" } as never,
+      {} as never,
+    );
+    expect(bad.isError).toBe(true);
+    expect(bad.output[0]?.text).toContain("no node is paired");
   });
 });

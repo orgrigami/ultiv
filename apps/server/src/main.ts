@@ -53,8 +53,13 @@ export async function buildStack(options?: {
   readonly storage?: Storage;
   readonly vault?: { readonly dir?: string };
 }) {
+  // The node agents' dial exists before the mind: openMind injects its exec
+  // as the bash tool's `node` target transport (mind/node facade).
+  const transport = createNodeTransport();
   const handle = await openMind({
     plugins: [httpPlugin],
+    // Slice 4: the /agent exec dial behind the bash tool's node target.
+    nodeExec: (nodeId, request) => transport.exec(nodeId, request),
     // The host capability (slice 11): the effective flag — org AND
     // department AND bot for a department bot, org AND bot for an org bot.
     // Rest takes the account check (see rest/can.ts).
@@ -201,7 +206,6 @@ export async function buildStack(options?: {
   // The node agents' dial-in: the owner's machines authenticate with their
   // pairing token on the upgrade itself (no session cookie), so their path
   // routes BEFORE the session authorize in the upgrade handler below.
-  const transport = createNodeTransport();
   const agents = agentEndpoint({ converse: mind.converse, transport });
   const http = createServer(createRestHandler({ mind, scheduler, push, auth, nodes: agents }));
   // noServer: the http server's one upgrade handler routes by path (the

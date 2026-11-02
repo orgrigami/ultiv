@@ -69,13 +69,15 @@ describe("Approvals", () => {
     approvals.setHooks({ autoApprove: (conversationId) => conversationId === "auto" });
     await expect(Effect.runPromise(approvals.request("auto", "c6", REQUEST))).resolves.toBe(true);
     const pending = Effect.runPromise(approvals.request("conv", "c7", REQUEST));
-    await Promise.resolve();
+    // The hook may answer async (the node target resolves through the
+    // registry), so the park lands a macrotask later.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(heard).toEqual(["conv:send_message"]);
     approvals.decide("conv", "c7", true);
     await pending;
     stop();
     void Effect.runPromise(approvals.request("conv", "c8", REQUEST));
-    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(heard).toHaveLength(1);
   });
 

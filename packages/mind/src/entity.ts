@@ -13,6 +13,7 @@
 import { Context, Effect, Layer } from "effect";
 import { type ToolRegistration } from "@earendil-works/pi-durable";
 import { openRuntime, type Runtime } from "@spriessen/core";
+import { nodeShellFacadeOf } from "./nodes/facade.ts";
 import {
   artifactsDir,
   artifactsPlugin,
@@ -430,6 +431,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       ? { reconcileDeptGroups: options.reconcileDeptGroups }
       : {}),
     ...(options.deleteDeptStore !== undefined ? { deleteDeptStore: options.deleteDeptStore } : {}),
+    ...(options.nodeExec !== undefined ? { nodeExec: options.nodeExec } : {}),
     ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined
       ? {
@@ -460,7 +462,12 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       const base = [
         temporalPlugin(),
         artifactsPlugin({ holder }),
-        bashPlugin({ holder }),
+        bashPlugin({
+          holder,
+          ...(wiring.nodeExec !== undefined
+            ? { nodes: nodeShellFacadeOf(wiring.converseRef, wiring.nodeExec) }
+            : {}),
+        }),
         browserPlugin({ holder }),
         filesPlugin({ holder }),
         graphPlugin(),

@@ -31,7 +31,7 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
-import { BASH_TARGETS, bashTargetOf, type BashTarget } from "@spriessen/contracts";
+import { BASH_TARGETS, bashNodeNameOf, bashTargetOf, type BashTarget } from "@spriessen/contracts";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -47,11 +47,17 @@ import {
   type SharedWrite,
 } from "../shell/backend.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
+import {
+  nodeShellBackend,
+  type NodeShellNode,
+  type NodeShellTransport,
+} from "../shell/node-backend.ts";
 
 const MAX_OUTPUT_CHARS = 20_000;
 const HOME = "/home";
 const EXEC_TIMEOUT_MS = 180_000;
 const HOST_TIMEOUT_MS = 120_000;
+const NODE_TIMEOUT_MS = 120_000;
 const CWD_MARKER = "__SPRIESSEN_CWD__";
 
 export interface BashOptions {
@@ -69,6 +75,12 @@ export interface BashOptions {
    * own folder when the VM is shared by a home, `/home` otherwise).
    */
   readonly backend?: (dir: string, homeDir: string, guestRoot: string) => ShellBackend;
+  /**
+   * The paired-node registry + agent transport behind the `node` target.
+   * The mind builds it from its node registry and the /agent dial; without
+   * it every node call answers the owner-actionable "no node" error.
+   */
+  readonly nodes?: NodeShellTransport;
 }
 
 /**
@@ -149,7 +161,12 @@ const whereText = (target: BashTarget, node: string | null): string =>
       ? "(ran on the host)"
       : `(ran on node ${node ?? "?"})`;
 
-const present = (result: ShellExecResult, target: BashTarget, node: string | null = null) => {
+const present = (
+  result: ShellExecResult,
+  target: BashTarget,
+  node: string | null = null,
+  nodeId?: string,
+) => {
   const stderr = truncate(
     result.stderr
       .split("\n")
@@ -178,6 +195,7 @@ const present = (result: ShellExecResult, target: BashTarget, node: string | nul
       exitCode: result.exitCode,
       target,
       ...(node !== null ? { node } : {}),
+      ...(nodeId !== undefined ? { nodeId } : {}),
     },
   };
 };
@@ -303,14 +321,24 @@ const BashParams = Type.Object({
       },
     ),
   ),
+  node: Type.Optional(
+    Type.String({
+      description:
+        'For target "node": the paired node\'s name. Leave it empty when your owner has ' +
+        "exactly one paired node; naming it is required once there is more than one.",
+    }),
+  ),
 });
 
 const sandboxTool = (
   dirOf: (conversationId: string) => string,
   backendOf: (dir: string, conversationId: string) => Promise<ResolvedWorld>,
   sessions: Map<string, Promise<SandboxSession>>,
+  holder: ScopeHolder | undefined,
   onSharedWrite?: (conversationId: string, rows: readonly SharedWrite[]) => void,
   hostSessions?: Map<string, HostSession>,
+  nodes?: NodeShellTransport,
+  nodeSessions?: Map<string, NodeSession>,
 ): Tool => {
   // The home world is resolved on EVERY call: a cached session keeps its
   // backend only while the world it was built for (VM name, allowlist,
@@ -366,6 +394,7 @@ const sandboxTool = (
       exitCode: Type.Number(),
       target: TARGET_SCHEMA,
       node: Type.Optional(Type.String()),
+      nodeId: Type.Optional(Type.String()),
     }),
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
@@ -374,9 +403,33 @@ const sandboxTool = (
         return execFailure("bash", 'unknown target: use "vm" (default), "host" or "node"');
       }
       if (target === "node") {
-        // Slice 4 wires the paired-node backend; until then every node call
-        // answers the owner-actionable error (no pairing, no execution).
-        return nodeUnpaired();
+        if (nodes === undefined || nodeSessions === undefined) return nodeUnpaired();
+        const scope = holder?.get()?.scopeOf(conversationId);
+        if (scope === undefined)
+          return execFailure("bash", "this conversation has no profile scope for a node call");
+        let node: NodeShellNode;
+        try {
+          const resolved = await nodes.resolve(scope.owner, bashNodeNameOf(args));
+          if (resolved === undefined) return nodeUnpaired();
+          node = resolved;
+        } catch (cause) {
+          return execFailure("bash", cause);
+        }
+        let session = nodeSessions.get(conversationId);
+        if (session === undefined || session.nodeId !== node.id) {
+          // The default cwd is the node's first allowed root; a paired node
+          // always has one (the registry refuses empty root lists).
+          session = { nodeId: node.id, name: node.name, cwd: node.roots[0] ?? "/" };
+          nodeSessions.set(conversationId, session);
+        }
+        const result = await nodeShellBackend(nodes, node.id).exec(
+          wrapScript(args.script),
+          session.cwd,
+          NODE_TIMEOUT_MS,
+        );
+        const cwd = markerCwd(result.stderr);
+        if (cwd !== undefined) session.cwd = cwd;
+        return present(result, "node", node.name, node.id);
       }
       if (target === "host") {
         if (hostSessions === undefined) return execFailure("bash", "host shell not wired");
@@ -438,15 +491,27 @@ interface HostSession {
   cwd: string;
 }
 
-/** The structured, owner-actionable error a node call reads without a paired node. */
+/** One conversation's node working state: the node it is on and its cwd there. */
+interface NodeSession {
+  nodeId: string;
+  name: string;
+  cwd: string;
+}
+
+/**
+ * The structured, owner-actionable error for every unresolvable node call:
+ * no pairing, an unknown or ambiguous name, or a revoked row — the fix is
+ * the owner's (pair in Settings → Nodes, or name a paired node).
+ */
 const nodeUnpaired = () => ({
   output: [
     {
       type: "text" as const,
       text:
         'no node is paired for target "node": ask your owner to pair one in Settings → Nodes ' +
-        "(pairing mints a token their node agent dials in with), or name a paired node with " +
-        'the "node" field once they have more than one',
+        "(pairing mints a token their node agent dials in with); once more than one is paired, " +
+        'name the node with the "node" field — a name that matches no single paired node ' +
+        "answers this same error",
     },
   ],
   isError: true as const,
@@ -483,6 +548,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   // so every conversation of a bot sees the same durable files.
   const sessions = new Map<string, Promise<SandboxSession>>();
   const hostSessions = new Map<string, HostSession>();
+  const nodeSessions = new Map<string, NodeSession>();
   const stagingOf = (dir: string): string => join(root, "..", "bash-home", scopeHash(dir));
   // One VM per HOME (org or department) when the mind wires a home-scope
   // resolver: the sandbox is named by the home's scope dir and the bot works
@@ -519,7 +585,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   };
   return definePlugin({
     id: "ultiv.bash",
-    version: "3.0.0",
+    version: "4.0.0",
     description:
       "One shell, three targets: a sandboxed microVM over the durable workspace (files written here are artifacts, the default), a privileged shell on the host computer, and a paired node agent — each target gated on its own terms.",
     capabilities: [
@@ -528,8 +594,11 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
           dirOf,
           backendOf,
           sessions,
+          holder,
           (conversationId, rows) => holder?.get()?.sharedWrite?.(conversationId, rows),
           hostSessions,
+          options.nodes,
+          nodeSessions,
         ),
       ),
     ],

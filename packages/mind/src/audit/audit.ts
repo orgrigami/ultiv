@@ -103,7 +103,8 @@ const callIdOf = (api: unknown): string | null => {
 /**
  * Where a bash call ran: the audit must answer "where did this run" as a
  * lookup, never a guess. Every `bash` tool_call line carries the target (and
- * the named node, when the call names one). Non-bash tools carry nothing.
+ * the node: the RESOLVED node's id once the call ran — the result carries
+ * it — falling back to the name the call gave. Non-bash tools carry nothing.
  */
 const bashTargetDetail = (name: string, args: unknown) => {
   if (name !== "bash") return undefined;
@@ -114,6 +115,14 @@ const bashTargetDetail = (name: string, args: unknown) => {
     node: bashNodeNameOf(args),
   };
   return detail;
+};
+
+/** The resolved node id a finished bash node call carries in its result. */
+const resultNodeIdOf = (result: unknown): string | null => {
+  const structured = (result as { structuredOutput?: unknown } | undefined)?.structuredOutput;
+  if (structured === null || typeof structured !== "object") return null;
+  const id = (structured as Record<string, unknown>)["nodeId"];
+  return typeof id === "string" && id !== "" ? id : null;
 };
 
 /**
@@ -131,7 +140,7 @@ export const withAudit = <TParameters extends TSchema>(
   execute: async (args, api, context) => {
     const startedAt = Date.now();
     const conversation = conversationOf(api);
-    const bashTarget = bashTargetDetail(tool.name, args);
+    const detail = bashTargetDetail(tool.name, args);
     const event = (ok: boolean, error: string | null): AuditEvent => ({
       at: startedAt,
       kind: "tool_call",
@@ -142,10 +151,15 @@ export const withAudit = <TParameters extends TSchema>(
       durationMs: Date.now() - startedAt,
       ok,
       error,
-      ...(bashTarget !== undefined ? { bashTarget } : {}),
+      ...(detail !== undefined ? { bashTarget: detail } : {}),
     });
     try {
       const result = await tool.execute(args, api, context);
+      // A node call stamps the RESOLVED node: the id the exec actually rode.
+      if (detail !== undefined && detail.node === null) {
+        const resolved = resultNodeIdOf(result);
+        if (resolved !== null) detail.node = resolved;
+      }
       audit.record(event(!result.isError, null));
       return result;
     } catch (cause) {
