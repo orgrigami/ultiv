@@ -19,7 +19,7 @@ import {
   CodeBlockLine,
   CodeBlockTitle,
 } from "@/components/ui/code-block";
-import { artifactLinkOf } from "@/lib/file-meta";
+import { artifactLinkOf, liftArtifactLinks } from "@/lib/file-meta";
 import { useHighlightedCode } from "@/hooks/use-highlighted-code";
 
 function FencedCode({ code, language }: { code: string; language: string }) {
@@ -68,7 +68,7 @@ const components: Components = {
 function MarkdownImpl({ text }: { text: string }) {
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {text}
+      {liftArtifactLinks(text)}
     </ReactMarkdown>
   );
 }

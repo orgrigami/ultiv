@@ -59,7 +59,11 @@ function useFileInfo(file: FileRef): Info {
     let live = true;
     api.artifactMeta(file.id).then(
       (row) => {
-        if (live) setInfo({ file: { ...file, mime: row.mime, bytes: row.bytes }, missing: false });
+        if (live)
+          setInfo({
+            file: { ...file, name: row.name, mime: row.mime, bytes: row.bytes },
+            missing: false,
+          });
       },
       () => {
         if (live) setInfo({ file, missing: true });

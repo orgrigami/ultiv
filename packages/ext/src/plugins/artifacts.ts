@@ -305,7 +305,8 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
       "Write a file into the workspace the app can serve: reports, data, code, anything the " +
       "user should keep. Returns the artifact id clients fetch it by. The owner sees a file " +
       "card with preview and download in the chat for every write; to share a file made " +
-      "earlier (by you or bash), link it as /api/artifacts/<id> in your reply.",
+      "earlier (by you or bash), link it in your reply as a markdown link — " +
+      "[name](/api/artifacts/<id>) — a bare path in plain text shows no card.",
     parameters: WriteParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), name: Type.String() }),
     execute: (args, api) => {

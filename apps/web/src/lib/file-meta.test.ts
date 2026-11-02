@@ -4,6 +4,7 @@ import {
   formatBytes,
   kindLabel,
   langOf,
+  liftArtifactLinks,
   parseWrittenArtifact,
   previewKindOf,
 } from "./file-meta.ts";
@@ -90,5 +91,46 @@ describe("parseWrittenArtifact", () => {
     expect(parseWrittenArtifact("saved it")).toBeNull();
     expect(parseWrittenArtifact("artifact ../etc/passwd (x) in your workspace")).toBeNull();
     expect(parseWrittenArtifact("artifact (name) in your workspace")).toBeNull();
+  });
+});
+
+describe("liftArtifactLinks", () => {
+  it("lifts bare paths into markdown links, one per id", () => {
+    expect(liftArtifactLinks("Links: /api/artifacts/abc123 and /api/artifacts/def456")).toBe(
+      "Links: [abc123](/api/artifacts/abc123) and [def456](/api/artifacts/def456)",
+    );
+  });
+
+  it("leaves anchor destinations, angle destinations and larger URLs alone", () => {
+    expect(liftArtifactLinks("[report](/api/artifacts/abc123) is ready")).toBe(
+      "[report](/api/artifacts/abc123) is ready",
+    );
+    expect(liftArtifactLinks("[r](</api/artifacts/abc123>)")).toBe("[r](</api/artifacts/abc123>)");
+    expect(liftArtifactLinks("see https://mac.ts.net/api/artifacts/abc123")).toBe(
+      "see https://mac.ts.net/api/artifacts/abc123",
+    );
+    expect(liftArtifactLinks("fetch /api/artifacts/abc123/meta")).toBe(
+      "fetch /api/artifacts/abc123/meta",
+    );
+  });
+
+  it("keeps code spans and fenced code blocks as code", () => {
+    expect(liftArtifactLinks("path is `/api/artifacts/abc123` in the api")).toBe(
+      "path is `/api/artifacts/abc123` in the api",
+    );
+    expect(liftArtifactLinks("```\ncurl /api/artifacts/abc123\n```")).toBe(
+      "```\ncurl /api/artifacts/abc123\n```",
+    );
+  });
+
+  it("lifts across a real bot reply shape", () => {
+    const reply =
+      "The screenshots are now in this chat as download cards:\n\n" +
+      "- **todo-app-light.png** (`76dc58e8`)\n" +
+      "- **todo-app-dark.png** (`661207a6`)\n\n" +
+      "Links: /api/artifacts/76dc58e8-c1fa-4458-903a-20be42467938 and /api/artifacts/661207a6-dcca-4c2c-b581-886665bf1752";
+    expect(liftArtifactLinks(reply)).toContain(
+      "[76dc58e8-c1fa-4458-903a-20be42467938](/api/artifacts/76dc58e8-c1fa-4458-903a-20be42467938)",
+    );
   });
 });

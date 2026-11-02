@@ -182,6 +182,65 @@ export const artifactLinkOf = (href: string): FileRef | null => {
   return { id, name: id };
 };
 
+const ARTIFACT_PATH = /\/api\/artifacts\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,63})(?![a-zA-Z0-9._/-])/g;
+
+/**
+ * Lift bare artifact paths in a bot's plain text into markdown links so they
+ * render as file cards. Models keep writing "Links: /api/artifacts/<id>" as
+ * plain text (the tool description's old wording taught that form); a bare
+ * path matches nothing in the markdown renderer's anchor handler, so the
+ * owner sees no card. Paths already inside an anchor `](…)` are left alone,
+ * as are paths inside inline code spans and fenced code blocks — code stays
+ * code. The lifted label is the id itself; the card's meta fetch replaces
+ * it with the real name once /meta answers.
+ */
+export const liftArtifactLinks = (text: string): string => {
+  const lines = text.split("\n");
+  let inFence = false;
+  const fence = /^(\s*)(`{3,}|~{3,})/;
+  return lines
+    .map((line) => {
+      const opening = fence.exec(line);
+      if (opening !== null) {
+        inFence = !inFence;
+        return line;
+      }
+      if (inFence) return line;
+      let out = "";
+      for (let i = 0; i < line.length;) {
+        ARTIFACT_PATH.lastIndex = 0;
+        const match = ARTIFACT_PATH.exec(line.slice(i));
+        if (match === null || match.index === undefined) {
+          out += line.slice(i);
+          break;
+        }
+        const start = i + match.index;
+        // An anchor destination `](/api/…` or `](</api/…` already renders a
+        // card via the `a` handler; a path glued to a preceding token is part
+        // of a larger URL or word (`mac.ts.net/api/…`), and code spans stay
+        // code — all of these are left untouched.
+        const before = line.slice(Math.max(0, start - 2), start);
+        const prevChar = start > 0 ? line[start - 1] : "";
+        const ticks = line.slice(0, start).split("`").length - 1;
+        if (
+          before === "](" ||
+          before === "(<" ||
+          /[a-zA-Z0-9._/-]/.test(prevChar) ||
+          ticks % 2 === 1
+        ) {
+          out += line.slice(i, start + match[0].length);
+          i = start + match[0].length;
+          continue;
+        }
+        out += line.slice(i, start);
+        out += `[${match[1]}](${match[0]})`;
+        i = start + match[0].length;
+      }
+      return out;
+    })
+    .join("\n");
+};
+
 const WRITTEN = /^artifact (\S+) \((.+?)\) in your workspace/m;
 
 /** Legacy artifact_write steps carry the id only in the output text. */
