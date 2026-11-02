@@ -25,7 +25,7 @@ export const authErrorText = (
   }
   if (error === undefined || error.trim() === "") return "That didn't work. Try again.";
   const text = error.trim();
-  const sentence = text.charAt(0).toUpperCase() + text.slice(1);
+  const sentence = text.charAt(0).toUpperCase("en") + text.slice(1);
   return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
 };
 

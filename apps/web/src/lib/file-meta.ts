@@ -107,7 +107,7 @@ const LANGS: Record<string, string> = {
 const extOf = (name: string): string => {
   const dot = name.lastIndexOf(".");
   if (dot <= 0 || dot === name.length - 1) return "";
-  return name.slice(dot + 1).toLowerCase();
+  return name.slice(dot + 1).toLowerCase("en");
 };
 
 export const langOf = (name: string): string => LANGS[extOf(name)] ?? "";
@@ -152,7 +152,7 @@ export const kindLabel = (mime: string | undefined, name: string): string => {
     if (mime.startsWith("video/")) return "Video";
   }
   const ext = extOf(name);
-  return ext === "" ? "File" : ext.toUpperCase();
+  return ext === "" ? "File" : ext.toUpperCase("en");
 };
 
 export const formatBytes = (n: number): string =>

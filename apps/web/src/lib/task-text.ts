@@ -4,6 +4,7 @@
  * the pill's summary. Pure, so it is unit-tested.
  */
 import type { TaskInfo } from "@spriessen/contracts";
+import { plural } from "./plural.ts";
 
 const TITLE_CHARS = 40;
 
@@ -61,10 +62,10 @@ export function pillLabel(tasks: readonly TaskInfo[]): string {
   const settled = tasks.length - running;
   const failed = tasks.filter((task) => task.status === "failed").length;
   if (running > 0) {
-    const head = `${running} ${running === 1 ? "task" : "tasks"} running`;
+    const head = `${running} ${plural(running, "task", "tasks")} running`;
     return settled > 0 ? `${head} · ${settled} done` : head;
   }
   if (settled === 1)
-    return failed === 1 ? "Task failed" : `Task ${STATUS_WORD[tasks[0]!.status].toLowerCase()}`;
+    return failed === 1 ? "Task failed" : `Task ${STATUS_WORD[tasks[0]!.status].toLowerCase("en")}`;
   return failed > 0 ? `${settled} tasks finished · ${failed} failed` : `${settled} tasks finished`;
 }

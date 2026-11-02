@@ -37,7 +37,7 @@ export function hashSeed(seed: string): number {
 const four = (value: number): 0 | 1 | 2 | 3 => (value & 3) as 0 | 1 | 2 | 3;
 
 export function characterOf(seed: string): Character {
-  const hash = hashSeed(seed.trim().toLowerCase() || "?");
+  const hash = hashSeed(seed.trim().toLowerCase("en") || "?");
   return {
     body: four(hash),
     eyes: four(hash >>> 2),

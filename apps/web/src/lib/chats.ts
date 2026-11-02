@@ -28,7 +28,7 @@ export function pastChats(input: {
   limit?: number;
 }): ChatRow[] {
   const names = new Map(input.profiles.map((bot) => [bot.id, bot.name]));
-  const needle = (input.query ?? "").trim().toLowerCase();
+  const needle = (input.query ?? "").trim().toLowerCase("en");
   const rows = input.sessions
     .filter((session) => session.kind === "main" || session.kind === "session")
     .flatMap((session): ChatRow[] => {
@@ -48,8 +48,8 @@ export function pastChats(input: {
     .filter(
       (row) =>
         needle === "" ||
-        row.title.toLowerCase().includes(needle) ||
-        row.botName.toLowerCase().includes(needle),
+        row.title.toLowerCase("en").includes(needle) ||
+        row.botName.toLowerCase("en").includes(needle),
     )
     .sort((a, b) => b.at - a.at);
   return input.limit === undefined ? rows : rows.slice(0, input.limit);

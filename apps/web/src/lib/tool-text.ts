@@ -11,6 +11,7 @@ import {
   type ToolStep,
 } from "@spriessen/contracts";
 import { adminView } from "./admin-tool-views.ts";
+import { plural } from "./plural.ts";
 import { checklistView, graphView } from "./chat-tool-views.ts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
 import { learnedOf, type LearnedRef } from "./learned.ts";
@@ -36,7 +37,7 @@ export function humanizeToolName(name: string): string {
     .replace(/[_\-.:]+/g, " ")
     .trim();
   if (cleaned === "") return "Used a tool";
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  return cleaned.charAt(0).toUpperCase("en") + cleaned.slice(1);
 }
 
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
@@ -205,7 +206,7 @@ function humanizeKey(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_\-.]+/g, " ")
     .trim();
-  return words === "" ? key : words.charAt(0).toUpperCase() + words.slice(1);
+  return words === "" ? key : words.charAt(0).toUpperCase("en") + words.slice(1);
 }
 
 /** Curated fields per tool: the rows that matter, in reading order, with
@@ -472,7 +473,7 @@ const searchView = (step: ToolStep): ToolView => {
     family: "web",
     done:
       hits.length > 0
-        ? `Searched the web · ${hits.length} ${hits.length === 1 ? "hit" : "hits"}`
+        ? `Searched the web · ${hits.length} ${plural(hits.length, "hit", "hits")}`
         : "Searched the web",
     live: "Searching the web…",
     detail: clip(query, 40),
@@ -638,7 +639,7 @@ const requestView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
   const url = flatOf(input.url) ?? "";
   const host = hostOf(url);
-  const method = (flatOf(input.method) ?? "GET").toUpperCase();
+  const method = (flatOf(input.method) ?? "GET").toUpperCase("en");
   const parsed = jsonOf(step) as Record<string, unknown> | undefined;
   const status = typeof parsed?.status === "number" ? parsed.status : undefined;
   const got =

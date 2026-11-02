@@ -5,6 +5,7 @@
  * remembered collapsed groups, and reach rows in words.
  */
 import type { AuditEvent, DepartmentInfo, HomeRef, VmSettings } from "@spriessen/contracts";
+import { plural } from "./plural.ts";
 
 export interface CrewGroup<T> {
   /** The department id, or null for the org's own bots. */
@@ -44,7 +45,7 @@ export const homeName = (
   departments.find((row) => row.id === departmentId)?.name ?? `${orgName} (no department)`;
 
 export const vmLabel = (vm: VmSettings): string =>
-  `${vm.cpus} ${vm.cpus === 1 ? "CPU" : "CPUs"} · ${vm.memoryMiB} MiB`;
+  `${vm.cpus} ${plural(vm.cpus, "CPU", "CPUs")} · ${vm.memoryMiB} MiB`;
 
 /** The size as typed: whole CPUs (1-8) and MiB (128-8192), or what is wrong. */
 export const readVmInput = (cpus: string, memory: string): VmSettings | string => {
