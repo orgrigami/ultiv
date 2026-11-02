@@ -41,6 +41,17 @@ skills hold ways of working worth loading before similar work.
 - Proposals: `skills.proposals.json` per profile; evolution runs and
   cautious bots park changes here instead of applying them.
 
+## Conventions
+
+- **The description's first sentence is the use-trigger.** It must stand
+  alone as a "Use when …" line: the prompt section and any picker render
+  the description clipped, so the first sentence is often all that is
+  seen. Write it as the trigger, not a title.
+- **Reference-file layout** — a convention, not enforced paths (existing
+  skills with other layouts stay valid): `references/` for docs the bot
+  reads, `templates/` for copy starters, `scripts/` for code the bot runs
+  through bash, `assets/` for static bytes.
+
 ## The trust model
 
 Origin stamps every skill: `builtin`, `self` (the bot's own craft),

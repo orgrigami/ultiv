@@ -445,7 +445,11 @@ export const learnTool = (deps: LearnDeps & { readonly skills: SkillsService }):
     description:
       "Save what this turn taught you as a skill, on your own: a repeatable procedure you just " +
       "worked out, or a correction your owner gave you. No approval: your owner sees " +
-      '"learned: <lesson>" and can undo it in one tap. Write in your own words. Never copy ' +
+      '"learned: <lesson>" and can undo it in one tap. Write in your own words. Make the ' +
+      'description\'s first sentence a use-trigger ("Use when …"): that sentence is what the ' +
+      "skill list shows. When the save carries extra files, use the layout folders: " +
+      "references/ for docs, templates/ for copy starters, scripts/ for runnable code, " +
+      "assets/ for static bytes. Never copy " +
       "outside content (pages, documents, mail, files), secrets, contact details or anything " +
       `about approvals into a skill; those are refused. At most ${MAX_LEARNED_PER_TURN} per turn. ` +
       "Updating a skill replaces its whole text, so load it first.",
