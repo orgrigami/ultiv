@@ -222,6 +222,9 @@ catalogs:
     vite-plus:
       specifier: 1.4.0
       version: 1.4.0
+    ws:
+      specifier: ^8.22.0
+      version: 8.22.0
 
 overrides:
   vite@*: npm:@voidzero-dev/vite-plus-core@1.4.0
@@ -239,6 +242,22 @@ importers:
       vite-plus:
         specifier: 'catalog:'
         version: 1.4.0(@types/node@24.19.2)(@vitest/ui@5.0.5)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
+
+  apps/agent:
+    dependencies:
+      '@spriessen/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@spriessen/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      ws:
+        specifier: 'catalog:'
+        version: 8.22.0
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
 
   apps/server:
     dependencies:
@@ -276,7 +295,7 @@ importers:
         specifier: 3.6.7
         version: 3.6.7
       ws:
-        specifier: ^8.22.0
+        specifier: 'catalog:'
         version: 8.22.0
     devDependencies:
       '@types/web-push':

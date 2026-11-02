@@ -1,0 +1,20 @@
+{
+  "name": "@spriessen/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Spriessen node agent: dials OUT to the server's /agent endpoint with a pairing token and runs bash execs confined to its registered roots.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@spriessen/contracts": "workspace:*",
+    "@spriessen/core": "workspace:*",
+    "ws": "catalog:"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2"
+  }
+}

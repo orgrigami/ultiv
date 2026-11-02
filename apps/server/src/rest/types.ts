@@ -9,6 +9,8 @@ export interface RouteArgs {
   readonly scheduler: CronScheduler;
   /** Web Push; absent in stacks built without it (tests). */
   readonly push?: PushService;
+  /** The /agent endpoint's dial registry; revocation kills the live connection. */
+  readonly nodes?: { readonly drop: (nodeId: string) => void };
   readonly req: IncomingMessage;
   readonly res: ServerResponse;
   readonly url: URL;

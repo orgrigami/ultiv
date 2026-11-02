@@ -177,6 +177,22 @@ export const resolveNodeId = async (
   return paired.find((row) => row.name === name)?.id;
 };
 
+/**
+ * Which paired node does `presented` open? The dial presents its token; the
+ * registry answers the paired node whose stored hash matches (constant-time
+ * per row). Revoked rows never authenticate.
+ */
+export const nodeIdForToken = async (
+  converse: ConverseService,
+  presented: string,
+): Promise<string | undefined> => {
+  const hash = hashNodeToken(presented);
+  const row = (await readStored(converse)).find(
+    (candidate) => candidate.status === "paired" && hashesMatch(candidate.tokenHash, hash),
+  );
+  return row?.id;
+};
+
 // -- transport bookkeeping (the /agent endpoint and the exec path call these) --
 
 export const markNodeSeen = async (converse: ConverseService, id: string): Promise<void> => {

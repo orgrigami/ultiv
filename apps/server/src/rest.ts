@@ -55,6 +55,8 @@ export interface RestDeps {
    * The real server always provides it.
    */
   readonly auth?: AuthStore;
+  /** The /agent endpoint's live dial registry: revocation kills the connection. */
+  readonly nodes?: { readonly drop: (nodeId: string) => void };
 }
 
 const readBody = async (req: IncomingMessage): Promise<Buffer> => {
@@ -104,6 +106,7 @@ export const createRestHandler = (deps: RestDeps) => {
         mind: deps.mind,
         scheduler: deps.scheduler,
         ...(deps.push !== undefined ? { push: deps.push } : {}),
+        ...(deps.nodes !== undefined ? { nodes: deps.nodes } : {}),
         req,
         res,
         url,

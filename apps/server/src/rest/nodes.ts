@@ -31,7 +31,11 @@ export async function nodeRoutes(
   if (path.startsWith("/api/nodes/") && path.endsWith("/revoke") && method === "POST") {
     const id = segment("/api/nodes/").slice(0, -"/revoke".length);
     const mine = await findOwnedNode(args, await nodeOf(mind.converse, id));
-    json(200, { ok: mine !== undefined && (await revokeNode(mind.converse, id)) });
+    const ok = mine !== undefined && (await revokeNode(mind.converse, id));
+    // A successful revoke kills the live dial at once (the transport drops
+    // its pending execs with a structured refusal).
+    if (ok) args.nodes?.drop(id);
+    json(200, { ok });
     return true;
   }
   if (path.startsWith("/api/nodes/") && path.endsWith("/roots") && method === "PUT") {

@@ -28,3 +28,43 @@ export const NodePairResponseSchema = Type.Object({
   token: Type.String(),
 });
 export type NodePairResponse = Static<typeof NodePairResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// The /agent transport: the node agent dials OUT to the server's endpoint;
+// the server never dials in. JSON text frames, one of these per message.
+
+/** The bash tool's output cap: the agent's results never exceed it per stream. */
+export const NODE_OUTPUT_CAP = 20_000;
+
+/** Server → agent. */
+export type NodeAgentOutbound =
+  | { readonly type: "pong" }
+  | {
+      /** Sent once after a dial authenticates: the node's identity + roots. */
+      readonly type: "ready";
+      readonly node: {
+        readonly id: string;
+        readonly name: string;
+        readonly roots: readonly string[];
+      };
+    }
+  | {
+      readonly type: "exec";
+      readonly id: string;
+      readonly script: string;
+      /** Where to run; confined to the node's registered roots. */
+      readonly cwd?: string;
+      readonly timeoutMs: number;
+    };
+
+/** Agent → server (after the server's `ready`). */
+export type NodeAgentInbound =
+  | { readonly type: "ping" }
+  | {
+      readonly type: "result";
+      readonly id: string;
+      readonly stdout: string;
+      readonly stderr: string;
+      readonly exitCode: number;
+    }
+  | { readonly type: "error"; readonly id: string; readonly message: string };

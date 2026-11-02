@@ -14,6 +14,8 @@ import { Ping } from "@spriessen/contracts";
 import { artifactsDir, copyArtifact, resolveInside, upgradeMcpHomes } from "@spriessen/ext";
 import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
+import { agentEndpoint, AGENT_PATH } from "./agent.ts";
+import { createNodeTransport } from "@spriessen/mind";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
@@ -196,7 +198,12 @@ export async function buildStack(options?: {
 
   const auth = new AuthStore();
   const sockets = socketSessions(auth);
-  const http = createServer(createRestHandler({ mind, scheduler, push, auth }));
+  // The node agents' dial-in: the owner's machines authenticate with their
+  // pairing token on the upgrade itself (no session cookie), so their path
+  // routes BEFORE the session authorize in the upgrade handler below.
+  const transport = createNodeTransport();
+  const agents = agentEndpoint({ converse: mind.converse, transport });
+  const http = createServer(createRestHandler({ mind, scheduler, push, auth, nodes: agents }));
   // noServer: the http server's one upgrade handler routes by path (the
   // chord links here, the live event socket in slice 10).
   const wss = new WebSocketServer({ noServer: true });
@@ -211,6 +218,13 @@ export async function buildStack(options?: {
     },
   });
   http.on("upgrade", (req, socket, head) => {
+    const path = new URL(req.url ?? "/", "http://localhost").pathname;
+    // The node agents authenticate with their pairing token, not a session:
+    // their path routes before the session authorize entirely.
+    if (path === AGENT_PATH) {
+      agents.handleUpgrade(req, socket, head);
+      return;
+    }
     // The handshake IS the credential check: no valid session, no upgrade.
     // (The chord principal callback below stays as the second layer.)
     const access = authorize(req, auth);
@@ -219,7 +233,6 @@ export async function buildStack(options?: {
       socket.destroy();
       return;
     }
-    const path = new URL(req.url ?? "/", "http://localhost").pathname;
     // Each open socket is tied to its session, so signing out closes it.
     const sessionId = access.kind === "session" ? access.sessionId : undefined;
     const tracked = (client: WebSocket): WebSocket => {
@@ -238,6 +251,7 @@ export async function buildStack(options?: {
 
   const close = async () => {
     for (const stop of liveStops) stop?.();
+    agents.stop();
     sockets.stop();
     push.stop();
     memoryTidy.stop();
@@ -256,7 +270,19 @@ export async function buildStack(options?: {
     ]);
     await handle.close();
   };
-  return { host, mind, http, scheduler, sensorLoop, sweepSockets: sockets.sweep, close };
+  return {
+    host,
+    mind,
+    http,
+    scheduler,
+    sensorLoop,
+    sweepSockets: sockets.sweep,
+    // The node agents' dial: tests (and future embedders) exec through the
+    // transport and force a node's dial closed on revoke.
+    nodeTransport: transport,
+    nodes: agents,
+    close,
+  };
 }
 
 const isMain =
