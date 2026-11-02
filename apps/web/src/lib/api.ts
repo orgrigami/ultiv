@@ -23,6 +23,7 @@ import type {
   VaultItemInfo,
   WebhookInfo,
 } from "@spriessen/contracts";
+import type { NodeInfo, NodePairResponse } from "@spriessen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
 import { UNAUTHORIZED_EVENT } from "./auth.ts";
 
@@ -436,6 +437,15 @@ export const api = {
   retryParked: (taskId: string): Promise<{ outcome: string }> =>
     send<{ outcome: string }>(`/api/needs-you/parked/${encodeURIComponent(taskId)}/retry`, "POST"),
   serverCheck: (): Promise<ServerCheck> => getJson<ServerCheck>("/api/server/check"),
+  // Nodes: the owner's paired machines (bash `node` targets). The token
+  // exists only in pairNode's response — nothing else ever returns it.
+  nodes: (): Promise<NodeInfo[]> => getJson<NodeInfo[]>("/api/nodes"),
+  pairNode: (input: { name: string; roots: string[] }): Promise<NodePairResponse> =>
+    send<NodePairResponse>("/api/nodes", "POST", input),
+  revokeNode: (id: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(`/api/nodes/${encodeURIComponent(id)}/revoke`, "POST"),
+  updateNodeRoots: (id: string, roots: string[]): Promise<NodeInfo> =>
+    send<NodeInfo>(`/api/nodes/${encodeURIComponent(id)}/roots`, "PUT", { roots }),
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),

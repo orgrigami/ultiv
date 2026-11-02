@@ -46,6 +46,7 @@ export * from "./decide/gateway.ts";
 export * from "./entity.ts";
 export * from "./migrate/owners.ts";
 export * from "./migrate/shell-targets.ts";
+export * from "./nodes/nodes.ts";
 export * from "./org/model.ts";
 export * from "./org/service.ts";
 export * from "./org/host-switch.ts";

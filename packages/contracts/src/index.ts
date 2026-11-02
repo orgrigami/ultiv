@@ -188,6 +188,8 @@ export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";
 export type { ArtifactInfo, ArtifactList } from "./artifacts.ts";
 export { WebhookInfoSchema, WebhookListSchema, WebhookRejectSchema } from "./webhooks.ts";
 export type { WebhookInfo, WebhookList, WebhookReject, JsonSchemaObject } from "./webhooks.ts";
+export { NodeInfoSchema, NodePairResponseSchema } from "./nodes.ts";
+export type { NodeInfo, NodeList, NodePairResponse } from "./nodes.ts";
 export { CronJobInfoSchema, CronJobListSchema } from "./cron.ts";
 export type { CronJobInfo, CronJobList } from "./cron.ts";
 export { RoutineEventSchema, RoutineEventListSchema } from "./routines.ts";

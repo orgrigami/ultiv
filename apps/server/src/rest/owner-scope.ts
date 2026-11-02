@@ -59,6 +59,24 @@ export const ownedTarget = async (args: RouteArgs, id: string): Promise<string |
 export const ownedProfileIds = async (args: RouteArgs): Promise<ReadonlySet<string>> =>
   new Set((await args.mind.profiles.list(args.owner)).map((profile) => profile.id));
 
+// -- Owner-level records (nodes): a guest is nobody, another owner's row reads as missing. --
+
+const ownsOwnerRow = (args: RouteArgs, rowOwner: string): boolean =>
+  args.owner !== "" && args.owner !== "guest" && rowOwner === args.owner;
+
+/** Keep only the caller's own nodes, in order. */
+export const nodesOwned = async <T extends { readonly owner: string }>(
+  args: RouteArgs,
+  records: readonly T[],
+): Promise<T[]> => records.filter((record) => ownsOwnerRow(args, record.owner));
+
+/** One node by id among the caller's own; another owner's reads as missing. */
+export const findOwnedNode = async <T extends { readonly owner: string }>(
+  args: RouteArgs,
+  record: T | undefined,
+): Promise<T | undefined> =>
+  record !== undefined && ownsOwnerRow(args, record.owner) ? record : undefined;
+
 /**
  * A routine record (cron job, webhook, sensor) stamped with the session it
  * delivers to and that session's bot. The session decides; when the session

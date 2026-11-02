@@ -38,6 +38,7 @@ import { taskRoutes } from "./rest/tasks.ts";
 import { bindingRoutes } from "./rest/bindings.ts";
 import { vaultRoutes } from "./rest/vault.ts";
 import { webhookRoutes } from "./rest/webhooks.ts";
+import { nodeRoutes } from "./rest/nodes.ts";
 import { sensorRoutes } from "./rest/sensors.ts";
 import { pushRoutes } from "./rest/push.ts";
 import { mcpRoutes } from "./rest/mcp.ts";
@@ -251,6 +252,7 @@ async function route(args: RouteArgs): Promise<void> {
   if (await taskRoutes(args, segment)) return;
   if (await artifactRoutes(args, segment)) return;
   if (await webhookRoutes(args, segment)) return;
+  if (await nodeRoutes(args, segment)) return;
   if (await cronRoutes(args, segment)) return;
   if (await sensorRoutes(args, segment)) return;
   if (await bindingRoutes(args, segment)) return;

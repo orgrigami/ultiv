@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Page } from "@/components/page";
 import { PushToggle } from "@/components/push-toggle";
 import { OrgSection } from "@/components/org-admin";
+import { NodesPanel } from "@/components/nodes-panel";
 import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,7 @@ function SettingsPage() {
   return (
     <Page title="Settings" lead="This server and this device. Each bot's own settings are in Crew.">
       <ServerSection check={check} error={error} reload={load} />
+      <NodesPanel />
       <OrgSection />
       <PushToggle />
       <ApprovalsSection />
