@@ -129,20 +129,36 @@ hashing); this file is the map of trust.
   org owner may flip a switch; every change is audited and refuses calls
   already queued at decide time (F6). A switch that is on under an off level
   is inert and the UI names the blocking level (F4).
-- **`bash_host`** runs a script DIRECTLY on the host that runs the server: it
-  can read and write everything that account can, including `.env`, the data
-  folder, the vault's key material on disk and every bot's files. Nothing in
-  the app contains it; the approval system is the only gate (it is always a
-  card; Jev never decides it; "Always allow" saves only the exact script
-  text, `bash_host:=<script>`). A malicious or steered bot with a yolo-mode
-  owner grant is full host compromise; that is why `bash_host` is excluded
-  from Jev and from every automatic path.
+- **bash's beyond-VM targets** run a script DIRECTLY on a real machine:
+  `target: "host"` on the host that runs the server (it can read and write
+  everything that account can, including `.env`, the data folder, the
+  vault's key material on disk and every bot's files), and `target: "node"`
+  on a paired machine of the owner's (where their real repos live). Nothing
+  in the app contains either; the approval system is the only gate (a call
+  is always a card; Jev never decides either target; "Always allow" saves
+  only the exact script text — `bash@host:=<script>`, or
+  `bash@node:<nodeId>:=<script>` for that one node). A malicious or steered
+  bot with a yolo-mode owner grant is full compromise of that machine; that
+  is why both targets are excluded from Jev and from every automatic rule
+  form (bare grants and patterns cover the default `vm` target only).
+- **The node agent is a privileged process on the owner's machine** (phase
+  6). It dials OUT to the server's `/agent` WebSocket with a pairing token
+  (shown once at pairing, stored hashed; the server never dials in), and
+  runs bash confined to the roots the owner registered — the agent itself
+  refuses a cwd outside them (`resolveInside`), so a steered server-side
+  call cannot point it anywhere else. Revocation kills the token and the
+  live dial at once. A compromised node agent is compromise of that
+  machine; the token only lets it run scripts the owner's bot sends, and
+  every one rides the same beyond-VM gate (paired AND host-access switch
+  on AND an exact-script rule or yolo). Root runs only where the owner
+  runs it; the agent never suggests or needs elevation.
 - **stdio MCP servers** are local processes the owner configured. They run
   with the server account's permissions, see their env (a minimal allowlist
   plus vault-referenced values), and can reach whatever the network allows.
   They are inside the trust boundary the moment they start; only install them
   from sources you trust. Their tools are HOST-DIRECT (slice 10): a stdio
-  connector sits under the same three-switch flag as `bash_host`, refuses
+  connector sits under the same three-switch flag as bash's beyond-VM
+  targets, refuses
   calls before any card while the effective flag is false, and its tools
   leave the bot's list until the switch turns back on.
 - **The sandboxed `bash`** (microsandbox microVM) is the containment for
@@ -160,8 +176,8 @@ hashing); this file is the map of trust.
   `uid:gid` — never root. Per-bot users are the inner boundary; the VM
   remains the real one (they are not a defence against kernel bugs or a
   malicious root step). A sandbox escape is out of scope of
-  this document (it would be a microsandbox vulnerability), but `bash_host`
-  exists precisely because some jobs need the real host.
+  this document (it would be a microsandbox vulnerability), but bash's
+  beyond-VM targets exist precisely because some jobs need the real host.
 - **Network is off by default in every VM (slice 3)**: the org VM and each
   department VM boot deny-everything; a home's stored allowlist of named
   hosts (its org or department row) opens exactly those. A department bot's
@@ -218,10 +234,12 @@ hashing); this file is the map of trust.
 - **Recovery is physical**: anyone who can run a command on the host can
   reset the passcode (`vp run --filter @spriessen/server recover:access`) and
   read everything. The host is the trust root; this is the same power
-  `bash_host` has.
+  bash's `host` target has (and a paired node's agent has over its own
+  machine).
 - **Departments are a boundary between bots' VMs, files and vaults
-  (F-A)**: a bot's commands run only in its own home's VM (the `bash` tool
-  takes no target; owner decision, 1 Nov 2026) and its files stay in its
+  (F-A)**: a bot's commands run only in its own home's VM by default (the
+  merged `bash` tool's other targets are gated separately; owner decision,
+  1 Nov 2026) and its files stay in its
   home, so a misled bot's cross-home reach is its messages. The
   conversational blast radius is still the org: any bot can message any
   bot, and message content is untrusted input. Inside a home's VM the

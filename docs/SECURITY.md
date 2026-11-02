@@ -249,18 +249,21 @@ level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)
 ?department=`); rejection discards; accepted facts are recalled only by the
 department's bots.
 
-**Host access** (`bash_host` and any host-running tool): effective value is
+**Host access** (bash's beyond-VM targets — `target: "host"` and
+`target: "node"` — and any host-running tool): effective value is
 org AND department AND bot for a department bot, org AND bot for an org bot;
 only the org owner flips a switch (the `host-flag` resource in `can()`, F3);
 every change writes a `permission` audit row and approves nothing already
 queued (F6); `GET /api/org/host-access` returns the matrix with the blocking
-level for the UI (F4). Slice 10 makes the switch first-in-line everywhere:
+level for the UI (F4). The switch is first-in-line everywhere:
 the per-call gates (the act's guard, the connector call gate) run BEFORE the
 approval broker, so a false switch wins over yolo and over Jev, and a stored
 exact-command allow rule sits dormant — not deleted — and applies again the
 moment the switch turns on. While the effective value is false the
-host-direct tools are absent from the bot's tool list (`bash_host` and the
-stdio connectors' tools, `hostExcludedTools` in
+host-direct tools are absent from the bot's tool list (the stdio
+connectors' tools — bash's beyond-VM targets stay in the merged tool but
+every host/node call is refused by the per-call gate — see
+`hostExcludedTools` in
 `packages/mind/src/org/host-switch.ts`); a switch change re-applies every
 affected bot's agent, so existing chats lose and regain the tools at once.
 The switch FAILS CLOSED: a bot whose profile or org row cannot be read is
@@ -611,7 +614,8 @@ every action and every bot-owned resource kind
 resource kind that names a VM, a shared folder, a vault item or a connector,
 so another home's VM cannot even be asked for (a type-level probe fails the
 typecheck the moment one returns); and no tool parameter or backend method
-names a VM — `bash` and `bash_host` take exactly a script, the
+names a VM — `bash` takes exactly a script, an optional target and an
+optional node name, the
 `ShellBackend` surface binds the VM in its closure
 (`packages/ext/src/shell/isolation.test.ts`), and the home-scope resolver
 takes the bot alone (`packages/mind/src/org/home-scope.test.ts`). Open reach
@@ -673,7 +677,8 @@ one — same status, same body, so ids can't be probed. Under the helpers sits
 the one permission decision, `can(actor, action, resource)`
 (`apps/server/src/rest/can.ts`): routes, the approval decide path and the
 host capability all ask it, and it is the file a later change (roles,
-departments) extends. The host capability (`bash_host` and other tools that
+departments) extends. The host capability (bash's beyond-VM targets —
+`target: "host"` and `target: "node"` — and other tools that
 run on the server's own machine) belongs to the account's bots today; the
 act consults it through `openMind`'s `authz.hostAccess`, and a refusal comes
 back to the bot before any approval card exists. The WebSocket accepts
@@ -801,36 +806,78 @@ turned back into the token. To recover after a rollback, delete and
 re-create the affected webhooks (or roll forward again, where New token
 works). No data is lost either way: the rows, receipts and counters stay.
 
-## The host shell's "Always allow"
+## The beyond-VM targets' "Always allow"
 
-`bash_host` runs a script directly on the computer the server runs on, so a
-whole-tool or wildcard rule for it is never saved from a card. Its card
-offers **Always allow this exact command on this computer** instead:
+bash's `host` and `node` targets run a script outside the sandbox — on the
+server's own machine, or on a paired node — so a whole-tool or wildcard rule
+never covers them (a bare `bash` grant approves the default `vm` target
+ONLY). Their card offers **Always allow this exact command on this
+computer** instead:
 
 - The rule is stored in the bot's existing allow list
-  (`policies.autoApprove`) as `bash_host:=<script>`.
+  (`policies.autoApprove`) in the target form: `bash@host:=<script>` for the
+  host, `bash@node:<nodeId>:=<script>` for one specific paired node.
 - It matches a later call only when the call's input is exactly
-  `{ script }` and the script is the identical string. No globs (a `*` in
-  the stored script is literal), no prefixes, no trimming, no other fields.
-  A different script, even one extra space, gets a card as before.
+  `{ script }` / `{ script, target }` (+ `node`, the paired node's NAME,
+  which the gate resolves through the node registry to that stored id) and
+  the script is the identical string. No globs (a `*` in the stored script
+  is literal), no prefixes, no trimming, no other fields. A different
+  script, even one extra space, gets a card as before; a rule for one
+  target or node never approves another.
 - An exact match is approved even if the script looks destructive: the
   owner approved that very text. Glob (`tool:pattern`) rules keep their
   destructive check.
 - The same script can behave differently in a different working directory
-  (bash_host keeps its directory between calls); the rule is about the
+  (each target keeps its directory between calls); the rule is about the
   text, as asked.
 - Scripts longer than 2,000 characters, empty scripts and calls with any
   other input shape aren't saved; the call stays gated and the decision
   still goes through.
 - The rule shows in the bot's **Access** tab by its script, and the ✕ on it
   removes it (a policies patch); the next call of that script asks again.
-- Jev never decides `bash_host` (`JEV_NEVER_DECIDES`) and fully automatic
-  (yolo) mode is unchanged. Old `bash_host:<glob>` entries stay inert.
+- Jev never decides either target (`JEV_NEVER_DECIDES` is target-aware) and
+  fully automatic (yolo) mode is unchanged for them; the host-access switch
+  outranks everything, including yolo and a stored rule (which sits dormant
+  while it is off). Old `bash_host:<glob>` entries stay inert.
+- Stored `bash_host:=<script>` entries from before the merge are rewritten
+  to `bash@host:=<script>` at boot (repeatable; counts only, never logs a
+  script); a saved rule keeps approving exactly its script through the
+  merged tool.
 - When a card's input was edited before approving, the rule covers the
   edited input that actually ran, not the original proposal.
 
 Tests: `packages/mind/src/exact-allow.test.ts`, the exact-rule case in
-`packages/mind/src/jev-gate.test.ts`, and
+`packages/mind/src/jev-gate.test.ts`, the target matcher cases in
+`packages/mind/src/auto-approve.test.ts`, the round-trip migration in
+`packages/mind/src/migrate/shell-targets.test.ts`, and
 `apps/server/src/rest/bash-host-always.test.ts` (server saves the rule over
 REST, same script runs without a card, other scripts still ask, removing it
 brings the card back).
+
+## Paired nodes
+
+A bot can run scripts on one of the owner's other machines with bash's
+`target: "node"` (see `docs/THREAT_MODEL.md` for the trust story). The
+security shape:
+
+- **Pairing is an owner act.** Settings → Nodes mints a one-time pairing
+  token, shown once in the minting response; the server stores only its
+  SHA-256 (`ultiv.nodes` doc family, `packages/mind/src/nodes/nodes.ts`).
+  The token never appears in any REST read, audit line or log.
+- **The agent dials OUT.** The node runs `apps/agent`
+  (`@spriessen/agent`), a long-lived process that opens the server's
+  `/agent` WebSocket with its token; the server never dials in, one
+  connection per node (a second dial replaces the first), and revocation
+  flips the stored status and kills the live dial at once — the token then
+  verifies false mid-connection.
+- **The agent confines every exec.** Each node carries registered roots
+  (absolute paths); the agent refuses a cwd outside them with
+  `resolveInside` (`@spriessen/core`) — the server never trusts a cwd the
+  agent would refuse. The default cwd is the node's first root.
+- **No pairing, no execution.** Zero or ambiguous pairing, an unknown name
+  or a revoked row answers the bot a structured, owner-actionable error
+  naming the owner's fix.
+- **Node execs are audited and bounded**: every result states which node it
+  ran on, the audit line carries target + resolved node id, results are
+  capped at the bash tool's output cap, and every exec carries a timeout —
+  a dead agent is a structured error, never a hang.
