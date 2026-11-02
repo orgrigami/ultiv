@@ -18,6 +18,7 @@ import type {
   SessionInfo,
   SkillDetail,
   SkillOverview,
+  SkillProposal,
   TaskRow,
   WaitingApproval,
   VaultItemInfo,
@@ -553,4 +554,6 @@ export const api = {
       `/api/skills/${encodeURIComponent(profile)}/proposals/${encodeURIComponent(id)}/${verdict}`,
       "POST",
     ),
+  skillCurate: (profile: string): Promise<{ proposals: SkillProposal[] }> =>
+    send(`/api/skills/${encodeURIComponent(profile)}/curate`, "POST"),
 };

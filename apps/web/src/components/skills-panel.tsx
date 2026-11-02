@@ -4,6 +4,7 @@
  * detail dialog holds one skill's full text and its open proposals.
  */
 import {
+  CombineIcon,
   FileTextIcon,
   HistoryIcon,
   PencilIcon,
@@ -551,24 +552,40 @@ function NamespaceSection({
   namespace,
   onOpen,
   onAdd,
+  onCurate,
+  curating,
 }: {
   namespace: SkillOverview["profiles"][number];
   onOpen: (profile: string, name: string) => void;
   onAdd: (profile: string) => void;
+  onCurate: (profile: string) => void;
+  curating: boolean;
 }) {
   return (
     <section className="flex flex-col gap-2">
       <SectionHeader
         title={namespace.profileName}
         action={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Add skill for ${namespace.profileName}`}
-            onClick={() => onAdd(namespace.profile)}
-          >
-            <PlusIcon />
-          </Button>
+          <span className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={curating}
+              aria-label={`Find overlapping skills for ${namespace.profileName}`}
+              title="Find overlaps"
+              onClick={() => onCurate(namespace.profile)}
+            >
+              <CombineIcon />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Add skill for ${namespace.profileName}`}
+              onClick={() => onAdd(namespace.profile)}
+            >
+              <PlusIcon />
+            </Button>
+          </span>
         }
       />
       {namespace.skills.length === 0 ? (
@@ -594,6 +611,10 @@ export function SkillsContent() {
   const [error, setError] = useState<string | null>(null);
   const [target, setTarget] = useState<{ profile: string; name: string } | null>(null);
   const [addingFor, setAddingFor] = useState<string | null>(null);
+  const [curatingFor, setCuratingFor] = useState<string | null>(null);
+  const [curateNote, setCurateNote] = useState<{ profileName: string; parked: number } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -604,6 +625,25 @@ export function SkillsContent() {
     }
   }, []);
   useEffect(() => void load(), [load]);
+
+  const curate = useCallback(
+    async (profile: string) => {
+      const profileName =
+        overview?.profiles.find((namespace) => namespace.profile === profile)?.profileName ??
+        profile;
+      setCuratingFor(profile);
+      try {
+        const parked = (await api.skillCurate(profile)).proposals.length;
+        setCurateNote({ profileName, parked });
+        await load();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setCuratingFor(null);
+      }
+    },
+    [overview, load],
+  );
 
   if (error !== null && overview === null) {
     return <ErrorState message={`Couldn't load skills: ${error}`} onRetry={() => void load()} />;
@@ -628,12 +668,31 @@ export function SkillsContent() {
           <span className="text-muted-foreground">Open a skill to decide.</span>
         </p>
       )}
+      {curateNote !== null && (
+        <p className="flex items-center gap-2 text-sm">
+          {curateNote.parked > 0 ? (
+            <>
+              <Badge>
+                {curateNote.parked} {plural(curateNote.parked, "overlap", "overlaps")} for{" "}
+                {curateNote.profileName}
+              </Badge>
+              <span className="text-muted-foreground">Open a skill to decide.</span>
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              No overlapping skills found for {curateNote.profileName}.
+            </span>
+          )}
+        </p>
+      )}
       {overview.profiles.map((namespace) => (
         <NamespaceSection
           key={namespace.profile}
           namespace={namespace}
           onOpen={(profile, name) => setTarget({ profile, name })}
           onAdd={(profile) => setAddingFor(profile)}
+          onCurate={(profile) => void curate(profile)}
+          curating={curatingFor === namespace.profile}
         />
       ))}
       {overview.profiles.length === 0 && overview.builtins.length > 0 && (

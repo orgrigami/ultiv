@@ -221,6 +221,8 @@ owner-scoped (another owner gets the unknown-bot 404) and audited under
 kind `skills`. The web page groups skills per bot, badges origin, renders
 bodies, hosts the proposal inbox, and in each skill's dialog shows the
 versions with Restore and an Undo button once there is a second version.
+Each bot's header carries a Find-overlaps button that runs the curate
+route and reports how many absorb proposals it parked.
 
 ## Exposure (as of Phase 1)
 
