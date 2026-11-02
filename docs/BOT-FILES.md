@@ -91,3 +91,50 @@ All of these are owner-scoped. Another owner's bot gets the same 404 that
 an unknown bot gets. On the profile page, the Instructions tab edits both
 files, lists versions newest first, and restores any older one. The
 Overview's Details show both files.
+
+## Code structure tools
+
+Bots that work on code in their own file tree have two read tools, both
+open (no approval) and parsed with tree-sitter (WASM, loaded lazily — no
+daemons, no native deps). Supported languages: TypeScript, TSX,
+JavaScript and Python (by extension: `.ts` `.mts` `.cts` `.tsx` `.js`
+`.mjs` `.cjs` `.jsx` `.py`). Everything else is a normal file with no
+symbols.
+
+- **`code_outline`** — an indented tree of the bot's files with the
+  symbols in each code file (`fn greet:1`, `class Greeter:5`,
+  `method greet:6`, `const add:9`, `type Label:11`,
+  `interface Named:13`). Params: `path` (optional folder scope) and
+  `depth` (1–6, default 4). At most 30 symbols per file; output is
+  capped at ~6,000 characters and ends with
+  `(truncated — narrow with path or depth)` when cut. Dependency and
+  build folders are never listed: `node_modules`, `.git`, `dist`,
+  `build`, `__pycache__`, `.venv`, `venv`, `.coverage`, `.worktrees`,
+  `.next`.
+- **`code_nav`** — where a name lives. `definitions` lists declarations
+  (`file:line  kind name` plus the source line); `references` lists
+  every identifier occurrence in code — strings and comments are
+  excluded, by node type, not by regex. Params: `action`, `name`,
+  optional `path` scope. At most 50 hits; the result ends with a count
+  line, and a scope with no parseable code is a plain answer, not an
+  error.
+
+Both tools cover their scope: every result starts with
+`scope: <path> (N file(s), M parsed)`. Paths are workspace-relative,
+exactly like the other file tools (bash shows the same tree as `/home`),
+with the same refusals: a chat with no bot, `..`, absolute paths and
+symlinks.
+
+- **`file_find`** — find files by name pattern: a glob (`*.py`,
+  `report*`, `src/**/*.md`; `*` stays in one path segment, `**` crosses
+  folders, `?` is one character, no new dependency). `path` scopes the
+  search to one folder. Patterns with a `/` match whole relative paths,
+  plain patterns match file names. The same build/dependency folders are
+  skipped, output is capped at 100 paths, and the last line counts the
+  matches.
+
+**file_edit syntax notes.** After a successful write to a supported
+code file (up to 300 KB), the result appends
+`note: N syntax error(s) detected, first at line L` when the parse has
+error nodes. A clean parse, an unsupported language or a bigger file
+adds nothing — the ordinary result line stays exact.

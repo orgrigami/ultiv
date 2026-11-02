@@ -14,6 +14,7 @@ export * from "./plugins/bash.ts";
 export * from "./plugins/browser.ts";
 export * from "./plugins/files.ts";
 export * from "./plugins/graph.ts";
+export * from "./plugins/code-intel.ts";
 export * from "./fs/workspace-epoch.ts";
 export * from "./shell/backend.ts";
 export * from "./shell/node-backend.ts";

@@ -95,6 +95,7 @@ describe("file tools: the bot's own files", () => {
   const refusals: [string, Record<string, unknown>][] = [
     ["file_read", {}],
     ["file_search", { query: "x" }],
+    ["file_find", { pattern: "x" }],
     ["file_edit", { new_text: "x" }],
     ["file_delete", {}],
     ["extract_document_text", {}],
@@ -199,6 +200,59 @@ describe("extract_document_text", () => {
     expect(
       (await call("extract_document_text", { path: "x", artifact_id: shared.id })).isError,
     ).toBe(true);
+  });
+});
+
+describe("file_find", () => {
+  it("is open, matches names and paths, scopes and skips", async () => {
+    expect(tool("file_find").gated).toBeUndefined();
+    const tree = treeOf("owner-a");
+    await tree.writeFile("/notes/report-2026.md", "alpha");
+    await tree.writeFile("/notes/todo.txt", "beta");
+    await tree.writeFile("/src/gen/one.py", "x = 1\n");
+    const byName = await call("file_find", { pattern: "*.py" });
+    expect(byName.text).toContain("src/gen/one.py");
+    expect(byName.text).toContain('1 match(es) for "*.py"');
+    const byPrefix = await call("file_find", { pattern: "report*" });
+    expect(byPrefix.text).toContain("notes/report-2026.md");
+    const scoped = await call("file_find", { pattern: "*", path: "notes" });
+    expect(scoped.text).toContain("notes/todo.txt");
+    expect(scoped.text).not.toContain("src/gen/one.py");
+    const nested = await call("file_find", { pattern: "src/**/*.py" });
+    expect(nested.text).toContain("src/gen/one.py");
+    const question = await call("file_find", { pattern: "report-????.md" });
+    expect(question.text).toContain("notes/report-2026.md");
+    expect((await call("file_find", { pattern: "*.py", path: "notes" })).text).toBe("no matches");
+    expect((await call("file_find", { pattern: "  " })).text).toContain("a pattern is required");
+  });
+
+  it("skips build and dependency folders, and caps at 100 paths", async () => {
+    const tree = treeOf("owner-a");
+    await tree.writeFile("/node_modules/pkg/index.js", "module.exports = 1;\n");
+    expect((await call("file_find", { pattern: "index.js" })).text).toBe("no matches");
+    for (let i = 0; i < 103; i += 1) await tree.writeFile(`/many/f${i}.txt`, "x");
+    const capped = await call("file_find", { pattern: "f*.txt" });
+    expect(capped.text.split("\n").filter((line) => line.startsWith("many/"))).toHaveLength(100);
+    expect(capped.text).toContain('103 match(es) for "f*.txt" — showing the first 100');
+  });
+});
+
+describe("file_edit syntax notes", () => {
+  it("appends a note for a broken code file, silence for clean or non-code files", async () => {
+    const bad = await call("file_edit", { path: "src/broken.ts", new_text: "const x = ;\n" });
+    expect(bad.text).toContain("created src/broken.ts");
+    expect(bad.text).toContain("note: ");
+    expect(bad.text).toContain("syntax error(s) detected, first at line 1");
+    const good = await call("file_edit", { path: "src/clean.ts", new_text: "const y = 1;\n" });
+    expect(good.text).toBe("created src/clean.ts");
+    const changed = await call("file_edit", {
+      path: "src/clean.ts",
+      old_text: "const y = 1;",
+      new_text: "const y = 2;",
+    });
+    expect(changed.text).toBe("changed src/clean.ts");
+    const md = await call("file_edit", { path: "notes/plan2.md", new_text: "# plan\n" });
+    expect(md.text).toBe("created notes/plan2.md");
   });
 });
 

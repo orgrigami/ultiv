@@ -15,6 +15,8 @@ import { defineTool, type Tool } from "../tool.ts";
 import { DurableFs } from "../fs/durable-fs.ts";
 import { bumpWorkspace } from "../fs/workspace-epoch.ts";
 import { extractDocumentText } from "../docs/extract.ts";
+import { MAX_PARSE_CHARS, languageOf, parseCode, syntaxProblems } from "../codeintel/parser.ts";
+import { SKIP_DIRS } from "./code-intel.ts";
 import { artifactsDir, readArtifactBytes } from "./artifacts.ts";
 import type { ScopeHolder } from "./vault.ts";
 
@@ -22,6 +24,39 @@ const MAX_PATH_CHARS = 512;
 const MAX_READ_CHARS = 100_000;
 const MAX_WRITE_CHARS = 1_000_000;
 const MAX_HITS = 50;
+const MAX_FIND_PATHS = 100;
+
+/** Folders never worth walking: build output, VCS state and dependency stores. */
+const inSkippedDir = (path: string): boolean => path.split("/").some((part) => SKIP_DIRS.has(part));
+
+/**
+ * A minimal glob: `*` within one path segment, `**` across segments,
+ * `?` one character, everything else literal. No dependency.
+ */
+export const globToRegExp = (pattern: string): RegExp => {
+  let source = "";
+  let i = 0;
+  while (i < pattern.length) {
+    const char = pattern[i] ?? "";
+    if (char === "*") {
+      if (pattern[i + 1] === "*") {
+        source += "(?:.*/)?";
+        i += 2;
+        if (pattern[i] === "/") i += 1;
+      } else {
+        source += "[^/]*";
+        i += 1;
+      }
+    } else if (char === "?") {
+      source += "[^/]";
+      i += 1;
+    } else {
+      source += char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      i += 1;
+    }
+  }
+  return new RegExp(`^${source}$`);
+};
 
 export interface FilesOptions {
   /** Workspace root; default ARTIFACTS_DIR. */
@@ -32,7 +67,7 @@ export interface FilesOptions {
 
 type ToolResult = Awaited<ReturnType<Tool["execute"]>>;
 
-const fail = (text: string): ToolResult => ({
+export const fail = (text: string): ToolResult => ({
   output: [{ type: "text" as const, text }],
   isError: true as const,
 });
@@ -56,7 +91,7 @@ export const treePath = (raw: string): { path: string } | { refused: string } =>
   return { path: `/${parts.join("/")}` };
 };
 
-interface Area {
+export interface Area {
   readonly fs: DurableFs;
   readonly dir: string;
 }
@@ -70,7 +105,11 @@ const areaOf = (root: string, holder: ScopeHolder, conversationId: string): Area
 };
 
 /** areaOf, with a bot folder that links out of the workspace refused rather than thrown. */
-const safeAreaOf = (root: string, holder: ScopeHolder, conversationId: string): Area | string => {
+export const safeAreaOf = (
+  root: string,
+  holder: ScopeHolder,
+  conversationId: string,
+): Area | string => {
   try {
     return areaOf(root, holder, conversationId);
   } catch (cause) {
@@ -80,7 +119,7 @@ const safeAreaOf = (root: string, holder: ScopeHolder, conversationId: string): 
 };
 
 /** Refuse a path whose target or any folder on the way is a symlink. */
-const throughSymlink = async (fs: DurableFs, path: string): Promise<boolean> => {
+export const throughSymlink = async (fs: DurableFs, path: string): Promise<boolean> => {
   const parts = path.split("/").filter((part) => part !== "");
   for (let i = 1; i <= parts.length; i += 1) {
     const prefix = `/${parts.slice(0, i).join("/")}`;
@@ -91,7 +130,7 @@ const throughSymlink = async (fs: DurableFs, path: string): Promise<boolean> => 
 };
 
 /** Resolve the area and the path, refusing anything outside it. */
-const locate = async (
+export const locate = async (
   root: string,
   holder: ScopeHolder,
   conversationId: string,
@@ -110,13 +149,26 @@ const isResult = (value: unknown): value is ToolResult =>
   typeof value === "object" && value !== null && "output" in value;
 
 /** UTF-8 text, or undefined for binary content. */
-const asText = (bytes: Uint8Array): string | undefined => {
+export const asText = (bytes: Uint8Array): string | undefined => {
   if (bytes.includes(0)) return undefined;
   const text = Buffer.from(bytes).toString("utf8");
   return text.includes("\uFFFD") ? undefined : text;
 };
 
 const show = (path: string): string => path.slice(1);
+
+/**
+ * After a successful write of a supported code file: a syntax-error note, or
+ * nothing at all (a clean parse and an unsupported language stay silent, so
+ * exact result strings are unchanged).
+ */
+const syntaxNoteOf = async (path: string, text: string): Promise<string> => {
+  if (languageOf(path) === undefined || text.length > MAX_PARSE_CHARS) return "";
+  const tree = await parseCode(path, text);
+  const problems = tree === null ? undefined : syntaxProblems(tree);
+  if (problems === undefined) return "";
+  return `\nnote: ${problems.count} syntax error(s) detected, first at line ${problems.firstLine}`;
+};
 
 const readTool = (root: string, holder: ScopeHolder): Tool =>
   defineTool({
@@ -206,6 +258,53 @@ const searchTool = (root: string, holder: ScopeHolder): Tool =>
     },
   });
 
+const findTool = (root: string, holder: ScopeHolder): Tool =>
+  defineTool({
+    name: "file_find",
+    description:
+      'Find your own files by name pattern (a glob): "*.py", "report*", or with folders in it ' +
+      '"src/**/*.md". Optionally search only under one folder. Nothing in skipped folders ' +
+      "(node_modules, .git, dist, build, caches) is listed.",
+    parameters: Type.Object({
+      pattern: Type.String({
+        description:
+          'A glob: * within a name, ** across folders, ? one character, e.g. "*.py" or "src/**/*.md".',
+      }),
+      path: Type.Optional(Type.String({ description: 'Only under this folder, e.g. "notes".' })),
+    }),
+    execute: async (args, api) => {
+      const pattern = args.pattern.trim();
+      if (pattern === "") return fail("a pattern is required");
+      const area = safeAreaOf(root, holder, String(api.conversationId));
+      if (typeof area === "string") return fail(`refused: ${area}`);
+      let prefix = "/";
+      if (args.path !== undefined && args.path.trim() !== "") {
+        const found = await locate(root, holder, String(api.conversationId), args.path);
+        if (isResult(found)) return found;
+        prefix = `${found.path}/`;
+      }
+      const matcher = globToRegExp(pattern);
+      const withFolders = pattern.includes("/");
+      const matches: string[] = [];
+      let total = 0;
+      for (const path of area.fs.allFilePaths()) {
+        if (!path.startsWith(prefix) || inSkippedDir(path)) continue;
+        if (await throughSymlink(area.fs, path)) continue;
+        const relative = show(path);
+        const target = withFolders ? relative : relative.slice(relative.lastIndexOf("/") + 1);
+        if (!matcher.test(target)) continue;
+        total += 1;
+        if (matches.length < MAX_FIND_PATHS) matches.push(relative);
+      }
+      const text =
+        matches.length === 0
+          ? "no matches"
+          : `${matches.join("\n")}\n${total} match(es) for "${pattern}"` +
+            (total > MAX_FIND_PATHS ? ` — showing the first ${MAX_FIND_PATHS}` : "");
+      return { output: [{ type: "text" as const, text }], structuredOutput: { matches } };
+    },
+  });
+
 const editTool = (root: string, holder: ScopeHolder): Tool =>
   defineTool({
     name: "file_edit",
@@ -248,11 +347,12 @@ const editTool = (root: string, holder: ScopeHolder): Tool =>
       if (folder !== "") await fs.mkdir(folder, { recursive: true });
       await fs.writeFile(found.path, next);
       bumpWorkspace(dir);
+      const note = await syntaxNoteOf(found.path, next);
       return {
         output: [
           {
             type: "text" as const,
-            text: `${exists ? "changed" : "created"} ${show(found.path)}`,
+            text: `${exists ? "changed" : "created"} ${show(found.path)}${note}`,
           },
         ],
         structuredOutput: { path: show(found.path), created: !exists },
@@ -355,6 +455,7 @@ export const filesPlugin = (options: FilesOptions): Plugin => {
     capabilities: [
       toolCapability(readTool(root, holder)),
       toolCapability(searchTool(root, holder)),
+      toolCapability(findTool(root, holder)),
       toolCapability(editTool(root, holder)),
       toolCapability(deleteTool(root, holder)),
       toolCapability(extractTool(root, holder)),
