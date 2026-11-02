@@ -61,7 +61,11 @@ export function QueuedChips({
       ))}
       {stalled && onRetry !== undefined && (
         <li className="flex self-end">
-          <Button type="button" variant="outline" size="sm" pill
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            pill
             aria-label={
               queued.length === 1
                 ? "Retry: send the queued message"

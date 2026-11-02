@@ -41,8 +41,8 @@ export const KIND_LABEL: Record<QuickKind, string> = {
  * Whole text > prefix > a word's start > anywhere > letters in order.
  */
 export function matchScore(query: string, text: string): number {
-  const needle = query.trim().toLowerCase("en");
-  const hay = text.toLowerCase("en");
+  const needle = query.trim().toLocaleLowerCase("en");
+  const hay = text.toLocaleLowerCase("en");
   if (needle === "") return 1;
   if (hay === needle) return 100;
   if (hay.startsWith(needle)) return 80;
@@ -118,7 +118,7 @@ export interface KeyLike {
 /** Which shortcut a key press means, if any. Bare keys never fire while typing. */
 export function shortcutOf(event: KeyLike): Shortcut | null {
   const mod = event.metaKey || event.ctrlKey;
-  if (mod && !event.altKey && event.key.toLowerCase("en") === "k") return "switcher";
+  if (mod && !event.altKey && event.key.toLocaleLowerCase("en") === "k") return "switcher";
   if (mod || event.altKey || event.typing) return null;
   if (event.key === "n" || event.key === "N") return "new-chat";
   if (event.key === "?") return "help";

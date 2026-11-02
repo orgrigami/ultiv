@@ -42,7 +42,7 @@ const ordinal = (n: number): string =>
 /** Weekday field → sorted day numbers (0 = Sunday), or null if unsupported. */
 function parseDays(field: string): number[] | null {
   const days = new Set<number>();
-  for (const part of field.toLowerCase("en").split(",")) {
+  for (const part of field.toLocaleLowerCase("en").split(",")) {
     const range = part.split("-");
     const toDay = (value: string): number | null => {
       const alias = DAY_ALIASES.indexOf(value);

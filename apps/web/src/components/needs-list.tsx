@@ -180,7 +180,7 @@ export function NeedsList({ className }: { className?: string }) {
                       </span>
                     </span>
                     <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
-                  </button>
+                  </RowButton>
                   {item.retryTaskId !== undefined && (
                     <RetryButton taskId={item.retryTaskId} title={item.title} />
                   )}

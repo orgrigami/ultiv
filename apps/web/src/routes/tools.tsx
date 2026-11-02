@@ -10,7 +10,6 @@ import { ConnectorsPanel } from "@/components/connectors/connectors-panel";
 import { SkillsContent } from "@/components/skills-panel";
 import { VaultContent } from "@/components/vault-panel";
 import { useApp } from "@/lib/app-state";
-import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "connectors", label: "Connectors" },
@@ -45,7 +44,9 @@ function ToolsPage() {
             nativeButton={false}
             role="tab"
             aria-current={active === entry.id ? "page" : undefined}
-            render={<Link to="/tools" search={entry.id === "connectors" ? {} : { tab: entry.id }} />}
+            render={
+              <Link to="/tools" search={entry.id === "connectors" ? {} : { tab: entry.id }} />
+            }
           >
             {entry.label}
           </Button>

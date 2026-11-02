@@ -12,7 +12,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ErrorState } from "@/components/ui/empty-state";
 import { api } from "@/lib/api";
 
-
 function SkillForm({
   title,
   initialName,
@@ -42,9 +41,21 @@ function SkillForm({
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
         {initialName === undefined && (
-          <Input mono className="mt-2" placeholder="skill-name" value={name} onChange={(event) => setName(event.target.value)} />
+          <Input
+            mono
+            className="mt-2"
+            placeholder="skill-name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         )}
-        <Textarea mono size="editor" className="mt-2 w-full resize-none" value={body} onChange={(event) => setBody(event.target.value)} />
+        <Textarea
+          mono
+          size="editor"
+          className="mt-2 w-full resize-none"
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+        />
         {error !== null && <ErrorState message={error} />}
         <div className="mt-3 flex justify-end gap-2">
           <Button variant="outline" size="sm" disabled={busy} onClick={onClose}>

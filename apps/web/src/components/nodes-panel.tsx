@@ -18,7 +18,6 @@ import { ListCard } from "@/components/ui/list-card";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import type { NodeInfo } from "@spriessen/contracts";
-import { cn } from "@/lib/utils";
 
 const relative = (at: number | null): string =>
   at === null ? "never seen" : `${Math.max(1, Math.round((Date.now() - at) / 60_000))} min ago`;
@@ -180,7 +179,10 @@ function PairDialog({
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Allowed roots (one absolute path per line)
-          <Textarea mono rows={3} value={roots}
+          <Textarea
+            mono
+            rows={3}
+            value={roots}
             onChange={(event) => setRoots(event.target.value)}
             placeholder={"/home/me/repos"}
           />

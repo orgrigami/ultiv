@@ -119,7 +119,10 @@ function StatusRow({ info, act, connect }: Pick<CardProps, "info" | "act" | "con
         </Button>
       )}
       {info.enabled && !needsConnect && info.state !== "connected" && (
-        <Button variant="outline" size="xl" onClick={() => void act(() => api.mcpReconnect(info.id))}
+        <Button
+          variant="outline"
+          size="xl"
+          onClick={() => void act(() => api.mcpReconnect(info.id))}
         >
           <RefreshCwIcon />
           Try again

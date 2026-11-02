@@ -18,5 +18,11 @@ type HeadingProps = React.ComponentProps<"h2"> & {
 /** The one heading style: pick a size from the scale, don't write one. */
 export function Heading({ level = 2, size = "sm", className, ...props }: HeadingProps) {
   const Tag = `h${level}` as "h2";
-  return <Tag data-slot="heading" className={cn("font-semibold", headingSize[size], className)} {...props} />;
+  return (
+    <Tag
+      data-slot="heading"
+      className={cn("font-semibold", headingSize[size], className)}
+      {...props}
+    />
+  );
 }

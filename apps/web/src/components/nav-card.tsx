@@ -1,6 +1,6 @@
 /** A file-style card: a tinted icon tile, a title, one line, and a chevron. */
-import { Link
-import { Tile } from "@/components/ui/tile";, type LinkProps } from "@tanstack/react-router";
+import { Link, type LinkProps } from "@tanstack/react-router";
+import { Tile } from "@/components/ui/tile";
 import { ChevronRightIcon, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 

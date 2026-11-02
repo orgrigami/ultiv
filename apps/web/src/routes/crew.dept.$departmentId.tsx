@@ -16,8 +16,8 @@ import { DeptSettings } from "@/components/department/dept-settings";
 import { DeptTemplates } from "@/components/department/dept-templates";
 import { ReachActivity } from "@/components/department/reach-activity";
 import { Page } from "@/components/page";
-import { EmptyState
-import { ListCard } from "@/components/ui/list-card"; } from "@/components/ui/empty-state";
+import { ListCard } from "@/components/ui/list-card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { useApp } from "@/lib/app-state";

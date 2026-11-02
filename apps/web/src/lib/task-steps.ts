@@ -54,9 +54,9 @@ export function humanizeToolName(name: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_\-.:]+/g, " ")
     .trim()
-    .toLowerCase("en");
+    .toLocaleLowerCase("en");
   if (words === "") return "Used a tool";
-  return words.charAt(0).toUpperCase("en") + words.slice(1);
+  return words.charAt(0).toLocaleUpperCase("en") + words.slice(1);
 }
 
 /** JSON text -> value; anything else stays as it was. */
@@ -125,7 +125,7 @@ const KNOWN: Record<string, readonly [ToolIcon, Describe]> = {
     "page",
     (i) => {
       const url = str(i["url"]);
-      const method = str(i["method"])?.toUpperCase("en") ?? "GET";
+      const method = str(i["method"])?.toLocaleUpperCase("en") ?? "GET";
       return url === undefined ? "Called a web service" : clip(`${method} ${hostOf(url)}`);
     },
   ],
@@ -172,7 +172,7 @@ export function toolLine(
       return { icon: known[0], line: humanizeToolName(name) };
     }
   }
-  return { icon: "tool", line: `Used ${humanizeToolName(name).toLowerCase("en")}` };
+  return { icon: "tool", line: `Used ${humanizeToolName(name).toLocaleLowerCase("en")}` };
 }
 
 /** Pretty JSON when it parses, the text as-is otherwise; null for nothing. */

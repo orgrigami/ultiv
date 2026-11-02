@@ -42,7 +42,7 @@ const NAMED: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', a
 /** Entities decoded, so `&#106;avascript:` reads as what it is. */
 const decode = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);?/gi, (whole, ref: string) => {
-    if (ref[0] !== "#") return NAMED[ref.toLowerCase("en")] ?? whole;
+    if (ref[0] !== "#") return NAMED[ref.toLocaleLowerCase("en")] ?? whole;
     const code =
       ref[1] === "x" || ref[1] === "X" ? parseInt(ref.slice(2), 16) : parseInt(ref.slice(1), 10);
     return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : "";
@@ -64,7 +64,7 @@ const localUrlsOnly = (squashed: string): boolean => {
 function keptValue(name: string, raw: string): string | null {
   const value = decode(raw);
   // Spaces and control characters out, so `java\tscript:` reads as one word.
-  const squashed = [...value.toLowerCase("en")].filter((char) => char > " ").join("");
+  const squashed = [...value.toLocaleLowerCase("en")].filter((char) => char > " ").join("");
   if (name.startsWith("on")) return null;
   if (name === "href" || name === "xlink:href" || name === "src" || name === "action") {
     return squashed.startsWith("#") ? value : null;
@@ -79,7 +79,7 @@ function keptValue(name: string, raw: string): string | null {
 function cleanAttrs(attrs: string): string {
   let out = "";
   for (const match of attrs.matchAll(ATTR)) {
-    const name = (match[1] ?? "").toLowerCase("en");
+    const name = (match[1] ?? "").toLocaleLowerCase("en");
     if (name === "") continue;
     const raw = match[2] ?? match[3] ?? match[4] ?? "";
     const kept = keptValue(name, raw);
@@ -101,7 +101,7 @@ function skipElement(svg: string, from: number, name: string): number {
       continue;
     }
     at = next + tag[0].length;
-    if ((tag[2] ?? "").toLowerCase("en") !== name || tag[4] === "/") continue;
+    if ((tag[2] ?? "").toLocaleLowerCase("en") !== name || tag[4] === "/") continue;
     depth += tag[1] === "/" ? -1 : 1;
   }
   return at;
@@ -140,7 +140,7 @@ export function sanitizeSvg(svg: string): string {
     }
     at = next + tag[0].length;
     const [, closing, rawName = "", attrs = "", self] = tag;
-    const name = rawName.toLowerCase("en");
+    const name = rawName.toLocaleLowerCase("en");
     if (!ALLOWED.has(name)) {
       if (closing !== "/" && self !== "/") at = skipElement(svg, at, name);
       continue;

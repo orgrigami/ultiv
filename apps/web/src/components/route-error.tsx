@@ -22,7 +22,9 @@ function Shell({
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6">
       <div className="flex max-w-md flex-col items-start gap-3 text-left">
         <Mark kind="error" tone="signal" className="size-5" />
-        <Heading level={1} size="title">{title}</Heading>
+        <Heading level={1} size="title">
+          {title}
+        </Heading>
         <p className="text-muted-foreground text-sm">{words}</p>
         <p className="readout text-muted-foreground/70 max-w-full break-all rounded-md border px-2 py-1">
           {detail}

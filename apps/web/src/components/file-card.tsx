@@ -106,7 +106,13 @@ export function FileCard({ file, className }: { file: FileRef; className?: strin
         </span>
       </span>
       {!missing && (
-        <Button variant="quiet" size="icon" className="shrink-0" aria-label={`Preview ${known.name}`} onClick={preview}>
+        <Button
+          variant="quiet"
+          size="icon"
+          className="shrink-0"
+          aria-label={`Preview ${known.name}`}
+          onClick={preview}
+        >
           <EyeIcon className="size-4" />
         </Button>
       )}

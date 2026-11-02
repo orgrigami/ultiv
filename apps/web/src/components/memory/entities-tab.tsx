@@ -52,7 +52,7 @@ function EntityRow({ entity, facts }: { entity: MemoryV2Entity; facts: MemoryV2F
             className="hover:bg-muted flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-sm"
           >
             <span className="bg-secondary text-secondary-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
-              {entity.name.slice(0, 1).toUpperCase("en")}
+              {entity.name.slice(0, 1).toLocaleUpperCase("en")}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{entity.name}</span>
@@ -67,7 +67,7 @@ function EntityRow({ entity, facts }: { entity: MemoryV2Entity; facts: MemoryV2F
                 merged
               </Badge>
             )}
-          </button>
+          </RowButton>
         }
       />
       <DialogContent>

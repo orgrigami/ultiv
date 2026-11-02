@@ -279,7 +279,7 @@ export function VaultContent({ profiles }: { profiles: ProfileInfo[] }) {
             >
               {KINDS.map((candidate) => (
                 <option key={candidate} value={candidate}>
-                  {candidate.charAt(0).toUpperCase("en") + candidate.slice(1)}
+                  {candidate.charAt(0).toLocaleUpperCase("en") + candidate.slice(1)}
                 </option>
               ))}
             </Select>

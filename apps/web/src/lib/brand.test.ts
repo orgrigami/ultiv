@@ -7,7 +7,7 @@ const read = (path: string): string => readFileSync(new URL(path, import.meta.ur
 describe("brand", () => {
   it("names the app once", () => {
     expect(BRAND.name).toBe("Spriessen");
-    expect(BRAND.wordmark).toBe(BRAND.name.toLowerCase("en"));
+    expect(BRAND.wordmark).toBe(BRAND.name.toLocaleLowerCase("en"));
     expect(pageTitle()).toBe("Spriessen");
     expect(pageTitle("  ")).toBe("Spriessen");
     expect(pageTitle("Past chats")).toBe("Past chats · Spriessen");

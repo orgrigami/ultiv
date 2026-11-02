@@ -38,7 +38,7 @@ export const exportDepartment = async (
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${department.name.replace(/[^\w-]+/g, "-").toLowerCase("en") || "department"}.json`;
+  link.download = `${department.name.replace(/[^\w-]+/g, "-").toLocaleLowerCase("en") || "department"}.json`;
   link.click();
   URL.revokeObjectURL(url);
 };

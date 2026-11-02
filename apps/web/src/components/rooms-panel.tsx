@@ -145,7 +145,12 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
             if (event.key === "Enter") void send();
           }}
         />
-        <Button size="sm" aria-label="Send message" disabled={busy || say.trim() === ""} onClick={() => void send()}>
+        <Button
+          size="sm"
+          aria-label="Send message"
+          disabled={busy || say.trim() === ""}
+          onClick={() => void send()}
+        >
           <SendIcon />
         </Button>
       </div>

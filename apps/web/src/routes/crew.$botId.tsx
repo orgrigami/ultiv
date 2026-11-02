@@ -197,11 +197,14 @@ function Profile({
           </p>
           <HomeLabel bot={bot} />
           <div className="mt-1 flex gap-2">
-            <Button size="lg" pill onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}>
+            <Button
+              size="lg"
+              pill
+              onClick={() => void navigate({ to: "/", search: isMain ? {} : { bot: bot.id } })}
+            >
               <MessageCircleIcon /> Open chat
             </Button>
             <Button variant="outline" size="lg" pill onClick={() => setEditing(true)}>
-            >
               <PencilIcon /> Edit
             </Button>
           </div>

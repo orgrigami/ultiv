@@ -7,7 +7,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { RowButton } from "@/components/ui/row-button";
-import { Input } from "@/components/ui/input";
 import { useApp } from "@/lib/app-state";
 import { pastChats } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";

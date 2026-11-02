@@ -410,7 +410,12 @@ export function FoldText({
         {text}
       </p>
       {long && (
-        <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen((value) => !value)}>
+        <Button
+          variant="quiet"
+          size="xs"
+          className="mt-1"
+          onClick={() => setOpen((value) => !value)}
+        >
           {open ? "Show less" : "Show more"}
         </Button>
       )}

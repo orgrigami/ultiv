@@ -49,7 +49,9 @@ export function ResultCard({ task }: { task: TaskInfo }) {
   return (
     <Tile tone="surface" render={<section aria-label="Result" />} className="p-3">
       <div className="flex items-center gap-2">
-        <Heading level={3} size="sm" className="flex-1">Result</Heading>
+        <Heading level={3} size="sm" className="flex-1">
+          Result
+        </Heading>
         {text !== "" && <CopyButton text={text} />}
       </div>
       {text === "" ? (

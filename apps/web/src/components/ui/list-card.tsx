@@ -8,7 +8,7 @@ export function ListCard({
   as = "div",
   ...props
 }: React.ComponentProps<"div"> & { as?: "div" | "ul" | "ol" }) {
-  const Tag = as;
+  const Tag = as as React.ElementType;
   return (
     <Tag
       data-slot="list-card"

@@ -10,6 +10,7 @@
 import { BrandLockup } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
 import { RowButton } from "@/components/ui/row-button";
+import { RowLink } from "@/components/ui/row-link";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellDotIcon,

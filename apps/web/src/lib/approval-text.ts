@@ -127,7 +127,7 @@ const humanize = (tool: string): string =>
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_.-]+/g, " ")
     .trim()
-    .toLowerCase("en");
+    .toLocaleLowerCase("en");
 
 export interface ApprovalText {
   /** Completes "Eve wants to …". */

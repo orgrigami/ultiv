@@ -37,7 +37,7 @@ export function humanizeToolName(name: string): string {
     .replace(/[_\-.:]+/g, " ")
     .trim();
   if (cleaned === "") return "Used a tool";
-  return cleaned.charAt(0).toUpperCase("en") + cleaned.slice(1);
+  return cleaned.charAt(0).toLocaleUpperCase("en") + cleaned.slice(1);
 }
 
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
@@ -206,7 +206,7 @@ function humanizeKey(key: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_\-.]+/g, " ")
     .trim();
-  return words === "" ? key : words.charAt(0).toUpperCase("en") + words.slice(1);
+  return words === "" ? key : words.charAt(0).toLocaleUpperCase("en") + words.slice(1);
 }
 
 /** Curated fields per tool: the rows that matter, in reading order, with
@@ -639,7 +639,7 @@ const requestView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
   const url = flatOf(input.url) ?? "";
   const host = hostOf(url);
-  const method = (flatOf(input.method) ?? "GET").toUpperCase("en");
+  const method = (flatOf(input.method) ?? "GET").toLocaleUpperCase("en");
   const parsed = jsonOf(step) as Record<string, unknown> | undefined;
   const status = typeof parsed?.status === "number" ? parsed.status : undefined;
   const got =

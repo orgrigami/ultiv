@@ -107,7 +107,7 @@ const LANGS: Record<string, string> = {
 const extOf = (name: string): string => {
   const dot = name.lastIndexOf(".");
   if (dot <= 0 || dot === name.length - 1) return "";
-  return name.slice(dot + 1).toLowerCase("en");
+  return name.slice(dot + 1).toLocaleLowerCase("en");
 };
 
 export const langOf = (name: string): string => LANGS[extOf(name)] ?? "";
@@ -152,7 +152,7 @@ export const kindLabel = (mime: string | undefined, name: string): string => {
     if (mime.startsWith("video/")) return "Video";
   }
   const ext = extOf(name);
-  return ext === "" ? "File" : ext.toUpperCase("en");
+  return ext === "" ? "File" : ext.toLocaleUpperCase("en");
 };
 
 export const formatBytes = (n: number): string =>
@@ -220,7 +220,7 @@ export const liftArtifactLinks = (text: string): string => {
         // of a larger URL or word (`mac.ts.net/api/…`), and code spans stay
         // code — all of these are left untouched.
         const before = line.slice(Math.max(0, start - 2), start);
-        const prevChar = start > 0 ? line[start - 1] : "";
+        const prevChar = start > 0 ? (line[start - 1] ?? "") : "";
         const ticks = line.slice(0, start).split("`").length - 1;
         if (
           before === "](" ||

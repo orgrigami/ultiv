@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 
-const normalize = (raw: string): string => raw.trim().toLowerCase("en");
+const normalize = (raw: string): string => raw.trim().toLocaleLowerCase("en");
 
 const sameList = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && a.every((entry, i) => entry === b[i]);
@@ -122,7 +122,13 @@ export function NetAllowlistEditor({
                   className="bg-muted text-foreground flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
                 >
                   {host}
-                  <Button variant="quiet" size="inline" aria-label={`Remove ${host}`} disabled={busy} onClick={() => remove(host)}>
+                  <Button
+                    variant="quiet"
+                    size="inline"
+                    aria-label={`Remove ${host}`}
+                    disabled={busy}
+                    onClick={() => remove(host)}
+                  >
                     <XIcon className="size-3" />
                   </Button>
                 </li>

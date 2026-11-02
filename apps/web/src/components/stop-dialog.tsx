@@ -46,17 +46,16 @@ export function StopDialog({
         </p>
         {error !== null && <p className="text-destructive mt-2 text-sm">{error}</p>}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">
-          <Button variant="destructive" disabled={busy}
-            onClick={() => void stop(true)}
-          >
+          <Button variant="destructive" disabled={busy} onClick={() => void stop(true)}>
             Stop reply and {noun}
           </Button>
-          <Button variant="outline" disabled={busy}
-            onClick={() => void stop(false)}
-          >
+          <Button variant="outline" disabled={busy} onClick={() => void stop(false)}>
             Stop reply only
           </Button>
-          <Button variant="ghost" className="sm:mr-auto" disabled={busy}
+          <Button
+            variant="ghost"
+            className="sm:mr-auto"
+            disabled={busy}
             onClick={() => onOpenChange(false)}
           >
             Keep going

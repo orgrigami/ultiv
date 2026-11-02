@@ -26,7 +26,11 @@ function Textarea({
   const look =
     variant === "bare" ? textareaBare : size === "editor" ? textareaEditor : textareaBase;
   return (
-    <textarea data-slot="textarea" className={cn(look, mono && "font-mono", className)} {...props} />
+    <textarea
+      data-slot="textarea"
+      className={cn(look, mono && "font-mono", className)}
+      {...props}
+    />
   );
 }
 

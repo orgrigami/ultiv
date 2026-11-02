@@ -8,7 +8,11 @@ import { cn } from "cn";
  * the caller, so every list row, group header, accordion strip and floating
  * pill keeps its own shape under one keyboard-focus pattern.
  */
-export function RowButton({ className, type = "button", ...props }: React.ComponentProps<"button">) {
+export function RowButton({
+  className,
+  type = "button",
+  ...props
+}: React.ComponentProps<"button">) {
   return (
     <button
       type={type}

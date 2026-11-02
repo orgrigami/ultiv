@@ -136,7 +136,11 @@ export function PlusMenu({
               <Popover.Close
                 key={text}
                 render={
-                  <Button variant="ghost" size="fit" className="justify-start text-left whitespace-normal" />
+                  <Button
+                    variant="ghost"
+                    size="fit"
+                    className="justify-start text-left whitespace-normal"
+                  />
                 }
                 onClick={() => onDraft(text)}
               >
@@ -198,7 +202,12 @@ export function StagedChips({
           )}
           <span className="max-w-40 truncate">{item.file.name}</span>
           <span className="text-muted-foreground readout">{formatBytes(item.file.size)}</span>
-          <Button type="button" variant="ghost" size="icon-sm" pill className="shrink-0"
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            pill
+            className="shrink-0"
             aria-label={`Remove ${item.file.name}`}
             title="Remove"
             onClick={() => onRemove(item.key)}

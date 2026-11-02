@@ -131,7 +131,10 @@ function DecisionCard({
     <Tile
       role="group"
       aria-label="Approval needed"
-      className={cn("flex w-full flex-col gap-2 p-3", risky ? "border-destructive/60" : "border-ring/50")}
+      className={cn(
+        "flex w-full flex-col gap-2 p-3",
+        risky ? "border-destructive/60" : "border-ring/50",
+      )}
     >
       <p className="flex items-start gap-2 text-sm font-medium">
         <Mark
@@ -155,12 +158,16 @@ function DecisionCard({
         {risk}
       </p>
       {reason !== null && reason !== undefined && reason !== "" && (
-        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">
-          {reason}
-        </p>
+        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">{reason}</p>
       )}
       {change !== null && <ChangeDetails change={change} />}
-      <Button variant="quiet" size="xs" className="w-fit" aria-expanded={details} onClick={() => setDetails((open) => !open)}>
+      <Button
+        variant="quiet"
+        size="xs"
+        className="w-fit"
+        aria-expanded={details}
+        onClick={() => setDetails((open) => !open)}
+      >
         <ChevronRightIcon className={cn("size-3.5 transition-transform", details && "rotate-90")} />
         Details
       </Button>

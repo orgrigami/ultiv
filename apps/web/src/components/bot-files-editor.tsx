@@ -90,7 +90,7 @@ function FileEditor({
           disabled={busy || problem !== null}
           onClick={() => void settle(() => api.botFileSave(botId, file, draft))}
         >
-          Save {meta.label.toLowerCase("en")}
+          Save {meta.label.toLocaleLowerCase("en")}
         </Button>
         <Button
           size="sm"

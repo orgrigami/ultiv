@@ -1,13 +1,13 @@
 import * as React from "react";
 
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
 
 /**
  * The link twin of RowButton: one tappable row-style link. The shared focus
  * ring and cursor semantics live here; layout and look stay with the caller.
  */
-export function RowLink({ className, ...props }: LinkProps & React.RefAttributes<HTMLAnchorElement>) {
+export function RowLink({ className, ...props }: React.ComponentProps<typeof Link>) {
   return (
     <Link
       data-slot="row-link"

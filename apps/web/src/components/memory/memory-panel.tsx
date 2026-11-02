@@ -11,7 +11,6 @@ import { SkeletonRows } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { api, type ArtifactRow, type MemoryV2Fact, type MemoryV2State } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import * as t from "@/lib/memory-text";
 import { FactsTab } from "@/components/memory/facts-tab";
 import { EntitiesTab } from "@/components/memory/entities-tab";

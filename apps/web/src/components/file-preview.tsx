@@ -141,7 +141,7 @@ function DelimitedPreview({ file }: { file: FileRef }) {
   const { text, failed } = useArtifactText(file.id);
   const rows = useMemo(() => {
     if (text === null) return [];
-    const delimiter = file.name.toLowerCase("en").endsWith(".tsv") ? "\t" : ",";
+    const delimiter = file.name.toLocaleLowerCase("en").endsWith(".tsv") ? "\t" : ",";
     return parseDelimited(text, delimiter)
       .slice(0, CSV_ROWS)
       .map((row) => row.slice(0, CSV_COLS));

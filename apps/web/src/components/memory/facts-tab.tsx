@@ -13,7 +13,6 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { FactRow, ForgottenList, HistoryView } from "@/components/memory/fact-views";
 import type { MemoryData } from "@/components/memory/memory-panel";
 import { api, type MemoryV2Fact } from "@/lib/api";
-import { cn } from "@/lib/utils";
 import * as t from "@/lib/memory-text";
 
 interface TabProps {
@@ -29,8 +28,8 @@ type View = "current" | "history";
 
 const matches = (fact: MemoryV2Fact, query: string): boolean =>
   query === "" ||
-  fact.text.toLowerCase("en").includes(query) ||
-  fact.tags.some((tag) => tag.toLowerCase("en").includes(query));
+  fact.text.toLocaleLowerCase("en").includes(query) ||
+  fact.tags.some((tag) => tag.toLocaleLowerCase("en").includes(query));
 
 export function FactsTab({ data, profileId, name, reload, initialQuery }: TabProps) {
   const [query, setQuery] = useState(initialQuery ?? "");
@@ -38,7 +37,7 @@ export function FactsTab({ data, profileId, name, reload, initialQuery }: TabPro
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const needle = query.trim().toLowerCase("en");
+  const needle = query.trim().toLocaleLowerCase("en");
   const botFacts = data.facts.filter((fact) => fact.status !== "forgotten");
   const sharedFacts = data.sharedFacts.filter((fact) => fact.status !== "forgotten");
 

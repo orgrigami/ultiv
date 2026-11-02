@@ -66,6 +66,8 @@ export function pillLabel(tasks: readonly TaskInfo[]): string {
     return settled > 0 ? `${head} · ${settled} done` : head;
   }
   if (settled === 1)
-    return failed === 1 ? "Task failed" : `Task ${STATUS_WORD[tasks[0]!.status].toLowerCase("en")}`;
+    return failed === 1
+      ? "Task failed"
+      : `Task ${STATUS_WORD[tasks[0]!.status].toLocaleLowerCase("en")}`;
   return failed > 0 ? `${settled} tasks finished · ${failed} failed` : `${settled} tasks finished`;
 }

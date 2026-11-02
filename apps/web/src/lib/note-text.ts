@@ -17,7 +17,7 @@ export interface Note {
   body: string;
 }
 
-const capitalize = (text: string): string => text.charAt(0).toUpperCase("en") + text.slice(1);
+const capitalize = (text: string): string => text.charAt(0).toLocaleUpperCase("en") + text.slice(1);
 
 function splitNote(text: string): { header: string; body: string } {
   const firstBreak = text.indexOf("\n");

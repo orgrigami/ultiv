@@ -216,7 +216,7 @@ function EventRow({ event }: { event: RoutineEvent }) {
       </time>
       <span>{SOURCE_LABEL[event.source] ?? event.source}</span>
       <Badge variant={STATUS_VARIANT[event.status] ?? "outline"}>
-        {event.status.charAt(0).toUpperCase("en") + event.status.slice(1)}
+        {event.status.charAt(0).toLocaleUpperCase("en") + event.status.slice(1)}
       </Badge>
       {event.reason !== null && (
         <span className="text-muted-foreground min-w-0 text-xs break-words">{event.reason}</span>

@@ -44,7 +44,7 @@ function getHighlighter() {
 }
 
 function getLanguage(language: string) {
-  const name = language.toLowerCase("en");
+  const name = language.toLocaleLowerCase("en");
 
   if (name === "ansi") {
     return name;
