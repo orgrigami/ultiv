@@ -17,10 +17,9 @@ import {
   MAX_DESCRIPTION_CHARS,
   MAX_SKILL_CHARS,
   MAX_SKILL_FILE_CHARS,
-  MAX_SKILL_FILES,
-  MAX_SKILL_FILES_BYTES,
   relativePathOk,
   secretIn,
+  skillFilesRefusal,
   slugOk,
 } from "./guard.ts";
 import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
@@ -39,7 +38,7 @@ interface StoredSkill extends SkillMeta {
   previous: { version: number; body: string } | null;
 }
 
-interface ProfileIndex {
+export interface ProfileIndex {
   skills: Record<string, StoredSkill>;
   builtins: Record<string, { enabled: boolean }>;
 }
@@ -62,14 +61,15 @@ const scopeDir = (root: string, owner: string, profile: string): string => {
   return resolveInside(root, owner, profile);
 };
 
-const skillsOf = (root: string, owner: string, profile: string): string =>
+/** The profile's skills folder, for the batch engine's snapshots and restores. */
+export const skillsOf = (root: string, owner: string, profile: string): string =>
   join(scopeDir(root, owner, profile), "skills");
 
 const indexFile = (root: string, owner: string, profile: string): string =>
   join(scopeDir(root, owner, profile), "skills.index.json");
 
-/** Each skill's full history (docs/BOT-FILES.md "Versions"), beside the index. */
-const versionsOf = (root: string, owner: string, profile: string): string =>
+/** One skill's full history folder (beside the index), for the batch engine's snapshots. */
+export const versionsOf = (root: string, owner: string, profile: string): string =>
   join(scopeDir(root, owner, profile), "versions");
 
 /** Who a write with no explicit author came from, by the skill's origin. */
@@ -122,7 +122,7 @@ const adoptRenamedBuiltins = (
   return next;
 };
 
-const readIndex = (root: string, owner: string, profile: string): ProfileIndex => {
+export const readIndex = (root: string, owner: string, profile: string): ProfileIndex => {
   const file = indexFile(root, owner, profile);
   if (!existsSync(file)) return emptyIndex();
   try {
@@ -133,7 +133,12 @@ const readIndex = (root: string, owner: string, profile: string): ProfileIndex =
   }
 };
 
-const writeIndex = (root: string, owner: string, profile: string, index: ProfileIndex): void => {
+export const writeIndex = (
+  root: string,
+  owner: string,
+  profile: string,
+  index: ProfileIndex,
+): void => {
   mkdirSync(scopeDir(root, owner, profile), { recursive: true });
   writeFileSync(indexFile(root, owner, profile), JSON.stringify(index, null, "\t"));
 };
@@ -270,6 +275,11 @@ export interface SkillWrite {
    * disk are pruned. Undefined leaves the current files untouched.
    */
   readonly files?: readonly SkillFileIn[];
+  /**
+   * Names this skill has absorbed (owner-accepted consolidation). A write
+   * without it keeps the stored list; an empty array clears it.
+   */
+  readonly absorbed?: readonly string[];
 }
 
 /**
@@ -278,32 +288,9 @@ export interface SkillWrite {
  * stored list, relative to the skill folder.
  */
 const applySkillFiles = (dir: string, name: string, files: readonly SkillFileIn[]): string[] => {
-  if (files.length > MAX_SKILL_FILES) {
-    throw new Error(`a skill carries at most ${MAX_SKILL_FILES} reference files`);
-  }
-  const seen = new Set<string>();
-  let total = 0;
-  for (const file of files) {
-    if (!relativePathOk(file.path) || file.path === "SKILL.md") {
-      throw new Error(`not a skill file path: "${file.path}"`);
-    }
-    if (seen.has(file.path)) throw new Error(`duplicate file: ${file.path}`);
-    seen.add(file.path);
-    if (file.content.length > MAX_SKILL_FILE_CHARS) {
-      throw new Error(`"${file.path}" exceeds ${MAX_SKILL_FILE_CHARS} chars`);
-    }
-    if (file.content.includes("\0")) {
-      throw new Error(`"${file.path}" is binary; skill files are text`);
-    }
-    const secret = secretIn(file.content);
-    if (secret !== null) {
-      throw new Error(`refused: "${file.path}" looks like it contains ${secret}`);
-    }
-    total += file.content.length;
-    if (total > MAX_SKILL_FILES_BYTES) {
-      throw new Error(`reference files exceed ${MAX_SKILL_FILES_BYTES} bytes in total`);
-    }
-  }
+  const refusal = skillFilesRefusal(files);
+  if (refusal !== null) throw new Error(refusal);
+  const seen = new Set<string>(files.map((file) => file.path));
   const skillDir = resolveInside(dir, name);
   for (const file of files) {
     const target = resolveInside(skillDir, file.path);
@@ -372,6 +359,7 @@ export const writeSkill = (
   // A removed skill's history stays, so a new one by that name numbers on.
   const version = Math.max(existing?.version ?? 0, history.at(-1)?.n ?? 0) + 1;
   const now = Date.now();
+  const absorbed = input.absorbed === undefined ? existing?.absorbed : [...input.absorbed];
   const stored: StoredSkill = {
     name: input.name,
     description: doc.description,
@@ -388,6 +376,7 @@ export const writeSkill = (
         : applySkillFiles(skillsOf(root, owner, profile), input.name, input.files),
     parentVersion: input.parentVersion ?? null,
     evolutionNote: input.note ?? null,
+    ...(absorbed !== undefined ? { absorbed } : {}),
     previous:
       existing === undefined ? null : { version: existing.version, body: existingBody ?? "" },
   };
@@ -464,8 +453,10 @@ export const setSkillEnabled = (
 };
 
 /**
- * A stored skill's history, oldest first. Built-ins and unknown names have
- * none. A skill from before full history shows its two kept versions.
+ * One stored skill's history, oldest first. Built-ins have none. A skill
+ * from before full history shows its two kept versions. A removed skill's
+ * history stays readable (restore, undo and the owner's surface read it),
+ * though nothing lists the skill itself.
  */
 export const skillVersions = (
   root: string,
@@ -474,7 +465,7 @@ export const skillVersions = (
   name: string,
 ): Version[] => {
   const stored = readIndex(root, owner, profile).skills[name];
-  if (stored === undefined) return [];
+  if (stored === undefined) return historyOf(versionsOf(root, owner, profile), name);
   const history = historyOf(versionsOf(root, owner, profile), name);
   return history.length > 0
     ? history

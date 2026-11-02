@@ -117,6 +117,13 @@ const bashTargetDetail = (name: string, args: unknown) => {
   return detail;
 };
 
+/** skill_edit's op count: the per-turn save cap counts ops, not calls. */
+const savesOf = (name: string, args: unknown): number | undefined => {
+  if (name !== "skill_edit") return undefined;
+  const ops = (args as { ops?: unknown }).ops;
+  return Array.isArray(ops) ? ops.length : undefined;
+};
+
 /** The resolved node id a finished bash node call carries in its result. */
 const resultNodeIdOf = (result: unknown): string | null => {
   const structured = (result as { structuredOutput?: unknown } | undefined)?.structuredOutput;
@@ -141,6 +148,7 @@ export const withAudit = <TParameters extends TSchema>(
     const startedAt = Date.now();
     const conversation = conversationOf(api);
     const detail = bashTargetDetail(tool.name, args);
+    const saves = savesOf(tool.name, args);
     const event = (ok: boolean, error: string | null): AuditEvent => ({
       at: startedAt,
       kind: "tool_call",
@@ -152,6 +160,7 @@ export const withAudit = <TParameters extends TSchema>(
       ok,
       error,
       ...(detail !== undefined ? { bashTarget: detail } : {}),
+      ...(saves !== undefined ? { saves } : {}),
     });
     try {
       const result = await tool.execute(args, api, context);

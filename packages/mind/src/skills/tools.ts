@@ -12,6 +12,7 @@ import { Type } from "typebox";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { ConversationScope } from "../profiles/docs.ts";
+import { MAX_SKILL_OPS, type SkillOp } from "./batch.ts";
 import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
 import { MAX_SKILL_CHARS, slugOk } from "./guard.ts";
 import type { SkillsService } from "./service.ts";
@@ -118,6 +119,23 @@ const fileTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
     },
   });
 
+/** Reference files riding along a write: the skill's COMPLETE set. */
+const FilesSchema = Type.Array(
+  Type.Object({
+    path: Type.String({
+      description:
+        "Path relative to the skill folder: references/, scripts/, assets/, or any layout.",
+    }),
+    content: Type.String({ description: "The file's UTF-8 text content." }),
+  }),
+  {
+    description:
+      "The skill's COMPLETE reference set (references, templates, scripts): these are " +
+      "written and extras on disk are pruned. Omit to leave current files untouched; " +
+      "pass [] to remove all. Text only, no secrets.",
+  },
+);
+
 const WriteParams = Type.Object({
   name: Type.String({
     description: "The skill's name: lowercase-and-hyphens, at most 64 chars (create or update).",
@@ -131,23 +149,7 @@ const WriteParams = Type.Object({
         "One-line description for the skill list; used when the body has no frontmatter.",
     }),
   ),
-  files: Type.Optional(
-    Type.Array(
-      Type.Object({
-        path: Type.String({
-          description:
-            "Path relative to the skill folder: references/, scripts/, assets/, or any layout.",
-        }),
-        content: Type.String({ description: "The file's UTF-8 text content." }),
-      }),
-      {
-        description:
-          "The skill's COMPLETE reference set (references, templates, scripts): these are " +
-          "written and extras on disk are pruned. Omit to leave current files untouched; " +
-          "pass [] to remove all. Text only, no secrets.",
-      },
-    ),
-  ),
+  files: Type.Optional(FilesSchema),
 });
 
 /** Refusal text, or undefined to go ahead (it may wait on the owner first). */
@@ -159,6 +161,19 @@ export type SkillWriteGuard = (
   },
   api: { readonly conversationId: unknown; readonly callId: unknown },
 ) => Promise<string | undefined>;
+
+/** Options the skills extension passes its core tools. */
+export interface SkillToolOptions {
+  readonly writeGuard?: SkillWriteGuard | undefined;
+  /**
+   * skill_edit's per-turn save cap, wired from the shared learning gate:
+   * returns a refusal when a batch of `ops` exceeds what this turn still
+   * has left (each op is one save). Absent in bare test rigs.
+   */
+  readonly batchAllowance?:
+    | ((ops: number, conversationId: string) => Promise<string | undefined>)
+    | undefined;
+}
 
 const writeTool = (
   skills: SkillsService,
@@ -214,6 +229,98 @@ const writeTool = (
         ...text(`skill "${meta.name}" saved (v${meta.version}); in your list next turn`),
         structuredOutput: { name: meta.name, version: meta.version },
       };
+    },
+  });
+
+/** The bot-facing batch tool: creates and updates only, all-or-nothing. */
+export const SKILL_EDIT = "skill_edit";
+
+const EditParams = Type.Object({
+  ops: Type.Array(
+    Type.Object({
+      op: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("remove")]),
+      name: Type.String({
+        description: "The skill's name: lowercase-and-hyphens, at most 64 chars.",
+      }),
+      body: Type.Optional(
+        Type.String({
+          description: `The full SKILL.md text (frontmatter required), up to ${MAX_SKILL_CHARS} chars; required for create and update.`,
+        }),
+      ),
+      files: Type.Optional(FilesSchema),
+    }),
+    {
+      description: `The changes, in order: at most ${MAX_SKILL_OPS} ops, each naming a different skill.`,
+    },
+  ),
+});
+
+const editTool = (
+  skills: SkillsService,
+  profiles: ProfilesService,
+  options: SkillToolOptions,
+): Tool =>
+  defineTool({
+    name: SKILL_EDIT,
+    description:
+      "Apply several skill changes in ONE all-or-nothing batch (create and/or update): " +
+      "every op is checked first, and if any op is refused NOTHING is saved — your skills " +
+      "stay exactly as they were. Each op counts toward your per-turn save cap. Same rules " +
+      "per op as skill_write: the body replaces the skill's whole text, `files` is the " +
+      "complete reference set, never secrets. Removing a skill is not a batch op: use " +
+      "skill_delete for that.",
+    parameters: EditParams,
+    structuredOutputSchema: Type.Array(
+      Type.Object({
+        op: Type.String(),
+        name: Type.String(),
+        version: Type.Optional(Type.Number()),
+        removed: Type.Optional(Type.Boolean()),
+      }),
+    ),
+    execute: async (args, api) => {
+      const resolved = skillsScope(profiles, String(api.conversationId));
+      if ("refused" in resolved) return text(resolved.refused, true);
+      const { owner, profileId } = resolved.scope;
+      const ops: SkillOp[] = [];
+      for (const [index, item] of (args.ops ?? []).entries()) {
+        if (item.op === "remove") {
+          return text(
+            `op ${index + 1} is a remove: skill_edit never deletes — use skill_delete ` +
+              "(your owner approves deletions)",
+            true,
+          );
+        }
+        if (item.body === undefined) {
+          return text(`op ${index + 1} (${item.op} "${item.name}") needs a body`, true);
+        }
+        ops.push({
+          op: item.op,
+          name: item.name,
+          body: item.body,
+          ...(item.files !== undefined ? { files: item.files } : {}),
+        });
+      }
+      const allowance = await options.batchAllowance?.(ops.length, String(api.conversationId));
+      if (allowance !== undefined) return text(allowance, true);
+      const guard = options.writeGuard;
+      try {
+        const outcomes = await skills.applyOps(owner, profileId, ops, {
+          by: "bot",
+          turn: `${String(api.conversationId)}#${String(api.callId)}`,
+          ...(guard !== undefined ? { gate: async (input) => guard(input, api) } : {}),
+        });
+        const line = outcomes
+          .map((outcome) =>
+            outcome.removed === true
+              ? `removed "${outcome.name}"`
+              : `${outcome.op} "${outcome.name}" (v${outcome.version})`,
+          )
+          .join(", ");
+        return { ...text(`batch applied: ${line}`), structuredOutput: outcomes };
+      } catch (cause) {
+        return text(cause instanceof Error ? cause.message : String(cause), true);
+      }
     },
   });
 
@@ -296,12 +403,13 @@ const text = (value: string, isError = false) =>
 export const skillTools = (
   skills: SkillsService,
   profiles: ProfilesService,
-  options: { readonly writeGuard?: SkillWriteGuard | undefined } = {},
+  options: SkillToolOptions = {},
 ): readonly Tool[] => [
   listTool(skills, profiles),
   loadTool(skills, profiles),
   fileTool(skills, profiles),
   writeTool(skills, profiles, options.writeGuard),
+  editTool(skills, profiles, options),
   deleteTool(skills, profiles),
   proposeTool(skills, profiles),
 ];

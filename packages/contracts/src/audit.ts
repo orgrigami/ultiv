@@ -91,6 +91,11 @@ export const AuditEventSchema = Type.Object({
       node: Type.Union([Type.String(), Type.Null()]),
     }),
   ),
+  /**
+   * `tool_call` events of skill_edit: how many ops the batch carried. The
+   * per-turn skill-save cap counts ops, not calls, so the gate reads this.
+   */
+  saves: Type.Optional(Type.Number()),
 });
 
 export type AuditEvent = Static<typeof AuditEventSchema>;

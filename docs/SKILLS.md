@@ -121,6 +121,26 @@ separate, explicit loop). Tests: `packages/mind/src/skills/learn.test.ts`
 `packages/mind/src/skills/compaction.test.ts` and
 `apps/server/src/rest/learn-switch.test.ts`.
 
+## Editing in batches
+
+`skill_edit` (`packages/mind/src/skills/batch.ts`) applies several of a
+bot's own skill changes — creates and/or updates, at most 8 ops per batch,
+each naming a different skill — in ONE all-or-nothing call. Every op is
+validated first (the same store and `skillGate` content rules as
+`skill_write`, per body and per reference file), and a refusal at any op
+aborts the whole batch with the failing op's index — nothing is written.
+During the apply, every affected skill's state (index row, body, reference
+files, version history) is snapshotted first; a write failure mid-batch
+restores the snapshots, so the caller never observes a half-applied batch
+and no orphan versions are left behind. Each applied op still appends its
+own version entry, with the batch marker and the op kind as its reason —
+atomic means all-or-nothing, not one merged version. Removing a skill is
+not a batch op (`skill_delete` stays the gated way); the store-level API
+accepts `remove` for the consolidation accept path only. Every op counts
+against the per-turn save cap (`MAX_LEARNED_PER_TURN`): the audit event
+carries the op count (`saves`), and a batch larger than the turn's
+remaining allowance is refused wholesale.
+
 ## Evolution
 
 `skill_evolve` runs the loop as a background task (the bot's own, so it
@@ -140,6 +160,7 @@ nothing is lost. Built-ins never evolve: copy one first.
 | `skill_load`    | read  | full instructions into context; refuses disabled skills         |
 | `skill_file`    | read  | one reference file inside a skill                               |
 | `skill_write`   | open  | create or update; `files` sets the reference set; learn checks  |
+| `skill_edit`    | open  | several create/update ops in ONE all-or-nothing batch           |
 | `skill_learn`   | open  | save a lesson on its own, with the learning refusals above      |
 | `skill_delete`  | gated | remove one of the bot's skills                                  |
 | `skill_install` | gated | install from https: raw SKILL.md text or a .tar.gz skill folder |
@@ -149,7 +170,8 @@ nothing is lost. Built-ins never evolve: copy one first.
 ## Owner surface
 
 `GET /api/skills` returns `{ builtins, profiles, openProposals }`; detail,
-PUT (body and/or `enabled`), DELETE, `GET .../versions` (newest first),
+PUT (body and/or `enabled`), DELETE, `GET .../versions` (newest first; a
+removed skill's history still answers, though nothing lists the skill),
 `POST .../restore` `{ version }`, `POST .../revert` (undo: the version
 before the current one becomes current) and
 `POST .../proposals/:id/accept|reject` are per-skill routes, all

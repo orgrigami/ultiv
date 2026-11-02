@@ -31,6 +31,8 @@ export const SkillMetaSchema = Type.Object({
   /** The version this one evolved from (or reverted to); null on plain writes. */
   parentVersion: Type.Union([Type.Number(), Type.Null()]),
   evolutionNote: Type.Union([Type.String(), Type.Null()]),
+  /** Skills this one absorbed (owner-accepted consolidation); kept on later saves. */
+  absorbed: Type.Optional(Type.Array(Type.String())),
 });
 export type SkillMeta = Static<typeof SkillMetaSchema>;
 
@@ -47,6 +49,14 @@ export const SkillProposalSchema = Type.Object({
   note: Type.String(),
   status: Type.Union([Type.Literal("open"), Type.Literal("accepted"), Type.Literal("rejected")]),
   decidedAt: Type.Union([Type.Number(), Type.Null()]),
+  /**
+   * The proposal's kind; absent on older rows, which read as "update" (a
+   * new body for one skill). "absorb" merges sources into `skill`, the
+   * kept skill, and removes the sources on accept.
+   */
+  kind: Type.Optional(Type.Union([Type.Literal("update"), Type.Literal("absorb")])),
+  /** For kind "absorb": each source skill and the version drafted against. */
+  absorbed: Type.Optional(Type.Array(Type.Object({ name: Type.String(), version: Type.Number() }))),
 });
 export type SkillProposal = Static<typeof SkillProposalSchema>;
 

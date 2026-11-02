@@ -57,3 +57,39 @@ export const relativePathOk = (rel: string): boolean =>
   !rel.split("/").includes("..") &&
   !rel.includes("\\") &&
   /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(rel);
+
+/**
+ * Why this reference set can't be stored, or null when it can: count, path
+ * shape, per-file and total size, text-only, no secrets. The store's write
+ * and the batch engine's validate-everything-first phase share this one
+ * check, so the two can't drift.
+ */
+export const skillFilesRefusal = (
+  files: readonly { readonly path: string; readonly content: string }[],
+): string | null => {
+  if (files.length > MAX_SKILL_FILES) {
+    return `a skill carries at most ${MAX_SKILL_FILES} reference files`;
+  }
+  const seen = new Set<string>();
+  let total = 0;
+  for (const file of files) {
+    if (!relativePathOk(file.path) || file.path === "SKILL.md") {
+      return `not a skill file path: "${file.path}"`;
+    }
+    if (seen.has(file.path)) return `duplicate file: ${file.path}`;
+    seen.add(file.path);
+    if (file.content.length > MAX_SKILL_FILE_CHARS) {
+      return `"${file.path}" exceeds ${MAX_SKILL_FILE_CHARS} chars`;
+    }
+    if (file.content.includes("\0")) {
+      return `"${file.path}" is binary; skill files are text`;
+    }
+    const secret = secretIn(file.content);
+    if (secret !== null) return `refused: "${file.path}" looks like it contains ${secret}`;
+    total += file.content.length;
+    if (total > MAX_SKILL_FILES_BYTES) {
+      return `reference files exceed ${MAX_SKILL_FILES_BYTES} bytes in total`;
+    }
+  }
+  return null;
+};

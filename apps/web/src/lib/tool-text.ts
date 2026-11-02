@@ -724,6 +724,7 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   skill_list: ["Listed its skills", "Listing its skills…", "skill"],
   skill_load: ["Loaded a skill", "Loading a skill…", "skill"],
   skill_write: ["Wrote a skill", "Writing a skill…", "skill"],
+  skill_edit: ["Edited several skills in one batch", "Applying a skill batch…", "skill"],
   skill_delete: ["Removed a skill", "Removing a skill…", "skill"],
   skill_install: ["Installed a skill", "Installing a skill…", "skill"],
   skill_propose: ["Proposed a skill improvement", "Proposing an improvement…", "skill"],

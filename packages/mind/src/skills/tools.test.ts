@@ -7,6 +7,7 @@ import { skillsService } from "./service.ts";
 import { renderSkills } from "./section.ts";
 import { skillTools } from "./tools.ts";
 import { evolveBrief } from "./evolve.ts";
+import { batchAllowanceRefusal } from "./learn.ts";
 
 let root: string | undefined;
 
@@ -97,5 +98,69 @@ describe("skill tools", () => {
       { name: "x", description: "X", enabled: false, origin: "self" },
     ]);
     expect(disabled).toBe("");
+  });
+
+  it("skill_edit applies a batch, refuses removes, and the cap counts ops", async () => {
+    fresh();
+    const skills = skillsService({ root: root ?? "" });
+    const tools = new Map(
+      skillTools(skills, profiles, {
+        batchAllowance: async (ops) => batchAllowanceRefusal(0, ops),
+      }).map((registration) => [registration.name, registration]),
+    );
+    const api = { conversationId: "c1" } as never;
+    const ctx = {} as never;
+    const edit = (await tools.get("skill_edit"))?.execute;
+    const list = (await tools.get("skill_list"))?.execute;
+    const doc = (name: string, text: string): string =>
+      `---\nname: ${name}\ndescription: ${name} does things\n---\n\n${text}`;
+
+    const removal = await edit?.({ ops: [{ op: "remove", name: "triage" }] }, api, ctx);
+    expect(removal?.isError).toBe(true);
+    expect((removal?.output?.at(-1) as { text?: string })?.text ?? "").toContain("skill_delete");
+
+    const overCap = await edit?.(
+      {
+        ops: [1, 2, 3, 4].map((at) => ({
+          op: "create" as const,
+          name: `overflow-${at}`,
+          body: doc(`overflow-${at}`, "# o"),
+        })),
+      },
+      api,
+      ctx,
+    );
+    expect(overCap?.isError).toBe(true);
+    expect((overCap?.output?.at(-1) as { text?: string })?.text ?? "").toContain("fewer ops");
+    expect(await list?.({}, api, ctx)).toBeTruthy();
+    const listed = ((await list?.({}, api, ctx))?.output?.at(-1) as { text?: string })?.text ?? "";
+    expect(listed).not.toContain("overflow-1");
+
+    const applied = await edit?.(
+      {
+        ops: [
+          { op: "create", name: "alpha", body: doc("alpha", "# a") },
+          {
+            op: "create",
+            name: "beta",
+            body: doc("beta", "# b"),
+            files: [{ path: "references/notes.md", content: "notes" }],
+          },
+        ],
+      },
+      api,
+      ctx,
+    );
+    expect(applied?.isError).toBeUndefined();
+    expect((applied?.output?.at(-1) as { text?: string })?.text ?? "").toContain("batch applied");
+    const after = ((await list?.({}, api, ctx))?.output?.at(-1) as { text?: string })?.text ?? "";
+    expect(after).toContain("alpha");
+    expect(after).toContain("beta");
+    const rows = applied?.structuredOutput as { op: string; name: string }[] | undefined;
+    expect(rows?.map((row) => row.name)).toEqual(["alpha", "beta"]);
+    const betaVersions = await skills.versions("harry", "p1", "beta");
+    expect(betaVersions.at(-1)?.reason).toContain("batch");
+    expect(betaVersions.at(-1)?.turn).toContain("c1#");
+    expect(await skills.readFile("harry", "p1", "beta", "references/notes.md")).toBe("notes");
   });
 });

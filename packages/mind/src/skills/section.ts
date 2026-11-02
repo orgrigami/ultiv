@@ -15,7 +15,14 @@ import type { ProfilesService } from "../profiles/profiles.ts";
 import type { TasksService } from "../tasks/tasks.ts";
 import { evolveTool } from "./evolve.ts";
 import { installTool } from "./install.ts";
-import { learningOn, learnTool, MAX_LEARNED_PER_TURN, skillWriteGuard } from "./learn.ts";
+import {
+  batchAllowanceRefusal,
+  learningOn,
+  learnTool,
+  MAX_LEARNED_PER_TURN,
+  skillWriteGuard,
+  turnContext,
+} from "./learn.ts";
 import type { SkillsService } from "./service.ts";
 import { skillTools } from "./tools.ts";
 
@@ -95,19 +102,27 @@ export const skillsExtension = (deps: {
           (conversationId) => deps.profiles.profileOf(conversationId)?.id,
         );
   };
+  const learnDeps =
+    deps.converse === undefined
+      ? undefined
+      : {
+          profiles: deps.profiles,
+          converse: deps.converse,
+          audit: deps.audit,
+          untrustedTool: deps.untrustedTool,
+          tasks: deps.tasks,
+        };
   const tools: readonly Tool[] = [
     ...skillTools(deps.skills, deps.profiles, {
       writeGuard:
-        deps.converse === undefined
+        learnDeps === undefined
           ? undefined
-          : skillWriteGuard({
-              profiles: deps.profiles,
-              converse: deps.converse,
-              audit: deps.audit,
-              untrustedTool: deps.untrustedTool,
-              approvals: deps.approvals,
-              tasks: deps.tasks,
-            }),
+          : skillWriteGuard({ ...learnDeps, approvals: deps.approvals }),
+      batchAllowance:
+        learnDeps === undefined
+          ? undefined
+          : async (ops, conversationId) =>
+              batchAllowanceRefusal((await turnContext(learnDeps, conversationId)).learned, ops),
     }),
     installTool(deps.skills, deps.profiles),
     evolveTool(deps.skills, deps.profiles, deps.tasks),

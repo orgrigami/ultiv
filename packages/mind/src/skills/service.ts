@@ -23,6 +23,7 @@ import {
   writeSkill,
 } from "./store.ts";
 import { addProposal, decideProposal, listProposals } from "./proposals.ts";
+import { applyOps as applySkillOps, type SkillOp, type SkillOpOutcome } from "./batch.ts";
 import { MAX_SKILL_CHARS, secretIn } from "./guard.ts";
 import type { Version, VersionAuthor } from "../versions/store.ts";
 
@@ -51,6 +52,22 @@ export interface SkillWriteInput {
   readonly files?: readonly SkillFileIn[];
 }
 
+export interface SkillBatchInput {
+  /** Who saves, for the history; defaults by origin (owner, else bot). */
+  readonly by?: VersionAuthor;
+  /** The turn a bot's batch came from (conversation and call). */
+  readonly turn?: string;
+  /** Per-op content gate; a refusal at any op aborts the whole batch. */
+  readonly gate?: (
+    input: {
+      readonly name: string;
+      readonly body: string;
+      readonly files?: readonly { readonly path: string; readonly content: string }[];
+    },
+    index: number,
+  ) => Promise<string | undefined>;
+}
+
 export interface SkillsService {
   readonly root: string;
   readonly builtins: readonly BuiltinSkill[];
@@ -63,6 +80,18 @@ export interface SkillsService {
     rel: string,
   ) => Promise<string | undefined>;
   readonly write: (owner: string, profile: string, input: SkillWriteInput) => Promise<SkillMeta>;
+  /**
+   * Several ops in one all-or-nothing batch: every op is validated before
+   * anything is written, and a failure anywhere rolls every affected skill
+   * back to its pre-batch state. `remove` is valid here (the consolidation
+   * accept path); the bot-facing tool refuses it.
+   */
+  readonly applyOps: (
+    owner: string,
+    profile: string,
+    ops: readonly SkillOp[],
+    options?: SkillBatchInput,
+  ) => Promise<SkillOpOutcome[]>;
   readonly remove: (owner: string, profile: string, name: string) => Promise<boolean>;
   readonly setEnabled: (
     owner: string,
@@ -150,6 +179,13 @@ export const skillsService = (options: { root?: string } = {}): SkillsService =>
         builtins,
       ),
     remove: async (owner, profile, name) => removeSkill(root, owner, profile, name, builtins),
+    applyOps: async (owner, profile, ops, options = {}) =>
+      applySkillOps(root, owner, profile, ops, {
+        builtins,
+        ...(options.by !== undefined ? { by: options.by } : {}),
+        ...(options.turn !== undefined ? { turn: options.turn } : {}),
+        ...(options.gate !== undefined ? { gate: options.gate } : {}),
+      }),
     setEnabled: async (owner, profile, name, enabled) =>
       setSkillEnabled(root, owner, profile, name, enabled, builtins),
     revert: async (owner, profile, name) => revertSkill(root, owner, profile, name, builtins),

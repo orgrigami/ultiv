@@ -45,6 +45,8 @@ import { skillsScope } from "./tools.ts";
 
 export const SKILL_LEARN = "skill_learn";
 export const SKILL_WRITE = "skill_write";
+/** The batch tool: its ops each count as one save toward the per-turn cap. */
+const SKILL_EDIT = "skill_edit";
 /** Learned saves one turn may make. */
 export const MAX_LEARNED_PER_TURN = 3;
 export const MAX_LESSON_CHARS = 120;
@@ -212,9 +214,12 @@ export const turnContext = async (
     vault,
     derived,
     outsideCalls: events.filter((event) => isOutside(String(event.name))).length,
-    learned: events.filter(
-      (event) => (event.name === SKILL_LEARN || event.name === SKILL_WRITE) && event.ok,
-    ).length,
+    learned: events.reduce((sum, event) => {
+      if (event.ok !== true) return sum;
+      if (event.name === SKILL_LEARN || event.name === SKILL_WRITE) return sum + 1;
+      // A skill_edit batch is one save per op; its audit event carries the count.
+      return event.name === SKILL_EDIT ? sum + (event.saves ?? 1) : sum;
+    }, 0),
     outsideTask,
   };
 };
@@ -319,6 +324,21 @@ export const skillGate = (
 export const learnRefusal = (body: string, turn: TurnContext): string | null => {
   const gate = skillGate("learn", body, turn, true);
   return gate.kind === "refuse" ? gate.reason : null;
+};
+
+/**
+ * Why a skill_edit batch of `ops` can't run this turn, or undefined to go
+ * ahead: a batch is exactly the mass-save vector the cap exists for, so
+ * every op counts against the remaining allowance and a batch over it is
+ * refused wholesale.
+ */
+export const batchAllowanceRefusal = (learned: number, ops: number): string | undefined => {
+  const remaining = MAX_LEARNED_PER_TURN - learned;
+  return ops > remaining
+    ? `refused: this batch carries ${ops} ops but only ${remaining} of the ` +
+        `${MAX_LEARNED_PER_TURN} skill saves left this turn remain; send fewer ops ` +
+        "or save the rest on a later turn"
+    : undefined;
 };
 
 /** The content rules alone (see skillGate). */
