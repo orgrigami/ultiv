@@ -1,5 +1,7 @@
 /**
- * The pill composer: a round "+" (images, files, quick prompts) on the left,
+ * The composer: a pill at one line, a 3xl squircle once the draft grows past
+ * it (continuous corners where the engine has corner-shape, plain radius
+ * where it doesn't). A round "+" (images, files, quick prompts) on the left,
  * the message box, and a round send arrow on the right (Stop joins it while
  * the bot works). Desktop: Enter sends, Shift+Enter is a newline. Touch:
  * Enter is a newline. While the bot works a send steers the running turn;
@@ -9,6 +11,7 @@
  * pasted or dropped files stage too. On a text-only model a staged image
  * draws a muted note: images ride as file references instead.
  */
+import * as React from "react";
 import type { SendMode } from "@spriessen/contracts";
 import { CornerUpRightIcon, SquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +56,23 @@ export function Composer({
   onRemoveStaged: (key: string) => void;
   vision: boolean | undefined;
 }) {
+  // The box is a pill at one line and relaxes to a 3xl squircle once the
+  // draft grows past it — a stadium cap on a tall box eats the layout.
+  // Measured, not inferred: the bare textarea auto-grows (field-sizing),
+  // so the rendered height is the truth in every engine.
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  const [grown, setGrown] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    // One line tops out at 56px (6px padding + 44px touch-min textarea); a
+    // second line clears 60. Observe, so font-size media changes also apply.
+    const watch = () => setGrown(el.offsetHeight > 60);
+    watch();
+    const observer = new ResizeObserver(watch);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const placeholder = !live
     ? "Waiting for the server…"
     : botName !== undefined && botName !== ""
@@ -77,7 +97,14 @@ export function Composer({
         </p>
       )}
       <div
-        className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 rounded-full p-1.5 focus-within:ring-2"
+        ref={boxRef}
+        className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 p-1.5 focus-within:ring-2 transition-[border-radius] duration-200 ease-out motion-reduce:transition-none"
+        style={
+          {
+            borderRadius: grown ? "var(--radius-3xl)" : "9999px",
+            cornerShape: "squircle",
+          } as React.CSSProperties
+        }
         onPaste={(event) => {
           const files = Array.from(event.clipboardData.files);
           if (files.length === 0) return;
