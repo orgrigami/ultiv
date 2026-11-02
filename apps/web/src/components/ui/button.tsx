@@ -17,19 +17,38 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        quiet:
+          "text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+        "ghost-destructive":
+          "text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20",
+        muted: "bg-muted/70 text-foreground hover:bg-muted aria-expanded:bg-muted",
+        signal:
+          "border-border bg-background text-signal hover:bg-signal/10 aria-expanded:bg-signal/10 dark:border-input dark:bg-input/30 dark:hover:bg-signal/20",
+        segment:
+          "text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs aria-current:bg-background aria-current:text-foreground aria-current:shadow-xs",
+        tab: "text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground aria-selected:bg-secondary aria-selected:text-secondary-foreground",
+        filter:
+          "min-h-11 gap-1.5 px-3.5 py-1 sm:min-h-9 bg-card text-muted-foreground hover:text-foreground aria-selected:bg-foreground aria-selected:text-background aria-selected:border-transparent aria-selected:font-medium",
+      },
+      // Pill-shaped buttons (the chat chrome pills, chips and round CTAs).
+      pill: {
+        true: "rounded-full",
       },
       // Touch screens (pointer: coarse) get 44px minimum targets; mouse sizes are unchanged.
       size: {
         default:
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 pointer-coarse:min-h-11",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-h-11",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-sm in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-h-11",
+        fit: "h-auto min-h-11 gap-1.5 px-2.5 py-1.5 pointer-coarse:min-h-11",
+        xl: "h-11 gap-1.5 px-2.5 pointer-coarse:min-h-11",
+        inline: "h-auto gap-1 p-0 text-xs",
+        xs: "h-6 gap-1 rounded-md px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-h-11",
+        sm: "h-7 gap-1 rounded-md px-2.5 text-sm in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-h-11",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 pointer-coarse:min-h-11",
         icon: "size-8 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+          "size-6 rounded-md in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+          "size-7 rounded-md in-data-[slot=button-group]:rounded-lg pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         "icon-lg": "size-9 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
       },
     },

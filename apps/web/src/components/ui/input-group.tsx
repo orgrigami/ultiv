@@ -21,7 +21,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 const inputGroupAddonVariants = cva(
-  "flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[calc(var(--radius)-5px)] [&>svg:not([class*='size-'])]:size-4",
+  "flex h-auto cursor-text items-center justify-center gap-2 py-1.5 text-sm font-medium text-muted-foreground select-none group-data-[disabled=true]/input-group:opacity-50 [&>kbd]:rounded-[5px] [&>svg:not([class*='size-'])]:size-4",
   {
     variants: {
       align: {
@@ -65,10 +65,10 @@ const inputGroupButtonVariants = cva("flex items-center gap-2 text-sm shadow-non
   variants: {
     size: {
       // Touch screens get 44px minimum targets (mouse sizes unchanged).
-      xs: "h-6 gap-1 rounded-[calc(var(--radius)-3px)] px-1.5 [&>svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-h-11",
+      xs: "h-6 gap-1 rounded-sm px-1.5 [&>svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-h-11",
       sm: "pointer-coarse:min-h-11",
       "icon-xs":
-        "size-6 rounded-[calc(var(--radius)-3px)] p-0 has-[>svg]:p-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        "size-6 rounded-sm p-0 has-[>svg]:p-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
       "icon-sm": "size-8 p-0 has-[>svg]:p-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
     },
   },
