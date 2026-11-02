@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { CodemodeSandbox } from "@earendil-works/pi-codemode";
+import { createRegistry } from "@earendil-works/pi-durable";
+import { codemodeExtension } from "./codemode.ts";
 
 const sandboxWithDemoTool = async (): Promise<CodemodeSandbox> => {
   const sandbox = new CodemodeSandbox();
@@ -39,5 +41,36 @@ describe("Codemode sandbox (real QuickJS)", () => {
     const result = await sandbox.execute(`throw new Error("no can do");`);
     if (result.ok) throw new Error("expected the script to fail");
     expect(result.error.message).toContain("no can do");
+  });
+});
+
+describe("Codemode section listing", () => {
+  /** A minimal registration with just what the section renderer reads. */
+  const fakeTool = (name: string, description: string) => ({
+    name,
+    description,
+    parameters: { type: "object", properties: { script: { type: "string" } } },
+    execute: async () => ({ output: [{ type: "text", text: "ok" }] }),
+  });
+
+  it("always lists bash and bash_host, however large the unnamespaced group", () => {
+    const registry = createRegistry();
+    registry.install(codemodeExtension());
+    const entry = registry
+      .snapshot()
+      .sections()
+      .find((candidate) => candidate.section.key === "codemode");
+    if (entry === undefined) throw new Error("the codemode section is not installed");
+    // Enough cheap filler to exhaust the inline budget many times over — the
+    // shells are among the priciest declarations and dropped before the fix.
+    const callable = [
+      ...Array.from({ length: 40 }, (_, i) => fakeTool(`filler_${i}`, "Cheap filler tool.")),
+      fakeTool("bash", "Run a bash script in the sandboxed workspace VM."),
+      fakeTool("bash_host", "Run a bash script DIRECTLY on the host computer."),
+    ];
+    const text = entry.section.render({ agent: { callable } } as never, {} as never) ?? "";
+    expect(text).toContain("## shell");
+    expect(text).toMatch(/### `bash`/);
+    expect(text).toMatch(/### `bash_host`/);
   });
 });
