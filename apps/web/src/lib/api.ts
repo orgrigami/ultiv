@@ -20,6 +20,7 @@ import type {
   SkillOverview,
   SkillProposal,
   TaskRow,
+  ToolCatalogEntry,
   WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
@@ -262,6 +263,8 @@ export const api = {
       departmentId?: string | null;
       hostAccess?: boolean;
       model?: { id: string; effort?: string } | null;
+      /** The curated tool list, replaced wholesale; null = every installed tool. */
+      toolAllowlist?: readonly string[] | null;
       /** Per-key merge server-side, so a partial object is safe. */
       policies?: Partial<ProfilePolicies>;
     },
@@ -403,6 +406,7 @@ export const api = {
   bindingRemove: (id: string): Promise<boolean> =>
     drop(`/api/vault/${encodeURIComponent(id)}/binding`),
   models: (): Promise<ModelInfo[]> => getJson<ModelInfo[]>("/api/models"),
+  tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {
       title,
