@@ -125,14 +125,21 @@ const expect = (name: string, ok: boolean): void => {
 };
 
 // The model catalog: overlay providers are listed as provider/model, offline.
-const modelList = await call("GET", "/api/models");
+// The payload also carries the effective workspace default (env here).
+const modelPayload = await call("GET", "/api/models");
+const modelList = { json: modelPayload.json?.models };
 expect(
   "overlay model listed",
-  modelList.status === 200 &&
+  modelPayload.status === 200 &&
     modelList.json.some(
       (model: { id: string; providerName: string }) =>
         model.id === "smoke-local/tiny" && model.providerName === "Smoke Local",
     ),
+);
+expect(
+  "models payload carries the env workspace default",
+  modelPayload.json.workspaceDefault?.source === "env" &&
+    modelPayload.json.workspaceDefault?.ref === "kenari/deepseek-v4-1-flash",
 );
 const catalog = await call("GET", "/api/models/catalog");
 expect(
@@ -228,6 +235,14 @@ const tiny = (modelList.json as { id: string; input?: string[] }[]).find(
   (model) => model.id === "smoke-local/tiny",
 );
 expect("models carry input modalities", tiny !== undefined && Array.isArray(tiny.input));
+// A stored workspace default rides the payload labelled "db" (PUT round-trip below).
+const storedPayload = await call("PUT", "/api/settings/model", { ref: "smoke-local/tiny" });
+expect(
+  "models payload carries a stored default as db",
+  storedPayload.status === 200 &&
+    (await call("GET", "/api/models")).json.workspaceDefault?.source === "db",
+);
+await call("PUT", "/api/settings/model", null);
 
 const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id }, {});
 expect(

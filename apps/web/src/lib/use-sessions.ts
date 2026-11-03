@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import type { ModelInfo, ProfileInfo, SessionInfo } from "@spriessen/contracts";
+import type {
+  ModelInfo,
+  ProfileInfo,
+  SessionInfo,
+  WorkspaceDefaultModel,
+} from "@spriessen/contracts";
 import { api } from "./api";
 import { notifyError, pollRecovered } from "./notify.ts";
 
@@ -7,6 +12,8 @@ export function useSessions(): {
   phase: "connecting" | "live" | "lost";
   sessions: SessionInfo[];
   models: ModelInfo[];
+  /** The effective workspace default; null = none exists (db and env unset). */
+  workspaceDefault: WorkspaceDefaultModel | null;
   profiles: ProfileInfo[];
   /** The selected profile id; undefined = every profile (all sessions). */
   selected: string | undefined;
@@ -18,18 +25,20 @@ export function useSessions(): {
   const [phase, setPhase] = useState<"connecting" | "live" | "lost">("connecting");
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [workspaceDefault, setWorkspaceDefault] = useState<WorkspaceDefaultModel | null>(null);
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
   const [selected, setSelected] = useState<string | undefined>(undefined);
 
   const refresh = useCallback(async (profileId?: string) => {
     try {
-      const [list, modelList, profileList] = await Promise.all([
+      const [list, modelPayload, profileList] = await Promise.all([
         api.sessions(profileId),
         api.models(),
         api.profiles(),
       ]);
       setSessions(list);
-      setModels(modelList);
+      setModels(modelPayload.models);
+      setWorkspaceDefault(modelPayload.workspaceDefault);
       setProfiles(profileList);
       setPhase("live");
       pollRecovered("sessions-load");
@@ -95,5 +104,16 @@ export function useSessions(): {
     [refresh, selected],
   );
 
-  return { phase, sessions, models, profiles, selected, select, createProfile, create, remove };
+  return {
+    phase,
+    sessions,
+    models,
+    workspaceDefault,
+    profiles,
+    selected,
+    select,
+    createProfile,
+    create,
+    remove,
+  };
 }

@@ -55,6 +55,14 @@ export const SettingsModelSchema = Type.Object({
 
 export type SettingsModel = Static<typeof SettingsModelSchema>;
 
+/** `GET /api/models`: the picker list plus the effective workspace default. */
+export const ModelsPayloadSchema = Type.Object({
+  models: ModelListSchema,
+  workspaceDefault: Type.Union([WorkspaceDefaultModelSchema, Type.Null()]),
+});
+
+export type ModelsPayload = Static<typeof ModelsPayloadSchema>;
+
 /** The model catalog's state (`GET /api/models/catalog`, `POST /api/models/refresh`). */
 export const ModelCatalogStatusSchema = Type.Object({
   source: Type.Union([Type.Literal("network"), Type.Literal("cache"), Type.Literal("none")]),

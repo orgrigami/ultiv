@@ -35,6 +35,7 @@ export type {
 export {
   ModelCatalogStatusSchema,
   ModelListSchema,
+  ModelsPayloadSchema,
   SettingsModelSchema,
   SessionListSchema,
   SessionInfoSchema,
@@ -44,6 +45,7 @@ export {
 export type {
   ModelCatalogStatus,
   Models,
+  ModelsPayload,
   SettingsModel,
   SessionInfo,
   SessionList,

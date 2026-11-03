@@ -169,9 +169,10 @@ async function route(args: RouteArgs): Promise<void> {
     });
   }
   if (path === "/api/models") {
-    return json(
-      200,
-      mind.models.list().map((spec) => ({
+    const stored = await mind.profiles.workspaceDefaultModel();
+    const env = mind.models.preferredRef();
+    return json(200, {
+      models: mind.models.list().map((spec) => ({
         id: spec.ref,
         label: spec.label,
         provider: spec.provider,
@@ -180,7 +181,13 @@ async function route(args: RouteArgs): Promise<void> {
         defaultEffort: spec.defaultEffort,
         input: [...spec.input],
       })),
-    );
+      workspaceDefault:
+        stored !== null
+          ? { ref: stored.ref, effort: stored.effort, source: "db" }
+          : env !== null
+            ? { ref: env, effort: "", source: "env" }
+            : null,
+    });
   }
   if (path === "/api/models/catalog" && method === "GET") {
     return json(200, { ...mind.models.status(), default: mind.models.defaultRef() });
