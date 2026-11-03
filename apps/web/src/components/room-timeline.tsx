@@ -1,15 +1,15 @@
 /**
- * A bot-to-bot conversation as a real chat: one bubble per turn, speakers
- * seated on opposite sides (the room's first participant left, everyone else
- * right, the owner's supervision lines right), consecutive turns grouped
- * under one avatar and name, day dividers between. Opened from a mail pill,
- * it lives in the work pane — beside the chat on desktop, full-height sheet
- * on phones.
+ * A bot-to-bot room as the house transcript: bot prose is the terrain (no
+ * bubble, no side alignment), each turn headed by its speaker's drawn
+ * character and name; the owner's supervision lines sit on the same quiet
+ * raised card the main chat uses; day dividers between. Lives under the
+ * room header on /rooms and in the work pane (opened from a mail pill).
  */
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { CircleAlertIcon, UserIcon } from "lucide-react";
+import { CircleAlertIcon } from "lucide-react";
 import { BotAvatar } from "@/components/bot-avatar";
-import { LazyMarkdown } from "@/components/lazy-markdown";
+import { ChatProse, isFoldable } from "@/components/chat-prose";
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type RoomDetail, type RoomLine } from "@/lib/api";
@@ -19,32 +19,28 @@ import { STATUS_LABEL } from "@/lib/room-status";
 import { cn } from "@/lib/utils";
 import { enter } from "@/components/system/card-shell";
 
-const bubbleOf = (side: "left" | "right", grouped: boolean, owner: boolean): string =>
-  cn(
-    "w-fit max-w-full rounded-2xl border px-3.5 py-2.5 text-chat leading-relaxed break-words",
-    "[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1.5 [&_ol]:my-1.5",
-    "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2",
-    "[&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
-    side === "left"
-      ? "bg-muted/70 border-border/60"
-      : owner
-        ? "bg-accent/15 border-accent/30"
-        : "bg-card border-border",
-    grouped ? (side === "left" ? "rounded-tl-sm" : "rounded-tr-sm") : "",
-  );
-
-const Meta = ({ line, side }: { line: RoomLine; side: "left" | "right" }) => (
-  <p className={cn("text-xs", side === "right" && "text-right")}>
-    <span className="font-semibold">{line.speaker}</span>
-    <time
-      className="text-muted-foreground readout ml-2"
-      dateTime={new Date(line.at).toISOString()}
-      title={formatFull(line.at)}
+/** Delivery status under its line; a still-pending one carries a Cancel. */
+function StatusLine({ line, onCancel }: { line: RoomLine; onCancel: (id: string) => void }) {
+  const label = line.status === undefined ? undefined : STATUS_LABEL[line.status];
+  if (label === undefined) return null;
+  const cancelId = line.status === "pending" && line.id !== undefined ? line.id : undefined;
+  return (
+    <p
+      className={cn(
+        "inline-flex items-center gap-1.5 text-xs",
+        line.status === "pending" ? "text-muted-foreground" : "text-destructive",
+      )}
     >
-      {formatClock(line.at)}
-    </time>
-  </p>
-);
+      {line.status !== "pending" && <CircleAlertIcon className="size-3 shrink-0" aria-hidden />}
+      {label}
+      {cancelId !== undefined && (
+        <Button variant="quiet" size="xs" onClick={() => onCancel(cancelId)}>
+          Cancel
+        </Button>
+      )}
+    </p>
+  );
+}
 
 export function RoomTimeline({ roomId }: { roomId: string }) {
   const [detail, setDetail] = useState<RoomDetail | null>(null);
@@ -61,6 +57,18 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
     });
   }, [load]);
 
+  const cancel = useCallback(
+    async (id: string) => {
+      try {
+        await api.mailboxCancel(id);
+        await load();
+      } catch (cause) {
+        notifyError("Couldn't cancel the message", cause);
+      }
+    },
+    [load],
+  );
+
   if (failed)
     return (
       <div className="px-4 pt-3">
@@ -71,32 +79,16 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
 
   const profileIdOf = (speaker: string): string | undefined =>
     detail.participants.find((participant) => participant.name === speaker)?.profileId;
-  /** The room's first participant sits left; everyone else (and the owner's
-   *  supervision lines) answer from the right, like a two-sided chat. */
-  const sideOf = (speaker: string, system: boolean): "left" | "right" => {
-    if (system || speaker === "owner") return "right";
-    const index = detail.participants.findIndex((participant) => participant.name === speaker);
-    return index <= 0 ? "left" : "right";
-  };
 
   let lastDay = "";
-  let lastSpeaker: string | null = null;
-  let lastWasTurn = false;
 
   return (
-    <ol className="flex flex-col gap-2.5 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+    <ol className="flex flex-col gap-3 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
       {detail.timeline.map((line, index) => {
         const divider = formatDivider(line.at);
         const showDivider = divider !== lastDay;
         if (showDivider) lastDay = divider;
-        const status = line.status === undefined ? undefined : STATUS_LABEL[line.status];
-        const side = sideOf(line.speaker, line.system);
-        const owner = line.system || line.speaker === "owner";
-        // A new turn: different speaker, a day break, or a non-message line.
-        const newTurn = showDivider || line.system || line.speaker !== lastSpeaker || !lastWasTurn;
-        const grouped = !newTurn;
-        lastSpeaker = line.speaker;
-        lastWasTurn = !line.system;
+        const owner = line.speaker === "owner" && !line.system;
 
         return (
           <Fragment key={line.id ?? index}>
@@ -111,56 +103,46 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
               </li>
             )}
             {line.system ? (
-              <li className={`w-full ${enter}`}>
-                <p className="text-muted-foreground text-center text-xs">{line.text}</p>
+              <li className={cn("text-muted-foreground w-full text-center text-xs", enter)}>
+                {line.text}
+              </li>
+            ) : owner ? (
+              <li className={cn("flex w-full flex-col items-end gap-1", enter)}>
+                <div
+                  data-slot="room-owner-line"
+                  className="max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-chat break-words whitespace-pre-wrap"
+                  title={formatFull(line.at)}
+                >
+                  {line.text}
+                </div>
+                <StatusLine line={line} onCancel={(id) => void cancel(id)} />
               </li>
             ) : (
               <li
-                className={cn(
-                  "flex w-full items-end gap-2",
-                  side === "right" && "flex-row-reverse",
-                  enter,
-                )}
+                className={cn("group/msg flex w-full min-w-0 flex-col items-start gap-0.5", enter)}
+                title={formatFull(line.at)}
               >
-                {grouped ? (
-                  <span className="w-7 shrink-0" aria-hidden />
-                ) : owner ? (
-                  <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full">
-                    <UserIcon className="size-3.5" />
-                  </span>
-                ) : (
-                  <BotAvatar id={profileIdOf(line.speaker)} name={line.speaker} size="sm" />
-                )}
                 <div
-                  className={cn(
-                    "flex min-w-0 max-w-[88%] flex-col gap-0.5 sm:max-w-[78%]",
-                    side === "right" && "items-end",
-                  )}
+                  data-slot="room-head"
+                  className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium"
                 >
-                  {!grouped && <Meta line={line} side={side} />}
-                  <div className={bubbleOf(side, grouped, owner)} data-slot="room-bubble">
-                    <LazyMarkdown text={line.text} />
-                  </div>
-                  {status !== undefined && (
-                    <p
-                      className={cn(
-                        "flex items-center gap-1.5 text-xs",
-                        line.status === "pending" ? "text-muted-foreground" : "text-destructive",
-                        side === "right" && "flex-row-reverse",
-                      )}
-                    >
-                      {line.status !== "pending" && <CircleAlertIcon className="size-3 shrink-0" />}
-                      {status}
-                    </p>
-                  )}
+                  <BotAvatar id={profileIdOf(line.speaker)} name={line.speaker} size="sm" />
+                  {line.speaker}
+                  <time className="readout" dateTime={new Date(line.at).toISOString()}>
+                    {formatClock(line.at)}
+                  </time>
                 </div>
+                <div className="min-w-0 max-w-full">
+                  <ChatProse text={line.text} foldable={isFoldable(line.text)} />
+                </div>
+                <StatusLine line={line} onCancel={(id) => void cancel(id)} />
               </li>
             )}
           </Fragment>
         );
       })}
       {detail.timeline.length === 0 && (
-        <li className="text-muted-foreground py-8 text-center text-xs">No messages yet.</li>
+        <li className="text-muted-foreground py-8 text-center text-sm">No messages yet.</li>
       )}
     </ol>
   );

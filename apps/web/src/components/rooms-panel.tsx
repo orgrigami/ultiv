@@ -1,78 +1,100 @@
 /**
- * Bot talks (rooms): bot-to-bot conversations as ONE chat with participant
- * names — the same shape as the owner's own threads. Per-seat internals are
- * invisible here; a supervision "say" posts into a chosen bot's side.
+ * Bot talks (rooms) in the house voice: an open room shows the pair header,
+ * the terrain transcript and the house composer with a quiet
+ * supervision-target control; the footer strip is gone (the header says it).
  */
-import { CharacterEmpty } from "@/components/character-empty";
-import { SkeletonRows } from "@/components/ui/skeleton";
-import { ArrowLeftIcon, MessagesSquareIcon, SendIcon } from "lucide-react";
+import { Menu } from "@base-ui/react/menu";
+import {
+  ChevronDownIcon,
+  CheckIcon,
+  MessagesSquareIcon,
+  SendIcon,
+  ArrowLeftIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo, RoomInfo } from "@spriessen/contracts";
-import { LazyMarkdown } from "@/components/lazy-markdown";
+import { CharacterEmpty } from "@/components/character-empty";
+import { BotAvatar } from "@/components/bot-avatar";
+import { RoomTimeline } from "@/components/room-timeline";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { api, type RoomDetail, type RoomLine } from "@/lib/api";
-import { notifyError } from "@/lib/notify";
+import { MenuPopup } from "@/components/ui/menu-popup";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { api, type RoomDetail } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
-import { STATUS_LABEL } from "@/lib/room-status";
-import { Tile } from "@/components/ui/tile";
+import { grownBoxStyle, useGrownBox } from "@/lib/grown-box";
+import { notifyError } from "@/lib/notify";
 
-function LineStatus({ line, onChanged }: { line: RoomLine; onChanged: () => Promise<void> }) {
-  const [cancelling, setCancelling] = useState(false);
-  const label = line.status === undefined ? undefined : STATUS_LABEL[line.status];
-  if (label === undefined) return null;
-  const cancel = async (): Promise<void> => {
-    if (line.id === undefined) return;
-    setCancelling(true);
-    try {
-      await api.mailboxCancel(line.id);
-      await onChanged();
-    } catch (cause) {
-      notifyError("Couldn't cancel the message", cause);
-    } finally {
-      setCancelling(false);
-    }
-  };
-  return (
-    <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-xs">
-      <span className={line.status === "pending" ? "" : "text-destructive"}>{label}</span>
-      {line.status === "pending" && line.id !== undefined ? (
-        <Button variant="outline" size="sm" disabled={cancelling} onClick={() => void cancel()}>
-          Cancel
-        </Button>
-      ) : null}
-    </div>
-  );
-}
+const itemClass =
+  "data-highlighted:bg-muted flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm outline-none";
 
-function TimelineLine({ line, onChanged }: { line: RoomLine; onChanged: () => Promise<void> }) {
-  if (line.system) return <p className="text-muted-foreground text-xs">{line.text}</p>;
+/** Who a supervision line is spoken to: a quiet menu inside the composer. */
+function TargetControl({
+  participants,
+  value,
+  onChange,
+}: {
+  participants: { profileId: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const current = participants.find((participant) => participant.profileId === value);
   return (
-    <>
-      <span
-        className={
-          line.speaker === "owner" ? "text-accent-foreground font-semibold" : "font-semibold"
+    <Menu.Root>
+      <Menu.Trigger
+        aria-label={
+          current === undefined
+            ? "Choose who receives this"
+            : `Speaking to ${current.name}. Change who receives this`
         }
+        className="text-muted-foreground hover:bg-muted focus-visible:ring-ring/50 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full py-1 pr-2 pl-1 text-xs font-medium outline-none focus-visible:ring-3 pointer-coarse:h-10"
       >
-        {line.speaker}
-      </span>
-      <span className="text-muted-foreground ml-2 text-xs">{formatWhen(line.at)}</span>
-      <div className="max-h-64 overflow-y-auto break-words [&_p:first-child]:mt-1 [&_p:last-child]:mb-0">
-        <LazyMarkdown text={line.text} />
-      </div>
-      <LineStatus line={line} onChanged={onChanged} />
-    </>
+        {current !== undefined && (
+          <BotAvatar id={current.profileId} name={current.name} size="sm" />
+        )}
+        {current?.name}
+        <ChevronDownIcon className="size-3.5" aria-hidden />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="top" align="start" sideOffset={8} className="z-50">
+          <MenuPopup className="w-56">
+            <p className="text-muted-foreground px-3 pt-2 pb-1 text-xs">Speaking to</p>
+            <Menu.RadioGroup value={value} onValueChange={(next: string) => onChange(next)}>
+              {participants.map((participant) => (
+                <Menu.RadioItem
+                  key={participant.profileId}
+                  value={participant.profileId}
+                  closeOnClick
+                  className={itemClass}
+                >
+                  <span className="flex size-4 shrink-0 items-center">
+                    <Menu.RadioItemIndicator>
+                      <CheckIcon className="size-4" />
+                    </Menu.RadioItemIndicator>
+                  </span>
+                  <BotAvatar id={participant.profileId} name={participant.name} size="sm" />
+                  {participant.name}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </MenuPopup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
+
+const coarsePointer = (): boolean =>
+  typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
 function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void> }) {
   const [detail, setDetail] = useState<RoomDetail | null>(null);
-  const [say, setSay] = useState("");
+  const [draft, setDraft] = useState("");
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
+  const { boxRef, grown } = useGrownBox(draft);
 
   const load = useCallback(async () => {
     setDetail(await api.room(room.id));
@@ -89,11 +111,11 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
   }, [detail, to]);
 
   const send = async (): Promise<void> => {
-    if (say.trim() === "" || to === "") return;
+    if (draft.trim() === "" || to === "") return;
     setBusy(true);
     try {
-      await api.roomSay(room.id, to, say.trim());
-      setSay("");
+      await api.roomSay(room.id, to, draft.trim());
+      setDraft("");
       await load();
       await reload();
     } catch (cause) {
@@ -104,52 +126,66 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
   };
 
   if (detail === null) return <SkeletonRows label="Loading the conversation" rows={4} />;
-  const title = detail.participants.map((participant) => participant.name).join(" ↔ ");
+  const target = detail.participants.find((participant) => participant.profileId === to);
 
   return (
-    <div className="mt-3 flex flex-col gap-3">
-      <Tile tone="surface" radius="lg" className="max-h-[45dvh] overflow-y-auto p-3 text-sm">
-        {detail.timeline.length === 0 ? (
-          <p className="text-muted-foreground text-xs">No messages yet.</p>
-        ) : (
-          detail.timeline.map((line, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: append-only timeline
-            <div key={line.id ?? index} className="mb-2">
-              <TimelineLine line={line} onChanged={load} />
-            </div>
-          ))
-        )}
-      </Tile>
-      <div className="flex gap-2">
-        <Select className="w-36" value={to} onChange={(event) => setTo(event.target.value)}>
+    <div className="flex flex-col gap-3">
+      {/* The pair header: both characters, the names, the topic as the lead. */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
           {detail.participants.map((participant) => (
-            <option key={participant.profileId} value={participant.profileId}>
-              to {participant.name}
-            </option>
+            <BotAvatar
+              key={participant.profileId}
+              id={participant.profileId}
+              name={participant.name}
+              size="md"
+            />
           ))}
-        </Select>
-        <Input
-          className="flex-1"
-          placeholder="Message this bot in the conversation…"
-          value={say}
-          onChange={(event) => setSay(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void send();
-          }}
-        />
-        <Button
-          size="sm"
-          aria-label="Send message"
-          disabled={busy || say.trim() === ""}
-          onClick={() => void send()}
-        >
-          <SendIcon />
-        </Button>
+          <h2 className="text-base font-semibold tracking-tight">
+            {detail.participants.map((participant) => participant.name).join(" ↔ ")}
+          </h2>
+        </div>
+        {room.topic !== "" && <p className="text-muted-foreground text-sm">{room.topic}</p>}
       </div>
-      <p className="text-muted-foreground text-xs">
-        {title}
-        {room.topic !== "" ? ` • ${room.topic}` : ""}
-      </p>
+      <RoomTimeline roomId={room.id} />
+      <form
+        className="sticky bottom-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send();
+        }}
+      >
+        <div
+          ref={boxRef}
+          className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 p-1.5 focus-within:ring-2 transition-[border-radius] duration-200 ease-out motion-reduce:transition-none"
+          style={grownBoxStyle(grown)}
+        >
+          <TargetControl participants={detail.participants} value={to} onChange={setTo} />
+          <Textarea
+            variant="bare"
+            aria-label={`Message to ${target?.name ?? "the room"}`}
+            placeholder={target !== undefined ? `Message ${target.name}` : "Message the room"}
+            value={draft}
+            rows={1}
+            className="max-h-[40dvh] min-w-0 flex-1 resize-none overflow-y-auto"
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || coarsePointer() || event.shiftKey) return;
+              event.preventDefault();
+              void send();
+            }}
+          />
+          <Button
+            type="submit"
+            size="composer"
+            pill
+            aria-label="Send message"
+            disabled={busy || draft.trim() === ""}
+          >
+            <SendIcon />
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

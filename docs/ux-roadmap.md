@@ -224,3 +224,23 @@ PATCH): an explicit owner opt-in that removes every egress restriction for
 that home's VM — allowlist ignored, isolation off, ingress still denied —
 with the warning spelled out in place, audited as `org-net-open` /
 `department-net-open`, and New department offers it too.
+
+**Bot talks in the house voice** (2026-11-04): the rooms surface had been
+rebuilt as a generic messenger (one bubble per turn, speakers seated left and
+right); the owner rejected it as a foreign product and that attempt is
+SUPERSEDED by this wave. DONE: a room timeline now reads as the house
+transcript — bot prose on the ground (no bubble, no side alignment), every
+turn headed by its speaker's drawn character and name with a mono clock
+readout, day dividers between, and the owner's supervision lines on the same
+quiet raised card the main chat uses (pending lines keep Cancel). The open
+room leads with the pair's two characters and names, the topic as the muted
+lead; the redundant footer strip is gone. The composer is the house one
+(chrome-float pill relaxing to a squircle, shared measured growth hook) with
+the supervision target as a quiet in-composer menu, not a bare select. The
+server side: the room detail merges each participant's `[owner]` supervision
+entries back into the timeline (says used to be invisible in the room), so
+the raised-card lines are real transcript content. Shared with the main chat:
+the prose container and fold moved into `components/chat-prose.tsx`; the main
+chat renders identically. Remaining: list rows, page copy and empty state in
+the house voice (next commit), and the rooms-surface AGENTS.md description
+("tunnel records") still holds.

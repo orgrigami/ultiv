@@ -1,8 +1,9 @@
 /**
  * Room routes: the bot-to-bot surface. Rooms are REST-only (never sessions,
  * never chord objects) — a room is a TUNNEL, and its transcript is the
- * mailbox envelopes. The detail view is one merged, speaker-labelled chat;
- * the supervision "say" injects into the bot's endpoint conversation.
+ * mailbox envelopes. The detail view is one merged, speaker-labelled chat
+ * (the owner's supervision says surface as owner lines); the supervision
+ * "say" injects into the bot's endpoint conversation.
  */
 import { Effect } from "effect";
 import type { MailboxEntry, RoomInfo } from "@spriessen/contracts";
@@ -36,7 +37,48 @@ async function roomDetail(args: RouteArgs, room: RoomInfo): Promise<RoomDetail> 
       })),
   );
   const timeline = await args.mind.mailbox.transcriptOf(args.owner, room);
-  return { room, participants, timeline: [...timeline] };
+  const says = await ownerSays(args, room);
+  return { room, participants, timeline: [...timeline, ...says].sort((a, b) => a.at - b.at) };
+}
+
+/**
+ * The owner's supervision says live in each participant's endpoint
+ * conversation as `[owner] …` user entries (the /say route writes them
+ * there); the tunnel itself carries only the bots' envelopes. The room
+ * detail merges those entries back in as owner lines so the surface shows
+ * the whole conversation, supervision included. Deduped by at+text, since
+ * both endpoints could in principle name the same conversation.
+ */
+async function ownerSays(args: RouteArgs, room: RoomInfo): Promise<RoomLine[]> {
+  const lines: RoomLine[] = [];
+  const seen = new Set<string>();
+  for (const profileId of room.participants) {
+    if (profileId.startsWith("external:")) continue;
+    try {
+      const endpoint = await args.mind.mailbox.endpointOf(args.owner, room, profileId);
+      const entries = await Effect.runPromise(args.mind.converse.entriesOf(endpoint, 200));
+      for (const entry of entries) {
+        for (const message of (entry.model ?? []) as readonly unknown[]) {
+          const record = message as { role?: string; content?: unknown; timestamp?: unknown };
+          if (record.role !== "user" || typeof record.content !== "string") continue;
+          if (!record.content.startsWith("[owner] ")) continue;
+          const line: RoomLine = {
+            at: typeof record.timestamp === "number" ? record.timestamp : Date.now(),
+            speaker: "owner",
+            text: record.content.slice("[owner] ".length),
+            system: false,
+          };
+          const key = `${line.at}:${line.text}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          lines.push(line);
+        }
+      }
+    } catch {
+      // An unreachable endpoint only drops the owner's lines, never the room.
+    }
+  }
+  return lines;
 }
 
 export async function roomRoutes(args: RouteArgs): Promise<boolean> {
