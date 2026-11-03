@@ -23,7 +23,7 @@ const badgeVariants = cva(
       },
       size: {
         default: "h-5 px-2 py-0.5",
-        count: "h-4.5 min-w-5 px-1.5 text-center leading-none font-semibold tabular-nums",
+        count: "h-4.5 min-w-5 px-1.5 text-center font-semibold tabular-nums",
         chip: "h-6 pr-1",
       },
     },

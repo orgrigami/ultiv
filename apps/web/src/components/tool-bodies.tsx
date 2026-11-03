@@ -98,7 +98,7 @@ function SearchBody({ query, hits }: { query: string; hits: readonly SearchHit[]
                 <span className="w-5 text-right">{String(index + 1).padStart(2, "0")}</span>
                 <span className="truncate">{hit.site ?? hostOf(hit.url)}</span>
                 {hit.date !== undefined && <span className="shrink-0">{hit.date}</span>}
-                <ArrowUpRightIcon className="ms-auto size-3 shrink-0 opacity-0 transition-opacity group-focus-visible:opacity-100 group-hover:opacity-100" />
+                <ArrowUpRightIcon className="text-muted-foreground ms-auto size-3 shrink-0 opacity-50 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
               </span>
               <span className="text-foreground mt-0.5 line-clamp-2 block text-sm font-medium leading-snug">
                 {hit.title}

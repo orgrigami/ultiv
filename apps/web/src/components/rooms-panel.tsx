@@ -49,7 +49,7 @@ function LineStatus({ line, onChanged }: { line: RoomLine; onChanged: () => Prom
 }
 
 function TimelineLine({ line, onChanged }: { line: RoomLine; onChanged: () => Promise<void> }) {
-  if (line.system) return <p className="text-muted-foreground text-xs italic">{line.text}</p>;
+  if (line.system) return <p className="text-muted-foreground text-xs">{line.text}</p>;
   return (
     <>
       <span

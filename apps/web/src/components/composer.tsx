@@ -172,9 +172,10 @@ export function Composer({
                 // full width, corners included — and the CTAs drop to their
                 // own bottom row inside it. order-first lets the textarea
                 // (later in DOM) lead the flex-wrap flow.
-                "order-first max-h-[40dvh] w-full resize-none overflow-y-auto px-1 disabled:opacity-60"
+                "order-first max-h-[40dvh] w-full resize-none overflow-y-auto disabled:opacity-60"
               : "max-h-[40dvh] min-w-0 flex-1 resize-none overflow-y-auto disabled:opacity-60"
           }
+          inset={grown}
           onChange={(event) => onDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || coarsePointer()) return;

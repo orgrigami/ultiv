@@ -84,7 +84,7 @@ function TabStrip({
         >
           {item.label}
           {item.badge !== undefined && (
-            <span className="bg-destructive/10 text-destructive rounded-4xl px-1.5 py-0.5 text-xs leading-none font-semibold">
+            <span className="bg-destructive/10 text-destructive rounded-4xl px-1.5 py-0.5 text-xs font-semibold">
               {item.badge}
             </span>
           )}

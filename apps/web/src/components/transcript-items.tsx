@@ -85,7 +85,7 @@ const Output = memo(function Output({
           >
             <LazyMarkdown text={text} />
             {streaming && (
-              <span aria-hidden className="motion-safe:animate-pulse">
+              <span aria-hidden className="text-accent-foreground">
                 ▍
               </span>
             )}
@@ -127,7 +127,7 @@ const Thinking = memo(function Thinking({ text, live }: { text: string; live: bo
           </TraceLine>
         </TraceCollapsibleTrigger>
         <TraceCollapsibleContent>
-          <p className="text-sm whitespace-pre-wrap italic">{text}</p>
+          <p className="text-muted-foreground text-sm whitespace-pre-wrap">{text}</p>
         </TraceCollapsibleContent>
       </TraceCollapsible>
     </Trace>

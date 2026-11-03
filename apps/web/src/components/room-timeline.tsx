@@ -21,8 +21,10 @@ import { enter } from "@/components/system/card-shell";
 
 const bubbleOf = (side: "left" | "right", grouped: boolean, owner: boolean): string =>
   cn(
-    "w-fit max-w-full rounded-2xl border px-3.5 py-2.5 text-chat break-words",
-    "[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-1.5 [&_li]:my-0.5 [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2",
+    "w-fit max-w-full rounded-2xl border px-3.5 py-2.5 text-chat leading-relaxed break-words",
+    "[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1.5 [&_ol]:my-1.5",
+    "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2",
+    "[&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
     side === "left"
       ? "bg-muted/70 border-border/60"
       : owner
@@ -110,7 +112,7 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
             )}
             {line.system ? (
               <li className={`w-full ${enter}`}>
-                <p className="text-muted-foreground text-center text-xs italic">{line.text}</p>
+                <p className="text-muted-foreground text-center text-xs">{line.text}</p>
               </li>
             ) : (
               <li

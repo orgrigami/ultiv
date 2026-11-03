@@ -272,7 +272,7 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
         count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : SECTION_LABEL[section]
       }
       className={cn(
-        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs leading-none whitespace-nowrap outline-none focus-visible:ring-3",
+        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs whitespace-nowrap outline-none focus-visible:ring-3",
         current ? "text-foreground font-medium" : "text-muted-foreground",
       )}
     >

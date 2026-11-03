@@ -17,14 +17,21 @@ function Textarea({
   variant = "default",
   size = "default",
   mono = false,
+  inset = false,
   ...props
 }: React.ComponentProps<"textarea"> & {
   variant?: "default" | "bare";
   size?: "default" | "editor";
   mono?: boolean;
+  /** Bare only: a little inline padding for fields inside wider chrome. */
+  inset?: boolean;
 }) {
   const look =
-    variant === "bare" ? textareaBare : size === "editor" ? textareaEditor : textareaBase;
+    variant === "bare"
+      ? cn(textareaBare, inset && "px-1")
+      : size === "editor"
+        ? textareaEditor
+        : textareaBase;
   return (
     <textarea
       data-slot="textarea"
