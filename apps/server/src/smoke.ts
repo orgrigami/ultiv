@@ -581,6 +581,18 @@ const skillDelete = await call(
 );
 expect("owner skill delete", skillDelete.status === 200 && skillDelete.json.ok === true);
 
+// The tool catalog (allowlist editor's payload): names + one-line descriptions.
+const toolCatalog = await call("GET", "/api/tools", undefined, headers);
+expect(
+  "tool catalog lists bot_create with a description",
+  toolCatalog.status === 200 &&
+    Array.isArray(toolCatalog.json) &&
+    toolCatalog.json.some(
+      (tool: { name: string; description: string }) =>
+        tool.name === "bot_create" && tool.description.length > 0,
+    ),
+);
+
 if (failures.length > 0) {
   console.error(`smoke FAILED: ${failures.join(", ")}`);
   await stack.close();

@@ -100,6 +100,8 @@ export interface MindDescription {
   /** The decide faculty is configured (TYPESAFE_API_KEY present). */
   readonly decide: boolean;
   readonly tools: readonly string[];
+  /** The same catalog with each tool's one-line description (allowlist editor). */
+  readonly catalog: readonly { readonly name: string; readonly description: string }[];
 }
 
 export interface MindService {

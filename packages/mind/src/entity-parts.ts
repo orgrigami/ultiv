@@ -372,28 +372,45 @@ export const wirePolicies = (
   });
 };
 
+/** The first non-empty line of a tool description, trimmed (allowlist rows). */
+const firstLineOf = (text: string): string =>
+  (text.split(/\r?\n/).find((entry) => entry.trim() !== "") ?? "").trim();
+
 /** The truth: registry plugins AND the late pi-registry installs act.tools() misses. */
 export const describeMind = (
   act: ReturnType<typeof actService>,
   decide: DecideService,
   piRegistry: {
     readonly snapshot: () => {
-      readonly tools: () => ReadonlyArray<{ readonly tool: { readonly name: string } }>;
+      readonly tools: () => ReadonlyArray<{
+        readonly tool: { readonly name: string; readonly description?: string };
+      }>;
     };
   },
-) => ({
-  entity: ENTITY_NAME,
-  decide: decide.available,
-  tools: [
-    ...new Set([
-      ...act.tools().map((tool) => tool.name),
-      ...piRegistry
-        .snapshot()
-        .tools()
-        .map(({ tool }) => tool.name),
-    ]),
-  ],
-});
+) => {
+  // One catalog: the act's registrations first, then the late installs; the
+  // first entry under a name wins. `tools` stays the name list every existing
+  // reader consumes; `catalog` adds the one-line descriptions.
+  const named = new Map<string, string>();
+  for (const tool of [
+    ...act.tools(),
+    ...piRegistry
+      .snapshot()
+      .tools()
+      .map(({ tool }) => tool),
+  ]) {
+    if (!named.has(tool.name)) named.set(tool.name, tool.description ?? "");
+  }
+  return {
+    entity: ENTITY_NAME,
+    decide: decide.available,
+    tools: [...named.keys()],
+    catalog: [...named].map(([name, description]) => ({
+      name,
+      description: firstLineOf(description),
+    })),
+  };
+};
 
 /** The per-profile routine services (memory, history, schedules, triggers, state). */
 export const routineServices = (
