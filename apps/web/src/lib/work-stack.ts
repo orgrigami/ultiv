@@ -16,7 +16,14 @@ export type WorkItem =
       readonly name: string;
       readonly query?: string | undefined;
     }
-  | { readonly kind: "needs" };
+  | { readonly kind: "needs" }
+  | {
+      readonly kind: "room";
+      readonly roomId: string;
+      /** Participant names joined "A ↔ B" — resolved before opening. */
+      readonly title: string;
+      readonly topic: string | null;
+    };
 
 export const WORK_STACK_LIMIT = 4;
 
@@ -31,6 +38,8 @@ export function workKey(item: WorkItem): string {
       return `memory:${item.profileId}`;
     case "needs":
       return "needs";
+    case "room":
+      return `room:${item.roomId}`;
   }
 }
 

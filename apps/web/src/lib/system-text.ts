@@ -121,14 +121,23 @@ function parseMail(text: string): SystemMessage | null {
   }
   const sent = /^✉\s*→\s*(\S+)\s*\((\w+)(?:\s*•\s*([^)]*))?\)\s*/.exec(text);
   if (sent === null) return null;
+  const parts = (sent[3] ?? "")
+    .split(" • ")
+    .map((part) => part.trim())
+    .filter((part) => part !== "");
+  const topic = parts.find((p) => p !== "request" && p !== "notify" && !p.startsWith("re: "));
+  const envelopeId = parts
+    .find((p) => p.startsWith("re: "))
+    ?.slice(4)
+    .trim();
   return {
     kind: "bot",
     direction: "out",
     who: sent[1] ?? "",
     reply: false,
     asks: sent[2] === "request",
-    topic: sent[3]?.trim() || null,
-    envelopeId: null,
+    topic: topic ?? null,
+    envelopeId: envelopeId === "" || envelopeId === undefined ? null : envelopeId,
     body: text.slice(sent[0].length).trim(),
   };
 }

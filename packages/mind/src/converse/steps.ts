@@ -214,13 +214,32 @@ function callStep(block: unknown, id: number, at: number, results: Map<string, T
     return toolStep(block, id, at, results.get(String((block as { id?: unknown }).id ?? id)));
   }
   // The initiator's outgoing message is chat, not plumbing: render it as a
-  // visible note ("✉ → who") instead of a collapsed trace.
+  // visible note ("✉ → who") instead of a collapsed trace. The envelope id
+  // rides along when the send was admitted, so the owner's pill can open the
+  // conversation.
   const args = (block as { arguments?: Record<string, unknown> }).arguments ?? {};
   const to = String(args.to ?? "unknown");
   const messageKind = String(args.kind ?? "notify");
   const topic = args.topic === undefined ? "" : ` • ${String(args.topic)}`;
   const body = String(args.body ?? "").slice(0, 800);
-  return { id, kind: "note", at, text: `✉ → ${to} (${messageKind}${topic})\n\n${body}` };
+  const result = results.get(String((block as { id?: unknown }).id ?? id));
+  const resultText = resultTextOf(result);
+  const envelopeId = /\bmessage (\S+) admitted\b/.exec(resultText)?.[1];
+  const envelope = envelopeId === undefined ? "" : ` • re: ${envelopeId}`;
+  return { id, kind: "note", at, text: `✉ → ${to} (${messageKind}${topic}${envelope})\n\n${body}` };
+}
+
+/** Tool result content as one plain string, whatever shape it committed as. */
+function resultTextOf(result: ToolResult | undefined): string {
+  const content = result?.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content))
+    return content
+      .map((part) =>
+        typeof part === "string" ? part : String((part as { text?: unknown }).text ?? ""),
+      )
+      .join(" ");
+  return "";
 }
 
 function toolStep(block: unknown, id: number, at: number, result: ToolResult | undefined): Step {

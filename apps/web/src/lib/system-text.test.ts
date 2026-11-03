@@ -78,6 +78,13 @@ describe("parseSystem", () => {
       envelopeId: null,
       body: "Hello",
     });
+    expect(parseSystem("✉ → bot-2 (request • plans • re: env-9)\n\nHello")).toMatchObject({
+      direction: "out",
+      who: "bot-2",
+      topic: "plans",
+      asks: true,
+      envelopeId: "env-9",
+    });
     expect(parseSystem("[nack from Eve • re: 9] no reply after 3 attempts: x")).toMatchObject({
       reason: "Couldn't be delivered",
       envelopeId: "9",

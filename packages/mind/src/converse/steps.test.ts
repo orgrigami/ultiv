@@ -190,4 +190,43 @@ describe("projectTranscript", () => {
     );
     expect(steps).toEqual([{ id: 100, kind: "input", at: 100, text: "plain" }]);
   });
+
+  it("renders an admitted message send as an outgoing note carrying the envelope id", () => {
+    const steps = projectTranscript(
+      [
+        entry(1, [
+          {
+            role: "assistant",
+            content: [
+              {
+                type: "toolCall",
+                id: "call_1",
+                name: "message",
+                arguments: { to: "bot-2", kind: "request", topic: "plans", body: "status?" },
+              },
+            ],
+            timestamp: 100,
+          },
+        ]),
+        entry(2, [
+          {
+            role: "toolResult",
+            toolCallId: "call_1",
+            content: "message env-123 admitted to bot-2. End your turn now.",
+            isError: false,
+            durationMs: 5,
+            timestamp: 110,
+          },
+        ]),
+      ],
+      undefined,
+      false,
+    );
+    expect(steps).toHaveLength(1);
+    const note = steps[0];
+    expect(note?.kind).toBe("note");
+    expect(note && "text" in note ? note.text : "").toContain(
+      "✉ → bot-2 (request • plans • re: env-123)",
+    );
+  });
 });

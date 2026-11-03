@@ -1,17 +1,18 @@
 /**
  * Bot-to-bot mail in the chat: a quiet centered pill — who, which way, what
- * about — that opens the conversation in a dialog. The body lives in the
- * room's timeline, never inline in the transcript; a message that never
- * arrived (a nack) says why on the pill.
+ * about — that opens the conversation in the work pane (beside the chat on
+ * desktop, full-height sheet on phones). The body lives in the room's
+ * timeline, never inline in the transcript; a message that never arrived
+ * (a nack) says why on the pill.
  */
 import { useState } from "react";
 import { ArrowLeftIcon, ArrowRightIcon, CircleAlertIcon } from "lucide-react";
 import { BotAvatar } from "@/components/bot-avatar";
-import { RoomDialog } from "@/components/room-dialog";
 import { RowButton } from "@/components/ui/row-button";
 import { useApp } from "@/lib/app-state";
 import { api } from "@/lib/api";
 import { formatClock, formatFull } from "@/lib/format";
+import { useOpenWork } from "@/lib/work-pane";
 import type { SystemMessage } from "@/lib/system-text";
 import { cn } from "@/lib/utils";
 import { enter } from "./card-shell";
@@ -31,7 +32,7 @@ function useBot(who: string): { id: string | undefined; name: string } {
 
 const useBotName = (who: string): string => useBot(who).name;
 
-/** The pill frame: centered, quiet, opens the room dialog when clickable. */
+/** The pill frame: centered, quiet, opens the conversation when clickable. */
 function MailPill({
   icon,
   label,
@@ -47,14 +48,24 @@ function MailPill({
   envelopeId: string | null;
   tone?: "plain" | "muted";
 }) {
-  const [roomId, setRoomId] = useState<string | null>(null);
-  const clickable = envelopeId !== null;
+  const [busy, setBusy] = useState(false);
+  const openWork = useOpenWork();
+  const clickable = envelopeId !== null && openWork !== null;
   const openRoom = (): void => {
-    if (envelopeId === null) return;
+    if (envelopeId === null || openWork === null || busy) return;
+    setBusy(true);
     void api
       .roomByEnvelope(envelopeId)
-      .then((detail_) => setRoomId(detail_.room.id))
-      .catch(() => undefined);
+      .then((detail_) =>
+        openWork({
+          kind: "room",
+          roomId: detail_.room.id,
+          title: detail_.participants.map((participant) => participant.name).join(" ↔ "),
+          topic: detail_.room.topic === "" ? null : detail_.room.topic,
+        }),
+      )
+      .catch(() => undefined)
+      .finally(() => setBusy(false));
   };
   return (
     <div className={cn("flex w-full justify-center", enter)}>
@@ -81,7 +92,6 @@ function MailPill({
           {formatClock(at)}
         </time>
       </RowButton>
-      {roomId !== null && <RoomDialog roomId={roomId} onClose={() => setRoomId(null)} />}
     </div>
   );
 }

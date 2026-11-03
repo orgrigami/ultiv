@@ -10,6 +10,7 @@ import { useEffect, type ElementType } from "react";
 import { MemoryContent } from "@/components/memory/memory-panel";
 import { FileDownload, FilePreviewBody, fileSubtitle } from "@/components/file-preview";
 import { NeedsList } from "@/components/needs-list";
+import { RoomTimeline } from "@/components/room-timeline";
 import { TaskWork } from "@/components/task-activity";
 import { fullTitle } from "@/components/task-sheet/sheet-header";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,11 @@ function titleOf(item: WorkItem): { title: string; subtitle: string | null } {
       return { title: `What ${item.name} remembers`, subtitle: "Memory" };
     case "needs":
       return { title: "Needs you", subtitle: null };
+    case "room":
+      return {
+        title: item.title,
+        subtitle: item.topic !== null ? `Bot talks · ${item.topic}` : "Bot talks",
+      };
   }
 }
 
@@ -67,6 +73,12 @@ function Body({ item }: { item: WorkItem }) {
       return (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <NeedsList />
+        </div>
+      );
+    case "room":
+      return (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <RoomTimeline roomId={item.roomId} />
         </div>
       );
   }
