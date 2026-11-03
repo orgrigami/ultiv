@@ -17,16 +17,8 @@ import { Select } from "@/components/ui/select";
 import { api, type RoomDetail, type RoomLine } from "@/lib/api";
 import { notifyError } from "@/lib/notify";
 import { formatWhen } from "@/lib/format";
+import { STATUS_LABEL } from "@/lib/room-status";
 import { Tile } from "@/components/ui/tile";
-
-/** Plain-language delivery status; a delivered message shows nothing. */
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Waiting for a reply",
-  failed: "Couldn't be delivered",
-  dead: "Couldn't be delivered (tried 3 times)",
-  expired: "Timed out — no reply in time",
-  cancelled: "Cancelled",
-};
 
 function LineStatus({ line, onChanged }: { line: RoomLine; onChanged: () => Promise<void> }) {
   const [cancelling, setCancelling] = useState(false);

@@ -63,20 +63,24 @@ describe("parseSystem", () => {
       reply: false,
       asks: true,
       topic: "Plans",
+      envelopeId: "9",
       body: "Can you help?",
     });
     expect(parseSystem("[reply from Lucas • re: 9]\n\nDone.")).toMatchObject({
       reply: true,
       who: "Lucas",
+      envelopeId: "9",
     });
     expect(parseSystem("✉ → bot-2 (notify • Hi)\n\nHello")).toMatchObject({
       direction: "out",
       who: "bot-2",
       topic: "Hi",
+      envelopeId: null,
       body: "Hello",
     });
     expect(parseSystem("[nack from Eve • re: 9] no reply after 3 attempts: x")).toMatchObject({
       reason: "Couldn't be delivered",
+      envelopeId: "9",
     });
     expect(
       parseSystem("[nack from Eve • re: 9] timed out: no reply within 5 minutes."),

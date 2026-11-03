@@ -21,9 +21,11 @@ export type SystemMessage =
       reply: boolean;
       asks: boolean;
       topic: string | null;
+      /** The envelope id from the "re: <id>" header part; absent on outgoing notes. */
+      envelopeId: string | null;
       body: string;
     }
-  | { kind: "nack"; who: string; reason: string; detail: string }
+  | { kind: "nack"; who: string; reason: string; detail: string; envelopeId: string | null }
   | { kind: "quiet"; text: string }
   | { kind: "hidden" };
 
@@ -85,15 +87,26 @@ function nackReason(detail: string): string {
 }
 
 function parseMail(text: string): SystemMessage | null {
-  const nack = /^\[nack from ([^•\]]+?) • re: [^\]]*\]\s*/.exec(text);
+  const nack = /^\[nack from ([^•\]]+?) • re: ([^\]]*)\]\s*/.exec(text);
   if (nack !== null) {
     const detail = text.slice(nack[0].length).trim();
-    return { kind: "nack", who: nack[1] ?? "", reason: nackReason(detail), detail };
+    const envelopeId = (nack[2] ?? "").trim();
+    return {
+      kind: "nack",
+      who: nack[1] ?? "",
+      reason: nackReason(detail),
+      detail,
+      envelopeId: envelopeId === "" ? null : envelopeId,
+    };
   }
   const mail = /^\[(message|reply) from ([^•\]]+?)((?: • [^•\]]+)*)\]/.exec(text);
   if (mail !== null) {
     const parts = (mail[3] ?? "").split(" • ").filter((part) => part !== "");
     const topic = parts.find((p) => p !== "request" && p !== "notify" && !p.startsWith("re: "));
+    const envelopeId = parts
+      .find((p) => p.startsWith("re: "))
+      ?.slice(4)
+      .trim();
     const body = text.slice(mail[0].length).replace(BOT_FOOTER, "").trim();
     return {
       kind: "bot",
@@ -102,6 +115,7 @@ function parseMail(text: string): SystemMessage | null {
       reply: mail[1] === "reply",
       asks: parts.includes("request"),
       topic: topic ?? null,
+      envelopeId: envelopeId === "" || envelopeId === undefined ? null : envelopeId,
       body,
     };
   }
@@ -114,6 +128,7 @@ function parseMail(text: string): SystemMessage | null {
     reply: false,
     asks: sent[2] === "request",
     topic: sent[3]?.trim() || null,
+    envelopeId: null,
     body: text.slice(sent[0].length).trim(),
   };
 }

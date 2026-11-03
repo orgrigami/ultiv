@@ -52,6 +52,32 @@ export async function roomRoutes(args: RouteArgs): Promise<boolean> {
     json(200, { profileId: main });
     return true;
   }
+  // Resolve a chat-side mail note to its conversation: the transcript's
+  // "[message from … • re: <envelope id>]" note names the envelope, the room
+  // is the one whose topic + participants match the entry. Owner-scoped by
+  // both lookups, so a foreign owner reads the same 404 as everyone else.
+  const envelope = path.match(/^\/api\/rooms\/by-envelope\/([^/]+)$/);
+  if (envelope !== null && method === "GET") {
+    const entries = await mind.mailbox.list(args.owner);
+    const entry = entries.find((candidate) => candidate.envelope.id === envelope[1]);
+    if (entry === undefined) {
+      json(404, { error: "unknown message" });
+      return true;
+    }
+    const rooms = await mind.rooms.list(args.owner);
+    const room = rooms.find(
+      (candidate) =>
+        candidate.topic === entry.envelope.topic &&
+        candidate.participants.includes(entry.envelope.from) &&
+        candidate.participants.includes(entry.envelope.to),
+    );
+    if (room === undefined) {
+      json(404, { error: "unknown conversation" });
+      return true;
+    }
+    json(200, await roomDetail(args, room));
+    return true;
+  }
   const match = path.match(/^\/api\/rooms\/([^/]+)(\/say)?$/);
   if (match === null) return false;
   const room = await mind.rooms.get(args.owner, match[1] ?? "");

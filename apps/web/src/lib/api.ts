@@ -354,6 +354,8 @@ export const api = {
   },
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
+  roomByEnvelope: (envelopeId: string): Promise<RoomDetail> =>
+    getJson<RoomDetail>(`/api/rooms/by-envelope/${encodeURIComponent(envelopeId)}`),
   roomSay: (id: string, to: string, text: string): Promise<{ ok: boolean }> =>
     send<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(id)}/say`, "POST", { to, text }),
   mailboxCancel: (id: string): Promise<unknown> =>
