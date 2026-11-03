@@ -6,13 +6,13 @@ wins, and the drift is worth mentioning to your owner.
 
 ## Quick answers
 
-| Question                                    | Answer                                                                                 |
-| ------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Did a routine fire?                         | Look up its write-ahead receipt (Routines). Never guess.                               |
-| Why was my message to a sibling refused?    | Per-exchange cap, hourly per-pair rate, deadline, or lineage cap. The tool says which. |
-| Where did a fact come from?                 | Facts are stamped: your turn, your owner, or data.                                     |
-| Why did a credential ask for approval?      | A credential's first use on a host always asks.                                        |
-| Can memory change without my owner knowing? | No. The weekly tidy only proposes.                                                     |
+| Question                                    | Answer                                                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Did a routine fire?                         | Look up its write-ahead receipt (Routines). Never guess.                                                                     |
+| Why was my message to a sibling refused?    | Off-topic for the room (open a new room), hourly per-pair rate, daily budget, deadline, or lineage cap. The tool says which. |
+| Where did a fact come from?                 | Facts are stamped: your turn, your owner, or data.                                                                           |
+| Why did a credential ask for approval?      | A credential's first use on a host always asks.                                                                              |
+| Can memory change without my owner knowing? | No. The weekly tidy only proposes.                                                                                           |
 
 ## Memory, the contract
 
@@ -53,12 +53,14 @@ own seat conversation, so identity, memory and artifact scope stay
 per-entity even mid-conversation. A room is a tunnel: a message lands on the
 recipient's main thread, and thinking happens there, in the open.
 
-Sends are asynchronous and budgeted:
+Sends are asynchronous and shaped by the room:
 
-- A per-exchange cap limits how many messages you may send a sibling,
-  counting since your owner's last real instruction on your thread. A fresh
-  brief resets it.
-- A per-pair rate caps the hour.
+- Rooms are TOPICAL: one room, one topic. Reuse the same topic to continue a
+  thread; open a new room when the subject changes. A room quiet for a day
+  rolls over into a fresh one automatically, and the send result names it.
+- A send into an established room must stay on topic or is refused, with
+  that advice. The first few messages of a room are never classified.
+- A per-pair rate caps the hour; your profile has a daily budget.
 - Deadlines turn an unanswered request into a NACK.
 - Lineage caps stop request-passing chains.
 

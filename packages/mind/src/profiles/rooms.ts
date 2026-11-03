@@ -49,6 +49,15 @@ export interface RoomsService {
     participants: readonly string[],
     topic: string,
   ) => Promise<RoomInfo>;
+  /**
+   * The pair's CURRENT room for a topic — the most recently active record
+   * matching owner, topic and participant set, or undefined when none.
+   */
+  readonly find: (
+    owner: string,
+    participants: readonly string[],
+    topic: string,
+  ) => Promise<RoomInfo | undefined>;
   readonly get: (owner: string, id: string) => Promise<RoomInfo | undefined>;
   readonly list: (owner: string, profileId?: string) => Promise<RoomList>;
   readonly touch: (owner: string, roomId: string) => Promise<void>;
@@ -80,6 +89,18 @@ export const roomsService = (deps: { readonly converse: ConverseService }): Room
       await writeRooms(converse, (items) => [...items, room]);
       return room;
     },
+    find: (owner, participants, topic) =>
+      readRooms(converse).then(
+        (rooms) =>
+          rooms
+            .filter(
+              (room) =>
+                room.owner === owner &&
+                room.topic === normalizeTopic(topic) &&
+                sameSet(room.participants, participants),
+            )
+            .sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0],
+      ),
     get: (owner, id) =>
       readRooms(converse).then((rooms) =>
         rooms.find((room) => room.owner === owner && room.id === id),

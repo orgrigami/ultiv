@@ -23,7 +23,7 @@ import {
   type Engine,
   type MailboxDeps,
 } from "./delivery.ts";
-import { ROOM_EXCHANGE_CAP, exchangeUsed, lastBriefedAt, validateSend } from "./policy.ts";
+import { roomLastActivityAt, rolloverTopic, staleAt, validateSend } from "./policy.ts";
 import type { MailboxOrigin } from "./policy.ts";
 import { recover, type RecoveryReport } from "./recovery.ts";
 import { isExternal, readEntries, writeEntries } from "./store.ts";
@@ -33,8 +33,9 @@ export {
   HOP_CAP,
   MAX_RETRIES,
   PAIR_RATE_PER_HOUR,
-  ROOM_EXCHANGE_CAP,
+  ROOM_STALE_MS,
   shouldSignalReply,
+  staleAt,
   type MailboxOrigin,
 } from "./policy.ts";
 export { MailboxDoc } from "./store.ts";
@@ -58,6 +59,15 @@ export interface MailboxSendInput {
   readonly originConversation?: string | null;
 }
 
+/**
+ * An admitted entry, plus the rollover marker: when the send landed in a
+ * FRESH room because the targeted one was stale, `rolloverRoomId` names it
+ * so the send result can point both bots and the owner at the new room.
+ */
+export type MailboxSendResult = MailboxEntry & {
+  readonly rolloverRoomId?: string;
+};
+
 export interface TranscriptLine {
   readonly at: number;
   readonly speaker: string;
@@ -70,7 +80,7 @@ export interface TranscriptLine {
 
 export interface MailboxService {
   /** Send (admit) a message; validations refuse before anything is admitted. */
-  readonly send: (input: MailboxSendInput) => Promise<MailboxEntry>;
+  readonly send: (input: MailboxSendInput) => Promise<MailboxSendResult>;
   /** An inbound envelope from an external sender: strictly fewer rights. */
   readonly deliverExternal: (
     input: Omit<MailboxSendInput, "origin" | "owner"> & {
@@ -80,13 +90,6 @@ export interface MailboxService {
   ) => Promise<MailboxEntry>;
   /** Entries visible to an owner (their bots' traffic), newest last. */
   readonly list: (owner: string) => Promise<MailboxList>;
-  /** Tool sends from `from` to `to` against the exchange cap (used/cap). */
-  readonly budgetOf: (
-    owner: string,
-    from: string,
-    to: string,
-    originConversation?: string | null,
-  ) => Promise<{ readonly used: number; readonly cap: number }>;
   /** Dead-lettered entries — the attention path reads this. */
   readonly dead: (owner: string) => Promise<MailboxList>;
   /**
@@ -174,10 +177,31 @@ const sendOps = (e: Engine): Pick<MailboxService, "send" | "deliverExternal"> =>
       chain: [input.from],
       artifacts: input.artifacts ?? [],
       origin: input.origin,
-      originConversation,
     });
-    const envelope = envelopeOf(input, input.from, [input.from], topic, input.artifacts ?? []);
-    return admit(e, input.owner, envelope, input.origin, originConversation);
+    // Stale-room rollover: a send into the pair's current room whose last
+    // envelope is older than ROOM_STALE_MS opens a FRESH room (same
+    // participants, new id, topic stamped with the resume date) and delivers
+    // there. Pre-creating the room here routes delivery deterministically
+    // and lets the send result name the new room. A fresh room is on topic
+    // by construction; the old room stays readable.
+    const participants = [input.from, input.to];
+    const entries = await readEntries(e.deps.converse);
+    const current = await e.deps.rooms.find(input.owner, participants, topic);
+    let admittedTopic = topic;
+    let rolloverRoomId: string | undefined;
+    if (current !== undefined && staleAt(roomLastActivityAt(current, entries), Date.now())) {
+      admittedTopic = rolloverTopic(topic, Date.now());
+      rolloverRoomId = (await e.deps.rooms.ensure(input.owner, participants, admittedTopic)).id;
+    }
+    const envelope = envelopeOf(
+      input,
+      input.from,
+      [input.from],
+      admittedTopic,
+      input.artifacts ?? [],
+    );
+    const entry = await admit(e, input.owner, envelope, input.origin, originConversation);
+    return rolloverRoomId === undefined ? entry : { ...entry, rolloverRoomId };
   },
   deliverExternal: async (input) => {
     const sender = `external:${input.from.replace(/^external:/, "")}`;
@@ -190,7 +214,6 @@ const sendOps = (e: Engine): Pick<MailboxService, "send" | "deliverExternal"> =>
       chain,
       artifacts: [],
       origin: "external",
-      originConversation: null,
     });
     return admit(e, input.owner, envelopeOf(input, sender, chain, topic, []), "external", null);
   },
@@ -234,11 +257,6 @@ export const mailboxService = (deps: MailboxDeps): MailboxService => {
     transcriptOf: transcriptOf(e),
     endpointOf: (owner, room, profileId) =>
       readEntries(converse).then((entries) => endpointFor(e, owner, room, profileId, entries)),
-    budgetOf: async (owner, from, to, originConversation = null) => {
-      const entries = await readEntries(converse);
-      const cutoff = await lastBriefedAt(converse, originConversation);
-      return { used: exchangeUsed(entries, owner, from, to, cutoff), cap: ROOM_EXCHANGE_CAP };
-    },
     list: async (owner) => {
       const entries = await readEntries(converse);
       const owned = new Set((await profiles.list(owner)).map((profile) => profile.id));

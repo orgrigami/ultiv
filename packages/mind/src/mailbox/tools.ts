@@ -30,7 +30,7 @@ const MessageParams = Type.Object({
     Type.String({
       description:
         'The conversation context, e.g. "Q3 report". REUSE the same topic to continue a ' +
-        "thread — near-duplicate topics splinter the exchange into extra rooms. Omit only " +
+        "thread — near-duplicate topics splinter the conversation into extra rooms. Omit only " +
         "for a new general thread.",
     }),
   ),
@@ -48,13 +48,15 @@ const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =
       "Send a message to a sibling bot through your shared room (the tunnel). Asynchronous: " +
       "the sibling receives it on THEIR main thread, thinks there, and replies through the " +
       "room; YOUR current thread is then woken with a finish signal — END YOUR TURN after " +
-      "sending; never wait or poll. Exchanges are capped (the output shows your remaining " +
-      "budget per sibling) — say everything you need in as few messages as possible. Prefer " +
-      "notify when no answer is needed, and never reply to a plain acknowledgement (it " +
-      "starts loops). If a sibling's request needs real work on your side, spawn it as a " +
-      "task so your lane stays reachable. Share your owner's personal data (contacts, " +
-      "calendar, memories, files, location) only when your owner asked, and only what the " +
-      "task needs.",
+      "sending; never wait or poll. Rooms are TOPICAL — one room, one topic: reuse the same " +
+      "topic to continue a thread, and open a NEW room (a new topic) when the subject changes " +
+      "or the thread went quiet for a day; a room quiet for 24h is rolled over into a fresh " +
+      "one for you automatically, and a send that is off-topic for an established room is " +
+      "refused with that advice. Prefer notify when no answer is needed, and never reply to " +
+      "a plain acknowledgement (it starts loops). If a sibling's request needs real work on " +
+      "your side, spawn it as a task so your lane stays reachable. Share your owner's " +
+      "personal data (contacts, calendar, memories, files, location) only when your owner " +
+      "asked, and only what the task needs.",
     parameters: MessageParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
     execute: (args, api) => {
@@ -82,25 +84,18 @@ const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =
           origin: "tool",
           originConversation: String(api.conversationId),
         })
-        .then(async (entry) => {
-          const budget = await mailbox.budgetOf(
-            scope.owner,
-            scope.profileId,
-            args.to,
-            String(api.conversationId),
-          );
-          const left = budget.cap - budget.used;
-          const budgetNote =
-            left <= 0
-              ? " That was your FINAL message to this sibling for this exchange — conclude now (a fresh instruction from your owner resets it)."
-              : ` ${left} of ${budget.cap} messages left to this sibling in this exchange.`;
+        .then((entry) => {
+          const rollover =
+            entry.rolloverRoomId === undefined
+              ? ""
+              : ` continued in a new room: ${entry.rolloverRoomId} (the old room stays readable).`;
           return {
             output: [
               {
                 type: "text" as const,
                 text:
                   `message ${entry.envelope.id} admitted to ${args.to}.` +
-                  budgetNote +
+                  rollover +
                   " End your turn now; your thread will be woken with a finish signal when they reply.",
               },
             ],
@@ -226,8 +221,9 @@ export const mailboxPlugin = (
     id: "ultiv.mind.mailbox",
     version: "1.2.0",
     description:
-      "Inter-entity messaging through contextual rooms (the tunnel) — asynchronous, " +
-      "exchange-capped — plus full-transcript reads from any endpoint.",
+      "Inter-entity messaging through contextual rooms (the tunnel) — asynchronous, rooms " +
+      "are topical (one room, one topic; a quiet room rolls over to a fresh one) — plus " +
+      "full-transcript reads from any endpoint.",
     capabilities: [
       toolCapability(messageTool(mailbox, profiles)),
       toolCapability(roomTool(mailbox, profiles, rooms)),

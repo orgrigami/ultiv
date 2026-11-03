@@ -2,7 +2,8 @@ import { expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { openMind } from "../entity.ts";
-import { mailboxService, shouldSignalReply } from "./mailbox.ts";
+import { mailboxService, ROOM_STALE_MS, shouldSignalReply, staleAt } from "./mailbox.ts";
+import { writeEntries } from "./store.ts";
 import type { MailboxEntry } from "@spriessen/contracts";
 
 // Wake coalescing has a real-world window; tests assert synchronously after
@@ -143,75 +144,101 @@ it("open by default: tool sends reach any sibling; canInitiate restricts or lock
   await handle.close();
 });
 
-it("caps ad-hoc room exchanges at 3 per bot per topic (tool sends only)", async () => {
+it("rollover boundary: 23h59 delivers in-room, past 24h opens a fresh room", async () => {
   const handle = await openMind({ storage: new MemoryStorage() });
   const mailbox = fastMailbox(handle);
-  const { profiles } = handle.mind;
+  const { converse, profiles, rooms } = handle.mind;
   const a = await profiles.create("harry", { name: "One" });
   const b = await profiles.create("harry", { name: "Two" });
+  const now = Date.now();
+  // The pure boundary: strictly past ROOM_STALE_MS is stale.
+  expect(staleAt(now - ROOM_STALE_MS + 60_000, now)).toBe(false);
+  expect(staleAt(now - ROOM_STALE_MS - 60_000, now)).toBe(true);
 
-  const send = (topic: string, origin: "tool" | "human" = "tool") =>
-    settle(
-      mailbox.send({
-        owner: "harry",
-        from: a.id,
-        to: b.id,
-        kind: "notify",
-        body: "x",
-        topic,
-        origin,
-      }),
+  const send = () =>
+    mailbox.send({
+      owner: "harry",
+      from: a.id,
+      to: b.id,
+      kind: "notify",
+      body: "still here?",
+      topic: "pricing",
+      origin: "human",
+    });
+  const backdate = (ms: number) =>
+    writeEntries(converse, (items) =>
+      items.map((entry) => ({
+        ...entry,
+        envelope: { ...entry.envelope, at: Date.now() - ms },
+      })),
     );
+  await send();
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // Five tool sends to the sibling are fine, across topics…
-  expect(await send("pricing")).toBe("");
-  expect(await send("pricing")).toBe("");
-  expect(await send("onboarding")).toBe("");
-  expect(await send("onboarding")).toBe("");
-  expect(await send("pricing")).toBe("");
-  // …the sixth is refused regardless of topic (per-pair cap)…
-  expect(await send("pricing")).toContain("exchange cap reached");
-  // …and deliberate (human/REST) sends are exempt.
-  expect(await send("pricing", "human")).toBe("");
+  // 23h59m of quiet: the next send lands in the SAME room.
+  await backdate(23 * 3_600_000 + 59 * 60_000);
+  const fresh = await send();
+  expect(fresh.rolloverRoomId).toBeUndefined();
+  expect(
+    (await rooms.list("harry")).filter((room) => room.topic.startsWith("pricing")),
+  ).toHaveLength(1);
+
+  // 24h01m of quiet: the next send AUTO-OPENS a fresh room (same pair).
+  await backdate(24 * 3_600_000 + 60_000);
+  const rolled = await send();
+  expect(rolled.rolloverRoomId).toBeDefined();
+  expect(rolled.envelope.topic).not.toBe("pricing");
+  expect(rolled.envelope.topic).toContain("pricing");
+  const pricing = (await rooms.list("harry")).filter((room) => room.topic.startsWith("pricing"));
+  expect(pricing).toHaveLength(2);
+  expect(pricing.some((room) => room.id === rolled.rolloverRoomId)).toBe(true);
+
+  // The old room stays readable: its record and transcript are untouched.
+  const oldRoom = pricing.find((room) => room.id !== rolled.rolloverRoomId);
+  expect(oldRoom).toBeDefined();
+  expect(await rooms.get("harry", oldRoom!.id)).toBeDefined();
+  const lines = await mailbox.transcriptOf("harry", oldRoom!);
+  expect(lines.length).toBeGreaterThan(0);
   await handle.close();
 });
 
-it("exchange cap resets when the owner re-briefs the sending thread", async () => {
+it("the message tool names a rollover in its result text", async () => {
   const handle = await openMind({ storage: new MemoryStorage() });
   const mailbox = fastMailbox(handle);
-  const { converse, profiles } = handle.mind;
+  const { converse, profiles, rooms } = handle.mind;
   const a = await profiles.create("harry", { name: "One", onboard: false });
   const b = await profiles.create("harry", { name: "Two", onboard: false });
   const main = await profiles.ensureMain("harry", a.id);
   const mainChat = await Effect.runPromise(converse.ensure(await profiles.keyOfRow(main)));
-
-  // Owner briefs: an ordinary (unbracketed) input opens the exchange window.
-  await Effect.runPromise(converse.submit(mainChat, "please ping Two"));
-  const send = () =>
-    settle(
-      mailbox.send({
-        owner: "harry",
-        from: a.id,
-        to: b.id,
-        kind: "notify",
-        body: "x",
-        origin: "tool",
-        originConversation: String(mainChat.id),
-      }),
-    );
-  expect(await send()).toBe("");
-  expect(await send()).toBe("");
-  expect(await send()).toBe("");
-  expect(await send()).toBe("");
-  expect(await send()).toBe("");
-  // Budget exhausted inside this exchange…
-  expect(await send()).toContain("exchange cap reached");
-  // …and the wake signals are bracketed machinery, so they do NOT reset it.
-  await Effect.runPromise(converse.submit(mainChat, "[reply from Two • re: x]\n\ndone"));
-  expect(await send()).toContain("exchange cap reached");
-  // A fresh owner instruction resets the budget.
-  await Effect.runPromise(converse.submit(mainChat, "new task: ping Two again"));
-  expect(await send()).toBe("");
+  await mailbox.send({
+    owner: "harry",
+    from: a.id,
+    to: b.id,
+    kind: "notify",
+    body: "x",
+    topic: "pricing",
+    origin: "human",
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await writeEntries(converse, (items) =>
+    items.map((entry) => ({
+      ...entry,
+      envelope: { ...entry.envelope, at: Date.now() - 25 * 3_600_000 },
+    })),
+  );
+  const tools = messageTools(mailbox, profiles, rooms);
+  const message = tools.find((tool) => tool.name === "message");
+  const result = (await message!.execute(
+    { to: b.id, kind: "notify", body: "following up", topic: "pricing" },
+    { conversationId: mainChat.id } as never,
+    undefined as never,
+  )) as { output: readonly { text: string }[] };
+  const text = result.output[0]?.text ?? "";
+  expect(text).toContain("continued in a new room:");
+  const match = text.match(/continued in a new room: ([0-9a-f-]+)/);
+  expect(match).not.toBeNull();
+  expect(await rooms.get("harry", match![1]!)).toBeDefined();
+  expect(text).not.toContain("messages left");
   await handle.close();
 });
 

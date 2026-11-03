@@ -5,7 +5,7 @@
  */
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import type { MailboxEntry } from "@spriessen/contracts";
+import type { MailboxEntry, RoomInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 
 export const MailboxDoc = defineDoc<{ items: MailboxEntry[] }>({
@@ -99,6 +99,24 @@ export const updatePending = (
         : normalize(JSON.parse(JSON.stringify(patched)) as MailboxEntry);
     }),
   );
+
+/**
+ * The envelope entries that live in one room — the room's canonical
+ * transcript (owner-scoped, topic + both participants), oldest first.
+ */
+export const entriesInRoom = (
+  entries: readonly MailboxEntry[],
+  room: Pick<RoomInfo, "owner" | "participants" | "topic">,
+): MailboxEntry[] =>
+  entries
+    .filter(
+      (entry) =>
+        (entry.owner ?? "") === room.owner &&
+        entry.envelope.topic === room.topic &&
+        room.participants.includes(entry.envelope.from) &&
+        room.participants.includes(entry.envelope.to),
+    )
+    .sort((a, b) => a.envelope.at - b.envelope.at);
 
 /** A counting lane: N holders at once, everyone else waits in FIFO order. */
 export class Lane {

@@ -621,7 +621,8 @@ optional node name, the
 takes the bot alone (`packages/mind/src/org/home-scope.test.ts`). Open reach
 stays messaging-only with its caps
 (`packages/mind/src/org/reach.test.ts`: a cross-home send writes its audit
-row and org↔department exchanges hit the same exchange cap as any pair).
+row and org↔department exchanges bind to the same per-pair rate and daily
+budgets as any pair).
 Real-VM level, throwaway probes on this host (deleted after the run)
 re-verified: bots sharing a VM cannot list, read, write or enter each
 other's homes, read each other's process environment, or see or kill each
