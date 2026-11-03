@@ -68,6 +68,8 @@ export interface ModelCatalogService {
   readonly find: (ref: string) => ModelSpec | undefined;
   /** The model new conversations start on: SPRIESSEN_MODEL, else a sane available one. */
   readonly defaultRef: () => string;
+  /** SPRIESSEN_MODEL itself, normalized; null when unset (the stored setting outranks it). */
+  readonly preferredRef: () => string | null;
   /** Revalidate against models.dev now (`force`) or when the cache is stale. */
   readonly refresh: (force?: boolean) => Promise<CatalogStatus>;
   readonly status: () => CatalogStatus;
@@ -245,6 +247,7 @@ export const createCatalog = async (
     list: () => installed.specs,
     find: (ref) => installed.byRef.get(normalizeRef(ref)),
     defaultRef: () => defaultRefOf(installed, options.preferred),
+    preferredRef: () => (options.preferred !== null ? normalizeRef(options.preferred) : null),
     refresh,
     status,
     compaction: () => installed.compaction,

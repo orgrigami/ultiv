@@ -35,16 +35,20 @@ export type {
 export {
   ModelCatalogStatusSchema,
   ModelListSchema,
+  SettingsModelSchema,
   SessionListSchema,
   SessionInfoSchema,
   SessionKindSchema,
+  WorkspaceDefaultModelSchema,
 } from "./sessions.ts";
 export type {
   ModelCatalogStatus,
   Models,
+  SettingsModel,
   SessionInfo,
   SessionList,
   SessionKind,
+  WorkspaceDefaultModel,
 } from "./sessions.ts";
 export {
   ProfileInfoSchema,

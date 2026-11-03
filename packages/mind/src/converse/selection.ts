@@ -21,6 +21,22 @@ const modelRefOf = (agent: { readonly model?: unknown }): string | null => {
   return model.provider !== undefined ? formatRef({ provider: model.provider, modelId }) : modelId;
 };
 
+/**
+ * The workspace default's ref: the stored setting outranks the
+ * SPRIESSEN_MODEL environment, and both unset means NO default — a
+ * conversation without a model then fails `no_model`, which is the owner's
+ * explicit choice ("db supersedes .env, both empty → none").
+ */
+export const workspaceDefaultRefOf = (
+  stored: { readonly ref: string } | null | undefined,
+  env: string | null | undefined,
+): string | null => {
+  const db = stored?.ref.trim() ?? "";
+  if (db !== "") return db;
+  const fromEnv = env?.trim() ?? "";
+  return fromEnv === "" ? null : fromEnv;
+};
+
 export const selectionOps = (
   findModel: (ref: string) => ModelSpec | undefined,
   /**

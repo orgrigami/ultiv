@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
+import { normalizeRef } from "../providers/refs.ts";
 import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
 import {
   MAIN_PREFIX,
@@ -91,6 +92,34 @@ const ensureMainOnce = async (
     participants: null,
   });
   return row;
+};
+
+export const settingsModelOps = (
+  ctx: ProfilesContext,
+): Pick<ProfilesService, "workspaceDefaultModel" | "setWorkspaceDefaultModel"> => {
+  const { converse } = ctx;
+  return {
+    workspaceDefaultModel: async () => {
+      const stored = await run(converse.docs.snapshot(SettingsDoc));
+      return stored?.defaultModel ?? null;
+    },
+    setWorkspaceDefaultModel: async (model) => {
+      const next =
+        model === null
+          ? null
+          : (() => {
+              const ref = normalizeRef(model.ref.trim());
+              if (ref === "") throw new InvalidInput({ reason: "the model ref is empty" });
+              return { ref, effort: model.effort.trim() };
+            })();
+      await run(
+        converse.docs.commit(async (tx) => {
+          const draft = await tx.doc(SettingsDoc);
+          draft.defaultModel = next;
+        }),
+      );
+    },
+  };
 };
 
 export const mainOps = (

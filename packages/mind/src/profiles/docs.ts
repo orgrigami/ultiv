@@ -104,12 +104,28 @@ export const validTimezone = (tz: string): boolean => {
   }
 };
 
-/** Owner-level settings: which profile is the main bot (exactly one at a time). */
-export const SettingsDoc = defineDoc<{ main: Record<string, string> }>({
+/**
+ * Owner-level settings: which profile is the main bot (exactly one at a
+ * time) and the stored workspace default model (null = not set; the
+ * environment's SPRIESSEN_MODEL applies until the owner stores one).
+ */
+export const SettingsDoc = defineDoc<{
+  main: Record<string, string>;
+  defaultModel: { ref: string; effort: string } | null;
+}>({
   kind: "ultiv.settings",
-  version: 1,
+  version: 2,
   scope: "session",
-  initial: () => ({ main: {} }),
+  initial: () => ({ main: {}, defaultModel: null }),
+  // v1 carried only `main`: stamp the default-model field it never had.
+  migrate: (value) =>
+    ({
+      main: value.main ?? {},
+      defaultModel: (value as { defaultModel?: unknown }).defaultModel ?? null,
+    }) as unknown as {
+      main: Record<string, string>;
+      defaultModel: { ref: string; effort: string } | null;
+    },
   checkpointWhen: () => true,
 });
 

@@ -34,7 +34,8 @@ import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
 import { controlOps, type ParkedTask } from "./control.ts";
 export type { ParkedTask } from "./control.ts";
-import { selectionOps } from "./selection.ts";
+import { selectionOps, workspaceDefaultRefOf } from "./selection.ts";
+import { SettingsDoc } from "../profiles/docs.ts";
 import { PiRegistry } from "./pi-registry.ts";
 import { MindModels, ModelCatalog } from "../providers/models.ts";
 import { parseRef, type ModelSpec } from "../providers/refs.ts";
@@ -388,6 +389,13 @@ export const converseLayer = (
         ),
         (harness) => Effect.ignore(asEffect("close harness", harness.close(BACKGROUND_CONTEXT))),
       );
-      return converseService(harness, { model: parseRef(catalog.defaultRef()) }, catalog.find);
+      const stored = (yield* asEffect(
+        "doc read",
+        harness.snapshot(SettingsDoc as unknown as SessionDocToken<JsonObject>, BACKGROUND_CONTEXT),
+      )) as { defaultModel?: { ref: string; effort: string } | null } | undefined;
+      // The workspace default: the stored setting outranks SPRIESSEN_MODEL;
+      // both unset = none (new conversations fail no_model until one exists).
+      const ref = workspaceDefaultRefOf(stored?.defaultModel, catalog.preferredRef());
+      return converseService(harness, ref !== null ? { model: parseRef(ref) } : {}, catalog.find);
     }),
   );

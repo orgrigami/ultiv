@@ -593,6 +593,35 @@ expect(
     ),
 );
 
+// Workspace default model: the env default first, then a stored one over it,
+// then cleared. The catalog here is the offline overlay.
+const settingsModel = async (): Promise<any> => (await call("GET", "/api/settings/model")).json;
+expect(
+  "workspace default reads the environment",
+  (await settingsModel()).defaultModel?.source === "env" &&
+    (await settingsModel()).defaultModel?.ref === "kenari/deepseek-v4-1-flash",
+);
+const putDefault = await call("PUT", "/api/settings/model", {
+  ref: "smoke-local/tiny",
+  effort: "",
+});
+expect(
+  "workspace default PUT stores over the env",
+  putDefault.status === 200 &&
+    putDefault.json.defaultModel?.source === "db" &&
+    putDefault.json.defaultModel?.ref === "smoke-local/tiny",
+);
+const putUnknown = await call("PUT", "/api/settings/model", { ref: "nowhere/nothing" });
+expect(
+  "workspace default PUT refuses an unknown ref",
+  putUnknown.status === 409 && (await settingsModel()).defaultModel?.ref === "smoke-local/tiny",
+);
+const clearDefault = await call("PUT", "/api/settings/model", null);
+expect(
+  "workspace default PUT null clears",
+  clearDefault.status === 200 && (await settingsModel()).defaultModel?.source === "env",
+);
+
 if (failures.length > 0) {
   console.error(`smoke FAILED: ${failures.join(", ")}`);
   await stack.close();
