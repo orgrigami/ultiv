@@ -29,10 +29,12 @@ function RootLayout() {
           <WorkPaneProvider>
             <QuickSwitchProvider>
               <SideNav />
-              <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4.75rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
-                <Outlet />
-              </main>
-              <WorkPane />
+              <div className="relative flex min-w-0 flex-1" data-work-surface>
+                <main className="flex min-w-0 flex-1 flex-col [--chat-bottom:calc(4.75rem+env(safe-area-inset-bottom))] sm:pt-4 sm:[--chat-bottom:max(1rem,env(safe-area-inset-bottom))]">
+                  <Outlet />
+                </main>
+                <WorkPane />
+              </div>
               <TabBar />
             </QuickSwitchProvider>
           </WorkPaneProvider>

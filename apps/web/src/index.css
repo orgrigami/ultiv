@@ -311,8 +311,92 @@ svg.lucide {
   font-size: var(--text-chat);
   line-height: var(--text-chat--line-height);
 }
+
+/* Document previews (file markdown): chat-size prose with doc-grade
+   details — ruled tables, quiet quotes, rounded media, tidy code. */
+.prose.md-doc :where(table) {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.prose.md-doc :where(th) {
+  border-bottom: 1px solid var(--border);
+  padding: 0.375rem 0.625rem;
+  text-align: start;
+  font-weight: 600;
+}
+.prose.md-doc :where(td) {
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  padding: 0.375rem 0.625rem;
+  vertical-align: top;
+}
+.prose.md-doc :where(blockquote) {
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: 0.875rem;
+  color: var(--color-muted-foreground);
+  font-style: normal;
+  font-weight: normal;
+}
+.prose.md-doc :where(blockquote p)::before,
+.prose.md-doc :where(blockquote p)::after {
+  content: none;
+}
+.prose.md-doc :where(img) {
+  border-radius: var(--radius-lg);
+}
+.prose.md-doc :where(hr) {
+  border-color: var(--border);
+}
+.prose.md-doc :where(a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: inherit;
+}
+.prose.md-doc :where(a)::before {
+  content: none;
+}
+.prose.md-doc :where(a)::after {
+  content: none;
+}
+.prose.md-doc :where(code):not(:where(pre code)) {
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.0625rem 0.3125rem;
+  background: var(--color-muted);
+  font-weight: normal;
+}
+.prose.md-doc :where(pre) {
+  overflow-x: auto;
+  background: var(--color-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.prose.md-doc :where(pre code) {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Mermaid diagrams (pele) read the app's own tokens, so they follow the
+   theme without a re-render. */
+.mermaid-block {
+  --pele-bg: transparent;
+  --pele-fg: var(--color-foreground);
+  --pele-muted: var(--color-muted-foreground);
+  --pele-line: var(--color-foreground);
+  --pele-surface: var(--color-muted);
+  --pele-surface-alt: var(--color-accent);
+  --pele-border: var(--border);
+  --pele-accent: var(--color-primary);
+  --pele-font: var(--font-sans);
+  --pele-radius: var(--radius-lg);
 }
 
 /* Skeleton: a placeholder bar with a slow sheen; flat under reduced motion. */

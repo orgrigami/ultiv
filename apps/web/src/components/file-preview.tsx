@@ -5,7 +5,9 @@
  * surface (chat cards, reply links, the Files tab, the task sheet) opens this.
  */
 import { useEffect, useMemo, useState } from "react";
-import { DownloadIcon } from "lucide-react";
+import { createPortal } from "react-dom";
+import { render } from "pele";
+import { DownloadIcon, Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buttonVariants } from "@/components/ui/button";
 import { useHighlightedCode } from "@/hooks/use-highlighted-code";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   formatBytes,
   kindLabel,
@@ -70,26 +73,167 @@ function FetchState({ failed }: { failed: boolean }) {
   );
 }
 
+/** The preview's controls: the view toggle plus fullscreen. */
+function PreviewControls({
+  source,
+  onToggle,
+  onFullscreen,
+}: {
+  source: boolean;
+  onToggle: () => void;
+  /** Omitted inside fullscreen, where the button has no job. */
+  onFullscreen?: (() => void) | undefined;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-end gap-1">
+      <Button variant="outline" size="xs" onClick={onToggle}>
+        {source ? "Rendered" : "Source"}
+      </Button>
+      {onFullscreen !== undefined && (
+        <Button variant="ghost" size="icon-xs" aria-label="Fullscreen" onClick={onFullscreen}>
+          <Maximize2Icon />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** The file fullscreen: an overlay over the work surface — the chat column
+ *  and the work pane — while the rail and the tab bar stay where they are. */
+function useWorkSurface(): HTMLElement | null {
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setEl(document.querySelector("[data-work-surface]"));
+  }, []);
+  return el;
+}
+
+/** Rendered markdown, split so a ```mermaid fence becomes a diagram. */
+type Segment = { kind: "md"; text: string } | { kind: "mermaid"; code: string };
+
+function splitMermaid(text: string): Segment[] {
+  const parts: Segment[] = [];
+  const fences = /```mermaid\n([\s\S]*?)```/g;
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = fences.exec(text)) !== null) {
+    if (match.index > last) parts.push({ kind: "md", text: text.slice(last, match.index) });
+    parts.push({ kind: "mermaid", code: (match[1] ?? "").trim() });
+    last = fences.lastIndex;
+  }
+  if (last < text.length) parts.push({ kind: "md", text: text.slice(last) });
+  return parts;
+}
+
+/** One mermaid fence as a themed SVG (pele); unparseable source stays code. */
+function MermaidBlock({ code }: { code: string }) {
+  const [result, setResult] = useState<{ svg: string } | { failed: true } | null>(null);
+  useEffect(() => {
+    try {
+      setResult({ svg: render(code).svg });
+    } catch {
+      setResult({ failed: true });
+    }
+  }, [code]);
+  if (result === null) return null;
+  if ("failed" in result)
+    return (
+      <div className="not-prose my-3">
+        <pre className="text-muted-foreground overflow-x-auto scrollbar-thin rounded-lg border p-3 text-xs">
+          <code>{code}</code>
+        </pre>
+      </div>
+    );
+  return (
+    <div
+      className="mermaid-block not-prose my-3 overflow-x-auto scrollbar-thin rounded-lg border p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
+      dangerouslySetInnerHTML={{ __html: result.svg }}
+    />
+  );
+}
+
 /** Markdown: rendered as prose by default, the source one toggle away. */
 function MarkdownPreview({ file }: { file: FileRef }) {
   const { text, failed } = useArtifactText(file.id);
   const [source, setSource] = useState(false);
+  const [full, setFull] = useState(false);
+  const workSurface = useWorkSurface();
+  const segments = useMemo(() => splitMermaid(text ?? ""), [text]);
   if (text === null) return <FetchState failed={failed} />;
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-end">
-        <Button variant="outline" size="xs" onClick={() => setSource((value) => !value)}>
-          {source ? "Rendered" : "Source"}
-        </Button>
-      </div>
-      {source ? (
-        <TextPreview file={file} text={text} />
-      ) : (
-        <div className="prose prose-sm dark:prose-invert max-h-[55dvh] max-w-none overflow-y-auto rounded-lg border p-4">
-          <LazyMarkdown text={text} />
-        </div>
+
+  const rendered = (
+    <article className="prose chat-prose md-doc dark:prose-invert max-w-none">
+      {segments.map((segment, index) =>
+        segment.kind === "md" ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static split of one text
+          <LazyMarkdown key={index} text={segment.text} />
+        ) : (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static split of one text
+          <MermaidBlock key={index} code={segment.code} />
+        ),
       )}
+    </article>
+  );
+
+  const body = source ? (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <TextPreview file={file} text={text} wrap fill />
     </div>
+  ) : (
+    rendered
+  );
+
+  return (
+    <>
+      <div className={cn("flex flex-col gap-2", source && "h-full min-h-0")}>
+        <PreviewControls
+          source={source}
+          onToggle={() => setSource((value) => !value)}
+          onFullscreen={() => setFull(true)}
+        />
+        {body}
+      </div>
+      {full &&
+        workSurface !== null &&
+        createPortal(
+          <div className="bg-background absolute inset-0 z-30 flex flex-col overflow-y-auto scrollbar-thin p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pt-5">
+            <div className="flex shrink-0 items-center justify-between gap-2 pb-2">
+              <p className="min-w-0 truncate text-base font-semibold">{file.name}</p>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Exit fullscreen"
+                  onClick={() => setFull(false)}
+                >
+                  <Minimize2Icon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Close"
+                  onClick={() => {
+                    setFull(false);
+                    setSource(false);
+                  }}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+            </div>
+            <div
+              className={cn(
+                "flex flex-col gap-2",
+                source ? "h-full min-h-0 flex-none" : "min-w-0 flex-1",
+              )}
+            >
+              <PreviewControls source={source} onToggle={() => setSource((value) => !value)} />
+              {body}
+            </div>
+          </div>,
+          workSurface,
+        )}
+    </>
   );
 }
 
@@ -192,7 +336,19 @@ function DelimitedPreview({ file }: { file: FileRef }) {
 }
 
 /** Text and code: fetched once, capped, highlighted when we bundle the language. */
-function TextPreview({ file, text: given }: { file: FileRef; text?: string | undefined }) {
+function TextPreview({
+  file,
+  text: given,
+  wrap = false,
+  fill = false,
+}: {
+  file: FileRef;
+  text?: string | undefined;
+  /** Soft-wrap long lines (markdown source) instead of scrolling sideways. */
+  wrap?: boolean | undefined;
+  /** Stretch to the container's height; the code area scrolls inside. */
+  fill?: boolean | undefined;
+}) {
   const fetched = useArtifactText(file.id);
   const text = given ?? fetched.text;
   const failed = given === undefined && fetched.failed;
@@ -201,14 +357,14 @@ function TextPreview({ file, text: given }: { file: FileRef; text?: string | und
     return <FetchState failed={failed} />;
   }
   return (
-    <CodeBlock size="sm" className="max-h-[55dvh] overflow-y-auto">
+    <CodeBlock className={cn(fill ? "h-full min-h-0" : "max-h-[60dvh]", "overflow-y-auto")}>
       <CodeBlockHeader>
         <CodeBlockTitle>{langOf(file.name) === "" ? "text" : langOf(file.name)}</CodeBlockTitle>
         <CodeBlockActions>
           <CodeBlockCopyButton value={text} />
         </CodeBlockActions>
       </CodeBlockHeader>
-      <CodeBlockContent>
+      <CodeBlockContent wrap={wrap} className={fill ? "min-h-0 flex-1" : undefined}>
         {lines.map((line, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: lines only append
           <CodeBlockLine key={index}>{line}</CodeBlockLine>
