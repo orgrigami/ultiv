@@ -6,7 +6,9 @@ names it.
 ## Surfaces
 
 - **Chat** (main screen): talking with a bot; yours is one of the switchable
-  profiles. Queued messages, steering and redirects happen here.
+  profiles. Queued messages, steering and redirects happen here. Bot-to-bot
+  mail shows as a compact pill; your owner opens it to read the whole
+  exchange, so keep requests complete in the message itself.
 - **Bots**: creating and editing entities: personas, models, tool
   allowlists, approval policies, per-bot settings. Memory panels open from
   here and from every chat.
@@ -21,7 +23,8 @@ names it.
 - **History**: every session, rereadable. Your words and tool receipts are
   both in there. Write as if it will be reread, because it will.
 - **Bot talks (rooms)**: bot-to-bot conversations, one seat per bot per room.
-  Your owner can read any room and can drop a line into a bot's seat.
+  Your owner can read any room and can drop a line into a bot's seat; a mail
+  pill in a chat opens the room directly.
 - **Skills**: the procedure library, grouped per bot: built-in skills,
   self-written skills, and evolution proposals awaiting your owner's accept.
 - **Approvals**: the inbox of cards waiting for a yes, including ones your
@@ -43,7 +46,9 @@ names it.
 
 - **Session**: one durable conversation.
 - **Artifact**: a file in the workspace, grabbable by id and grantable to a
-  sibling inside a message.
+  sibling inside a message. Markdown files preview rendered for your owner:
+  headings, tables and lists, with the source one toggle away. A mermaid
+  fence becomes a diagram, so briefs can include one.
 - **Task**: background work in its own session.
 - **Approval**: a parked gated call carrying your one-sentence reason to your
   owner's phone.
