@@ -1,9 +1,11 @@
 /**
- * The composer: a pill at one line, a 3xl squircle once the draft grows past
- * it (continuous corners where the engine has corner-shape, plain radius
- * where it doesn't). A round "+" (images, files, quick prompts) on the left,
- * the message box, and a round send arrow on the right (Stop joins it while
- * the bot works). Desktop: Enter sends, Shift+Enter is a newline. Touch:
+ * The composer: a pill at one line; once the draft grows past it the box
+ * relaxes to a 3xl squircle (continuous corners where the engine has
+ * corner-shape, plain radius where it doesn't) and becomes a Grok-style
+ * expanded field: the textarea spans the whole box — full width, corners
+ * included — and the round CTAs ("+" left; Stop and the send arrow right)
+ * sit in their own bottom row inside it. One line keeps the compact
+ * inline row. Desktop: Enter sends, Shift+Enter is a newline. Touch:
  * Enter is a newline. While the bot works a send steers the running turn;
  * Alt+Enter (or the send button's long-press menu) holds it until the turn
  * finishes. With a draft mid-turn a "Redirect now" pill shows above the box.
@@ -133,7 +135,7 @@ export function Composer({
       )}
       <div
         ref={boxRef}
-        className="chrome-float focus-within:ring-ring/40 flex items-end gap-1.5 p-1.5 focus-within:ring-2 transition-[border-radius] duration-200 ease-out motion-reduce:transition-none"
+        className="chrome-float focus-within:ring-ring/40 flex flex-wrap items-end gap-1.5 p-1.5 focus-within:ring-2 transition-[border-radius] duration-200 ease-out motion-reduce:transition-none"
         style={
           {
             borderRadius: grown ? "var(--radius-3xl)" : "9999px",
@@ -164,7 +166,15 @@ export function Composer({
           value={draft}
           disabled={!live}
           rows={1}
-          className="max-h-[40dvh] min-w-0 flex-1 resize-none overflow-y-auto disabled:opacity-60"
+          className={
+            grown
+              ? // Multiline (the Grok pattern): the FIELD is the whole box —
+                // full width, corners included — and the CTAs drop to their
+                // own bottom row inside it. order-first lets the textarea
+                // (later in DOM) lead the flex-wrap flow.
+                "order-first max-h-[40dvh] w-full resize-none overflow-y-auto px-1 disabled:opacity-60"
+              : "max-h-[40dvh] min-w-0 flex-1 resize-none overflow-y-auto disabled:opacity-60"
+          }
           onChange={(event) => onDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || coarsePointer()) return;
@@ -174,27 +184,29 @@ export function Composer({
             onSend(mode);
           }}
         />
-        {busy && (
-          <Button
-            type="button"
-            variant="signal"
-            size="composer"
-            pill
-            className="working-ring shrink-0"
-            aria-label="Stop"
-            title="Stop"
-            disabled={!live}
-            onClick={onStop}
-          >
-            <SquareIcon className="fill-current" />
-          </Button>
-        )}
-        <SendButton
-          busy={busy}
-          enabled={canSend(live, sending, draft, staged.length > 0)}
-          sending={sending}
-          onSend={onSend}
-        />
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {busy && (
+            <Button
+              type="button"
+              variant="signal"
+              size="composer"
+              pill
+              className="working-ring shrink-0"
+              aria-label="Stop"
+              title="Stop"
+              disabled={!live}
+              onClick={onStop}
+            >
+              <SquareIcon className="fill-current" />
+            </Button>
+          )}
+          <SendButton
+            busy={busy}
+            enabled={canSend(live, sending, draft, staged.length > 0)}
+            sending={sending}
+            onSend={onSend}
+          />
+        </div>
       </div>
       {sendFailed && (
         <div
