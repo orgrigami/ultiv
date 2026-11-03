@@ -291,6 +291,7 @@ const mindLayerRaw = (
           profiles,
           rooms,
           audit,
+          judge: decide,
           ...(wiring.grantArtifacts !== undefined ? { grantArtifacts: wiring.grantArtifacts } : {}),
         }),
         { converse, audit },

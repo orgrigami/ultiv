@@ -24,6 +24,7 @@ import {
   type MailboxDeps,
 } from "./delivery.ts";
 import { roomLastActivityAt, rolloverTopic, staleAt, validateSend } from "./policy.ts";
+import { checkOnTopic } from "./topic.ts";
 import type { MailboxOrigin } from "./policy.ts";
 import { recover, type RecoveryReport } from "./recovery.ts";
 import { isExternal, readEntries, writeEntries } from "./store.ts";
@@ -200,6 +201,29 @@ const sendOps = (e: Engine): Pick<MailboxService, "send" | "deliverExternal"> =>
       admittedTopic,
       input.artifacts ?? [],
     );
+    if (current !== undefined && rolloverRoomId === undefined) {
+      // On-topic gate (fail-open): an established room's topic is judged
+      // before admitting; a fresh (rolled-over) room is on topic by
+      // construction, and the first exchange in a room is never classified.
+      try {
+        await checkOnTopic(e.deps.judge, entries, current, input.body);
+      } catch (cause) {
+        // Only a refusal is audited — admits don't double the audit volume.
+        const reason = (cause as { reason?: unknown }).reason ?? String(cause);
+        e.deps.audit.record({
+          at: Date.now(),
+          kind: "mailbox",
+          conversationId: "mailbox",
+          profile: input.from,
+          callId: envelope.id,
+          name: "off-topic",
+          durationMs: null,
+          ok: false,
+          error: String(reason).slice(0, 300),
+        });
+        throw cause;
+      }
+    }
     const entry = await admit(e, input.owner, envelope, input.origin, originConversation);
     return rolloverRoomId === undefined ? entry : { ...entry, rolloverRoomId };
   },

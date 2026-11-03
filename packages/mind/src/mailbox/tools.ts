@@ -222,7 +222,8 @@ export const mailboxPlugin = (
     version: "1.2.0",
     description:
       "Inter-entity messaging through contextual rooms (the tunnel) — asynchronous, rooms " +
-      "are topical (one room, one topic; a quiet room rolls over to a fresh one) — plus " +
+      "are topical (one room, one topic; a quiet room rolls over to a fresh one; an " +
+      "off-topic send into an established room refuses with that advice) — plus " +
       "full-transcript reads from any endpoint.",
     capabilities: [
       toolCapability(messageTool(mailbox, profiles)),
