@@ -163,11 +163,13 @@ it("caps ad-hoc room exchanges at 3 per bot per topic (tool sends only)", async 
       }),
     );
 
-  // Three tool sends to the sibling are fine, across topics…
+  // Five tool sends to the sibling are fine, across topics…
   expect(await send("pricing")).toBe("");
   expect(await send("pricing")).toBe("");
   expect(await send("onboarding")).toBe("");
-  // …the fourth is refused regardless of topic (per-pair cap)…
+  expect(await send("onboarding")).toBe("");
+  expect(await send("pricing")).toBe("");
+  // …the sixth is refused regardless of topic (per-pair cap)…
   expect(await send("pricing")).toContain("exchange cap reached");
   // …and deliberate (human/REST) sends are exempt.
   expect(await send("pricing", "human")).toBe("");
@@ -197,6 +199,8 @@ it("exchange cap resets when the owner re-briefs the sending thread", async () =
         originConversation: String(mainChat.id),
       }),
     );
+  expect(await send()).toBe("");
+  expect(await send()).toBe("");
   expect(await send()).toBe("");
   expect(await send()).toBe("");
   expect(await send()).toBe("");

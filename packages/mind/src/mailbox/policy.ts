@@ -20,7 +20,7 @@ export const MAX_RETRIES = 3;
  * messages to one sibling (all topics/rooms combined), so two bots never
  * loop forever. Deliberate paths (REST/owner sends) are exempt.
  */
-export const ROOM_EXCHANGE_CAP = 3;
+export const ROOM_EXCHANGE_CAP = 5;
 
 export type MailboxOrigin = "tool" | "human" | "cron" | "external";
 
