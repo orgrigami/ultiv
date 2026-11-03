@@ -9,7 +9,11 @@
  * finishes. With a draft mid-turn a "Redirect now" pill shows above the box.
  * Files stage as chips above the box and upload when the message sends;
  * pasted or dropped files stage too. On a text-only model a staged image
- * draws a muted note: images ride as file references instead.
+ * draws a muted note: images ride as file references instead. The whole
+ * box is one target: taps on its surface (padding, corners, the space
+ * above the small CTAs) focus the field with the caret at the end — no
+ * dead zones. Growth sticks while the draft is non-empty; the box
+ * collapses only when the draft clears, never mid-edit.
  */
 import * as React from "react";
 import type { SendMode } from "@spriessen/contracts";
@@ -59,20 +63,51 @@ export function Composer({
   // The box is a pill at one line and relaxes to a 3xl squircle once the
   // draft grows past it — a stadium cap on a tall box eats the layout.
   // Measured, not inferred: the bare textarea auto-grows (field-sizing),
-  // so the rendered height is the truth in every engine.
+  // so the rendered height is the truth in every engine. Growth sticks
+  // while a draft exists (the ChatGPT pattern): deleting text back down
+  // to one line mid-edit must not snap the box back — it collapses only
+  // when the draft clears (send or wipe), never mid-typing.
   const boxRef = React.useRef<HTMLDivElement>(null);
+  const fieldRef = React.useRef<HTMLTextAreaElement>(null);
   const [grown, setGrown] = React.useState(false);
+  const draftRef = React.useRef(draft);
+  draftRef.current = draft;
+  // watch() must also run when the draft changes, not only on resize: while
+  // growth is sticky the box can already be at one-line height when the draft
+  // clears, so clearing produces NO resize event to collapse from.
+  const watchRef = React.useRef<() => void>(() => {});
   React.useLayoutEffect(() => {
     const el = boxRef.current;
     if (!el) return;
     // One line tops out at 56px (6px padding + 44px touch-min textarea); a
     // second line clears 60. Observe, so font-size media changes also apply.
-    const watch = () => setGrown(el.offsetHeight > 60);
+    const watch = () =>
+      setGrown((was) =>
+        draftRef.current !== "" ? was || el.offsetHeight > 60 : el.offsetHeight > 60,
+      );
     watch();
+    watchRef.current = watch;
     const observer = new ResizeObserver(watch);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+  React.useEffect(() => {
+    watchRef.current();
+  }, [draft]);
+  // The whole box is one target: taps on the pill surface — padding, the
+  // rounded ends, the corners above the small CTAs — focus the field with
+  // the caret at the end, so no part of the composer is a dead zone. Taps
+  // on the textarea (or a button/popover trigger) keep native behavior.
+  const focusField = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!live) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, textarea, input, select, [role='menuitem']")) return;
+    event.preventDefault();
+    const field = fieldRef.current;
+    if (field === null) return;
+    field.focus({ preventScroll: true });
+    field.setSelectionRange(field.value.length, field.value.length);
+  };
   const placeholder = !live
     ? "Waiting for the server…"
     : botName !== undefined && botName !== ""
@@ -105,6 +140,7 @@ export function Composer({
             cornerShape: "squircle",
           } as React.CSSProperties
         }
+        onPointerDown={focusField}
         onPaste={(event) => {
           const files = Array.from(event.clipboardData.files);
           if (files.length === 0) return;
@@ -121,6 +157,7 @@ export function Composer({
       >
         <PlusMenu disabled={!live} onAdd={onAttach} onDraft={onDraft} />
         <Textarea
+          ref={fieldRef}
           variant="bare"
           aria-label="Message"
           placeholder={placeholder}
