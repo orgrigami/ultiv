@@ -51,7 +51,7 @@ export function SendButton({
       <Button
         ref={anchor}
         type="submit"
-        size="icon-lg"
+        size="composer"
         pill
         className="send-btn shrink-0 select-none [-webkit-touch-callout:none]"
         aria-label="Send"

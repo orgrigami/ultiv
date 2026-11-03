@@ -45,6 +45,15 @@ const buttonVariants = cva(
         sm: "h-7 gap-1 rounded-md px-2.5 text-sm in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5 pointer-coarse:min-h-11",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 pointer-coarse:min-h-11",
         icon: "size-8 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        // The chat composer's CTAs: a 32px circle everywhere, but on touch the
+        // hit box stays 44px and the circle shrinks inside it (bg-clip-padding
+        // + a transparent 6px border), so the target never drops below the
+        // floor. The negative side margins give the reserved row width back
+        // (44 - 6 - 6 = 32px), so the draft wraps at the VISIBLE circle, not
+        // an invisible 44px boundary — the hit box just bleeds into the
+        // composer's 6px padding, where there is nothing else to hit.
+        composer:
+          "size-8 pointer-coarse:-mx-1.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:border-[6px]",
         "icon-xs":
           "size-6 rounded-md in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         "icon-sm":

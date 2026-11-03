@@ -225,7 +225,7 @@ Radius grows from one base: `--radius: 0.625rem` (10px), with the Tailwind scale
 - **Profile hero:** the character big and centered, name, role, then round Open chat / Edit; under it pill tabs with live counts and, on Overview, file-style cards (tinted icon tile, title, one line, chevron).
 - **Work pane:** a 3xl floating panel beside the chat on `lg+` (a sheet below), with Back through up to four opened things and Close; Escape closes it.
 - **Quick switcher:** Cmd/Ctrl-K opens a 3xl panel near the top: one field, results grouped Actions · Go to · Bots · Past chats, arrow keys and Enter. N starts a new chat, ? shows the shortcut sheet.
-- **Composer:** `.chrome-float` bar — a pill at one line, a 3xl squircle rectangle once the draft grows; round "+" (quick prompts), the message box, round send arrow that joins a Stop while the bot works; a "Redirect now" pill rides above it mid-turn.
+- **Composer:** `.chrome-float` bar — a pill at one line, a 3xl squircle rectangle once the draft grows; small inline CTAs (32px round "+", send arrow, Stop — 44px touch boxes on `pointer: coarse`, the circle drawn inside via a transparent 6px border so the hit target never shrinks); a "Redirect now" pill rides above it mid-turn.
 - **Wordmark row:** "spriessen" at 15px/600 tracking-tight beside the connection mark and readout, the app's own status line.
 
 ## Do's and Don'ts

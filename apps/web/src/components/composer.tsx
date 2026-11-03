@@ -141,7 +141,7 @@ export function Composer({
           <Button
             type="button"
             variant="signal"
-            size="icon-lg"
+            size="composer"
             pill
             className="working-ring shrink-0"
             aria-label="Stop"

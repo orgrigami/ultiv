@@ -105,7 +105,7 @@ export function PlusMenu({
           <Button
             type="button"
             variant="muted"
-            size="icon-lg"
+            size="composer"
             pill
             className="shrink-0"
             aria-label="Add images, files, or quick prompts"
