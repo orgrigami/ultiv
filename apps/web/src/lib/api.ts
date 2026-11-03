@@ -9,7 +9,6 @@ import type {
   McpServerInput,
   McpServerList,
   MemoryRecord,
-  ModelInfo,
   ModelsPayload,
   ProfileInfo,
   ProfilePolicies,
