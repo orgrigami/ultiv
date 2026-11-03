@@ -241,6 +241,9 @@ server side: the room detail merges each participant's `[owner]` supervision
 entries back into the timeline (says used to be invisible in the room), so
 the raised-card lines are real transcript content. Shared with the main chat:
 the prose container and fold moved into `components/chat-prose.tsx`; the main
-chat renders identically. Remaining: list rows, page copy and empty state in
-the house voice (next commit), and the rooms-surface AGENTS.md description
-("tunnel records") still holds.
+chat renders identically. The rooms list reads the same language: ListRow
+rows lead with the pair's overlapping characters, the topic as the muted
+second line, and the last activity as a mono tabular readout; the page lead
+is one plain clause and the empty state is a plain line (EmptyState), not an
+illustration. Remaining: none — the rooms-surface description in AGENTS.md
+("tunnel records") is unchanged and still accurate.

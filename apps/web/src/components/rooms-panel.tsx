@@ -1,23 +1,18 @@
 /**
- * Bot talks (rooms) in the house voice: an open room shows the pair header,
- * the terrain transcript and the house composer with a quiet
+ * Bot talks (rooms) in the house voice: list rows carry the pair's
+ * characters and a mono last-activity readout; an open room shows the pair
+ * header, the terrain transcript and the house composer with a quiet
  * supervision-target control; the footer strip is gone (the header says it).
  */
 import { Menu } from "@base-ui/react/menu";
-import {
-  ChevronDownIcon,
-  CheckIcon,
-  MessagesSquareIcon,
-  SendIcon,
-  ArrowLeftIcon,
-} from "lucide-react";
+import { ChevronDownIcon, CheckIcon, SendIcon, ArrowLeftIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo, RoomInfo } from "@spriessen/contracts";
-import { CharacterEmpty } from "@/components/character-empty";
 import { BotAvatar } from "@/components/bot-avatar";
 import { RoomTimeline } from "@/components/room-timeline";
 import { Button } from "@/components/ui/button";
-import { ErrorState } from "@/components/ui/empty-state";
+import { EmptyState, ErrorState } from "@/components/ui/empty-state";
+import { Heading } from "@/components/ui/heading";
 import { ListRow } from "@/components/ui/list-row";
 import { MenuPopup } from "@/components/ui/menu-popup";
 import { SkeletonRows } from "@/components/ui/skeleton";
@@ -26,6 +21,7 @@ import { api, type RoomDetail } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { grownBoxStyle, useGrownBox } from "@/lib/grown-box";
 import { notifyError } from "@/lib/notify";
+import { cn } from "@/lib/utils";
 
 const itemClass =
   "data-highlighted:bg-muted flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm outline-none";
@@ -141,9 +137,9 @@ function RoomView({ room, reload }: { room: RoomInfo; reload: () => Promise<void
               size="md"
             />
           ))}
-          <h2 className="text-base font-semibold tracking-tight">
+          <Heading level={2} size="base">
             {detail.participants.map((participant) => participant.name).join(" ↔ ")}
-          </h2>
+          </Heading>
         </div>
         {room.topic !== "" && <p className="text-muted-foreground text-sm">{room.topic}</p>}
       </div>
@@ -243,9 +239,9 @@ export function RoomsContent({
   if (!loaded) return <SkeletonRows label="Loading bot talks" />;
   if (rooms.length === 0) {
     return (
-      <CharacterEmpty title="No bot talks yet">
-        Bots start one when they message each other, one per topic.
-      </CharacterEmpty>
+      <EmptyState className="py-8 text-center">
+        No bot talks yet. One starts when two bots message each other.
+      </EmptyState>
     );
   }
   return (
@@ -253,10 +249,22 @@ export function RoomsContent({
       {rooms.map((room) => (
         <ListRow
           key={room.id}
-          leading={<MessagesSquareIcon />}
+          leading={
+            <span
+              className={cn("flex items-center", room.participants.length > 1 && "-space-x-1.5")}
+            >
+              {room.participants.map((id) => (
+                <BotAvatar key={id} id={id} name={nameOf(id)} size="sm" />
+              ))}
+            </span>
+          }
           title={room.participants.map((id) => nameOf(id)).join(" ↔ ")}
           subtitle={room.topic !== "" ? room.topic : undefined}
-          meta={formatWhen(room.lastMessageAt)}
+          meta={
+            <time className="readout" dateTime={new Date(room.lastMessageAt).toISOString()}>
+              {formatWhen(room.lastMessageAt)}
+            </time>
+          }
           onClick={() => onOpen(room.id)}
         />
       ))}
