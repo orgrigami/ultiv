@@ -1,8 +1,9 @@
 /**
- * `bot_create`: the owner's main bot mints a new bot. The gate is the owner's
- * alone: the card always parks on the owner (auto-approve rules and the Jev
- * judge are skipped), the proposed fields are editable on the card, and the
- * wait is generous (a form takes typing). Any other bot gets the admin
+ * `bot_create`: the owner's main bot mints a new bot. The main bot's own call
+ * runs WITHOUT a card (`ownerUnlessMain` — assembling crew is its job); any
+ * other may-administer actor parks an owner card (auto-approve rules and the
+ * Jev judge are skipped), the proposed fields are editable on the card, and
+ * the wait is generous (a form takes typing). Any other bot gets the admin
  * tools' one refusal before any card (admin/common.ts), and so does a
  * department that does not exist. The new bot's host-access switch starts
  * off and is never read from the model: only the owner turns it on.
@@ -161,7 +162,7 @@ export const botCreateTools = (deps: BotCreateDeps): readonly ToolRegistration[]
     withAudit(
       deps.audit,
       withApproval(deps.approvals, toolOf(deps), {
-        owner: true,
+        ownerUnlessMain: true,
         editable: true,
         guard: mainGuardOf(deps),
         timeout: Duration.minutes(10),

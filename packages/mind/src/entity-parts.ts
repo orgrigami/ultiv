@@ -346,6 +346,29 @@ export const wirePolicies = (
       });
     },
     ...(generate !== undefined ? { describe: makeDescriber(generate, converse, profiles) } : {}),
+    // The main bot's crew-minting acts (bot_create, department_create) run
+    // without a card (ownerUnlessMain): the broker reads this LIVE per call,
+    // beside each tool's admin guard. A non-main actor parks the normal card.
+    isMain: (conversationId) => {
+      const profile = profiles.profileOf(conversationId);
+      if (profile === undefined) return false;
+      return profiles.mainOf(profile.owner).then((mainId) => mainId === profile.id);
+    },
+    // The skipped card is audited on the same timeline as the approval and
+    // adjudication events, so "why did this run without a card" is a lookup.
+    onMainSkip: (conversationId, request) => {
+      audit.record({
+        at: Date.now(),
+        kind: "approval",
+        conversationId,
+        profile: profiles.profileOf(conversationId)?.id ?? null,
+        callId: request.callId,
+        name: request.name,
+        durationMs: null,
+        ok: true,
+        error: "card skipped: the acting bot is the org's main bot (ownerUnlessMain)",
+      });
+    },
   });
 };
 
