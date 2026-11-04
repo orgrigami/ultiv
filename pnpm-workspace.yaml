@@ -29,6 +29,12 @@ catalog:
   # Mermaid to SVG (MIT, zero dependencies): the graph tool renders server-side,
   # the web draws chat diagrams. Exact: 1.12.0 is the version tested.
   pele: 1.12.0
+  # The web app and the terminal client (@opentui/react renders React 19).
+  react: ^19.3.1
+  "@types/react": ^19.3.0
+  # The terminal UI (apps/cli). 0.x, Node build since 0.8: exact, bump on purpose.
+  "@opentui/core": 0.8.2
+  "@opentui/react": 0.8.2
 overrides:
   vite@*: "catalog:"
   # GHSA-rj75-hqrm-r3gf (moderate): patch bump within v6, build-time only

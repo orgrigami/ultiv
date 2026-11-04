@@ -207,6 +207,15 @@ catalogs:
     '@modelcontextprotocol/server':
       specifier: ^2.4.0
       version: 2.4.0
+    '@opentui/core':
+      specifier: 0.8.2
+      version: 0.8.2
+    '@opentui/react':
+      specifier: 0.8.2
+      version: 0.8.2
+    '@types/react':
+      specifier: ^19.3.0
+      version: 19.3.0
     croner:
       specifier: ^10.0.1
       version: 10.0.1
@@ -216,6 +225,9 @@ catalogs:
     pele:
       specifier: 1.12.0
       version: 1.12.0
+    react:
+      specifier: ^19.3.1
+      version: 19.3.1
     typebox:
       specifier: 1.3.27
       version: 1.3.27
@@ -256,6 +268,46 @@ importers:
         specifier: 'catalog:'
         version: 8.22.0
     devDependencies:
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
+
+  apps/cli:
+    dependencies:
+      '@earendil-works/chord':
+        specifier: 'catalog:'
+        version: 1.4.0
+      '@opentui/core':
+        specifier: 'catalog:'
+        version: 0.8.2(typescript@7.0.2)(web-tree-sitter@0.25.10)
+      '@opentui/react':
+        specifier: 'catalog:'
+        version: 0.8.2(react-devtools-core@7.0.1)(react@19.3.1)(typescript@7.0.2)(web-tree-sitter@0.25.10)(ws@8.22.0)
+      '@spriessen/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@spriessen/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@spriessen/present':
+        specifier: workspace:*
+        version: link:../../packages/present
+      '@spriessen/server':
+        specifier: workspace:*
+        version: link:../server
+      react:
+        specifier: 'catalog:'
+        version: 19.3.1
+      ws:
+        specifier: 'catalog:'
+        version: 8.22.0
+    devDependencies:
+      '@earendil-works/pi-durable':
+        specifier: 'catalog:'
+        version: 1.4.0(@aws-sdk/credential-provider-node@3.972.88)(@modelcontextprotocol/sdk@1.32.1(zod@4.6.7))(@smithy/signature-v4@5.7.4)(undici@7.30.1)(ws@8.22.0)(zod@4.6.7)
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
       '@types/ws':
         specifier: ^8.18.2
         version: 8.18.2
@@ -351,7 +403,7 @@ importers:
         specifier: 'catalog:'
         version: 1.12.0
       react:
-        specifier: ^19.3.1
+        specifier: 'catalog:'
         version: 19.3.1
       react-dom:
         specifier: ^19.3.1
@@ -379,7 +431,7 @@ importers:
         specifier: ^1.168.48
         version: 1.168.48(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/node@26.6.6)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
       '@types/react':
-        specifier: ^19.3.0
+        specifier: 'catalog:'
         version: 19.3.0
       '@types/react-dom':
         specifier: ^19.3.0
@@ -866,6 +918,61 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@opentui/core-darwin-arm64@0.8.2':
+    resolution: {integrity: sha512-/8pFK289hi+jtoUgJYZJEABTreLoQ3tNVQuMFLF0xDBkREJaR9xvh2RHKzhVLut9bhKf9oY2bgD37pMgYNqwqA==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@opentui/core-darwin-x64@0.8.2':
+    resolution: {integrity: sha512-AN3QB5yIGQyKs4XKgGuA1vSLA++jonTB6NR2fNLbw4+wizgETlQ77ur30175yEVysaN2tQNO2dJasvHMx05WQg==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@opentui/core-linux-arm64-musl@0.8.2':
+    resolution: {integrity: sha512-nB/RtlowKo9mlybfL1iHr0Wr4ZF/n4bQ8i7UaphUPNopXSq6YoWT7D4lyjubLBqjJ4KPkaXXHAiReSZ0e1V7ZA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@opentui/core-linux-arm64@0.8.2':
+    resolution: {integrity: sha512-Inkhg/P5UBNPySqeh0+4K8NbqUIolJ3WNgvX9I25x2nT/DFA8kUN1Y7fbQAaX2CrHa7rWu54xOmJYbYfOPsX8A==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@opentui/core-linux-x64-musl@0.8.2':
+    resolution: {integrity: sha512-vicHTwx+jUFNcI39e6pK+hkjAhv33ebqmm0YpHHek9t3tY1PoWY6YfgI4jZVqVzcckJ7i3r3Nnl3x2YB94UUhw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@opentui/core-linux-x64@0.8.2':
+    resolution: {integrity: sha512-R6SUsvcQdeVuVSdGIOYcAFrCdGGeAxzT2pJ7KT9LK6Tg0pELszpnC+FmRDiofMUz88VSjXP95NygBZx+SAvnuA==}
+    cpu: [x64]
+    os: [linux]
+
+  '@opentui/core-win32-arm64@0.8.2':
+    resolution: {integrity: sha512-pGXmxoPcoNMRVm5DGX0+U7kwtm21Ubh+qJ5tz+kVk5LnuBiBhpkWDp2L+OjYmu9D57NrQbKhj0Tvrtu/SzdXaA==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@opentui/core-win32-x64@0.8.2':
+    resolution: {integrity: sha512-Tc7eNcNSlkHPB1p/9NBqQkexq/vznOPzB6V7G/kGq08y5LtOXPL0zLMJoIMNV/l52gNvv/YEi6mcBLLnpkD9Rg==}
+    cpu: [x64]
+    os: [win32]
+
+  '@opentui/core@0.8.2':
+    resolution: {integrity: sha512-Ko6BfyIiCWjm/15nfgBW7aWS+jkZ+Lh16PaEecawWRnhKo7H0BsJGhnpOe/BVcrnBI7bzLgMIP5cWyDffWEP7w==}
+    engines: {bun: '>=1.3.14', node: '>=26.4.0'}
+    peerDependencies:
+      web-tree-sitter: 0.25.10
+
+  '@opentui/react@0.8.2':
+    resolution: {integrity: sha512-lweMBSVFReIshKa+8+HqjeToQ6U6q5cm4zdbLd6iYi7P5qd5p0MJIMHhpueHhxKsuKGNN1805Eoe/E3m2ufZ4g==}
+    peerDependencies:
+      react: '>=19.2.0'
+      react-devtools-core: ^7.0.1
+      ws: ^8.18.0
 
   '@oxc-project/runtime@0.155.0':
     resolution: {integrity: sha512-VbW9raczGS5ZZ1FMunUBYHe4uV/R684qlQCoMdE3n5JT1PcqQsvmFpMYkF8AD+W04fBLGAq6Tr7YsTk0jjvDBA==}
@@ -2075,6 +2182,11 @@ packages:
   buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
 
+  bun-ffi-structs@0.3.1:
+    resolution: {integrity: sha512-3gM7PpVWLyrwxWjcilSiGuhWanhZivvo6l0u573NziPH6f/gwk6McbaYgn7oJWov6pKGRTDbrg94W5DcJsKTtQ==}
+    peerDependencies:
+      typescript: ^5
+
   bundle-name@4.1.1:
     resolution: {integrity: sha512-DdH81/zPLVS11EUgWq3tEu/xn+EzljlMYooDNdzWEnFha3R3NBMpMV1UqYIpjYHV/SgpFKMIX1Oh7o06SjM/oA==}
     engines: {node: '>=18'}
@@ -2952,6 +3064,11 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
+  marked@17.0.1:
+    resolution: {integrity: sha512-boeBdiS0ghpWcSwoNm/jJBwdpFaMnZWRzjA6SkUMYb40SVaN1x7mmfGKp0jvexGcx+7y2La5zRZsYFZI6Qpypg==}
+    engines: {node: '>= 20'}
+    hasBin: true
+
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
@@ -3441,6 +3558,9 @@ packages:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
 
+  react-devtools-core@7.0.1:
+    resolution: {integrity: sha512-C3yNvRHaizlpiASzy7b9vbnBGLrhvdhl1CbdU6EnZgxPNbai60szdLtl+VL76UNOt5bOoVTOz5rNWZxgGt+Gsw==}
+
   react-dom@19.3.1:
     resolution: {integrity: sha512-Y0bARz53lhEC1NMCASs0/j+faB/zqt3R8hpvg1e8+61ZVJ4UL0UdC4cBbXfZMcIuhrfgeILTLe+ZeBCavQPtKQ==}
     peerDependencies:
@@ -3454,6 +3574,12 @@ packages:
     peerDependencies:
       '@types/react': '>=18'
       react: '>=18'
+
+  react-reconciler@0.33.0:
+    resolution: {integrity: sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA==}
+    engines: {node: '>=0.10.0'}
+    peerDependencies:
+      react: ^19.2.0
 
   react@19.3.1:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
@@ -3527,6 +3653,9 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+
   scheduler@0.28.0:
     resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
 
@@ -3572,6 +3701,10 @@ packages:
   shebang-regex@3.0.0:
     resolution: {integrity: sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==}
     engines: {node: '>=8'}
+
+  shell-quote@1.12.0:
+    resolution: {integrity: sha512-PcByqNyT/38F2kDNi006HAMRJaULuBzq/FOsw3qdZvX/GA9W/jamDaRskgHjubHiftXK5sIFxLNkvrXUwcof6Q==}
+    engines: {node: '>= 0.4'}
 
   shiki@4.5.0:
     resolution: {integrity: sha512-OcRW72ngQvc+MSVWBRIovC/BTW589iUE/Vxav7VeM4RcY9MUjqB+IR6ILG1k9nuW6LiG/nct9uma4/MBtnZbmQ==}
@@ -3947,6 +4080,14 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
+  web-tree-sitter@0.25.10:
+    resolution: {integrity: sha512-Y09sF44/13XvgVKgO2cNDw5rGk6s26MgoZPXLESvMXeefBf7i6/73eFurre0IsTW6E14Y0ArIzhUMmjoc7xyzA==}
+    peerDependencies:
+      '@types/emscripten': ^1.40.0
+    peerDependenciesMeta:
+      '@types/emscripten':
+        optional: true
+
   web-tree-sitter@0.27.1:
     resolution: {integrity: sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==}
 
@@ -3970,6 +4111,18 @@ packages:
 
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
+
+  ws@7.5.13:
+    resolution: {integrity: sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==}
+    engines: {node: '>=8.3.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
 
   ws@8.22.0:
     resolution: {integrity: sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==}
@@ -4622,6 +4775,60 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.3
+
+  '@opentui/core-darwin-arm64@0.8.2':
+    optional: true
+
+  '@opentui/core-darwin-x64@0.8.2':
+    optional: true
+
+  '@opentui/core-linux-arm64-musl@0.8.2':
+    optional: true
+
+  '@opentui/core-linux-arm64@0.8.2':
+    optional: true
+
+  '@opentui/core-linux-x64-musl@0.8.2':
+    optional: true
+
+  '@opentui/core-linux-x64@0.8.2':
+    optional: true
+
+  '@opentui/core-win32-arm64@0.8.2':
+    optional: true
+
+  '@opentui/core-win32-x64@0.8.2':
+    optional: true
+
+  '@opentui/core@0.8.2(typescript@7.0.2)(web-tree-sitter@0.25.10)':
+    dependencies:
+      bun-ffi-structs: 0.3.1(typescript@7.0.2)
+      diff: 9.0.0
+      marked: 17.0.1
+      string-width: 7.2.0
+      web-tree-sitter: 0.25.10
+    optionalDependencies:
+      '@opentui/core-darwin-arm64': 0.8.2
+      '@opentui/core-darwin-x64': 0.8.2
+      '@opentui/core-linux-arm64': 0.8.2
+      '@opentui/core-linux-arm64-musl': 0.8.2
+      '@opentui/core-linux-x64': 0.8.2
+      '@opentui/core-linux-x64-musl': 0.8.2
+      '@opentui/core-win32-arm64': 0.8.2
+      '@opentui/core-win32-x64': 0.8.2
+    transitivePeerDependencies:
+      - typescript
+
+  '@opentui/react@0.8.2(react-devtools-core@7.0.1)(react@19.3.1)(typescript@7.0.2)(web-tree-sitter@0.25.10)(ws@8.22.0)':
+    dependencies:
+      '@opentui/core': 0.8.2(typescript@7.0.2)(web-tree-sitter@0.25.10)
+      react: 19.3.1
+      react-devtools-core: 7.0.1
+      react-reconciler: 0.33.0(react@19.3.1)
+      ws: 8.22.0
+    transitivePeerDependencies:
+      - typescript
+      - web-tree-sitter
 
   '@oxc-project/runtime@0.155.0': {}
 
@@ -5691,6 +5898,10 @@ snapshots:
 
   buffer-equal-constant-time@1.0.1: {}
 
+  bun-ffi-structs@0.3.1(typescript@7.0.2):
+    dependencies:
+      typescript: 7.0.2
+
   bundle-name@4.1.1:
     dependencies:
       run-applescript: 7.1.0
@@ -6506,6 +6717,8 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
+  marked@17.0.1: {}
+
   math-intrinsics@1.1.0:
     optional: true
 
@@ -7214,6 +7427,14 @@ snapshots:
       unpipe: 1.0.0
     optional: true
 
+  react-devtools-core@7.0.1:
+    dependencies:
+      shell-quote: 1.12.0
+      ws: 7.5.13
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   react-dom@19.3.1(react@19.3.1):
     dependencies:
       react: 19.3.1
@@ -7238,6 +7459,11 @@ snapshots:
       vfile: 6.0.3
     transitivePeerDependencies:
       - supports-color
+
+  react-reconciler@0.33.0(react@19.3.1):
+    dependencies:
+      react: 19.3.1
+      scheduler: 0.27.0
 
   react@19.3.1: {}
 
@@ -7331,6 +7557,8 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
+  scheduler@0.27.0: {}
+
   scheduler@0.28.0: {}
 
   semver@6.3.1: {}
@@ -7416,6 +7644,8 @@ snapshots:
       shebang-regex: 3.0.0
 
   shebang-regex@3.0.0: {}
+
+  shell-quote@1.12.0: {}
 
   shiki@4.5.0:
     dependencies:
@@ -7849,6 +8079,8 @@ snapshots:
 
   web-streams-polyfill@3.3.3: {}
 
+  web-tree-sitter@0.25.10: {}
+
   web-tree-sitter@0.27.1: {}
 
   webpack-virtual-modules@0.6.2: {}
@@ -7865,6 +8097,8 @@ snapshots:
 
   wrappy@1.0.2:
     optional: true
+
+  ws@7.5.13: {}
 
   ws@8.22.0: {}
 

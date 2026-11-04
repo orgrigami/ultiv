@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "export PORT=${CHORD_PORT:-8787}; vpr @spriessen/server#dev & vpr @spriessen/web#dev & wait",
     "check": "vp check",
-    "build": "vp -C apps/web build",
+    "build": "vp -C apps/web build && vp -C apps/cli build",
     "test": "vp test",
     "smoke": "vp run --filter @spriessen/server smoke"
   },

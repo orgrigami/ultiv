@@ -1,0 +1,31 @@
+{
+  "name": "@spriessen/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The spriessen command: a terminal UI and line commands over the server, plus serve, daemon and node.",
+  "license": "MIT",
+  "bin": {
+    "spriessen": "./bin/spriessen.mjs"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "vp test"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "catalog:",
+    "@opentui/core": "catalog:",
+    "@opentui/react": "catalog:",
+    "@spriessen/agent": "workspace:*",
+    "@spriessen/contracts": "workspace:*",
+    "@spriessen/present": "workspace:*",
+    "@spriessen/server": "workspace:*",
+    "react": "catalog:",
+    "ws": "catalog:"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-durable": "catalog:",
+    "@types/react": "catalog:",
+    "@types/ws": "^8.18.2"
+  }
+}
