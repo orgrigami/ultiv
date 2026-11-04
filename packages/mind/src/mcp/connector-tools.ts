@@ -40,7 +40,7 @@ const findServer = (
 const stateWords = (view: McpServerView): string =>
   view.status.state === "connected"
     ? "connected"
-    : `${view.status.state.replace(/_/g, " ")}${view.status.reason !== null ? ` — ${view.status.reason}` : ""}`;
+    : `${view.status.state.replace(/_/g, " ")}${view.status.reason !== null ? `: ${view.status.reason}` : ""}`;
 
 const loadTool = (deps: McpMindDeps) =>
   defineTool({
@@ -169,7 +169,7 @@ export const connectorsSection = (deps: McpMindDeps): PromptSection => ({
     const lines = listed.map((view) => {
       const tools = view.tools.filter((tool) => tool.enabled).map((tool) => tool.name);
       const shown = tools.slice(0, 12).join(", ") + (tools.length > 12 ? ", …" : "");
-      return `- ${view.record.slug} (${stateWords(view)}): ${tools.length} tool(s)${shown === "" ? "" : ` — ${shown}`}`;
+      return `- ${view.record.slug} (${stateWords(view)}): ${tools.length} tool(s)${shown === "" ? "" : `: ${shown}`}`;
     });
     const intro =
       listed.length === 0
@@ -177,6 +177,8 @@ export const connectorsSection = (deps: McpMindDeps): PromptSection => ({
         : `Connectors (MCP servers) you can use. Load tools with ${CONNECTOR_LOAD} before ` +
           `calling them; ${CONNECTOR_RESOURCES} lists or reads resources. Calls may wait for ` +
           `the owner's approval.\n${lines.join("\n")}`;
-    return [intro, noted ? UNTRUSTED_NOTE : ""].filter((part) => part !== "").join("\n\n");
+    const text = [intro, noted ? UNTRUSTED_NOTE : ""].filter((part) => part !== "").join("\n\n");
+    // undefined, never "": an empty string still renders an empty <connectors> tag.
+    return text === "" ? undefined : text;
   },
 });

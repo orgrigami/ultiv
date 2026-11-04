@@ -92,14 +92,24 @@ describe("assembled prompt: key rules and budget", () => {
     expect(text).toContain("Ledger (id: p2)");
   });
 
+  // The blocks once ran together ("say yes.Voice:"), so each starts its own paragraph.
+  it("separates the identity, voice and rules blocks with a blank line", async () => {
+    for (const text of [await persona(), baselineIdentityText()]) {
+      expect(text).toMatch(/say yes\.\n\nVoice:/);
+      expect(text).toMatch(/writing this way\.\n\nOperating rules:/);
+    }
+  });
+
   // Budgets: measured after the owner's identity rewrite (rules 426, baseline
   // 626, sample persona ~724: the AI-honesty sentence and the no-em-dash
   // style rule were both accepted) plus a little headroom.
   // Raising them is a decision: the rules ship on every turn of every bot.
+  // 745: the blocks used to run together ("yes.Voice:" counted as one word),
+  // and the bracket rule now names the bot-mail prefixes ([reply from ...], [nack from ...]).
   it("stays within its word budget", async () => {
     expect(words(OPERATING_RULES)).toBeLessThanOrEqual(440);
     expect(words(baselineIdentityText())).toBeLessThanOrEqual(640);
-    expect(words(await persona())).toBeLessThanOrEqual(740);
+    expect(words(await persona())).toBeLessThanOrEqual(745);
   });
 });
 

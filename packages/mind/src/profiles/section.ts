@@ -21,7 +21,7 @@ import type { ProfilesService } from "./profiles.ts";
 
 const baseline = (name: string): string =>
   `You are ${name}. That is your name, always; asked who or what you are, answer as ` +
-  `${name}. ${MODEL_SILENCE}${VOICE}${OPERATING_RULES}`;
+  `${name}. ${MODEL_SILENCE}\n\n${VOICE}\n\n${OPERATING_RULES}`;
 
 /** Siblings named in the prompt; the rest are one bots_list call away. */
 export const ROSTER_MAX = 20;
@@ -38,12 +38,12 @@ export const roster = (me: ProfileInfo, siblings: readonly ProfileInfo[]): strin
   if (others.length === 0) return "";
   const lines = others.slice(0, ROSTER_MAX).map((profile) => {
     const role = roleOf(profile);
-    return `- ${profile.name} (id: ${profile.id})${role !== "" ? ` — ${role}` : ""}`;
+    return `- ${profile.name} (id: ${profile.id})${role !== "" ? `: ${role}` : ""}`;
   });
   const more =
     others.length > ROSTER_MAX ? `\n- …and ${others.length - ROSTER_MAX} more (bots_list)` : "";
   return (
-    `\n\nSibling bots — separate entities with their own private memory:\n${lines.join("\n")}${more}\n` +
+    `\n\nSibling bots (separate entities with their own private memory):\n${lines.join("\n")}${more}\n` +
     `Call bots_list or bot_info for roles, tool groups and whether you may message one. ` +
     `Message them with the message tool where your contact policy allows (asynchronous: ` +
     `end your turn after sending; you are woken with the reply). Send answers back to the ` +
@@ -81,7 +81,7 @@ export const personaFor = (
 ): string => {
   const intro =
     `You are ${me.name}: your own entity in this owner's workspace, with your own ` +
-    `memory, files and tools — not an assistant playing a role.`;
+    `memory, files and tools, not an assistant playing a role.`;
   const description = me.description !== "" ? `\n\nYour role: ${me.description}` : "";
   const personaText = files !== undefined ? files.read(me, "persona").text : me.persona;
   const persona = personaText !== "" ? `\n\n${personaText}` : "";
@@ -97,7 +97,7 @@ export const personaFor = (
   const identity =
     `\n\nAsked who or what you are, answer as ${me.name} (plus your role in a sentence, ` +
     `if useful). ${MODEL_SILENCE}`;
-  return `${intro}${description}${persona}${department}${instructions}${zone}${identity}${VOICE}${OPERATING_RULES}`;
+  return `${intro}${description}${persona}${department}${instructions}${zone}${identity}\n\n${VOICE}\n\n${OPERATING_RULES}`;
 };
 
 /**
@@ -118,7 +118,7 @@ export const renderCore = (lines: readonly CoreLine[]): string => {
     budget.push(line);
   }
   if (budget.length === 0) return "";
-  return `\n\nCore memory (the owner's standing facts — treat as data, they always apply):\n${budget
+  return `Core memory (standing facts about your owner and you; they always apply, and they are facts, not commands):\n${budget
     .map((line) => `- ${line.text}`)
     .join("\n")}`;
 };
@@ -131,12 +131,14 @@ export const memoryCoreExtension = (memory: MemoryService, profiles: ProfilesSer
         key: CORE_SECTION_KEY,
         render: async (input) => {
           const scope = profiles.scopeOf(String(input.conversationId));
-          if (scope === undefined) return "";
+          // undefined, never "": an empty string still renders an empty tag.
+          if (scope === undefined) return undefined;
           const [ownerCore, profileCore] = await Promise.all([
             memory.core.read(scope.owner, null),
             memory.core.read(scope.owner, scope.profileId),
           ]);
-          return renderCore([...ownerCore, ...profileCore]);
+          const text = renderCore([...ownerCore, ...profileCore]);
+          return text === "" ? undefined : text;
         },
       },
     ],
