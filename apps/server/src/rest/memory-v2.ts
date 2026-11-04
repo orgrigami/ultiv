@@ -8,7 +8,7 @@ import type { MemoryProposal } from "@spriessen/contracts";
 import { departmentKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
-import { runTidy } from "../memory-tidy.ts";
+import { runTidy, tidyPush } from "../memory-tidy.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -157,19 +157,7 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
       const result = await runTidy(
         {
           mind: args.mind,
-          ...(push !== undefined
-            ? {
-                notify: (owner, text) =>
-                  push.notifier
-                    .notify(owner, {
-                      title: text,
-                      body: "Open the Memory panel to review.",
-                      url: "/bots",
-                      tag: "memory-tidy",
-                    })
-                    .then(() => undefined),
-              }
-            : {}),
+          ...(push !== undefined ? { notify: tidyPush(push.notifier) } : {}),
         },
         args.owner,
       );

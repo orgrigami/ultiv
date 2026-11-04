@@ -3,7 +3,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { openMind, ProposalsDoc, ownerKey } from "@spriessen/mind";
 import type { MemoryProposal } from "@spriessen/contracts";
-import { ownersWithProfiles, runTidy, tidyStore } from "./memory-tidy.ts";
+import { ownersWithProfiles, runTidy, tidyPush, tidyStore } from "./memory-tidy.ts";
 
 describe("memory tidy ownership", () => {
   it("tidies the OWNER STORE under the caller's owner id (not a hardcoded one)", async () => {
@@ -76,5 +76,13 @@ describe("memory tidy ownership", () => {
     const owners = await ownersWithProfiles(mind);
     expect(owners.sort()).toEqual(["guest", "harry"]);
     await handle.close();
+  });
+});
+
+describe("the tidy push", () => {
+  it("opens Needs you, where the proposals wait per bot", async () => {
+    const sent: { url: string; tag: string }[] = [];
+    await tidyPush({ notify: async (_owner, push) => void sent.push(push) })("owner", "x");
+    expect(sent).toEqual([expect.objectContaining({ url: "/needs", tag: "memory-tidy" })]);
   });
 });

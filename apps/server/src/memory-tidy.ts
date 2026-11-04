@@ -32,6 +32,27 @@ const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
 
 export const tidyCron = (): string => process.env.MEMORY_TIDY_CRON ?? "0 9 * * 0";
 
+/**
+ * The tidy's push: proposals wait per bot in Needs you, so the tap lands
+ * there (the old /bots link only redirected to the crew list).
+ */
+export const tidyPush =
+  (notifier: {
+    notify: (
+      owner: string,
+      push: { title: string; body: string; url: string; tag: string },
+    ) => Promise<unknown>;
+  }) =>
+  (owner: string, text: string): Promise<void> =>
+    notifier
+      .notify(owner, {
+        title: text,
+        body: "Review them in Needs you.",
+        url: "/needs",
+        tag: "memory-tidy",
+      })
+      .then(() => undefined);
+
 export interface TidyDeps {
   readonly mind: MindService;
   /** The push notifier; tidy sends "Memory tidy: N suggestions" (no fact text). */

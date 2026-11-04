@@ -46,6 +46,6 @@ export function badgeText(count: number): string | null {
 
 /**
  * Old pages that moved, with where they live now. Their routes stay so
- * bookmarks and push links (the memory tidy still links /bots) keep working.
+ * bookmarks and pushes sent before the move keep working.
  */
 export const MOVED = { "/bots": "/crew" } as const;

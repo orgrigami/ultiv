@@ -17,7 +17,7 @@ import { closeWebhookPump } from "./webhooks.ts";
 import { agentEndpoint, AGENT_PATH } from "./agent.ts";
 import { createNodeTransport } from "@spriessen/mind";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
-import { startMemoryTidy } from "./memory-tidy.ts";
+import { startMemoryTidy, tidyPush } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
 import {
@@ -186,18 +186,7 @@ export async function buildStack(options?: {
   // registry and the dedup rings are durable mind docs.
   const sensorLoop: SensorLoop = await startSensorLoop(mind);
   // The weekly memory tidy (Sundays 09:00 WIB; catches up on boot).
-  const memoryTidy = startMemoryTidy({
-    mind,
-    notify: (owner, text) =>
-      push.notifier
-        .notify(owner, {
-          title: text,
-          body: "Open the Memory panel to review.",
-          url: "/bots",
-          tag: "memory-tidy",
-        })
-        .then(() => undefined),
-  });
+  const memoryTidy = startMemoryTidy({ mind, notify: tidyPush(push.notifier) });
   const host = createHost<Principal>({ name: "server", self: { kind: "server" } });
   host.serve(Ping, (_input, _principal, self) => {
     const count = self.state("count", Type.Number(), 0);
