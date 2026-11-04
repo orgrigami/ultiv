@@ -42,6 +42,7 @@ import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
 import { MAX_SKILL_CHARS, secretIn, slugOk } from "./guard.ts";
 import type { SkillsService } from "./service.ts";
 import { skillsScope } from "./tools.ts";
+import { sharesRun, tokensOf } from "./learn-overlap.ts";
 
 export const SKILL_LEARN = "skill_learn";
 export const SKILL_WRITE = "skill_write";
@@ -223,43 +224,6 @@ export const turnContext = async (
     }, 0),
     outsideTask,
   };
-};
-
-const words = (text: string): string[] =>
-  text
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .match(/[\p{L}\p{N}]+/gu) ?? [];
-
-const runsOf = (text: string, size: number): Set<string> => {
-  const list = words(text);
-  const runs = new Set<string>();
-  for (let i = 0; i + size <= list.length; i += 1) runs.add(list.slice(i, i + size).join(" "));
-  return runs;
-};
-
-const sharesRun = (body: string, sources: readonly string[], size: number): boolean => {
-  if (sources.length === 0) return false;
-  const mine = runsOf(body, size);
-  return sources.some((source) => [...runsOf(source, size)].some((run) => mine.has(run)));
-};
-
-/** Addresses, links, handles and long numbers: the parts a planted instruction needs. */
-const tokensOf = (text: string): Set<string> => {
-  const found = new Set<string>();
-  const patterns = [
-    /[\w.+-]+@[\w-]+(\.[\w-]+)+/g,
-    /\bhttps?:\/\/[^\s)>\]"']+/g,
-    /\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|co|id|dev|app|xyz|info|biz|me|ai|test)\b/g,
-    /(?<!\w)@[a-z0-9_]{3,}/g,
-    /\+?\d[\d ().-]{6,}\d/g,
-  ];
-  const lower = text.toLowerCase();
-  for (const pattern of patterns) {
-    for (const match of lower.match(pattern) ?? []) found.add(match.replace(/[\s().-]/g, ""));
-  }
-  return found;
 };
 
 /** What the shared check says about one skill save. */
