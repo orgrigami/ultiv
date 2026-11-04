@@ -7,6 +7,13 @@
 import { Menu } from "@base-ui/react/menu";
 import { RowButton } from "@/components/ui/row-button";
 import { MenuPopup } from "@/components/ui/menu-popup";
+import {
+  MenuSheetBackdrop,
+  SheetHeading,
+  sheetHint,
+  sheetPositioner,
+  sheetRow,
+} from "@/components/ui/menu-sheet";
 import { CheckIcon, ShieldAlertIcon, ShieldCheckIcon, ShieldIcon } from "lucide-react";
 import { useState } from "react";
 import type { ProfileApprovalMode } from "@spriessen/contracts";
@@ -63,8 +70,21 @@ function YoloConfirm({
   );
 }
 
-const itemClass =
-  "data-highlighted:bg-muted flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2 text-sm outline-none";
+const itemClass = cn(sheetRow, "items-start");
+
+/** The mode's shield, amber for YOLO: the menu and the Access tab share it. */
+function ModeIcon({ mode }: { mode: ProfileApprovalMode }) {
+  const Icon = ICON[mode];
+  return (
+    <Icon
+      aria-hidden
+      className={cn(
+        "mt-0.5 size-4 shrink-0 max-sm:size-5",
+        mode === "yolo" ? "text-warning" : "text-muted-foreground",
+      )}
+    />
+  );
+}
 
 /** The chat chip: current mode in a word; opens a three-way menu. */
 export function ApprovalModeChip({
@@ -93,25 +113,25 @@ export function ApprovalModeChip({
           {chip.label}
         </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner side="bottom" align="center" sideOffset={6} className="z-50">
-            <MenuPopup className="w-72">
-              <p className="text-muted-foreground px-3 pt-2 pb-1 text-xs">
-                Who approves {botName}'s steps
-              </p>
+          <MenuSheetBackdrop />
+          <Menu.Positioner side="bottom" align="center" sideOffset={6} {...sheetPositioner}>
+            <MenuPopup className="w-80">
+              <SheetHeading always>Who approves {botName}'s steps</SheetHeading>
               <Menu.RadioGroup
                 value={mode}
                 onValueChange={(value: ProfileApprovalMode) => request(value)}
               >
                 {APPROVAL_MODES.map((value) => (
                   <Menu.RadioItem key={value} value={value} closeOnClick className={itemClass}>
-                    <span className="flex size-4 shrink-0 items-center pt-0.5">
-                      <Menu.RadioItemIndicator>
-                        <CheckIcon className="size-4" />
-                      </Menu.RadioItemIndicator>
-                    </span>
-                    <span className="flex flex-col gap-0.5">
+                    <ModeIcon mode={value} />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="font-medium">{MODE_CHIP[value].label}</span>
-                      <span className="text-muted-foreground text-xs">{MODE_CHIP[value].hint}</span>
+                      <span className={sheetHint}>{MODE_CHIP[value].hint}</span>
+                    </span>
+                    <span className="flex size-5 shrink-0 items-center justify-center self-center">
+                      <Menu.RadioItemIndicator>
+                        <CheckIcon className="text-foreground size-4" />
+                      </Menu.RadioItemIndicator>
                     </span>
                   </Menu.RadioItem>
                 ))}

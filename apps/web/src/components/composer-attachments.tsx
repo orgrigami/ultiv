@@ -6,10 +6,27 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Popover } from "@base-ui/react/popover";
-import { FileTextIcon, ImagePlusIcon, PaperclipIcon, PlusIcon, XIcon } from "lucide-react";
+import {
+  FileTextIcon,
+  MessageSquareTextIcon,
+  ImagePlusIcon,
+  PaperclipIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  PopoverSheetBackdrop,
+  SheetHeading,
+  SheetSeparator,
+  sheetPopup,
+  sheetPositioner,
+  sheetRow,
+  usePhoneSheet,
+} from "@/components/ui/menu-sheet";
 import { formatBytes } from "@/lib/file-meta";
 import { isImageMime, MAX_UPLOAD_BYTES } from "@/lib/attachments";
+import { cn } from "@/lib/utils";
 
 /** Starter prompts: the "+" menu and the empty chat both offer them. */
 export const SUGGESTIONS = [
@@ -77,8 +94,6 @@ export function useStagedAttachments() {
   return { staged, add, remove, clearKeys };
 }
 
-const menuItem = "h-auto min-h-9 justify-start gap-2 py-2 text-left whitespace-normal font-normal";
-
 /** The round "+": a small menu — images, any file, then the starter prompts. */
 export function PlusMenu({
   disabled,
@@ -90,6 +105,7 @@ export function PlusMenu({
   onDraft: (text: string) => void;
 }) {
   const images = useRef<HTMLInputElement>(null);
+  const phone = usePhoneSheet();
   const files = useRef<HTMLInputElement>(null);
   const pick =
     (input: React.RefObject<HTMLInputElement | null>) =>
@@ -98,7 +114,7 @@ export function PlusMenu({
       input.current?.click();
     };
   return (
-    <Popover.Root>
+    <Popover.Root modal={phone}>
       <Popover.Trigger
         disabled={disabled}
         render={
@@ -115,36 +131,22 @@ export function PlusMenu({
         }
       />
       <Popover.Portal>
-        <Popover.Positioner side="top" align="start" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <Popover.Close
-              render={
-                <Button variant="ghost" className={menuItem} onClick={pick(images)}>
-                  <ImagePlusIcon /> Add images
-                </Button>
-              }
-            />
-            <Popover.Close
-              render={
-                <Button variant="ghost" className={menuItem} onClick={pick(files)}>
-                  <PaperclipIcon /> Attach file
-                </Button>
-              }
-            />
-            <div role="separator" className="bg-border my-1 h-px" />
+        <PopoverSheetBackdrop />
+        <Popover.Positioner side="top" align="start" sideOffset={8} {...sheetPositioner}>
+          <Popover.Popup className={cn(sheetPopup, "w-72")}>
+            <Popover.Title render={<SheetHeading>Add to your message</SheetHeading>} />
+            <Popover.Close className={sheetRow} onClick={pick(images)}>
+              <ImagePlusIcon className="text-muted-foreground" /> Add images
+            </Popover.Close>
+            <Popover.Close className={sheetRow} onClick={pick(files)}>
+              <PaperclipIcon className="text-muted-foreground" /> Attach file
+            </Popover.Close>
+            <SheetSeparator />
+            <SheetHeading always>Start with</SheetHeading>
             {SUGGESTIONS.map((text) => (
-              <Popover.Close
-                key={text}
-                render={
-                  <Button
-                    variant="ghost"
-                    size="fit"
-                    className="justify-start text-left whitespace-normal"
-                  />
-                }
-                onClick={() => onDraft(text)}
-              >
-                {text}
+              <Popover.Close key={text} className={sheetRow} onClick={() => onDraft(text)}>
+                <MessageSquareTextIcon className="text-muted-foreground" />
+                <span className="min-w-0 flex-1">{text}</span>
               </Popover.Close>
             ))}
           </Popover.Popup>

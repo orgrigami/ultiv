@@ -10,6 +10,17 @@ import type { SendMode } from "@spriessen/contracts";
 import { ArrowUpIcon } from "lucide-react";
 import { SEND_CHOICES } from "../lib/send-mode.ts";
 import { Button } from "./ui/button.tsx";
+import { RowButton } from "./ui/row-button.tsx";
+import {
+  PopoverSheetBackdrop,
+  SheetHeading,
+  sheetHint,
+  sheetPopup,
+  sheetPositioner,
+  sheetRowStacked,
+  usePhoneSheet,
+} from "./ui/menu-sheet.tsx";
+import { cn } from "../lib/utils.ts";
 
 const LONG_PRESS_MS = 500;
 
@@ -41,13 +52,14 @@ export function SendButton({
   const pressed = useRef(false);
   const [open, setOpen] = useState(false);
   const menu = busy && enabled;
+  const phone = usePhoneSheet();
   const cancelPress = () => clearTimeout(timer.current);
   const pick = (mode: SendMode) => {
     setOpen(false);
     onSend(mode);
   };
   return (
-    <Popover.Root open={open && menu} onOpenChange={setOpen}>
+    <Popover.Root open={open && menu} onOpenChange={setOpen} modal={phone}>
       <Button
         ref={anchor}
         type="submit"
@@ -91,19 +103,29 @@ export function SendButton({
         <ArrowUpIcon />
       </Button>
       <Popover.Portal>
-        <Popover.Positioner anchor={anchor} side="top" align="end" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-xl border p-1 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <PopoverSheetBackdrop />
+        <Popover.Positioner
+          anchor={anchor}
+          side="top"
+          align="end"
+          sideOffset={8}
+          {...sheetPositioner}
+        >
+          <Popover.Popup className={cn(sheetPopup, "w-72")}>
+            <Popover.Title render={<SheetHeading>Send while the bot works</SheetHeading>} />
             {SEND_CHOICES.map((choice) => (
-              <Button
+              <RowButton
                 key={choice.mode}
-                variant={choice.mode === "redirect" ? "ghost-destructive" : "ghost"}
-                size="fit"
-                className="flex-col items-start justify-center text-left whitespace-normal"
+                className={cn(
+                  sheetRowStacked,
+                  "font-medium",
+                  choice.mode === "redirect" && "text-destructive",
+                )}
                 onClick={() => pick(choice.mode)}
               >
                 <span>{choice.label}</span>
-                <span className="text-muted-foreground text-xs font-normal">{choice.hint}</span>
-              </Button>
+                <span className={sheetHint}>{choice.hint}</span>
+              </RowButton>
             ))}
           </Popover.Popup>
         </Popover.Positioner>

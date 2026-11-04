@@ -182,7 +182,7 @@ function Profile({
       <div
         role="tablist"
         aria-label="Profile sections"
-        className="tab-strip -mx-3 flex snap-x scroll-px-3 gap-1 overflow-x-auto pr-8 pb-1 pl-3 sm:mx-0 sm:px-0"
+        className="no-scrollbar scroll-fade-x -mx-3 flex snap-x scroll-px-3 gap-1.5 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:[mask-image:none]"
       >
         {PROFILE_TABS.map((entry) => {
           const count = tabCount(entry.id, counts, bot);
@@ -202,7 +202,7 @@ function Profile({
                   // Keep the open tab in view when the strip scrolls on a phone.
                   ref={(node) => {
                     if (node !== null && active === entry.id) {
-                      node.scrollIntoView({ block: "nearest", inline: "nearest" });
+                      node.scrollIntoView({ block: "nearest", inline: "center" });
                     }
                   }}
                 />

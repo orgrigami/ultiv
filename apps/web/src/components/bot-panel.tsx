@@ -6,6 +6,14 @@
  */
 import { Popover } from "@base-ui/react/popover";
 import { RowButton } from "@/components/ui/row-button";
+import {
+  PopoverSheetBackdrop,
+  SheetHeading,
+  SheetSeparator,
+  sheetPopup,
+  sheetPositioner,
+  sheetRow,
+} from "@/components/ui/menu-sheet";
 import { useNavigate } from "@tanstack/react-router";
 import { BrainIcon, PlusIcon, UserRoundCogIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
@@ -14,9 +22,9 @@ import { NewBotDialog } from "@/components/new-bot-dialog";
 import { CrewList } from "@/components/crew-list";
 import { useApp } from "@/lib/app-state";
 import { useNow } from "@/lib/use-now";
+import { cn } from "@/lib/utils";
 
-const row =
-  "hover:bg-muted focus-visible:bg-muted flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-sm";
+const row = sheetRow;
 
 function UtilityRow({
   icon: Icon,
@@ -66,8 +74,15 @@ export function BotPanel({
   return (
     <>
       <Popover.Portal>
-        <Popover.Positioner side="bottom" align="center" sideOffset={8} className="z-50">
-          <Popover.Popup className="bg-popover/95 text-popover-foreground flex max-h-[min(28rem,70dvh)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-y-auto rounded-xl border p-1.5 shadow-lg backdrop-blur-xl outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <PopoverSheetBackdrop />
+        <Popover.Positioner side="bottom" align="center" sideOffset={8} {...sheetPositioner}>
+          <Popover.Popup
+            className={cn(
+              sheetPopup,
+              "max-h-[min(32rem,var(--available-height))] w-80 overflow-y-auto p-1.5",
+            )}
+          >
+            <Popover.Title render={<SheetHeading>Switch bot</SheetHeading>} />
             <CrewList
               variant="menu"
               activeId={currentId}
@@ -79,7 +94,7 @@ export function BotPanel({
               onNewDepartment={() => setCreatingDepartment(true)}
               now={now}
             />
-            <div className="bg-border my-1 h-px" />
+            <SheetSeparator />
             {current !== undefined && onMemory !== undefined && (
               <UtilityRow
                 icon={BrainIcon}

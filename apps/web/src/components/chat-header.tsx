@@ -20,8 +20,16 @@ import { BotSwitcher } from "@/components/bot-switcher";
 import { ModelOptions } from "@/components/model-options";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import {
+  PopoverSheetBackdrop,
+  SheetHeading,
+  sheetPopup,
+  sheetPositioner,
+  usePhoneSheet,
+} from "@/components/ui/menu-sheet";
 import { useApp } from "@/lib/app-state";
 import { useNewChat } from "@/components/app-nav";
+import { cn } from "@/lib/utils";
 
 export { BotAvatar, type ChatBot, type LinkState } from "@/components/bot-avatar";
 
@@ -151,6 +159,7 @@ export function ChatHeader({
   onMemory?: (() => void) | undefined;
 }) {
   const name = bot?.name !== undefined && bot.name !== "" ? bot.name : "Chat";
+  const phone = usePhoneSheet();
   // Floating chips: translucent + blurred so the transcript shows through.
   const round =
     "bg-background/60 hover:bg-muted/80 border-border/60 rounded-full border shadow-sm backdrop-blur-md pointer-coarse:size-11";
@@ -176,7 +185,7 @@ export function ChatHeader({
           />
         )}
       </div>
-      <Popover.Root>
+      <Popover.Root modal={phone}>
         <Popover.Trigger
           render={
             <Button variant="ghost" size="icon-lg" className={round} aria-label="Chat details">
@@ -185,8 +194,10 @@ export function ChatHeader({
           }
         />
         <Popover.Portal>
-          <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-            <Popover.Popup className="bg-popover text-popover-foreground flex w-72 max-w-[calc(100vw-1.5rem)] flex-col gap-3 rounded-xl border p-4 shadow-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <PopoverSheetBackdrop />
+          <Popover.Positioner side="bottom" align="end" sideOffset={8} {...sheetPositioner}>
+            <Popover.Popup className={cn(sheetPopup, "w-80 gap-3 p-4")}>
+              <Popover.Title render={<SheetHeading className="px-0">Chat details</SheetHeading>} />
               <SessionDetails
                 link={link}
                 usage={usage}

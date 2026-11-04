@@ -7,6 +7,14 @@
 import { Menu } from "@base-ui/react/menu";
 import { RowButton } from "@/components/ui/row-button";
 import { MenuPopup } from "@/components/ui/menu-popup";
+import {
+  MenuSheetBackdrop,
+  SheetHeading,
+  SheetSeparator,
+  sheetHint,
+  sheetPositioner,
+  sheetRowStacked,
+} from "@/components/ui/menu-sheet";
 import { EllipsisIcon, StarIcon } from "lucide-react";
 import { useState } from "react";
 import { EditBotDialog } from "@/components/bot-dialog";
@@ -21,8 +29,7 @@ import { useApp } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 import type { ModelInfo, ProfileInfo } from "@spriessen/contracts";
 
-const item =
-  "data-highlighted:bg-muted flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm outline-none data-disabled:cursor-not-allowed data-disabled:opacity-60 pointer-coarse:min-h-11";
+const item = sheetRowStacked;
 
 /** "Claude Sonnet 4.5" for a set model, the workspace default otherwise. */
 const modelName = (bot: ProfileInfo, models: ModelInfo[]): string =>
@@ -122,8 +129,10 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
           <EllipsisIcon />
         </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
-            <MenuPopup className="w-60">
+          <MenuSheetBackdrop />
+          <Menu.Positioner side="bottom" align="end" sideOffset={4} {...sheetPositioner}>
+            <MenuPopup className="w-64">
+              <SheetHeading>{bot.name}</SheetHeading>
               <Menu.Item className={item} onClick={() => setOpen("memory")}>
                 What {bot.name} remembers
               </Menu.Item>
@@ -137,7 +146,7 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
                   onClick={() => void act(() => api.setMain(bot.id))}
                 >
                   Make main bot
-                  <span className="text-muted-foreground text-xs">
+                  <span className={sheetHint}>
                     {bot.departmentId
                       ? "The main bot lives in the org: move it to the org first."
                       : "Opens first when you start."}
@@ -155,21 +164,18 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
                 >
                   {archived ? "Unhide" : "Hide"}
                   {!archived && (
-                    <span className="text-muted-foreground text-xs">
-                      Moves it under Hidden. Nothing is deleted.
-                    </span>
+                    <span className={sheetHint}>Moves it under Hidden. Nothing is deleted.</span>
                   )}
                 </Menu.Item>
               )}
+              <SheetSeparator />
               <Menu.Item
                 className={cn(item, "text-destructive")}
                 disabled={deleteBlocked !== null}
                 onClick={() => setOpen("remove")}
               >
                 Delete bot…
-                {deleteBlocked !== null && (
-                  <span className="text-muted-foreground text-xs">{deleteBlocked}</span>
-                )}
+                {deleteBlocked !== null && <span className={sheetHint}>{deleteBlocked}</span>}
               </Menu.Item>
             </MenuPopup>
           </Menu.Positioner>

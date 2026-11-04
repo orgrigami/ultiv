@@ -15,6 +15,13 @@ import { DevDetails } from "@/components/ui/dev-details";
 import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";
 import { MenuPopup } from "@/components/ui/menu-popup";
+import {
+  MenuSheetBackdrop,
+  SheetHeading,
+  sheetHint,
+  sheetPositioner,
+  sheetRowStacked,
+} from "@/components/ui/menu-sheet";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { ChangeDetails, connectorChangeOf } from "@/components/connectors/change-details";
 import { QuestionCard } from "@/components/question-card";
@@ -124,8 +131,7 @@ function DecisionCard({
   };
   const busy = deciding !== null;
   const label = (key: string, text: string): string => (deciding === key ? "Sending…" : text);
-  const item =
-    "data-highlighted:bg-muted focus-visible:ring-ring/50 focus-visible:ring-3 flex cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-sm outline-none pointer-coarse:min-h-11";
+  const item = sheetRowStacked;
 
   return (
     <Tile
@@ -204,17 +210,17 @@ function DecisionCard({
             <EllipsisIcon />
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Positioner side="top" align="end" sideOffset={6} className="z-50">
-              <MenuPopup className="w-64">
+            <MenuSheetBackdrop />
+            <Menu.Positioner side="top" align="end" sideOffset={6} {...sheetPositioner}>
+              <MenuPopup className="w-72">
+                <SheetHeading>More choices</SheetHeading>
                 {canAlwaysAllow(name) && (
                   <Menu.Item
                     className={item}
                     onClick={() => void decide("always", () => onDecide(true, true))}
                   >
                     {alwaysAllowText(name, input).title}
-                    <span className="text-muted-foreground text-xs">
-                      {alwaysAllowText(name, input).detail}
-                    </span>
+                    <span className={sheetHint}>{alwaysAllowText(name, input).detail}</span>
                   </Menu.Item>
                 )}
                 <Menu.Item
@@ -222,9 +228,7 @@ function DecisionCard({
                   onClick={() => void decide("takeover", () => onDecide(false, undefined, true))}
                 >
                   Take over
-                  <span className="text-muted-foreground text-xs">
-                    Decline and tell the bot you'll do it yourself.
-                  </span>
+                  <span className={sheetHint}>Decline and tell the bot you'll do it yourself.</span>
                 </Menu.Item>
               </MenuPopup>
             </Menu.Positioner>

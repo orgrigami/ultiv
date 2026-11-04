@@ -290,12 +290,47 @@
    items, and every tap target is at least 44 px on touch (pointer-coarse
    min-h-11). Floating chrome clears the safe areas with env(). */
 
-/* A sideways tab strip fades at its right edge on phones, so the tabs past
-   the edge read as more to scroll to. */
+/* Menus on phones (components/ui/menu-sheet.tsx): the anchored popover docks
+   to the bottom as a sheet. Base UI positions with inline top/left/right/
+   bottom, so the override needs !important; the popup keeps its own classes
+   and only loses its width cap and lower corners. */
 @media (max-width: 639px) {
-  .tab-strip {
-    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+  .menu-sheet {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    width: 100% !important;
+  }
+  .menu-sheet > * {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: min(85dvh, 40rem) !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-width: 1px 0 0 !important;
+    border-radius: 1.5625rem 1.5625rem 0 0 !important;
+    padding: 0.5rem 0.75rem max(1rem, env(safe-area-inset-bottom)) !important;
+    animation: menu-sheet-in 200ms ease-out;
+  }
+  .menu-sheet > *::before {
+    content: "";
+    display: block;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  }
+}
+@keyframes menu-sheet-in {
+  from {
+    translate: 0 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-sheet > * {
+    animation: none;
   }
 }
 
@@ -324,7 +359,25 @@ svg.lucide {
 }
 
 /* Document previews (file markdown): chat-size prose with doc-grade
-   details — ruled tables, quiet quotes, rounded media, tidy code. */
+   details — ruled tables, quiet quotes, rounded media, tidy code, and
+   headings scaled for a pane or a phone rather than a poster. */
+.prose.md-doc :where(h1) {
+  font-size: 1.625em;
+  line-height: 1.25;
+  margin: 0 0 0.75em;
+}
+.prose.md-doc :where(h2) {
+  font-size: 1.3em;
+  line-height: 1.3;
+  margin: 1.6em 0 0.6em;
+}
+.prose.md-doc :where(h3) {
+  font-size: 1.1em;
+  margin: 1.4em 0 0.5em;
+}
+.prose.md-doc > :first-child {
+  margin-top: 0;
+}
 .prose.md-doc :where(table) {
   display: block;
   overflow-x: auto;

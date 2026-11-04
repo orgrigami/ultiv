@@ -12,6 +12,7 @@ import { Mark } from "@/components/state-mark";
 import { BotPanel } from "@/components/bot-panel";
 import { useHomeWord } from "@/components/department/bot-home";
 import { useApp } from "@/lib/app-state";
+import { usePhoneSheet } from "@/components/ui/menu-sheet";
 
 export function BotSwitcher({
   name,
@@ -30,12 +31,13 @@ export function BotSwitcher({
   // With departments, the pill says where this bot lives.
   const home = useHomeWord(bot?.departmentId, bot !== undefined);
   const [open, setOpen] = useState(false);
+  const phone = usePhoneSheet();
   // Another bot's gate may need the owner; this chat's own card handles its own.
   const waiting = [...attention].some((id) => id !== currentId);
 
   return (
     <>
-      <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Root open={open} onOpenChange={setOpen} modal={phone}>
         <Popover.Trigger
           aria-label={`${name}: switch bot`}
           className="bg-background/60 supports-backdrop-filter:bg-background/40 hover:bg-muted/80 border-border/60 relative flex max-w-full min-w-0 cursor-pointer pointer-coarse:min-h-11 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1 shadow-sm backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
