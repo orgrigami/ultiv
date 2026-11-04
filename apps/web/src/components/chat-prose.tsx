@@ -1,8 +1,9 @@
 /**
  * Bot prose on the open transcript: markdown flows as terrain (no bubble)
- * at the chat size; a finished reply past the fold budget collapses behind
- * a mask fade with a "Show more" button — the fold is a reading aid, never
- * a wall. Shared by the main chat and the rooms timeline.
+ * at the chat size; while it streams, a caret sits at the end of the last
+ * line (drawn in CSS, `.chat-prose[data-streaming]` in index.css). A
+ * finished reply past the fold budget collapses behind a mask fade with a
+ * "Show more" button — the fold is a reading aid, never a wall. Shared by the main chat and the rooms timeline.
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,19 +34,16 @@ export function ChatProse({
   return (
     <>
       <div
+        data-streaming={streaming || undefined}
         className={
           chatProse +
+          " w-full min-w-0" +
           (fold
             ? " max-h-80 overflow-hidden [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
             : "")
         }
       >
         <LazyMarkdown text={text} />
-        {streaming && (
-          <span aria-hidden className="text-live">
-            ▍
-          </span>
-        )}
       </div>
       {fold && (
         <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen(true)}>

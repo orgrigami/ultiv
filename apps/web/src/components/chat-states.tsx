@@ -71,6 +71,28 @@ function activityOf(transcript: TranscriptEntry[], pending: PendingApproval): st
   return "Working…";
 }
 
+/**
+ * Whether the bot's turn is already on screen (its head shows above): any
+ * entry after the owner's latest message. Then the row drops the face — the
+ * head above is already thinking — and lines up with the prose.
+ */
+export function botTurnOpen(transcript: readonly TranscriptEntry[]): boolean {
+  const last = transcript[transcript.length - 1];
+  return last !== undefined && last.kind !== "input";
+}
+
+function showsOwnActivity(transcript: readonly TranscriptEntry[]): boolean {
+  const last = transcript[transcript.length - 1];
+  if (last?.kind === "output") return last.streaming;
+  if (last?.kind === "thinking") return true;
+  // Hidden tools (inner monologue) draw no row, so they leave the line on.
+  return (
+    last?.kind === "tool" &&
+    last.step.status === "running" &&
+    presentationOf(last.step).kind !== "hidden"
+  );
+}
+
 export function StatusRow({
   bot,
   transcript,
@@ -80,9 +102,19 @@ export function StatusRow({
   transcript: TranscriptEntry[];
   pending: PendingApproval;
 }) {
+  const open = botTurnOpen(transcript);
+  // The newest step already says what is happening (a streaming caret, a live
+  // "Thinking…", a running tool's present tense): a second line would repeat it.
+  if (open && pending === null && showsOwnActivity(transcript)) return null;
   return (
-    <li className="text-muted-foreground flex items-center gap-2 self-start text-sm">
-      <BotAvatar id={bot?.id} name={bot?.name ?? "?"} size="sm" mood="thinking" />
+    <li
+      className={
+        open
+          ? "text-muted-foreground flex min-h-7 items-center gap-2 self-start text-sm"
+          : "text-muted-foreground flex items-center gap-2 self-start pt-2 text-sm"
+      }
+    >
+      {!open && <BotAvatar id={bot?.id} name={bot?.name ?? "?"} size="sm" mood="thinking" />}
       <Mark kind="working" tone="live" className="size-3" />
       <span>{activityOf(transcript, pending)}</span>
     </li>

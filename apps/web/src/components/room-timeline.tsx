@@ -10,35 +10,39 @@
  */
 import { Fragment, useEffect, useRef } from "react";
 import { CircleAlertIcon } from "lucide-react";
-import { BotAvatar } from "@/components/bot-avatar";
 import { ChatProse, isFoldable } from "@/components/chat-prose";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type RoomLine } from "@/lib/api";
-import { formatClock, formatFull } from "@/lib/format";
+import { formatFull } from "@/lib/format";
+import { MessageActions, TurnHead } from "@/components/message-parts";
 import { deliveryNote } from "@/lib/room-status";
 import { seatLines, type SeatedLine } from "@/lib/room-turns";
 import { useLiveLoad } from "@/lib/use-live-load";
 import { cn } from "@/lib/utils";
 import { enter } from "@/components/system/card-shell";
 
-/** Delivery state under its line, with the recorded reason when it adds one. */
+/** Delivery state beside the copy button, with the recorded reason under it when it adds one. */
 function Delivery({ line }: { line: RoomLine }) {
   const note = deliveryNote(line);
-  if (note === null) return null;
   return (
-    <div className="flex max-w-full flex-col text-xs">
-      <p
-        className={cn(
-          "inline-flex items-center gap-1.5",
-          note.tone === "error" ? "text-destructive" : "text-muted-foreground",
-        )}
-      >
-        {note.tone === "error" && <CircleAlertIcon className="size-3 shrink-0" aria-hidden />}
-        {note.label}
-      </p>
-      {note.reason !== null && <p className="text-muted-foreground break-words">{note.reason}</p>}
-    </div>
+    <MessageActions
+      text={line.text}
+      status={
+        note !== null && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5",
+              note.tone === "error" && "text-destructive",
+            )}
+          >
+            {note.tone === "error" && <CircleAlertIcon className="size-3 shrink-0" aria-hidden />}
+            {note.label}
+          </span>
+        )
+      }
+      detail={note?.reason}
+    />
   );
 }
 
@@ -46,32 +50,23 @@ function RoomTurn({ seated }: { seated: SeatedLine }) {
   const { line, grouped } = seated;
   if (line.system)
     return (
-      <li className={cn("text-muted-foreground w-full text-center text-xs", enter)}>{line.text}</li>
+      <li className={cn("text-muted-foreground w-full py-1 text-center text-xs", enter)}>
+        {line.text}
+      </li>
     );
   return (
     <li
       className={cn(
         "group/msg flex w-full min-w-0 flex-col items-start gap-0.5",
-        grouped && "-mt-1.5",
+        grouped ? "-mt-3" : "pt-2",
         enter,
       )}
       title={formatFull(line.at)}
     >
       {!grouped && (
-        <div
-          data-slot="room-head"
-          className="text-muted-foreground flex items-center gap-1.5 text-sm font-medium"
-        >
-          <BotAvatar id={line.speakerId} name={line.speaker} size="sm" />
-          {line.speaker}
-          <time className="readout" dateTime={new Date(line.at).toISOString()}>
-            {formatClock(line.at)}
-          </time>
-        </div>
+        <TurnHead id={line.speakerId} name={line.speaker} at={line.at} className="mb-1" />
       )}
-      <div className="min-w-0 max-w-full">
-        <ChatProse text={line.text} foldable={isFoldable(line.text)} />
-      </div>
+      <ChatProse text={line.text} foldable={isFoldable(line.text)} />
       <Delivery line={line} />
     </li>
   );
@@ -80,7 +75,7 @@ function RoomTurn({ seated }: { seated: SeatedLine }) {
 const DayDivider = ({ label }: { label: string }) => (
   <li role="separator" className="text-muted-foreground/70 flex items-center gap-3 py-1">
     <span className="bg-border h-px flex-1" />
-    <span className="readout text-xs">{label}</span>
+    <span className="readout">{label}</span>
     <span className="bg-border h-px flex-1" />
   </li>
 );

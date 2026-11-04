@@ -6,9 +6,10 @@
  * included — and the round CTAs ("+" left; Stop and the send arrow right)
  * sit in their own bottom row inside it. One line keeps the compact
  * inline row. Desktop: Enter sends, Shift+Enter is a newline. Touch:
- * Enter is a newline. While the bot works a send steers the running turn;
- * Alt+Enter (or the send button's long-press menu) holds it until the turn
- * finishes. With a draft mid-turn a "Redirect now" pill shows above the box.
+ * Enter is a newline. While the bot works Stop takes the send slot; with
+ * something to send the arrow returns beside it, and a send steers the
+ * running turn; Alt+Enter (or the send button's long-press menu) holds
+ * it until the turn finishes. With a draft mid-turn a "Redirect now" pill shows above the box.
  * Files stage as chips above the box and upload when the message sends;
  * pasted or dropped files stage too. On a text-only model a staged image
  * draws a muted note: images ride as file references instead. The whole
@@ -88,6 +89,10 @@ export function Composer({
       ? `Ask ${botName}`
       : "Ask anything";
   const imageStaged = staged.some((item) => isImageMime(item.file.type));
+  const sendable = canSend(live, sending, draft, staged.length > 0);
+  // While the bot works with nothing to send, Stop stands alone in the send
+  // slot; a draft brings the arrow back beside it (a send steers the turn).
+  const showSend = !busy || sendable || sending;
   return (
     <form
       className="flex w-full flex-col gap-1.5"
@@ -168,12 +173,9 @@ export function Composer({
               <SquareIcon className="fill-current" />
             </Button>
           )}
-          <SendButton
-            busy={busy}
-            enabled={canSend(live, sending, draft, staged.length > 0)}
-            sending={sending}
-            onSend={onSend}
-          />
+          {showSend && (
+            <SendButton busy={busy} enabled={sendable} sending={sending} onSend={onSend} />
+          )}
         </div>
       </div>
       {sendFailed && (

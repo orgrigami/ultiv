@@ -4,7 +4,6 @@
  */
 import { memo } from "react";
 import { AttachmentChips } from "@/components/attachment-chips";
-import { BotAvatar } from "@/components/bot-avatar";
 import { useApp } from "@/lib/app-state";
 import { formatDivider, formatFull } from "@/lib/format";
 import { readNote } from "@/lib/note-text";
@@ -17,7 +16,7 @@ import { BrainIcon, CircleSlashIcon } from "lucide-react";
 import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { ChatProse, isFoldable } from "@/components/chat-prose";
-import { CodeBlockCopyButton } from "@/components/ui/code-block";
+import { MessageActions, TurnHead } from "@/components/message-parts";
 import {
   Trace,
   TraceCollapsible,
@@ -31,7 +30,7 @@ import {
 // The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
 const roleStyles = {
-  user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-chat whitespace-pre-wrap break-words",
+  user: "self-end max-w-[85%] rounded-2xl rounded-br-md bg-muted/70 px-4 py-2.5 text-chat whitespace-pre-wrap break-words sm:max-w-[75%]",
 } as const;
 
 // Past this much text a finished reply folds; the fold budget and the
@@ -41,10 +40,11 @@ const roleStyles = {
 const DIVIDER_GAP_MS = 10 * 60_000;
 
 /**
- * Bot output is markdown; the newest block streams with a caret (still under
- * reduced motion). Finished messages get a copy action under the bubble.
- * A reply cut short by Stop or Redirect now keeps its text, marked "Interrupted".
- * Memoised: only the message whose text changes re-renders while streaming.
+ * Bot output is markdown; the newest block streams with a caret at the end
+ * of its last line (still under reduced motion). A finished message gets one
+ * action row: copy, plus "Interrupted" when Stop or Redirect cut it short (the
+ * partial reply keeps its text). Memoised: only the message whose text
+ * changes re-renders while streaming.
  */
 const Output = memo(function Output({
   text,
@@ -57,30 +57,22 @@ const Output = memo(function Output({
 }) {
   // Cut while thinking: nothing was said, so only the marker shows.
   const empty = text === "" && !streaming;
-  const copy = !streaming && !empty && (
-    <div className="opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 pointer-coarse:opacity-100">
-      <CodeBlockCopyButton
-        value={text}
-        aria-label="Copy message"
-        className="text-muted-foreground"
-      />
-    </div>
-  );
   return (
     <>
-      {!empty && (
-        <div className="min-w-0 max-w-full">
-          <ChatProse text={text} streaming={streaming} foldable={isFoldable(text)} />
-          {copy}
-        </div>
+      {!empty && <ChatProse text={text} streaming={streaming} foldable={isFoldable(text)} />}
+      {!streaming && (
+        <MessageActions
+          text={text}
+          status={
+            interrupted && (
+              <span className="flex items-center gap-1">
+                <CircleSlashIcon className="size-3" aria-hidden />
+                {empty ? "Interrupted before replying" : "Interrupted"}
+              </span>
+            )
+          }
+        />
       )}
-      {interrupted && (
-        <span className="text-muted-foreground flex items-center gap-1 px-1 text-xs">
-          <CircleSlashIcon className="size-3" aria-hidden />
-          {empty ? "Interrupted before replying" : "Interrupted"}
-        </span>
-      )}
-      {copy}
     </>
   );
 });
@@ -152,6 +144,16 @@ function startsBotTurn(group: Group, previous: Group | undefined): boolean {
   return previous === undefined || isOwnerInput(previous);
 }
 
+/** The group that opens the newest bot turn, or -1 when the owner spoke last. */
+function lastHeadIndex(groups: readonly Group[]): number {
+  for (let index = groups.length - 1; index >= 0; index--) {
+    const group = groups[index];
+    if (group === undefined || isOwnerInput(group)) return -1;
+    if (startsBotTurn(group, groups[index - 1])) return index;
+  }
+  return -1;
+}
+
 /** Every transcript entry, in order, as list items. busy marks the last reasoning as live. */
 export function TranscriptItems({
   transcript,
@@ -172,9 +174,12 @@ export function TranscriptItems({
   /** The chat's bot: its face and name head each of its turns. */
   bot?: { id?: string | undefined; name: string } | undefined;
 }) {
+  const groups = groupTranscript(latestPlans(transcript));
+  // The newest bot turn's face thinks while the bot works.
+  const liveHead = busy ? lastHeadIndex(groups) : -1;
   return (
     <>
-      {groupTranscript(latestPlans(transcript)).map((group, index, groups) => {
+      {groups.map((group, index) => {
         const previous = groups[index - 1];
         const divider =
           previous === undefined || group.at - previous.at >= DIVIDER_GAP_MS ? (
@@ -190,12 +195,13 @@ export function TranscriptItems({
           ) : null;
         const head =
           bot !== undefined && startsBotTurn(group, previous) ? (
-            <li
-              key={`head-${group.key}`}
-              className="text-muted-foreground -mb-1.5 flex items-center gap-1.5 self-start text-xs font-medium"
-            >
-              <BotAvatar id={bot.id} name={bot.name} size="sm" />
-              {bot.name}
+            <li key={`head-${group.key}`} className="-mb-1 self-start pt-2">
+              <TurnHead
+                id={bot.id}
+                name={bot.name}
+                at={group.at}
+                mood={index === liveHead ? "thinking" : "idle"}
+              />
             </li>
           ) : null;
         return [
@@ -249,7 +255,7 @@ function renderGroup(
   ) : group.entry.kind === "output" ? (
     <li
       key={group.key}
-      className="group/msg flex max-w-[80%] min-w-0 flex-col items-start gap-0.5 self-start"
+      className="group/msg flex w-full min-w-0 flex-col items-start gap-0.5 self-start sm:max-w-[85%]"
       title={formatFull(group.entry.at)}
     >
       <Output

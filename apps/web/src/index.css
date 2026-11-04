@@ -312,6 +312,17 @@ svg.lucide {
   line-height: var(--text-chat--line-height);
 }
 
+/* The streaming caret rides the end of the last line, not a line of its own:
+   after the last paragraph or heading, inside the last list item, or alone
+   while nothing has arrived yet. Still, so reduced motion needs nothing. */
+.chat-prose[data-streaming]:empty::after,
+.chat-prose[data-streaming] > :last-child:not(ul, ol, pre, table, div, hr)::after,
+.chat-prose[data-streaming] > :is(ul, ol):last-child > li:last-child::after {
+  content: "▍";
+  color: var(--live);
+  margin-inline-start: 0.125rem;
+}
+
 /* Document previews (file markdown): chat-size prose with doc-grade
    details — ruled tables, quiet quotes, rounded media, tidy code. */
 .prose.md-doc :where(table) {
