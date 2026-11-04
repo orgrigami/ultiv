@@ -88,26 +88,26 @@ export function FactRow({
           <p className="text-muted-foreground mt-1 text-xs">
             {meta(fact)}
             {learnedIn !== undefined && (
-              <Button
-                variant="link"
-                size="sm"
-                className="ml-1 h-auto p-0 text-xs"
-                onClick={() => openChat(learnedIn)}
-              >
-                {t.learnedIn(learnedIn.kind === "main" ? t.mainChatName : learnedIn.title)}
-              </Button>
+              <>
+                {" "}
+                <Button variant="link" size="inline" onClick={() => openChat(learnedIn)}>
+                  {t.learnedIn(learnedIn.kind === "main" ? t.mainChatName : learnedIn.title)}
+                </Button>
+              </>
             )}
             {fact.basis === "inferred" && (
-              <Button
-                variant="link"
-                size="sm"
-                className="ml-1 h-auto p-0 text-xs"
-                aria-label={t.confirmAria(fact.text)}
-                disabled={busy}
-                onClick={() => void act({ op: "confirm" })}
-              >
-                {t.confirmLabel}
-              </Button>
+              <>
+                {" "}
+                <Button
+                  variant="link"
+                  size="inline"
+                  aria-label={t.confirmAria(fact.text)}
+                  disabled={busy}
+                  onClick={() => void act({ op: "confirm" })}
+                >
+                  {t.confirmLabel}
+                </Button>
+              </>
             )}
           </p>
           {error !== null && <ErrorState message={error} className="mt-1" />}

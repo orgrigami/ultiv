@@ -18,7 +18,7 @@ const fold = (text: string): string =>
   text
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+    .toLocaleLowerCase("en");
 
 export type Part = { readonly text: string; readonly hit: boolean };
 

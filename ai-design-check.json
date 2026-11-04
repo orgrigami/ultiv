@@ -1,3 +1,12 @@
 {
-  "include": ["apps/web/src"]
+  "include": ["apps/web/src"],
+  "ignore": ["apps/web/src/routeTree.gen.ts"],
+  "properNouns": [],
+  "componentDirs": ["**/components/ui/**"],
+  "rules": {},
+  "allow": {
+    "type-scale": [],
+    "radius-scale": [],
+    "glow-in-charts-only": []
+  }
 }

@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import type { HistoryHit, HistorySearch } from "@spriessen/contracts";
 import { BotAvatar } from "@/components/bot-avatar";
 import { SectionHeader } from "@/components/ui/section-header";
+import { Tile } from "@/components/ui/tile";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { RowButton } from "@/components/ui/row-button";
 import { api } from "@/lib/api";
@@ -130,7 +131,7 @@ export function MessageSearch({ query }: { query: string }) {
       )}
       {state.kind === "done" &&
         state.result.groups.map((group) => (
-          <div key={group.profile} className="bg-card rounded-2xl border">
+          <Tile key={group.profile} radius="2xl">
             <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
               <BotAvatar id={group.profile} name={nameOf(group.profile)} size="sm" />
               <span className="text-sm font-medium">{nameOf(group.profile)}</span>
@@ -149,7 +150,7 @@ export function MessageSearch({ query }: { query: string }) {
                 />
               ))}
             </ul>
-          </div>
+          </Tile>
         ))}
     </section>
   );

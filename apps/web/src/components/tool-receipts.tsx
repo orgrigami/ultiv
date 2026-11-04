@@ -5,6 +5,7 @@
  * a flat JSON object as rows; only deep structures stay JSON, highlighted.
  */
 import { ArrowUpRightIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { CodePlate } from "@/components/tool-code-plate";
 import { humanizeKey } from "@/lib/tool-values";
 import { cn } from "@/lib/utils";
@@ -41,13 +42,10 @@ function Words({ v }: { v: unknown }) {
     return (
       <span className="flex flex-wrap gap-1">
         {v.map((item, index) => (
-          <span
-            // biome-ignore lint/suspicious/noArrayIndexKey: static values
-            key={index}
-            className="bg-muted text-foreground/90 rounded-md px-1.5 py-px text-xs"
-          >
+          // biome-ignore lint/suspicious/noArrayIndexKey: static values
+          <Badge key={index} variant="muted">
             {String(item)}
-          </span>
+          </Badge>
         ))}
       </span>
     );
