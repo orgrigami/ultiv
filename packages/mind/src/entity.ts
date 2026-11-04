@@ -43,6 +43,7 @@ import { tasksVisibleTo } from "./act/task-live.ts";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
+import { openSearchDb } from "./search/db.ts";
 import { temporalPlugin } from "./act/temporal.ts";
 import { Audit, auditLayer } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
@@ -220,10 +221,16 @@ const mindLayerRaw = (
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
       // Tasks run as their bot: bind (and resume) only once the index exists.
       void tasks.attach(profiles.bindTask);
+      // The search sidecar: derived, rebuildable, closed with the mind.
+      const searchDb = yield* Effect.acquireRelease(
+        Effect.sync(() => openSearchDb(wiring.searchDbPath)),
+        (db) => Effect.sync(() => db.close()),
+      );
       const routines = routineServices(converse, profiles, wiring.onSchedulesChanged, {
         generate,
         decide,
         audit,
+        searchDb,
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
       });
@@ -338,6 +345,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   const bindings = vaultRoot !== null ? makeBindingStore(vaultRoot) : null;
   const wiring: MindWiring = {
     holder,
+    searchDbPath: searchDbPathOf(options),
     vaultStore,
     vaultRoot,
     bindings,
@@ -428,6 +436,17 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     .pipe(Layer.merge(generate))
     .pipe(Layer.merge(tasks));
   return mindLayerRaw(wiring).pipe(Layer.provide(dependencies));
+};
+
+/**
+ * Where the search sidecar lives: `SEARCH_DB` when set; in memory when the
+ * mind runs on injected storage (tests, smoke) so nothing touches disk;
+ * else beside the harness database.
+ */
+const searchDbPathOf = (options: MindOptions): string => {
+  const configured = process.env.SEARCH_DB?.trim();
+  if (configured !== undefined && configured !== "") return configured;
+  return options.storage !== undefined ? ":memory:" : "var/search.sqlite";
 };
 
 export interface MindHandle {

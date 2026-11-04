@@ -79,6 +79,8 @@ export type MindError = External | ConfigError | Unavailable | Duplicate;
 /** Wiring built in `mindLayer` that the entity composition consumes. */
 export interface MindWiring {
   readonly holder: ScopeHolder;
+  /** The search sidecar's file (search/db.ts): `SEARCH_DB`, or memory on test storage. */
+  readonly searchDbPath: string;
   readonly vaultStore: VaultStore | null;
   readonly vaultRoot: string | null;
   readonly bindings: BindingStore | null;

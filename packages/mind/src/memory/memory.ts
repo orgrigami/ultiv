@@ -14,7 +14,7 @@
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
-import type { FactTrust, MemoryRecord } from "@spriessen/contracts";
+import type { FactTrust, MemoryEntity, MemoryFact, MemoryRecord } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -38,7 +38,8 @@ import {
   profileKey,
 } from "./model.ts";
 import { shareOps } from "./share.ts";
-import { recall } from "./recall.ts";
+import { recall, type RecallInput } from "./recall.ts";
+import type { FactSearch } from "../search/facts.ts";
 import { confirmFact, endFact } from "./lifecycle.ts";
 import type { MemoryService } from "./memory-api.ts";
 export type { MemoryService } from "./memory-api.ts";
@@ -55,6 +56,8 @@ export const memoryService = (deps: {
   /** The write guard's taint sources (audit trail + installed MCP tools). */
   readonly audit?: AuditService;
   readonly untrustedTool?: (name: string) => boolean;
+  /** The search sidecar's facts index; absent ⇒ the in-process index. */
+  readonly search?: FactSearch;
 }): MemoryService => {
   const { converse, profiles } = deps;
   const lifecycleDeps = {
@@ -133,6 +136,46 @@ export const memoryService = (deps: {
       }),
     );
     return mirrorRecord(fact);
+  };
+
+  /**
+   * The sidecar's full-text legs over a pool, after syncing each of its
+   * stores. A sidecar that fails (disk, lock) falls back to the in-process
+   * index: recall degrades, it never breaks.
+   */
+  const searchLegs = (
+    read: readonly {
+      key: string;
+      facts: readonly MemoryFact[];
+      entities: readonly MemoryEntity[];
+    }[],
+    entities: readonly MemoryEntity[],
+  ): Pick<RecallInput, "search"> => {
+    const search = deps.search;
+    if (search === undefined) return {};
+    const names = new Map(entities.map((entity) => [entity.id, [entity.name, ...entity.aliases]]));
+    try {
+      for (const store of read) search.sync(store.key, store.facts, (id) => names.get(id) ?? []);
+    } catch (cause) {
+      console.warn("memory search index unavailable, recalling in-process:", String(cause));
+      return {};
+    }
+    const keys = read.map((store) => store.key);
+    return {
+      search: {
+        lexical: (query, limit) => search.lexical(keys, query, limit),
+        fuzzy: (query, limit) => search.fuzzy(keys, query, limit),
+      },
+    };
+  };
+
+  /** Remove a store's rows from the sidecar; the next recall rebuilds what is left. */
+  const dropIndex = (key: string): void => {
+    try {
+      deps.search?.drop(key);
+    } catch (cause) {
+      console.warn("memory search index: could not drop a store:", String(cause));
+    }
   };
 
   const service: MemoryService = {
@@ -279,6 +322,7 @@ export const memoryService = (deps: {
           core.lines = [];
         }),
       );
+      dropIndex(profileKey(owner, profileId));
       return v2Count;
     },
     remove: async (owner, profileId, recordId) => {
@@ -304,31 +348,29 @@ export const memoryService = (deps: {
       // token budget hold across the merge and owner facts compete on score
       // instead of being appended after the profile's (they crowded out).
       // A department bot's shared store joins the pool through extraStores.
-      const extra = opts.extraStores ?? [];
-      const sharedFacts = (
-        await Promise.all(
-          extra.map((key) =>
-            run(converse.docs.snapshotKeyed(FactsDoc, key)).then((store) => store?.facts ?? []),
+      const stores = [profileKey(owner, profileId), ownerKey(owner), ...(opts.extraStores ?? [])];
+      const read = await Promise.all(
+        stores.map(async (key) => ({
+          key,
+          facts: await run(converse.docs.snapshotKeyed(FactsDoc, key)).then(
+            (store) => store?.facts ?? [],
           ),
-        )
-      ).flat();
-      const [own, ownerStore, ownEntities, ownerEntities] = await Promise.all([
-        service.readFacts(owner, profileId),
-        service.readFacts(owner, null),
-        run(converse.docs.snapshotKeyed(GraphDoc, profileKey(owner, profileId))).then(
-          (store) => store?.entities ?? [],
-        ),
-        run(converse.docs.snapshotKeyed(GraphDoc, ownerKey(owner))).then(
-          (store) => store?.entities ?? [],
-        ),
-      ]);
+          entities: await run(converse.docs.snapshotKeyed(GraphDoc, key)).then(
+            (store) => store?.entities ?? [],
+          ),
+        })),
+      );
+      const entities = read.flatMap((store) => store.entities);
       const result = recall({
-        facts: [...own, ...ownerStore, ...sharedFacts],
-        entities: [...ownEntities, ...ownerEntities],
+        facts: read.flatMap((store) => store.facts),
+        entities,
+        cacheKey: stores.join("|"),
+        ...searchLegs(read, entities),
         ...(opts.query !== undefined ? { query: opts.query } : {}),
         ...(opts.includeHistory !== undefined ? { includeHistory: opts.includeHistory } : {}),
         ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
         ...(opts.budgetTokens !== undefined ? { budgetTokens: opts.budgetTokens } : {}),
+        ...(opts.asOf !== undefined ? { asOf: opts.asOf } : {}),
       });
       return { core: [], facts: result.facts, lines: result.lines, tokens: result.tokens };
     },
@@ -359,7 +401,12 @@ export const memoryService = (deps: {
     confirm: (owner, profileId, ref, conversationId) =>
       confirmFact(lifecycleDeps, owner, profileId, ref, conversationId),
     restore: (owner, profileId, factId) => restoreFact({ converse }, owner, profileId, factId),
-    purge: (owner, profileId) => purgeForgotten({ converse }, owner, profileId),
+    purge: async (owner, profileId) => {
+      const purged = await purgeForgotten({ converse }, owner, profileId);
+      // Purged text must leave the sidecar now, not at the store's next recall.
+      dropIndex(profileId === null ? ownerKey(owner) : profileKey(owner, profileId));
+      return purged;
+    },
     entities: (owner, profileId) => entitiesOf({ converse }, owner, profileId),
     related: (owner, profileId, entity, depth) =>
       relatedEntity({ converse }, owner, profileId, entity, depth ?? 1),

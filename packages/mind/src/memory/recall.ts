@@ -27,6 +27,23 @@ export interface RecallInput {
   readonly limit?: number;
   readonly budgetTokens?: number;
   readonly now?: number;
+  /**
+   * The full-text legs from the search sidecar (search/facts.ts), already
+   * scoped to the pool's stores. Absent (tests, an unavailable sidecar):
+   * the in-process BM25 index serves the lexical leg.
+   */
+  readonly search?: {
+    readonly lexical: (query: string, limit: number) => readonly string[];
+    readonly fuzzy: (query: string, limit: number) => readonly string[];
+  };
+  /** The in-process index cache key: one per pool, so bots don't evict each other. */
+  readonly cacheKey?: string;
+  /**
+   * "What held then": every version valid at this moment — current or
+   * since changed/ended — instead of what is current now. Corrected and
+   * forgotten versions never count.
+   */
+  readonly asOf?: number;
 }
 
 export interface RecallResult {
@@ -39,7 +56,13 @@ export interface RecallResult {
 }
 
 const RRF_K = 60;
-const WEIGHTS = { l1: 1.0, l2: 0.8, l3: 0.5, l4: 0.3 } as const;
+const WEIGHTS = { l1: 1.0, l2: 0.8, l3: 0.5, l4: 0.3, grams: 0.3 } as const;
+/**
+ * The trigram leg admits candidates of its own only when the word leg
+ * found almost nothing (a typo, a code, a name spelled differently);
+ * otherwise it only reinforces facts the other legs already found.
+ */
+const GRAMS_ADMIT_BELOW = 3;
 const LIMIT_DEFAULT = 10;
 const LIMIT_MAX = 25;
 const BUDGET_DEFAULT = 600;
@@ -146,6 +169,9 @@ export const recall = (input: RecallInput): RecallResult => {
   const entities = input.entities ?? [];
   const core = input.core ?? [];
 
+  const asOf = input.asOf;
+  const heldAt = (fact: MemoryFact, at: number): boolean =>
+    (fact.validFrom ?? fact.createdAt) <= at && (fact.validTo === null || fact.validTo > at);
   const visible = input.facts.filter(
     (fact) =>
       fact.status !== "forgotten" &&
@@ -155,13 +181,15 @@ export const recall = (input: RecallInput): RecallResult => {
       // instructions (owner or self trust) rank in; derived/untrusted
       // instruction-shaped text from outside content never does.
       !(fact.kind === "instruction" && (fact.trust === "derived" || fact.trust === "untrusted")) &&
-      (wantHistory || !isHistory(fact, now)),
+      (asOf !== undefined
+        ? fact.status !== "archived" && heldAt(fact, asOf)
+        : wantHistory || !isHistory(fact, now)),
   );
   const pool = wantHistory ? [...visible, ...(input.archive ?? [])] : visible;
 
   if (query === "") {
     const top = [...visible]
-      .filter((fact) => !isHistory(fact, now))
+      .filter((fact) => asOf !== undefined || !isHistory(fact, now))
       .sort((a, b) => prior(b, now) - prior(a, now))
       .slice(0, limit);
     return render({ core, facts: top, now, budget });
@@ -174,16 +202,25 @@ export const recall = (input: RecallInput): RecallResult => {
   const signature = `${pool.length}:${entities.map((e) => `${e.id}:${e.name}:${e.aliases.join("|")}`).join(";")}:${pool
     .map((fact) => fact.id)
     .join(",")}`;
-  const l1 = cachedIndex("recall", pool, namesOf, signature)
-    .search(queryTerms(query))
-    .slice(0, 50)
-    .map((entry) => entry.id);
+  const inPool = new Set(pool.map((fact) => fact.id));
+  const l1 =
+    input.search !== undefined
+      ? input.search.lexical(query, 50).filter((id) => inPool.has(id))
+      : cachedIndex(input.cacheKey ?? "recall", pool, namesOf, signature)
+          .search(queryTerms(query))
+          .slice(0, 50)
+          .map((entry) => entry.id);
+  const grams =
+    input.search !== undefined ? input.search.fuzzy(query, 20).filter((id) => inPool.has(id)) : [];
   const matched = entityMatches(query, entities);
   const l2 = factsForEntities(matched, pool, 30);
   const l3 = factsForEntities(neighbours(matched, pool, entities), pool, 20);
   // L4 is a PRIOR over the candidates, not a fourth candidate source: textual
   // or entity evidence must exist before recency/importance can surface a fact.
-  const candidates = [...new Set([...l1, ...l2, ...l3])];
+  const found = new Set([...l1, ...l2, ...l3]);
+  const admitGrams = found.size < GRAMS_ADMIT_BELOW;
+  const gramLeg = admitGrams ? grams : grams.filter((id) => found.has(id));
+  const candidates = [...new Set([...found, ...gramLeg])];
   const priorById = new Map(pool.map((entry) => [entry.id, entry]));
   const l4 = candidates
     .map((id) => priorById.get(id))
@@ -196,6 +233,7 @@ export const recall = (input: RecallInput): RecallResult => {
     { weight: WEIGHTS.l2, ids: l2 },
     { weight: WEIGHTS.l3, ids: l3 },
     { weight: WEIGHTS.l4, ids: l4 },
+    { weight: WEIGHTS.grams, ids: gramLeg },
   ]);
   const byId = new Map(pool.map((fact) => [fact.id, fact]));
   const ranked = [...fused]

@@ -33,6 +33,8 @@ import type { MailboxService } from "./mailbox/mailbox.ts";
 import { messageTools } from "./mailbox/tools.ts";
 import { memoryService, type MemoryService } from "./memory/memory.ts";
 import { memoryTools } from "./memory/tools.ts";
+import type { SearchDb } from "./search/db.ts";
+import { factSearch } from "./search/facts.ts";
 import { historyService, type HistoryService } from "./history/history.ts";
 import { historyTools } from "./history/tools.ts";
 import { schedulesService, type SchedulesService } from "./schedules/schedules.ts";
@@ -424,9 +426,19 @@ export const routineServices = (
     /** Taint sources for the memory write/forget guard. */
     readonly audit?: AuditService;
     readonly untrustedTool?: (name: string) => boolean;
+    /** The search sidecar: full-text recall and conversation search. */
+    readonly searchDb?: SearchDb;
   } = {},
 ) => ({
-  memory: memoryService({ converse, profiles, ...models }),
+  memory: memoryService({
+    converse,
+    profiles,
+    ...(models.generate !== undefined ? { generate: models.generate } : {}),
+    ...(models.decide !== undefined ? { decide: models.decide } : {}),
+    ...(models.audit !== undefined ? { audit: models.audit } : {}),
+    ...(models.untrustedTool !== undefined ? { untrustedTool: models.untrustedTool } : {}),
+    ...(models.searchDb !== undefined ? { search: factSearch(models.searchDb) } : {}),
+  }),
   history: historyService({ converse, profiles }),
   schedules: schedulesService({
     converse,

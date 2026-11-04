@@ -16,6 +16,8 @@ import { forgetTool, historyTool, relatedTool } from "./tools-lifecycle.ts";
 import { contextOf, coreVerdict } from "./guard.ts";
 
 import { writeTool } from "./tools-write.ts";
+import { parseWhen } from "./dates.ts";
+import { causeText } from "./handles.ts";
 import { updateTool } from "./tools-update.ts";
 
 const recallTool = (
@@ -43,6 +45,11 @@ const recallTool = (
       includeHistory: Type.Optional(
         Type.Boolean({ description: "Include superseded facts, grouped under their successor." }),
       ),
+      asOf: Type.Optional(
+        Type.String({
+          description: "What held on that day (YYYY-MM-DD): the versions valid then, not now.",
+        }),
+      ),
       limit: Type.Optional(Type.Number({ description: "Max facts, 1–25 (default 10)." })),
       budgetTokens: Type.Optional(
         Type.Number({ description: "Output budget in tokens; default 600, max 1500." }),
@@ -68,12 +75,24 @@ const recallTool = (
         };
       }
       const query = [args.about, args.query].filter((part) => part !== undefined).join(" ");
+      let asOf: number | undefined;
+      try {
+        // The END of that day: "on 2026-03-01" includes what started that day.
+        const day = parseWhen(args.asOf);
+        asOf = day === undefined ? undefined : day + 86_399_999;
+      } catch (cause) {
+        return {
+          output: [{ type: "text" as const, text: causeText(cause) }],
+          structuredOutput: [],
+        };
+      }
       // A department bot recalls its department's accepted shared facts too.
       const departmentId = departmentOf === undefined ? null : await departmentOf(scope.profileId);
       return memory
         .recallV2(scope.owner, scope.profileId, {
           ...(query !== "" ? { query } : {}),
           ...(args.includeHistory !== undefined ? { includeHistory: args.includeHistory } : {}),
+          ...(asOf !== undefined ? { asOf } : {}),
           ...(args.limit !== undefined ? { limit: args.limit } : {}),
           ...(args.budgetTokens !== undefined ? { budgetTokens: args.budgetTokens } : {}),
           ...(departmentId !== null

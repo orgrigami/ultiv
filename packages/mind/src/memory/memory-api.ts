@@ -64,6 +64,8 @@ export interface MemoryService {
       readonly budgetTokens?: number;
       /** Additional store keys in the pool (a department's shared store). */
       readonly extraStores?: readonly string[];
+      /** What held at this moment (a past day): versions valid then, current or not. */
+      readonly asOf?: number;
     },
   ) => Promise<RecallResult>;
   /**
