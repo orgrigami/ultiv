@@ -44,12 +44,21 @@ function shippedTools(): Shipped[] {
   for (const text of files) {
     const blocks = text.split(/defineTool\(\s*\{/).slice(1);
     for (const block of blocks) {
-      const named = /^\s*name:\s*(?:"([a-z_]+)"|([A-Z_]+))\s*,/.exec(block);
+      // Leading comments are allowed between `defineTool({` and `name:`.
+      const named = /^(?:\s*\/\/[^\n]*)*\s*name:\s*(?:"([a-z_]+)"|([A-Z_]+))\s*,/.exec(block);
       if (named === null) continue; // a computed name (connector_${change}): covered by hand
       const name = named[1] ?? constants.get(named[2]!);
       if (name === undefined) continue;
       const head = block.split(/\bexecute\b/)[0] ?? "";
       tools.push({ name, gated: /\bgated:\s*true\b/.test(head) });
+    }
+  }
+  // Plain registrations (the Jev tools) are never gated: they only judge.
+  for (const text of files) {
+    for (const match of text.matchAll(
+      /ToolRegistration<[^>]*>\s*\{\s*return\s*\{\s*name:\s*"([a-z_]+)"/g,
+    )) {
+      tools.push({ name: match[1]!, gated: false });
     }
   }
   return tools;
@@ -73,6 +82,8 @@ describe("every shipped tool reads in owner words", () => {
     expect(tools.find((tool) => tool.name === "file_read")?.gated).toBe(false);
     expect(tools.find((tool) => tool.name === "skill_install")?.gated).toBe(true);
     expect(tools.some((tool) => tool.name === "ask_user_question")).toBe(true);
+    expect(tools.some((tool) => tool.name === "bots_list")).toBe(true); // a comment precedes its name
+    expect(tools.some((tool) => tool.name === "jev_score")).toBe(true); // a plain registration
   });
 
   it("has its own words in the lens, or is deliberately hidden", () => {
