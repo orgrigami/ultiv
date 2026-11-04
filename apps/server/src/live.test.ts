@@ -150,6 +150,7 @@ describe("bot-to-bot traffic", () => {
 describe("changes bots make through tools", () => {
   it("map a successful write tool to its slice, reads to nothing", () => {
     expect(liveKindsForTool("memory_write")).toEqual(["memory"]);
+    expect(liveKindsForTool("memory_update")).toEqual(["memory"]);
     expect(liveKindsForTool("skill_learn")).toEqual(["skills"]);
     expect(liveKindsForTool("schedule_set")).toEqual(["routines"]);
     expect(liveKindsForTool("sensor_remove")).toEqual(["routines"]);

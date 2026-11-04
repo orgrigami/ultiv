@@ -1,5 +1,5 @@
 /**
- * The `memory_recall` prompt section: recall before each turn (prefetch.ts)
+ * The `recalled_memories` prompt section: recall before each turn (prefetch.ts)
  * wired into the harness. It renders before every model request, finds the
  * conversation's latest input, and — once per input, cached across the
  * turn's tool rounds — recalls, gates and renders the few memories it is
@@ -15,7 +15,7 @@ import type { MemoryService } from "./memory.ts";
 import { gateFacts, renderPrefetch, shownLedger } from "./prefetch.ts";
 import { indexTerms } from "./text.ts";
 
-export const PREFETCH_SECTION_KEY = "memory_recall";
+export const PREFETCH_SECTION_KEY = "recalled_memories";
 const SCAN = 30;
 const QUERY_CHARS = 1_000;
 

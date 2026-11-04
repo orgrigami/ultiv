@@ -116,8 +116,8 @@ the in-process BM25 index serves the word leg, cached per pool.
 
 ### Recall before each turn
 
-A bot no longer has to remember to remember. The `memory_recall` prompt
-section (`memory/prefetch.ts`, `prefetch-section.ts`) renders before every
+A bot no longer has to remember to remember. The `recalled_memories`
+prompt section (`memory/prefetch.ts`, `prefetch-section.ts`) renders before every
 model request; for the conversation's latest input (once per input, cached
 across the turn's tool rounds) it recalls, gates and shows the memories the
 message is about, as data with their handles. The gate (after

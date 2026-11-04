@@ -84,7 +84,7 @@ export const LIVE_PATH = "/push";
  * record of each successful call is mapped here. Reads map to nothing.
  */
 export const liveKindsForTool = (name: string): LiveKind[] => {
-  if (/^memory_(write|save|core|forget)$/.test(name)) return ["memory"];
+  if (/^memory_(write|save|core|forget|update)$/.test(name)) return ["memory"];
   if (/^skill_(write|edit|learn|delete|install|propose|evolve)$/.test(name)) return ["skills"];
   if (/^(schedule|sensor|webhook)_(set|create|remove)$/.test(name)) return ["routines"];
   if (/^(bot|department)_(create|update|move|pause|delete)$/.test(name)) {
