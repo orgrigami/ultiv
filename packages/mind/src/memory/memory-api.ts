@@ -104,6 +104,8 @@ export interface MemoryService {
     readonly basis?: "owner_said" | "observed" | "inferred";
     readonly replaces?: string | null;
     readonly validFrom?: number | null;
+    readonly validTo?: number | null;
+    readonly correction?: boolean;
     readonly trust?: FactTrust;
     readonly origin?: string;
     readonly conversation?: string | null;
@@ -124,6 +126,21 @@ export interface MemoryService {
     profileId: string | null,
     factId: string,
   ) => Promise<readonly HistoryEntry[]>;
+  /** A fact stops holding from `at` (default now); see lifecycle.ts. */
+  readonly end: (
+    owner: string,
+    profileId: string | null,
+    ref: string,
+    at: number | undefined,
+    conversationId: string | null,
+  ) => Promise<{ readonly id: string; readonly endsAt: number; readonly retired: boolean }>;
+  /** The owner confirmed a fact; only a clean owner turn may. */
+  readonly confirm: (
+    owner: string,
+    profileId: string | null,
+    ref: string,
+    conversationId: string | null,
+  ) => Promise<{ readonly id: string; readonly confirmations: number }>;
   /** The owner's undo of a tombstone. */
   readonly restore: (owner: string, profileId: string | null, factId: string) => Promise<void>;
   /** The owner's irreversible purge of forgotten facts' text. */

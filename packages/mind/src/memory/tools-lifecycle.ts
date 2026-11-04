@@ -7,6 +7,7 @@
 import { Type } from "typebox";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { MemoryService } from "./memory.ts";
+import { causeText, dayOf, handleOf } from "./handles.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 const refusal = (reason: string) => ({
@@ -24,7 +25,9 @@ export const forgetTool = (memory: MemoryService, profiles: ProfilesService): To
       "own facts only; owner-stated facts can be forgotten only when the owner asked in this " +
       "turn. Always give the reason.",
     parameters: Type.Object({
-      id: Type.String({ description: "The fact id (from memory_recall or memory_history)." }),
+      id: Type.String({
+        description: "The fact's #handle (from memory_recall or memory_history).",
+      }),
       reason: Type.String({ description: "Why this fact is being retracted." }),
     }),
     structuredOutputSchema: Type.Object({ id: Type.String(), forgotten: Type.Boolean() }),
@@ -44,9 +47,7 @@ export const forgetTool = (memory: MemoryService, profiles: ProfilesService): To
           ],
           structuredOutput: { id: result.id, forgotten: true },
         }))
-        .catch((cause: unknown) =>
-          refusal(`refused: ${(cause as { reason?: string }).reason ?? String(cause)}`),
-        );
+        .catch((cause: unknown) => refusal(`refused: ${causeText(cause)}`));
     },
   });
 
@@ -59,7 +60,7 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
       "whether a fact changed over time before relying on it, or to find the id to correct " +
       "with `replaces`. History stays until the owner purges — forgetting is reversible.",
     parameters: Type.Object({
-      id: Type.String({ description: "The fact id to trace." }),
+      id: Type.String({ description: "The fact's #handle to trace." }),
     }),
     structuredOutputSchema: Type.Array(
       Type.Object({
@@ -86,7 +87,9 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
               text: chain
                 .map(
                   (entry) =>
-                    `${entry.text} [${entry.status}, ${entry.change}, from ${entry.validFrom ?? "?"} to ${entry.validTo ?? "now"}]`,
+                    `${handleOf(entry.id)} ${entry.text} [${entry.status}, ${entry.change}, ` +
+                    `from ${entry.validFrom === null ? "?" : dayOf(entry.validFrom)} ` +
+                    `to ${entry.validTo === null ? "now" : dayOf(entry.validTo)}]`,
                 )
                 .join("\n"),
             },
@@ -101,9 +104,7 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
             supersededBy: entry.supersededBy,
           })),
         }))
-        .catch((cause: unknown) =>
-          refusal(`refused: ${(cause as { reason?: string }).reason ?? String(cause)}`),
-        );
+        .catch((cause: unknown) => refusal(`refused: ${causeText(cause)}`));
     },
   });
 
@@ -144,7 +145,7 @@ export const relatedTool = (memory: MemoryService, profiles: ProfilesService): T
               type: "text" as const,
               text:
                 `${card.entity.name} (${card.entity.type})\n` +
-                card.facts.map((fact) => `- ${fact.text}`).join("\n") +
+                card.facts.map((fact) => `- ${handleOf(fact.id)} ${fact.text}`).join("\n") +
                 (card.neighbours.length > 0
                   ? `\nConnected: ${card.neighbours.map((n) => `${n.entity.name} (${n.via})`).join(", ")}`
                   : ""),
@@ -157,8 +158,6 @@ export const relatedTool = (memory: MemoryService, profiles: ProfilesService): T
             neighbours: card.neighbours.map(({ entity, via }) => ({ name: entity.name, via })),
           },
         }))
-        .catch((cause: unknown) =>
-          refusal(`refused: ${(cause as { reason?: string }).reason ?? String(cause)}`),
-        );
+        .catch((cause: unknown) => refusal(`refused: ${causeText(cause)}`));
     },
   });

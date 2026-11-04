@@ -7,7 +7,7 @@
  * and mark the old ones superseded.
  */
 import { randomUUID } from "node:crypto";
-import type { FactKind, FactTrust, MemoryFact } from "@spriessen/contracts";
+import type { FactKind, FactTrust, MemoryEntity, MemoryFact } from "@spriessen/contracts";
 import type { Tx } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { InvalidInput } from "@spriessen/core";
@@ -16,6 +16,7 @@ import type { DecideService } from "../decide/decide.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import { decideWrite, type WriteOp } from "./decide.ts";
 import { extractFact } from "./extract.ts";
+import { requireFactRef } from "./handles.ts";
 import { resolveEntitiesInTx } from "./graph.ts";
 import {
   EpisodesDoc,
@@ -42,6 +43,10 @@ export interface WriteFactInput {
   readonly basis?: "owner_said" | "observed" | "inferred";
   readonly replaces?: string | null;
   readonly validFrom?: number | null;
+  /** World-time end known at write time ("until the 10th"). */
+  readonly validTo?: number | null;
+  /** The replaced version was WRONG (memory_update correct), not merely outdated. */
+  readonly correction?: boolean;
   readonly trust?: FactTrust;
   readonly origin?: string;
   readonly conversation?: string | null;
@@ -111,6 +116,13 @@ const applyDecision = async (
   const kind = input.kind ?? extracted.kind;
   const confidence =
     input.basis !== undefined ? BASIS_CONFIDENCE[input.basis] : extracted.confidence;
+  const episodeId = randomUUID();
+  // A correction says the old version was WRONG: the new text held from the
+  // start, and the wrong one is never offered as the past.
+  const corrected =
+    input.correction === true && decision.targetId !== null
+      ? facts.facts.find((existing) => existing.id === decision.targetId)
+      : undefined;
   const fact = newFact({
     id: randomUUID(),
     scope: input.scope,
@@ -129,9 +141,11 @@ const applyDecision = async (
       writer: input.writer,
       origin: input.origin ?? "owner",
       conversation: input.conversation ?? null,
-      episode: null,
+      episode: input.text === "" ? null : episodeId,
     },
-    validFrom: input.validFrom ?? now,
+    validFrom: input.validFrom ?? corrected?.validFrom ?? now,
+    validTo: input.validTo ?? null,
+    ...(input.basis !== undefined ? { basis: input.basis } : {}),
     supersedes: decision.targetId === null ? [] : [decision.targetId],
     at: now,
   });
@@ -143,8 +157,10 @@ const applyDecision = async (
             ...existing,
             status: "superseded" as const,
             supersededBy: fact.id,
-            validTo: now,
             expiredAt: now,
+            ...(corrected !== undefined
+              ? { retired: "corrected" as const }
+              : { retired: "changed" as const, validTo: fact.validFrom ?? now }),
           }
         : existing,
     );
@@ -163,7 +179,7 @@ const applyDecision = async (
     }
   }
   facts.facts = [...facts.facts, fact];
-  await recordEpisode(tx, key, input, fact.id, now);
+  await recordEpisode(tx, key, input, fact.id, now, episodeId);
   return { id: fact.id, op: decision.op, replaced: decision.targetId, entities: entityIds };
 };
 
@@ -174,12 +190,13 @@ const recordEpisode = async (
   input: WriteFactInput,
   factId: string,
   now: number,
+  episodeId: string,
 ): Promise<void> => {
   if (input.text === "") return;
   const episodes = await tx.doc(EpisodesDoc, key, { episodes: [] });
   const kept = [
     {
-      id: randomUUID(),
+      id: episodeId,
       at: now,
       origin: input.origin ?? "owner",
       conversation: input.conversation ?? null,
@@ -216,8 +233,38 @@ export const writeFactV2 = async (
     ),
   ].slice(0, 30);
   const extracted = await extractFact(deps, input.text, knownNames);
-  // Decision + retention INSIDE the transaction, over facts re-read under
-  // the lock (the old code decided on a snapshot taken before it).
+  const entityIdsIn = (entities: readonly MemoryEntity[]): string[] =>
+    entities
+      .filter((entity) => entity.mergedInto === null)
+      .filter((entity) =>
+        extracted.entityNames.some(
+          (name) =>
+            normalize(entity.name) === normalize(name) ||
+            entity.aliases.some((alias) => normalize(alias) === normalize(name)),
+        ),
+      )
+      .map((entity) => entity.id);
+  // The DECISION may ask Jev or a model (up to 8 s). It runs here, on a
+  // snapshot, never inside the commit: docs.commit is one lock for every
+  // durable write in the app, chat admission included.
+  const before = await Effect.runPromise(deps.converse.docs.snapshotKeyed(FactsDoc, key)).then(
+    (store) => (store?.facts ?? []).filter((fact) => fact.status === "current"),
+    () => [] as MemoryFact[],
+  );
+  refuseWhenFull(before, input);
+  const replaces =
+    input.replaces === undefined || input.replaces === null
+      ? null
+      : requireFactRef(input.replaces, before);
+  const decideInput = (current: readonly MemoryFact[], entityIds: readonly string[]) => ({
+    text: extracted.text,
+    tags: input.tags ?? [],
+    entityIds,
+    triple: extracted.triple,
+    ...(replaces !== null ? { replaces } : {}),
+    current,
+  });
+  const planned = await decideWrite(deps, decideInput(before, entityIdsIn(graph)));
   return Effect.runPromise(
     deps.converse.docs.commit<{
       id: string;
@@ -228,44 +275,30 @@ export const writeFactV2 = async (
       const facts = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
       const graphDoc = await tx.doc(GraphDoc, key, { entities: [] });
       const current = facts.facts.filter((fact) => fact.status === "current");
-      // Retention: the hard cap refuses only LOW-importance bot writes; the
-      // owner (human) and importance ≥3 writes still land, so review never
-      // loses.
-      if (
-        current.length >= LIMITS.hardFacts &&
-        input.writer !== null &&
-        (input.importance ?? 3) <= 2
-      ) {
-        throw new InvalidInput({
-          reason: "memory is full; ask Harry to review the tidy list",
-        });
-      }
-      const decision = await decideWrite(deps, {
-        text: extracted.text,
-        tags: input.tags ?? [],
-        entityIds: graphDoc.entities
-          .filter((entity) => entity.mergedInto === null)
-          .filter((entity) =>
-            extracted.entityNames.some(
-              (name) =>
-                normalize(entity.name) === normalize(name) ||
-                entity.aliases.some((alias) => normalize(alias) === normalize(name)),
-            ),
-          )
-          .map((entity) => entity.id),
-        triple: extracted.triple,
-        ...(input.replaces !== undefined ? { replaces: input.replaces } : {}),
-        current,
-      });
-      return applyDecision(tx, {
-        key,
-        input,
-        extracted,
-        decision,
-        current,
-      });
+      refuseWhenFull(current, input);
+      // A write that landed meanwhile: decide again on what is there now,
+      // by the rules only (no model call under the lock); an ambiguous case
+      // then adds and leaves a merge proposal for the tidy.
+      const decision = sameFacts(before, current)
+        ? planned
+        : await decideWrite({}, decideInput(current, entityIdsIn(graphDoc.entities)));
+      return applyDecision(tx, { key, input, extracted, decision, current });
     }),
   );
 };
+
+/** The hard cap refuses only LOW-importance bot writes; owner and importance ≥3 land. */
+const refuseWhenFull = (current: readonly MemoryFact[], input: WriteFactInput): void => {
+  if (current.length >= LIMITS.hardFacts && input.writer !== null && (input.importance ?? 3) <= 2) {
+    throw new InvalidInput({
+      reason: "memory is full; ask the owner to review the tidy suggestions",
+    });
+  }
+};
+
+/** Same current facts, same texts: the decision taken on the snapshot still holds. */
+const sameFacts = (a: readonly MemoryFact[], b: readonly MemoryFact[]): boolean =>
+  a.length === b.length &&
+  a.every((fact, index) => fact.id === b[index]?.id && fact.hash === b[index]?.hash);
 
 export type { WriteOp };

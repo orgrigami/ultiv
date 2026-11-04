@@ -13,6 +13,7 @@ import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import { EpisodesDoc, FactsDoc, LIMITS, ownerKey, profileKey } from "./model.ts";
 import { contextOf, type WriteContext } from "./guard.ts";
+import { resolveFactRef } from "./handles.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
@@ -48,7 +49,8 @@ export const forgetFact = async (
     const facts = await run(deps.converse.docs.snapshotKeyed(FactsDoc, keyCandidate)).then(
       (store) => store?.facts ?? [],
     );
-    const found = facts.find((fact) => fact.id === factId);
+    const id = resolveFactRef(factId, facts);
+    const found = id === undefined ? undefined : facts.find((fact) => fact.id === id);
     if (found !== undefined) {
       target = found;
       targetKey = keyCandidate;
@@ -56,8 +58,9 @@ export const forgetFact = async (
     }
   }
   if (target === undefined || targetKey === null) {
-    throw new NotFound({ what: `fact ${factId}` });
+    throw new NotFound({ what: `fact ${factId} (use a #handle from memory_recall)` });
   }
+  const targetId = target.id;
   const context: WriteContext | null =
     conversationId === null
       ? null
@@ -71,7 +74,7 @@ export const forgetFact = async (
     deps.converse.docs.commit(async (tx) => {
       const facts = await tx.doc(FactsDoc, targetKey, { facts: [], migratedAt: null });
       facts.facts = facts.facts.map((fact) =>
-        fact.id === factId ? { ...fact, status: "forgotten" as const, expiredAt: now } : fact,
+        fact.id === targetId ? { ...fact, status: "forgotten" as const, expiredAt: now } : fact,
       );
       // Provenance: the retraction's reason rides the episode ring, so the
       // owner sees WHY in history — and Purge clears it with everything else.
@@ -84,14 +87,14 @@ export const forgetFact = async (
             origin: "forget",
             conversation: conversationId,
             input: reason.slice(0, 2_000),
-            facts: [factId],
+            facts: [targetId],
           },
           ...episodes.episodes,
         ].slice(0, LIMITS.episodesRing * 2);
       }
     }),
   );
-  return { id: factId, restored: false };
+  return { id: targetId, restored: false };
 };
 
 /**
@@ -127,7 +130,7 @@ export interface HistoryEntry {
   /** World-time validity, change type and source for one version. */
   readonly validFrom: number | null;
   readonly validTo: number | null;
-  readonly change: "created" | "superseded" | "refined" | "forgotten";
+  readonly change: "created" | "superseded" | "refined" | "forgotten" | "corrected" | "ended";
   readonly source: MemoryFact["source"];
   readonly supersededBy: string | null;
 }
@@ -139,13 +142,23 @@ export const historyOf = async (
   profileId: string | null,
   factId: string,
 ): Promise<readonly HistoryEntry[]> => {
-  const key = profileId === null ? ownerKey(owner) : profileKey(owner, profileId);
-  const facts = await run(deps.converse.docs.snapshotKeyed(FactsDoc, key)).then(
-    (store) => store?.facts ?? [],
-  );
+  // A bot's chain lives in its own store or in the owner store it reads.
+  const keys =
+    profileId === null ? [ownerKey(owner)] : [profileKey(owner, profileId), ownerKey(owner)];
+  let facts: readonly MemoryFact[] = [];
+  let anchorId: string | undefined;
+  for (const key of keys) {
+    facts = await run(deps.converse.docs.snapshotKeyed(FactsDoc, key)).then(
+      (store) => store?.facts ?? [],
+    );
+    anchorId = resolveFactRef(factId, facts);
+    if (anchorId !== undefined) break;
+  }
   const byId = new Map(facts.map((fact) => [fact.id, fact]));
-  const anchor = byId.get(factId);
-  if (anchor === undefined) throw new NotFound({ what: `fact ${factId}` });
+  const anchor = anchorId === undefined ? undefined : byId.get(anchorId);
+  if (anchor === undefined) {
+    throw new NotFound({ what: `fact ${factId} (use a #handle from memory_recall)` });
+  }
   // Ancestors: follow supersedes links down; successors: supersededBy up.
   const chain: MemoryFact[] = [anchor];
   let cursor: MemoryFact | undefined = anchor;
@@ -173,11 +186,13 @@ export const historyOf = async (
     change:
       fact.status === "forgotten"
         ? "forgotten"
-        : index === 0
-          ? "created"
-          : factHashSimilar(chain[index - 1] ?? fact, fact)
-            ? "refined"
-            : "superseded",
+        : fact.retired === "corrected" || fact.retired === "ended"
+          ? fact.retired
+          : index === 0
+            ? "created"
+            : factHashSimilar(chain[index - 1] ?? fact, fact)
+              ? "refined"
+              : "superseded",
     source: fact.source,
     supersededBy: fact.supersededBy,
   }));

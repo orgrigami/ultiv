@@ -40,9 +40,10 @@ export const MEMORY_WRITE_TITLES: Record<string, string> = {
 export const writeView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
   const output = rawOf(step.output) ?? "";
-  const op = output.match(/^remembered \((\w+)/)?.[1];
+  // "remembered #1a2b3c4d (supersede, replaced #…): text" — the handle is the model's.
+  const op = output.match(/^remembered (?:#\w+ )?\((\w+)/)?.[1];
   const refused = step.status === "error" || output.startsWith("refused");
-  const text = rawOf(input.text) ?? output.replace(/^remembered \([^)]*\):\s*/, "");
+  const text = rawOf(input.text) ?? output.replace(/^remembered (?:#\w+ )?\([^)]*\):\s*/, "");
   const kind = flatOf(input.kind);
   const basis = BASIS_TAGS[flatOf(input.basis) ?? ""] ?? "noted";
   return {
@@ -71,13 +72,44 @@ export const recallView = (step: ToolStep): ToolView => {
   if (output === undefined || output === "no matching memory.") {
     return { family: "memory", done: "No memories matched", live: "Checking memory…", detail };
   }
-  const lines = output.split("\n").filter((line) => line.trim() !== "");
+  // Each line leads with the fact's #handle: the model's address, not the owner's.
+  const lines = output
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => line.replace(/^#[0-9a-f]{6,}\s+/i, ""));
   return {
     family: "memory",
     done: `Recalled ${lines.length} ${lines.length === 1 ? "memory" : "memories"}`,
     live: "Checking memory…",
     detail,
     lines,
+  };
+};
+
+const UPDATE_TITLES: Record<string, [string, string]> = {
+  change: ["Updated a memory", "Updating a memory…"],
+  correct: ["Corrected a memory", "Correcting a memory…"],
+  end: ["Marked a memory as no longer true", "Retiring a memory…"],
+  confirm: ["Confirmed a memory", "Confirming a memory…"],
+};
+
+/** memory_update: change / correct / end / confirm a fact by its handle. */
+export const updateView = (step: ToolStep): ToolView => {
+  const input = recordOf(step.input);
+  const [done, live] = UPDATE_TITLES[flatOf(input.op) ?? ""] ?? [
+    "Updated a memory",
+    "Updating a memory…",
+  ];
+  const output = rawOf(step.output) ?? "";
+  const refused = step.status === "error" || output.startsWith("refused");
+  return {
+    family: "memory",
+    done: refused ? "Couldn't update that memory" : done,
+    live,
+    body: clip(
+      rawOf(input.text) ?? (refused ? output.replace(/^refused:\s*/, "") : undefined),
+      300,
+    ),
   };
 };
 

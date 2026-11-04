@@ -56,6 +56,23 @@ export const FactTrustSchema = Type.Union([
 ]);
 export type FactTrust = Static<typeof FactTrustSchema>;
 
+/** How the writer knows a fact. */
+export const FactBasisSchema = Type.Union([
+  Type.Literal("owner_said"),
+  Type.Literal("observed"),
+  Type.Literal("inferred"),
+  Type.Literal("confirmed"),
+]);
+export type FactBasis = Static<typeof FactBasisSchema>;
+
+/** Why a version left the present (see MemoryFactSchema.retired). */
+export const FactRetiredSchema = Type.Union([
+  Type.Literal("changed"),
+  Type.Literal("corrected"),
+  Type.Literal("ended"),
+]);
+export type FactRetired = Static<typeof FactRetiredSchema>;
+
 /** Where a fact came from. Every write is stamped. */
 export const FactSourceSchema = Type.Object({
   /** The surface that produced it: tool, rest, tidy, migration. */
@@ -115,6 +132,21 @@ export const MemoryFactSchema = Type.Object({
   supersedes: Type.Array(Type.String()),
   /** sha1 of normalized text — exact-duplicate detection. */
   hash: Type.String(),
+  /**
+   * How the writer knows it: the owner said it, the bot observed it, the bot
+   * inferred it, or an inference the owner since confirmed. Absent on facts
+   * written before v3. Recall marks unconfirmed inferences.
+   */
+  basis: Type.Optional(FactBasisSchema),
+  /**
+   * Why a version left the present: `changed` (it stopped being true and a
+   * newer version holds), `corrected` (it was wrong — never shown as the
+   * past), `ended` (it stopped holding, nothing replaces it). Absent while
+   * current and on versions retired before v3.
+   */
+  retired: Type.Optional(FactRetiredSchema),
+  /** Times the owner confirmed this fact (said it again or agreed). */
+  confirmations: Type.Optional(Type.Number({ minimum: 0 })),
 });
 export type MemoryFact = Static<typeof MemoryFactSchema>;
 

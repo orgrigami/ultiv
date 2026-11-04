@@ -133,6 +133,54 @@ describe("presentationOf", () => {
     expect(noop.view.done).toBe("No change");
   });
 
+  it("reads the v3 write receipt that carries the fact's handle", () => {
+    const supersede = presentationOf(
+      step({
+        name: "memory_write",
+        output: "remembered #1a2b3c4d (supersede, replaced #9f8e7d6c): Harry lives in Bandung",
+      }),
+    );
+    if (supersede.kind !== "human") return fail();
+    expect(supersede.view.done).toBe("Corrected an older note");
+    expect(supersede.view.body).toBe("Harry lives in Bandung");
+  });
+
+  it("shows recalled facts without the model's handles", () => {
+    const recalled = presentationOf(
+      step({
+        name: "memory_recall",
+        input: { query: "cat" },
+        output: "#1a2b3c4d Harry's cat is Mochi (since 2026-11-01)",
+      }),
+    );
+    if (recalled.kind !== "human") return fail();
+    expect(recalled.view.lines).toEqual(["Harry's cat is Mochi (since 2026-11-01)"]);
+  });
+
+  it("words each memory_update op", () => {
+    const view = (op: string, extra: Record<string, unknown> = {}) => {
+      const shown = presentationOf(
+        step({ name: "memory_update", input: { id: "#1a2b3c4d", op, ...extra }, output: "ok" }),
+      );
+      return shown.kind === "human" ? shown.view : undefined;
+    };
+    expect(view("correct", { text: "Birthday is 5 March" })?.done).toBe("Corrected a memory");
+    expect(view("correct", { text: "Birthday is 5 March" })?.body).toBe("Birthday is 5 March");
+    expect(view("end")?.done).toBe("Marked a memory as no longer true");
+    expect(view("confirm")?.done).toBe("Confirmed a memory");
+    const refused = presentationOf(
+      step({
+        name: "memory_update",
+        status: "error",
+        input: { id: "#nope", op: "end" },
+        output: "refused: unknown fact #nope (use a #handle from memory_recall)",
+      }),
+    );
+    if (refused.kind !== "human") return fail();
+    expect(refused.view.done).toBe("Couldn't update that memory");
+    expect(refused.view.body).toContain("unknown fact");
+  });
+
   it("admits a refused write instead of claiming success", () => {
     const refused = presentationOf(
       step({

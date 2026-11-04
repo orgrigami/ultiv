@@ -39,6 +39,7 @@ import {
 } from "./model.ts";
 import { shareOps } from "./share.ts";
 import { recall } from "./recall.ts";
+import { confirmFact, endFact } from "./lifecycle.ts";
 import type { MemoryService } from "./memory-api.ts";
 export type { MemoryService } from "./memory-api.ts";
 
@@ -56,6 +57,11 @@ export const memoryService = (deps: {
   readonly untrustedTool?: (name: string) => boolean;
 }): MemoryService => {
   const { converse, profiles } = deps;
+  const lifecycleDeps = {
+    converse,
+    ...(deps.audit !== undefined ? { audit: deps.audit } : {}),
+    ...(deps.untrustedTool !== undefined ? { untrustedTool: deps.untrustedTool } : {}),
+  };
 
   const readStore = (key: string): Promise<MemoryRecord[]> =>
     run(converse.docs.snapshotKeyed(MemoryDoc, key)).then((store) => store?.records ?? []);
@@ -348,6 +354,10 @@ export const memoryService = (deps: {
         conversationId,
       ),
     history: (owner, profileId, factId) => historyOf({ converse }, owner, profileId, factId),
+    end: (owner, profileId, ref, at, conversationId) =>
+      endFact(lifecycleDeps, owner, profileId, ref, at, conversationId),
+    confirm: (owner, profileId, ref, conversationId) =>
+      confirmFact(lifecycleDeps, owner, profileId, ref, conversationId),
     restore: (owner, profileId, factId) => restoreFact({ converse }, owner, profileId, factId),
     purge: (owner, profileId) => purgeForgotten({ converse }, owner, profileId),
     entities: (owner, profileId) => entitiesOf({ converse }, owner, profileId),

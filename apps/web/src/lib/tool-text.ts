@@ -29,6 +29,7 @@ import {
   learnView,
   messageView,
   recallView,
+  updateView,
   requestView,
   roomView,
   searchView,
@@ -224,6 +225,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: writeView(step) };
     case "memory_recall":
       return { kind: "human", view: recallView(step) };
+    case "memory_update":
+      return { kind: "human", view: updateView(step) };
     case "memory_core":
       return { kind: "human", view: coreView(step) };
     case "message":

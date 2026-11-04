@@ -22,6 +22,7 @@ import { Effect } from "effect";
 import { Type } from "typebox";
 import { factHash } from "./model.ts";
 import { indexTerms } from "./text.ts";
+import { isFunctional, normalizeTriple, sameTerm } from "./predicates.ts";
 
 export type WriteOp = "add" | "noop" | "supersede" | "refine";
 
@@ -39,20 +40,6 @@ export interface DecideDeps {
   readonly decide?: DecideService;
   readonly generate?: GenerateService;
 }
-
-/** Functional predicates: a newer object for the same subject WINS. */
-const FUNCTIONAL = new Set([
-  "name_is",
-  "lives_in",
-  "works_at",
-  "role_is",
-  "timezone_is",
-  "born_on",
-  "birthday_on",
-  "spouse_of",
-  "status_is",
-  "located_in",
-]);
 
 const jaccard = (a: readonly string[], b: readonly string[]): number => {
   const setA = new Set(a);
@@ -88,16 +75,18 @@ const bestMatch = (input: DecideInput): { fact: MemoryFact; score: number } | nu
 
 /** Rule 3: functional predicate, same subject, different object. */
 const functionalSupersede = (input: DecideInput): MemoryFact | null => {
-  const triple = input.triple;
-  if (triple === null || !FUNCTIONAL.has(triple.p)) return null;
+  const triple = normalizeTriple(input.triple);
+  if (triple === null || !isFunctional(triple.p)) return null;
   return (
-    input.current.find(
-      (fact) =>
-        fact.triple !== null &&
-        fact.triple.p === triple.p &&
-        fact.triple.s === triple.s &&
-        fact.triple.o !== triple.o,
-    ) ?? null
+    input.current.find((fact) => {
+      const other = normalizeTriple(fact.triple);
+      return (
+        other !== null &&
+        other.p === triple.p &&
+        sameTerm(other.s, triple.s) &&
+        !sameTerm(other.o, triple.o)
+      );
+    }) ?? null
   );
 };
 

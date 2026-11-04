@@ -169,6 +169,9 @@ export interface NewFactInput {
   readonly trust: MemoryFact["trust"];
   readonly source: MemoryFact["source"];
   readonly validFrom: number | null;
+  /** World-time end, when known at write time ("on leave until the 10th"). */
+  readonly validTo?: number | null;
+  readonly basis?: MemoryFact["basis"];
   readonly supersedes: readonly string[];
   readonly at: number;
 }
@@ -188,7 +191,7 @@ export const newFact = (input: NewFactInput): MemoryFact => ({
   trust: input.trust,
   source: input.source,
   validFrom: input.validFrom,
-  validTo: null,
+  validTo: input.validTo ?? null,
   createdAt: input.at,
   confirmedAt: input.at,
   expiredAt: null,
@@ -196,6 +199,7 @@ export const newFact = (input: NewFactInput): MemoryFact => ({
   supersededBy: null,
   supersedes: [...input.supersedes],
   hash: factHash(input.text),
+  ...(input.basis !== undefined ? { basis: input.basis } : {}),
 });
 
 /** The v1 record shape a v2 fact projects to (REST compatibility only). */

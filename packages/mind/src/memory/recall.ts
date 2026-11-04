@@ -13,6 +13,7 @@
  * in either language, grouped under the current successor.
  */
 import type { CoreLine, MemoryEntity, MemoryFact } from "@spriessen/contracts";
+import { handleOf } from "./handles.ts";
 import { cachedIndex } from "./search-index.ts";
 import { normalize, queryTerms } from "./text.ts";
 
@@ -56,8 +57,15 @@ const HISTORY_MARKERS = [
   "formerly",
 ];
 
-const isHistory = (fact: MemoryFact): boolean =>
-  fact.status === "superseded" || fact.status === "archived" || fact.status === "forgotten";
+/**
+ * Past, not present: retired versions, and current facts whose known end
+ * day has passed ("on leave until the 10th", read on the 12th).
+ */
+const isHistory = (fact: MemoryFact, now: number): boolean =>
+  fact.status === "superseded" ||
+  fact.status === "archived" ||
+  fact.status === "forgotten" ||
+  (fact.validTo !== null && fact.validTo <= now);
 
 const queryAsksHistory = (query: string): boolean => {
   const normalized = ` ${normalize(query)} `;
@@ -141,17 +149,19 @@ export const recall = (input: RecallInput): RecallResult => {
   const visible = input.facts.filter(
     (fact) =>
       fact.status !== "forgotten" &&
+      // A corrected version was wrong: it is never offered, not even as the past.
+      fact.retired !== "corrected" &&
       // Instructions surface by TRUST, not scope: the owner's own standing
       // instructions (owner or self trust) rank in; derived/untrusted
       // instruction-shaped text from outside content never does.
       !(fact.kind === "instruction" && (fact.trust === "derived" || fact.trust === "untrusted")) &&
-      (wantHistory || !isHistory(fact)),
+      (wantHistory || !isHistory(fact, now)),
   );
   const pool = wantHistory ? [...visible, ...(input.archive ?? [])] : visible;
 
   if (query === "") {
     const top = [...visible]
-      .filter((fact) => !isHistory(fact))
+      .filter((fact) => !isHistory(fact, now))
       .sort((a, b) => prior(b, now) - prior(a, now))
       .slice(0, limit);
     return render({ core, facts: top, now, budget });
@@ -230,6 +240,21 @@ export const recall = (input: RecallInput): RecallResult => {
 
 const dateOf = (at: number): string => new Date(at).toISOString().slice(0, 10);
 
+/**
+ * One model-facing fact line: its handle first (the only id the model ever
+ * sees — memory_update/forget/history take it), then the text and the
+ * bits that change how far to lean on it.
+ */
+export const factLine = (fact: MemoryFact, successor: string | null = null): string => {
+  const bits = [`since ${dateOf(fact.validFrom ?? fact.createdAt)}`];
+  if (fact.validTo !== null) bits.push(`until ${dateOf(fact.validTo)}`);
+  if (fact.confirmedAt !== fact.createdAt) bits.push(`confirmed ${dateOf(fact.confirmedAt)}`);
+  if (fact.trust === "untrusted") bits.push(`unverified, from ${fact.source.via}`);
+  else if (fact.basis === "inferred") bits.push("inferred, unconfirmed");
+  const past = successor !== null ? ` [superseded by: ${successor}]` : "";
+  return `${handleOf(fact.id)} ${fact.text}${past} (${bits.join(" · ")})`;
+};
+
 const render = (input: {
   readonly core: readonly CoreLine[];
   readonly facts: readonly MemoryFact[];
@@ -246,14 +271,6 @@ const render = (input: {
     lines.push(line);
   };
   for (const line of input.core) push(`core: ${line.text}`);
-  for (const fact of input.facts) {
-    const bits = [`since ${dateOf(fact.validFrom ?? fact.createdAt)}`];
-    if (fact.confirmedAt !== fact.createdAt) bits.push(`confirmed ${dateOf(fact.confirmedAt)}`);
-    if (fact.trust === "untrusted") bits.push(`unverified, from ${fact.source.via}`);
-    const successor = input.successor?.(fact.id) ?? null;
-    push(
-      `${fact.text}${successor !== null ? ` [superseded by: ${successor}]` : ""} (${bits.join(" · ")})`,
-    );
-  }
+  for (const fact of input.facts) push(factLine(fact, input.successor?.(fact.id) ?? null));
   return { core: input.core, facts: input.facts, lines, tokens };
 };

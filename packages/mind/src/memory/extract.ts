@@ -14,6 +14,7 @@ import type { GenerateService } from "../generate/generate.ts";
 import type { FactKind } from "@spriessen/contracts";
 import { flags } from "./model.ts";
 import { normalize } from "./text.ts";
+import { normalizeTriple, PREDICATE_GUIDE } from "./predicates.ts";
 
 export interface ExtractedFact {
   readonly text: string;
@@ -98,7 +99,7 @@ export const extractFact = async (
     `Today is ${wibDate()} (WIB). Extract ONE durable fact from the note below. Known entity ` +
     `names (use these exact spellings when they match): ` +
     (names.length === 0 ? "(none)" : names.join(", ")) +
-    `.\n\nNote:\n${trimmed}`;
+    `.\n${PREDICATE_GUIDE}\n\nNote:\n${trimmed}`;
   try {
     const extracted = await Promise.race([
       Effect.runPromise(
@@ -123,7 +124,7 @@ export const extractFact = async (
         typeof extracted.triple.s === "string" &&
         typeof extracted.triple.p === "string" &&
         typeof extracted.triple.o === "string"
-          ? extracted.triple
+          ? normalizeTriple(extracted.triple)
           : null,
       confidence: 0.8,
       modelExtracted: true,
