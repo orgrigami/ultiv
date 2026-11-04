@@ -10,12 +10,15 @@ import { RowButton } from "@/components/ui/row-button";
 import { useApp } from "@/lib/app-state";
 import { pastChats } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
+import { MessageSearch } from "@/components/message-search";
+import { SectionHeader } from "@/components/ui/section-header";
 
 /**
  * Past chats: every bot's main chat and the chats you started, newest
- * first, with a filter that matches titles and bot names. A row opens the
- * chat; extra chats can be deleted (main chats can't, they are the bot's
- * home).
+ * first, with a filter that matches titles and bot names — and, from two
+ * letters on, the words said in the chats (Messages, each bot's chats
+ * searched on their own). A row opens the chat; extra chats can be
+ * deleted (main chats can't, they are the bot's home).
  */
 export function HistoryList() {
   const { sessions } = useApp();
@@ -32,7 +35,7 @@ export function HistoryList() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Filter chats</span>
+          <span className="sr-only">Find chats and messages</span>
           <SearchIcon
             aria-hidden
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -42,7 +45,7 @@ export function HistoryList() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Find a chat or a bot"
+              placeholder="Find a chat, a bot, or words said"
               className="pl-9"
             />
           </InputGroup>
@@ -58,6 +61,8 @@ export function HistoryList() {
           <SquarePenIcon data-icon="inline-start" /> New chat
         </Button>
       </div>
+      <MessageSearch query={query} />
+      {query !== "" && rows.length > 0 && <SectionHeader title="Chats" className="px-1" />}
       {rows.length === 0 ? (
         all.length === 0 ? (
           <CharacterEmpty title="No chats yet">Say hello on the Chat tab.</CharacterEmpty>

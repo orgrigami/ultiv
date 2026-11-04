@@ -16,6 +16,7 @@ import {
   Harness,
   type AgentChange,
   type Conversation,
+  type EntryId,
   type EntryRecord,
   type InputEntry,
   type JsonObject,
@@ -149,6 +150,12 @@ export interface ConverseService {
   /** The raw transcript entries of one conversation, newest first (history search). */
   readonly entriesOf: (
     conversationId: string,
+    limit: number,
+  ) => Effect.Effect<readonly EntryRecord[], External>;
+  /** Entries after `afterEntryId` (exclusive), OLDEST first, up to `limit` — an indexer's cursor scan. */
+  readonly entriesAfter: (
+    conversationId: string,
+    afterEntryId: number,
     limit: number,
   ) => Effect.Effect<readonly EntryRecord[], External>;
   /** App-level durable documents ride the same harness storage. */
@@ -306,6 +313,28 @@ export const converseService = (
               asEffect(
                 "entries scan",
                 conversation.entries({}, limit, undefined, BACKGROUND_CONTEXT),
+              ),
+              (page) => page.items,
+            ),
+    ),
+  entriesAfter: (conversationId, afterEntryId, limit) =>
+    Effect.flatMap(
+      asEffect(
+        "conversation open",
+        harness.conversation(conversationIdFrom(conversationId), BACKGROUND_CONTEXT),
+      ),
+      (conversation) =>
+        conversation === undefined
+          ? Effect.succeed([] as readonly EntryRecord[])
+          : Effect.map(
+              asEffect(
+                "entries scan",
+                conversation.entries(
+                  { minEntryId: (afterEntryId + 1) as unknown as EntryId, order: "ascending" },
+                  limit,
+                  undefined,
+                  BACKGROUND_CONTEXT,
+                ),
               ),
               (page) => page.items,
             ),

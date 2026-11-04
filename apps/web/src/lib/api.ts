@@ -4,6 +4,7 @@ import type {
   CredentialBinding,
   CredentialBindingInput,
   CronJobInfo,
+  HistorySearch,
   McpConnectReply,
   McpServerInfo,
   McpServerInput,
@@ -133,6 +134,11 @@ async function drop(path: string): Promise<boolean> {
 }
 
 export const api = {
+  /** Words said in the bots' chats; each bot searched on its own (GET /api/history/search). */
+  historySearch: (query: string, bot?: string): Promise<HistorySearch> =>
+    getJson<HistorySearch>(
+      `/api/history/search?q=${encodeURIComponent(query)}${bot !== undefined ? `&bot=${encodeURIComponent(bot)}` : ""}`,
+    ),
   sessions: (profile?: string): Promise<SessionInfo[]> =>
     getJson<SessionInfo[]>(
       profile !== undefined

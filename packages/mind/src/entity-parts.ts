@@ -35,6 +35,7 @@ import { memoryService, type MemoryService } from "./memory/memory.ts";
 import { memoryTools } from "./memory/tools.ts";
 import type { SearchDb } from "./search/db.ts";
 import { factSearch } from "./search/facts.ts";
+import { messageSearch } from "./search/messages.ts";
 import { historyService, type HistoryService } from "./history/history.ts";
 import { historyTools } from "./history/tools.ts";
 import { schedulesService, type SchedulesService } from "./schedules/schedules.ts";
@@ -439,7 +440,11 @@ export const routineServices = (
     ...(models.untrustedTool !== undefined ? { untrustedTool: models.untrustedTool } : {}),
     ...(models.searchDb !== undefined ? { search: factSearch(models.searchDb) } : {}),
   }),
-  history: historyService({ converse, profiles }),
+  history: historyService({
+    converse,
+    profiles,
+    ...(models.searchDb !== undefined ? { search: messageSearch(models.searchDb) } : {}),
+  }),
   schedules: schedulesService({
     converse,
     profiles,

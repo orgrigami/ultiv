@@ -1,14 +1,18 @@
 /**
  * The History faculty: the entity can reread its own past. Transcripts are
  * already durable in the harness — this is the retrieval surface over them,
- * scoped to the asking profile's sessions. Substring match over entry text,
- * newest first; entries compaction retired are still searched (the scan reads
- * storage, not the live context).
+ * scoped to the asking profile's chats. With the search sidecar (the normal
+ * case) it is ranked full-text search: bilingual, multi-word, typo-tolerant,
+ * time-aware ("last week", "kemarin", "in March" narrow the window), over
+ * every message of every chat of the bot, compaction-retired ones included.
+ * Without it, a substring scan of recent chats is the fallback.
  */
 import { Effect } from "effect";
 import type { ConverseService } from "../converse/converse.ts";
 import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND } from "../converse/steps.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
+import type { MessageRole, MessageSearch } from "../search/messages.ts";
+import { timeWindowOf } from "../search/when.ts";
 
 export interface HistoryHit {
   readonly sessionId: string;
@@ -16,6 +20,17 @@ export interface HistoryHit {
   readonly kind: string;
   readonly role: string;
   readonly snippet: string;
+  /** When it was said (epoch ms); 0 from the fallback scan, which does not know. */
+  readonly at: number;
+}
+
+export interface HistoryFilters {
+  /** Only messages at or after / before these moments (epoch ms). */
+  readonly since?: number;
+  readonly until?: number;
+  readonly role?: MessageRole;
+  /** One chat only. */
+  readonly sessionId?: string;
 }
 
 /** Text of one entry's model messages, joined (user input, assistant text, tool output). */
@@ -55,23 +70,107 @@ const snippetAround = (text: string, at: number, span = 80): string => {
 };
 
 export interface HistoryService {
-  /** Search one profile's sessions for a query; newest first, capped. */
+  /**
+   * Search one profile's chats; best first, capped. A time phrase in the
+   * query narrows the window unless `filters` set one.
+   */
   readonly search: (
     owner: string,
     profileId: string,
     query: string,
     limit: number,
+    filters?: HistoryFilters,
   ) => Promise<HistoryHit[]>;
+  /** Forget a bot's indexed messages (purge cascade). */
+  readonly drop: (owner: string, profileId: string) => void;
 }
 
 const MAX_SESSIONS = 50;
 const MAX_ENTRIES_PER_SESSION = 500;
 
+/** Entries scanned per cursor step when indexing. */
+const INDEX_BATCH = 500;
+
 export const historyService = (deps: {
   readonly converse: ConverseService;
   readonly profiles: ProfilesService;
+  /** The search sidecar's message index; absent ⇒ the substring scan. */
+  readonly search?: MessageSearch;
 }): HistoryService => ({
-  search: async (owner, profileId, query, limit) => {
+  drop: (owner, profileId) => deps.search?.drop(owner, profileId),
+  search: async (owner, profileId, query, limit, filters = {}) => {
+    if (query.trim() === "") return [];
+    if (deps.search !== undefined) {
+      try {
+        return await indexedSearch(deps, deps.search, owner, profileId, query, limit, filters);
+      } catch (cause) {
+        console.warn("history search index unavailable, scanning:", String(cause));
+      }
+    }
+    return scanSearch(deps, owner, profileId, query, limit);
+  },
+});
+
+/** Ranked full-text search through the sidecar, after indexing what is new. */
+const indexedSearch = async (
+  deps: { readonly converse: ConverseService; readonly profiles: ProfilesService },
+  search: MessageSearch,
+  owner: string,
+  profileId: string,
+  query: string,
+  limit: number,
+  filters: HistoryFilters,
+): Promise<HistoryHit[]> => {
+  const rows = await deps.profiles.listSessions(owner, profileId);
+  const refs = (
+    await Promise.all(
+      rows.map(async (row) => {
+        const key = await deps.profiles.keyOfRow(row);
+        const conversation = await Effect.runPromise(deps.converse.conversationIdOf(key));
+        return conversation === undefined ? [] : [{ conversation, session: row.id }];
+      }),
+    )
+  ).flat();
+  await search.sync({ owner, profile: profileId }, refs, (conversation, after) =>
+    Effect.runPromise(deps.converse.entriesAfter(conversation, after, INDEX_BATCH)),
+  );
+  const timed =
+    filters.since === undefined && filters.until === undefined
+      ? timeWindowOf(query)
+      : { window: null, rest: query };
+  const words = timed.rest.trim() === "" ? query : timed.rest;
+  const since = filters.since ?? timed.window?.since;
+  const until = filters.until ?? timed.window?.until;
+  const hits = search.search({
+    owner,
+    profile: profileId,
+    query: words,
+    limit,
+    ...(since !== undefined ? { since } : {}),
+    ...(until !== undefined ? { until } : {}),
+    ...(filters.role !== undefined ? { role: filters.role } : {}),
+    ...(filters.sessionId !== undefined ? { session: filters.sessionId } : {}),
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return hits.map((hit) => ({
+    sessionId: hit.session,
+    sessionTitle: byId.get(hit.session)?.title ?? "",
+    kind: byId.get(hit.session)?.kind ?? "session",
+    role: hit.role,
+    snippet: hit.snippet,
+    at: hit.at,
+  }));
+};
+
+/** The fallback: substring match over recent chats, newest first. */
+const scanSearch = async (
+  deps: { readonly converse: ConverseService; readonly profiles: ProfilesService },
+  owner: string,
+  profileId: string,
+  query: string,
+  limit: number,
+): Promise<HistoryHit[]> => {
+  {
     const needle = query.trim().toLowerCase();
     if (needle === "") return [];
     const rows = (await deps.profiles.listSessions(owner, profileId)).slice(0, MAX_SESSIONS);
@@ -96,9 +195,10 @@ export const historyService = (deps: {
           kind: row.kind,
           role,
           snippet: snippetAround(text, at),
+          at: 0,
         });
       }
     }
     return hits;
-  },
-});
+  }
+};

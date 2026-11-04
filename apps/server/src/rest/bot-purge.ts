@@ -41,6 +41,13 @@ export async function purgeBot(
     removeSensorsForSessions(mind.converse, sessionIds),
     mind.rooms.purgeProfile(owner, id),
   ]);
+  // Its indexed messages leave the search sidecar with it (the rows would
+  // otherwise wait for a search that never comes).
+  try {
+    mind.history.drop(owner, id);
+  } catch {
+    // The index is derived; a failed drop must not fail the purge.
+  }
   let artifacts = 0;
   try {
     const dir = resolveInside(artifactsDir(), owner, id);

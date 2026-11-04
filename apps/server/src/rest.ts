@@ -32,6 +32,7 @@ import { memoryRoutes, profileRoutes } from "./rest/profiles.ts";
 import { memoryV2Routes } from "./rest/memory-v2.ts";
 import { needsYouRoutes } from "./rest/needs-you.ts";
 import { toolRoutes } from "./rest/tools.ts";
+import { historyRoutes } from "./rest/history.ts";
 import { settingsRoutes } from "./rest/settings.ts";
 import { serverCheckRoutes } from "./rest/server-check.ts";
 import { skillRoutes } from "./rest/skills.ts";
@@ -264,6 +265,7 @@ async function route(args: RouteArgs): Promise<void> {
   if (await memoryV2Routes(args)) return;
   if (await needsYouRoutes(args)) return;
   if (await toolRoutes(args)) return;
+  if (await historyRoutes(args)) return;
   if (await settingsRoutes(args)) return;
   if (await serverCheckRoutes(args)) return;
   if (await skillRoutes(args)) return;

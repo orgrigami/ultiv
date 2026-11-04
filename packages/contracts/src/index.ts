@@ -183,6 +183,8 @@ export type {
   CoreLine,
   MemoryProposal,
 } from "./memory.ts";
+export { HistoryGroupSchema, HistoryHitSchema, HistorySearchSchema } from "./history.ts";
+export type { HistoryGroup, HistoryHit, HistorySearch } from "./history.ts";
 export { RoomInfoSchema, RoomListSchema } from "./rooms.ts";
 export type { RoomInfo, RoomList } from "./rooms.ts";
 export { TaskInfoSchema, TaskListSchema, TaskRowSchema, TaskStatusSchema } from "./tasks.ts";
