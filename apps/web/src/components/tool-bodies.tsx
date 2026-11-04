@@ -11,61 +11,13 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { Mark } from "@/components/state-mark";
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockContent,
-  CodeBlockCopyButton,
-  CodeBlockHeader,
-  CodeBlockLine,
-  CodeBlockTitle,
-} from "@/components/ui/code-block";
-import { useHighlightedCode } from "@/hooks/use-highlighted-code";
+import { CodePlate } from "@/components/tool-code-plate";
+import { TypedOutput } from "@/components/tool-receipts";
 import { langOf } from "@/lib/file-meta";
 import type { RecordField, SearchHit, ToolBodyData } from "@/lib/tool-text";
 import { cn } from "@/lib/utils";
 
 const BOX = "min-w-0 max-w-prose";
-
-/** Highlighted code in the receipt style every body shares. */
-function CodePlate({
-  title,
-  code,
-  lang,
-  icon,
-  wrap = false,
-  maxH = "max-h-72",
-  copy = false,
-}: {
-  title: string;
-  code: string;
-  lang: string;
-  icon?: React.ReactNode;
-  wrap?: boolean;
-  maxH?: string;
-  copy?: boolean;
-}) {
-  const lines = useHighlightedCode(code, lang);
-  return (
-    <CodeBlock size="sm">
-      <CodeBlockHeader>
-        {icon}
-        <CodeBlockTitle>{title}</CodeBlockTitle>
-        {copy && (
-          <CodeBlockActions>
-            <CodeBlockCopyButton value={code} />
-          </CodeBlockActions>
-        )}
-      </CodeBlockHeader>
-      <CodeBlockContent wrap={wrap} className={cn(maxH, "overflow-y-auto")}>
-        {lines.map((line, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: lines only append
-          <CodeBlockLine key={index}>{line}</CodeBlockLine>
-        ))}
-      </CodeBlockContent>
-    </CodeBlock>
-  );
-}
 
 /** The query line above a hit list: what was asked. */
 function QueryPlate({ query }: { query: string }) {
@@ -126,26 +78,44 @@ const statusTone = (status: number | undefined): string =>
 function HttpBody({ method, url, status, sent, got }: Extract<ToolBodyData, { t: "http" }>) {
   return (
     <div className={cn(BOX, "flex flex-col gap-2")}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="readout rounded-md border px-1.5 py-0.5">{method}</span>
-        <span className="font-mono text-xs break-all">{url}</span>
-        {status !== undefined && (
-          <span className={cn("readout rounded-md border px-1.5 py-0.5", statusTone(status))}>
-            {String(status)}
-          </span>
-        )}
+      {/* Method and status stay together; the address takes its own line. */}
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-1.5">
+          <span className="readout rounded-md border px-1.5 py-0.5">{method}</span>
+          {status !== undefined && (
+            <span className={cn("readout rounded-md border px-1.5 py-0.5", statusTone(status))}>
+              {String(status)}
+            </span>
+          )}
+        </div>
+        <span className="text-muted-foreground font-mono text-xs break-all">{url}</span>
       </div>
       {sent !== undefined && sent !== "" && (
         <CodePlate title="sent" code={sent} lang="" wrap maxH="max-h-40" />
       )}
-      {got !== undefined &&
-        (got.trimStart().startsWith("{") || got.trimStart().startsWith("[") ? (
-          <CodePlate title="got back" code={got} lang="json" wrap copy />
-        ) : (
-          <CodePlate title="got back" code={got} lang="" wrap copy />
-        ))}
+      {got !== undefined && (
+        <CodePlate
+          title="got back"
+          code={prettyJson(got)}
+          lang={jsonish(got) ? "json" : ""}
+          wrap
+          copy
+        />
+      )}
     </div>
   );
+}
+
+const jsonish = (text: string): boolean => /^\s*[[{]/.test(text);
+
+/** JSON text indented for reading; anything else as it came. */
+function prettyJson(text: string): string {
+  if (!jsonish(text)) return text;
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
 }
 
 /** A script and what it printed: two bounded plates, never an empty one. */
@@ -210,10 +180,15 @@ function RecordBody({
           {fields.map((field) => (
             <div
               key={field.k}
-              className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 py-1 sm:grid-cols-[9rem_minmax(0,1fr)]"
+              className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 py-1.5 sm:grid-cols-[8.5rem_minmax(0,1fr)]"
             >
-              <dt className="section-label truncate pt-1">{field.k}</dt>
-              <dd className={cn("min-w-0 break-words text-sm", field.mono && "font-mono text-xs")}>
+              <dt className="section-label truncate pt-0.5">{field.k}</dt>
+              <dd
+                className={cn(
+                  "text-foreground/90 min-w-0 text-sm break-words",
+                  field.mono && "font-mono text-xs",
+                )}
+              >
                 {field.v}
               </dd>
             </div>
@@ -221,163 +196,6 @@ function RecordBody({
         </dl>
       )}
       {note !== undefined && <FoldText text={note} className="text-muted-foreground" />}
-    </div>
-  );
-}
-
-/** One input field: scalars in owner words, structures as mono JSON. */
-function InputField({ k, v }: { k: string; v: unknown }) {
-  const text =
-    typeof v === "string" ? v : typeof v === "number" || typeof v === "boolean" ? String(v) : null;
-  return (
-    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-2 py-1 sm:grid-cols-[9rem_minmax(0,1fr)]">
-      <dt className="section-label truncate pt-1">{k}</dt>
-      <dd
-        className={cn(
-          "min-w-0 break-words text-sm",
-          text === null && "font-mono text-xs whitespace-pre-wrap",
-        )}
-      >
-        {text ?? JSON.stringify(v, null, 2)}
-      </dd>
-    </div>
-  );
-}
-
-/** The call's input as readable rows, for calls whose payload no lens knows. */
-export function InputRecord({ input }: { input: unknown }) {
-  const fields =
-    typeof input === "object" && input !== null
-      ? Object.entries(input).filter(([, v]) => v !== null && v !== undefined)
-      : [];
-  if (fields.length === 0) return null;
-  return (
-    <dl className="divide-border/60 flex min-w-0 max-w-prose flex-col divide-y">
-      {fields.map(([k, v]) => (
-        <InputField key={k} k={k} v={v} />
-      ))}
-    </dl>
-  );
-}
-
-/** Raw ids read as machine noise: dimmed wherever they appear in a row. */
-function withDimIds(text: string): React.ReactNode[] {
-  const parts = text.split(/(\(id:\s*[^)]+\))/g);
-  return parts.map((part, index) =>
-    // biome-ignore lint/suspicious/noArrayIndexKey: static split parts
-    part.startsWith("(id:") ? (
-      <span key={index} className="text-muted-foreground/60 font-mono text-xs">
-        {part}
-      </span>
-    ) : (
-      // biome-ignore lint/suspicious/noArrayIndexKey: static split parts
-      <span key={index}>{part}</span>
-    ),
-  );
-}
-
-/** One bullet of a list-shaped output: "name: rest" reads as a titled row. */
-function BulletRow({ item }: { item: string }) {
-  const colon = item.indexOf(": ");
-  if (colon > 0 && colon < 60) {
-    return (
-      <li className="flex items-start gap-2 text-sm">
-        <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
-        <span className="min-w-0 break-words">
-          <span className="font-medium">{withDimIds(item.slice(0, colon))}</span>
-          <span className="text-muted-foreground"> · {withDimIds(item.slice(colon + 2))}</span>
-        </span>
-      </li>
-    );
-  }
-  return (
-    <li className="flex items-start gap-2 text-sm">
-      <span aria-hidden className="bg-border mt-2 size-1 shrink-0 rounded-full" />
-      <span className="min-w-0 break-words">{withDimIds(item)}</span>
-    </li>
-  );
-}
-
-/** Plain output in its own shape: header lines become labels, bullet
- * groups become lists, and anything else stays one copyable block. */
-function StructuredText({ text }: { text: string }) {
-  const rows: React.ReactNode[] = [];
-  let items: string[] = [];
-  const flush = (): void => {
-    if (items.length === 0) return;
-    const batch = items;
-    items = [];
-    rows.push(
-      <ul key={`g${rows.length}`} className="flex flex-col gap-1">
-        {batch.map((item, index) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static rows
-          <BulletRow key={index} item={item} />
-        ))}
-      </ul>,
-    );
-  };
-  for (const line of text.split("\n")) {
-    const t = line.trim();
-    if (t === "") {
-      flush();
-      continue;
-    }
-    if (t.startsWith("- ")) {
-      items.push(t.slice(2));
-      continue;
-    }
-    flush();
-    rows.push(
-      <p key={`h${rows.length}`} className="section-label pt-1">
-        {t.replace(/:$/, "")}
-      </p>,
-    );
-  }
-  flush();
-  return <div className="flex min-w-0 max-w-prose flex-col">{rows}</div>;
-}
-
-/** The output as its best self: pretty JSON when it parses, its own list
- * shape when it has one, one copyable block otherwise. */
-function OutputPlate({ output }: { output: string }) {
-  const trimmed = output.trimStart();
-  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-    try {
-      return (
-        <CodePlate
-          title="output"
-          code={JSON.stringify(JSON.parse(output), null, 2)}
-          lang="json"
-          wrap
-          copy
-        />
-      );
-    } catch {
-      // fall through to the text renderer
-    }
-  }
-  const bullets = output.split("\n").filter((line) => line.trimStart().startsWith("- ")).length;
-  if (bullets >= 1) return <StructuredText text={output} />;
-  return <CodePlate title="output" code={output} lang="" wrap copy />;
-}
-
-/** The call's output, typed: the piece record bodies otherwise swallow. */
-export function TypedOutput({ output }: { output: string }) {
-  return <OutputPlate output={output} />;
-}
-
-/** The fallback body for calls no lens shapes: input as rows, output as a plate. */
-export function Receipts({ input, output }: { input: unknown; output?: string | undefined }) {
-  const hasInput =
-    input !== null &&
-    input !== undefined &&
-    (typeof input !== "object" || Object.keys(input as object).length > 0);
-  const hasOutput = output !== undefined && output !== "";
-  if (!hasInput && !hasOutput) return null;
-  return (
-    <div className={cn(BOX, "flex flex-col gap-2")}>
-      {hasInput && <InputRecord input={input} />}
-      {hasOutput && <OutputPlate output={output} />}
     </div>
   );
 }
@@ -449,7 +267,7 @@ export function ToolBody({ data }: { data: ToolBodyData }) {
     case "record":
       return <RecordBody fields={data.fields} note={data.note} />;
     case "output":
-      return <OutputPlate output={data.text} />;
+      return <TypedOutput output={data.text} />;
     case "json":
       return null;
   }

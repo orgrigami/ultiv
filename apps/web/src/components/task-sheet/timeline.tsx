@@ -1,77 +1,62 @@
 /**
- * The task's steps on one timeline: tool calls render through the same
- * presentation lens as the main transcript (numbered rows, shaped bodies),
- * thinking folds, the bot's messages read as prose. The newest step marks
- * itself live while the task runs.
+ * The task's steps on one timeline, drawn like the chat it came from: tool
+ * calls through the same presentation lens (consecutive calls form one run,
+ * numbered by call), thinking as the same folded Trace row, the bot's
+ * messages as prose and its progress notes as quiet lines. Every step leads
+ * with a 16px mark in the same column, so the eye runs down one edge.
  */
-import {
-  LightbulbIcon,
-  MegaphoneIcon,
-  MessageSquareIcon,
-  UserIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { MegaphoneIcon, MessageSquareIcon, UserIcon, type LucideIcon } from "lucide-react";
 import { LazyMarkdown } from "@/components/lazy-markdown";
-import { Mark } from "@/components/state-mark";
+import { ThinkingTrace } from "@/components/thinking-trace";
 import { ToolTrace } from "@/components/tool-trace";
+import { Trace } from "@/components/ui/trace";
 import { toolStepOf, type TimelineItem } from "@/lib/task-steps";
 import { cn } from "@/lib/utils";
 
-const KIND_ICON = {
-  thinking: LightbulbIcon,
+type ToolItem = Extract<TimelineItem, { kind: "tool" }>;
+type Row =
+  | { kind: "tools"; key: string; tools: { item: ToolItem; index: number }[] }
+  | { kind: "step"; key: string; item: Exclude<TimelineItem, ToolItem> };
+
+/** Consecutive tool calls become one run; the index counts calls only. */
+export function rowsOf(items: readonly TimelineItem[]): Row[] {
+  const rows: Row[] = [];
+  let calls = 0;
+  for (const item of items) {
+    if (item.kind === "tool") {
+      calls += 1;
+      const last = rows.at(-1);
+      if (last?.kind === "tools") last.tools.push({ item, index: calls });
+      else rows.push({ kind: "tools", key: item.key, tools: [{ item, index: calls }] });
+    } else rows.push({ kind: "step", key: item.key, item });
+  }
+  return rows;
+}
+
+const KIND_ICON: Record<"message" | "note" | "input", LucideIcon> = {
   message: MessageSquareIcon,
   note: MegaphoneIcon,
   input: UserIcon,
-} as const;
+};
 
-/** The gutter mark: live work breathes, the rest stays quiet ink. */
-function Gutter({ icon: Icon, live }: { icon: LucideIcon; live: boolean }) {
-  if (live) return <Mark kind="working" tone="live" className="top-1.5 absolute left-1" />;
-  return (
-    <Icon
-      aria-hidden
-      className="text-muted-foreground/70 absolute top-2.5 left-1 size-4 shrink-0"
-    />
-  );
-}
+const LABEL = { note: "Update", input: "You", message: null } as const;
 
-/** A thinking row that folds open. */
-function ThinkFold({ text, live }: { text: string; live: boolean }) {
+/** A said thing: the bot's interim message, a progress note, the parent's steer. */
+function Said({ item }: { item: Extract<TimelineItem, { kind: "message" | "note" | "input" }> }) {
+  const Icon = KIND_ICON[item.kind];
+  const label = LABEL[item.kind];
   return (
-    <details className="group/think py-1">
-      <summary className="text-muted-foreground hover:text-foreground flex min-h-9 w-fit cursor-pointer list-none items-center gap-2 text-sm rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        {live ? "Thinking…" : "Thought for a moment"}
-      </summary>
-      <p className="text-muted-foreground mt-1 text-sm break-words whitespace-pre-wrap">{text}</p>
-    </details>
-  );
-}
-
-function Step({ item, live, index }: { item: TimelineItem; live: boolean; index: number }) {
-  if (item.kind === "tool") {
-    return (
-      <div className="py-0.5">
-        <ToolTrace step={toolStepOf(item)} index={index} />
-      </div>
-    );
-  }
-  const icon = KIND_ICON[item.kind];
-  if (item.kind === "thinking") {
-    return (
-      <>
-        <Gutter icon={icon} live={false} />
-        <ThinkFold text={item.text} live={live} />
-      </>
-    );
-  }
-  return (
-    <>
-      <Gutter icon={icon} live={false} />
+    <div className="flex min-w-0 items-start gap-2">
+      <Icon aria-hidden className="text-muted-foreground mt-0.5 size-4 shrink-0" />
       <div
-        className={cn("py-2 text-sm break-words", item.kind === "note" && "text-muted-foreground")}
+        className={cn(
+          "min-w-0 flex-1 text-sm break-words",
+          item.kind === "message" ? "text-foreground" : "text-muted-foreground",
+        )}
       >
-        {item.kind === "note" && <span className="section-label me-2">Update</span>}
-        {item.kind === "input" && <span className="section-label me-2">You</span>}
+        {label !== null && (
+          <span className="text-foreground/80 me-1.5 text-xs font-medium">{label}</span>
+        )}
         {item.kind === "message" ? (
           <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
             <LazyMarkdown text={item.text} />
@@ -80,7 +65,7 @@ function Step({ item, live, index }: { item: TimelineItem; live: boolean; index:
           <span className="whitespace-pre-wrap">{item.text}</span>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -91,14 +76,22 @@ export function Timeline({ items, running }: { items: readonly TimelineItem[]; r
         {running ? "Getting started…" : "No steps to show."}
       </p>
     );
+  const rows = rowsOf(items);
   return (
-    <ol aria-label="Steps" className="flex flex-col">
-      {items.map((item, index) => (
-        <li
-          key={item.key}
-          className="relative pl-7 last:before:hidden before:bg-border before:absolute before:top-8 before:bottom-0 before:left-[0.4375rem] before:w-px"
-        >
-          <Step item={item} live={running && index === items.length - 1} index={index + 1} />
+    <ol aria-label="Steps" className="flex min-w-0 flex-col gap-3">
+      {rows.map((row, index) => (
+        <li key={row.key} className="min-w-0">
+          {row.kind === "tools" ? (
+            <Trace>
+              {row.tools.map(({ item, index: call }) => (
+                <ToolTrace key={item.key} step={toolStepOf(item)} index={call} />
+              ))}
+            </Trace>
+          ) : row.item.kind === "thinking" ? (
+            <ThinkingTrace text={row.item.text} live={running && index === rows.length - 1} />
+          ) : (
+            <Said item={row.item} />
+          )}
         </li>
       ))}
     </ol>

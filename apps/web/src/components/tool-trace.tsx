@@ -14,6 +14,7 @@ import {
   FolderIcon,
   GlobeIcon,
   KeyRoundIcon,
+  ListCollapseIcon,
   ListTodoIcon,
   MailIcon,
   PlugIcon,
@@ -28,9 +29,11 @@ import type { ToolStep } from "@spriessen/contracts";
 import { ChecklistCard } from "@/components/checklist-card";
 import { Diagram } from "@/components/diagram";
 import { FileCard } from "@/components/file-card";
-import { ErrorNote, FoldText, Receipts, ToolBody, TypedOutput } from "@/components/tool-bodies";
+import { ErrorNote, FoldText, ToolBody } from "@/components/tool-bodies";
+import { Receipts, TypedOutput } from "@/components/tool-receipts";
 import { Mark } from "@/components/state-mark";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/app-state";
 import { undoActionOf, undoStateOf, type LearnedRef } from "@/lib/learned";
 import type { JevNotice } from "@/lib/jev-text";
@@ -44,6 +47,7 @@ import {
   type ToolView,
 } from "@/lib/tool-text";
 import {
+  Trace,
   TraceCollapsible,
   TraceCollapsibleContent,
   TraceCollapsibleTrigger,
@@ -65,6 +69,13 @@ const FAMILY_ICONS: Record<ToolFamily, ReactNode> = {
   connectors: <PlugIcon />,
   generic: <WrenchIcon />,
 };
+
+/**
+ * Where everything attached to a row sits — a quoted body, a file card, a
+ * diagram, the expanded receipts: one column under the row's title (under
+ * its index on phones, to keep the width), always behind the same hairline.
+ */
+export const ATTACH = "ml-6 sm:ml-[3.25rem]";
 
 /** The leading slot: the run's state first, the family as the quiet default. */
 function LeadMark({ step, icon }: { step: ToolStep; icon: ReactNode }) {
@@ -135,10 +146,10 @@ function Body({
 }) {
   const fragment = view.lookup !== undefined ? clipFor(view.lookup) : undefined;
   return (
-    <div className="mt-1 mb-1 ml-[3.75rem] max-w-prose">
+    <div className={`-mt-1 mb-0.5 max-w-prose ${ATTACH}`}>
       <FoldText
         text={view.body ?? ""}
-        className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed [&>button]:ml-[-1px]"
+        className="border-border text-foreground/80 border-l pl-3 text-sm leading-relaxed [&>button]:ml-[-1px]"
       />
       <div className="text-muted-foreground/80 mt-1 flex flex-wrap items-center gap-x-2 pl-3 text-xs">
         {view.tags?.map((tag) => (
@@ -186,7 +197,7 @@ function LearnedUndo({ learned }: { learned: LearnedRef }) {
     }
   };
   return (
-    <div className="text-muted-foreground/80 mb-1 ml-[3.75rem] pl-3 text-xs">
+    <div className={`text-muted-foreground/80 mb-1 pl-3 text-xs ${ATTACH}`}>
       {step === "idle" || step === "busy" ? (
         <Button
           variant="quiet"
@@ -241,59 +252,84 @@ export const ToolTrace = memo(function ToolTrace({
   const human = presentation.view;
   // A settled plan is its own card; earlier updates of it are folded away upstream.
   if (human.checklist !== undefined) {
-    return <ChecklistCard list={human.checklist} className="my-1.5 sm:ml-[3.75rem]" />;
+    return <ChecklistCard list={human.checklist} className={`my-1.5 ${ATTACH}`} />;
   }
   const title = step.status === "running" ? human.live : human.done;
-  const error = errorTextOf(step);
-  // The output minus the error line above it: one sentence never shows twice.
-  const output = outputBesidesError(step);
-  const body =
-    human.structured !== undefined && human.structured.t !== "json"
-      ? "structured"
-      : human.lines !== undefined
-        ? "lines"
-        : undefined;
+  const line = (
+    <Line
+      step={step}
+      icon={FAMILY_ICONS[human.family]}
+      index={index}
+      title={title}
+      detail={human.detail}
+    />
+  );
+  const details = detailsOf(step, human);
   return (
-    <TraceCollapsible>
-      <TraceCollapsibleTrigger>
-        <Line
-          step={step}
-          icon={FAMILY_ICONS[human.family]}
-          index={index}
-          title={title}
-          detail={human.detail}
-        />
-      </TraceCollapsibleTrigger>
-      {human?.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}
-      {human?.learned !== undefined && <LearnedUndo learned={human.learned} />}
-      {human?.artifact !== undefined && (
-        <FileCard file={human.artifact} className="mt-1 mb-1 ml-[3.75rem] max-w-prose" />
+    <>
+      {details === null ? (
+        // Nothing more to show: a plain line, no chevron promising more.
+        <div data-slot="trace-static" className="flex w-fit max-w-full min-w-0">
+          {line}
+        </div>
+      ) : (
+        <TraceCollapsible>
+          <TraceCollapsibleTrigger>{line}</TraceCollapsibleTrigger>
+          <TraceCollapsibleContent className={`pl-3 ${ATTACH}`}>{details}</TraceCollapsibleContent>
+        </TraceCollapsible>
+      )}
+      {notice !== undefined && <JevLine notice={notice} className={`-mt-1 pl-3 ${ATTACH}`} />}
+      {human.body !== undefined && <Body view={human} onOpenMemory={onOpenMemory} />}
+      {human.learned !== undefined && <LearnedUndo learned={human.learned} />}
+      {human.artifact !== undefined && (
+        <FileCard file={human.artifact} className={`-mt-0.5 mb-0.5 max-w-prose ${ATTACH}`} />
       )}
       {human.diagram !== undefined && (
         <Diagram
           source={human.diagram.source}
           title={human.diagram.title}
-          className="mt-1 mb-1.5 max-w-prose sm:ml-[3.75rem]"
+          className={`-mt-0.5 mb-0.5 max-w-prose ${ATTACH}`}
         />
       )}
-      <TraceCollapsibleContent>
-        <div className="flex flex-col gap-2">
-          {error !== undefined && <ErrorNote message={error} />}
-          {body === "structured" && human?.structured !== undefined && (
-            <ToolBody data={human.structured} />
-          )}
-          {human?.structured?.t === "record" && output !== undefined && (
-            <TypedOutput output={output} />
-          )}
-          {body === "lines" && <Lines lines={human?.lines ?? []} />}
-          {body === undefined && (
-            <Receipts input={step.input} {...(output !== undefined ? { output } : {})} />
-          )}
-        </div>
-      </TraceCollapsibleContent>
-    </TraceCollapsible>
+    </>
   );
 });
+
+/**
+ * What a row opens to, or null when there is nothing beyond the line: the
+ * error in words, then the call's shaped body, its rows, or — only for calls
+ * that show nothing of their own (no quote, file or diagram under the row) —
+ * the raw receipts. A memory that is already quoted never repeats as fields.
+ */
+function detailsOf(step: ToolStep, view: ToolView): ReactNode {
+  const error = errorTextOf(step);
+  // The output minus the error line above it: one sentence never shows twice.
+  const output = outputBesidesError(step);
+  const shaped = view.structured !== undefined && view.structured.t !== "json";
+  const shown =
+    view.body !== undefined ||
+    view.artifact !== undefined ||
+    view.diagram !== undefined ||
+    view.learned !== undefined;
+  const receipts = !shaped && view.lines === undefined && !shown;
+  const hasReceipts = receipts && hasContent(step.input, output);
+  if (error === undefined && !shaped && view.lines === undefined && !hasReceipts) return null;
+  return (
+    <div className="flex max-w-prose min-w-0 flex-col gap-2">
+      {error !== undefined && <ErrorNote message={error} />}
+      {shaped && view.structured !== undefined && <ToolBody data={view.structured} />}
+      {view.structured?.t === "record" && output !== undefined && <TypedOutput output={output} />}
+      {view.lines !== undefined && <Lines lines={view.lines} />}
+      {hasReceipts && <Receipts input={step.input} {...(output !== undefined ? { output } : {})} />}
+    </div>
+  );
+}
+
+const hasContent = (input: unknown, output: string | undefined): boolean =>
+  (output !== undefined && output.trim() !== "") ||
+  (typeof input === "object" && input !== null
+    ? Object.values(input).some((v) => v !== null && v !== undefined && v !== "")
+    : input !== null && input !== undefined && input !== "");
 
 /** A run of tool calls; long runs fold their exploration, keep their tail. */
 const GROUP_MAX = 8;
@@ -327,16 +363,28 @@ export function ToolGroup({
       <TraceCollapsible>
         <TraceCollapsibleTrigger>
           <TraceLine>
-            <TraceTitle className="readout">Show {head.length} earlier steps</TraceTitle>
+            <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-4">
+              <ListCollapseIcon />
+            </span>
+            <TraceTitle>
+              {head.length} earlier steps{summaryOf(head)}
+            </TraceTitle>
           </TraceLine>
         </TraceCollapsibleTrigger>
         <TraceCollapsibleContent>
-          {head.map((step, index) => render(step, index + 1))}
+          {/* Same rhythm and row styles as the visible tail. */}
+          <Trace>{head.map((step, index) => render(step, index + 1))}</Trace>
         </TraceCollapsibleContent>
       </TraceCollapsible>
       {tail.map((step, index) => render(step, head.length + index + 1))}
     </>
   );
+}
+
+/** The folded head's gist: how many of them failed, so a fold never hides trouble. */
+function summaryOf(steps: readonly ToolStep[]): string {
+  const failed = steps.filter((step) => step.status === "error").length;
+  return failed === 0 ? "" : ` · ${failed} failed`;
 }
 
 const JEV_ICONS: Record<JevNotice["kind"], ReactNode> = {
@@ -347,9 +395,14 @@ const JEV_ICONS: Record<JevNotice["kind"], ReactNode> = {
 };
 
 /** Jev answered this call's gate on its own: say so, with its reason. */
-export function JevLine({ notice }: { notice: JevNotice }) {
+export function JevLine({ notice, className }: { notice: JevNotice; className?: string }) {
   return (
-    <p className="text-muted-foreground -mt-1 flex items-start gap-1 px-1 text-xs break-words">
+    <p
+      className={cn(
+        "text-muted-foreground mb-1 flex items-start gap-1 px-1 text-xs break-words",
+        className,
+      )}
+    >
       {JEV_ICONS[notice.kind]}
       <span className="min-w-0">
         <span className="text-foreground/80 font-medium">{notice.title}</span>

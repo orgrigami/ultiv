@@ -18,7 +18,7 @@ import { useFollow } from "@/components/task-sheet/use-follow";
 import { useTaskActivity } from "@/components/task-sheet/use-task-activity";
 import type { ArtifactRow } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
-import { timelineOf } from "@/lib/task-steps";
+import { doingOf, timelineOf } from "@/lib/task-steps";
 import { Heading } from "@/components/ui/heading";
 
 function Files({ files }: { files: readonly ArtifactRow[] }) {
@@ -48,7 +48,12 @@ export function TaskWork({ task }: { task: TaskInfo }) {
   return (
     <>
       <div className="border-border/60 border-b px-4 pb-3">
-        <TaskStatusRow task={task} onChanged={() => void load()} />
+        <TaskStatusRow
+          task={task}
+          onChanged={() => void load()}
+          calls={items.filter((item) => item.kind === "tool").length}
+          doing={doingOf(items, activity?.waiting !== null && activity?.waiting !== undefined)}
+        />
       </div>
       <div
         ref={follow.ref}

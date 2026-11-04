@@ -98,6 +98,17 @@ describe("shell cards", () => {
     });
   });
 
+  it("don't repeat an error that came back as { error } JSON", () => {
+    const failed = step({
+      status: "error",
+      output: JSON.stringify({ error: "No such file: a.csv" }),
+    });
+    expect(errorTextOf(failed)).toBe("No such file: a.csv");
+    expect(outputBesidesError(failed)).toBeUndefined();
+    const more = step({ status: "error", output: JSON.stringify({ error: "denied", code: 403 }) });
+    expect(outputBesidesError(more)).toBe(JSON.stringify({ error: "denied", code: 403 }));
+  });
+
   it("keep a failed script's output when it says more than the error line", () => {
     const failed = step({ status: "error", input: { script }, output: "exit 1\nno such file" });
     expect(outputBesidesError(failed)).toBe("exit 1\nno such file");

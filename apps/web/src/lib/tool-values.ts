@@ -60,7 +60,15 @@ export function outputBesidesError(step: ToolStep): string | undefined {
   const raw = rawOf(step.output);
   if (raw === undefined) return undefined;
   const error = errorTextOf(step);
-  return error !== undefined && raw === error ? undefined : raw;
+  if (error === undefined) return raw;
+  if (raw === error) return undefined;
+  // `{ "error": "…" }` and nothing else says only what the error line says.
+  const parsed = jsonOf(step);
+  if (typeof parsed === "object" && parsed !== null) {
+    const keys = Object.keys(parsed);
+    if (keys.length === 1 && keys[0] === "error") return undefined;
+  }
+  return raw;
 }
 
 export function errorTextOf(step: ToolStep): string | undefined {

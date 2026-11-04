@@ -9,6 +9,7 @@
  */
 import type { TaskActivity } from "@/lib/api";
 import type { ToolStep as ToolStepContract } from "@spriessen/contracts";
+import { presentationOf } from "./tool-text.ts";
 
 export type ActivityStep = TaskActivity["steps"][number];
 
@@ -103,4 +104,19 @@ export function toolStepOf(item: Extract<TimelineItem, { kind: "tool" }>): ToolS
           : JSON.stringify(item.outputRaw, null, 2),
     durationMs: item.durationMs,
   };
+}
+
+/**
+ * What a running task is doing right now, in the same owner words its newest
+ * row uses: the running call's present tense, "Thinking…", or waiting on you.
+ */
+export function doingOf(items: readonly TimelineItem[], waiting: boolean): string {
+  if (waiting) return "Waiting for your approval";
+  const last = items.at(-1);
+  if (last?.kind === "thinking") return "Thinking…";
+  if (last?.kind === "tool" && last.status === "running") {
+    const shown = presentationOf(toolStepOf(last));
+    if (shown.kind === "human") return shown.view.live;
+  }
+  return "Working…";
 }

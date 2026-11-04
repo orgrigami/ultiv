@@ -10,7 +10,7 @@ import { ChevronRightIcon, EllipsisIcon, ShieldAlertIcon, ShieldCheckIcon } from
 import { useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import { BotCreateCard } from "@/components/bot-create-card";
-import { InputRecord } from "@/components/tool-bodies";
+import { InputRecord } from "@/components/tool-receipts";
 import { DevDetails } from "@/components/ui/dev-details";
 import { Mark } from "@/components/state-mark";
 import { Button } from "@/components/ui/button";

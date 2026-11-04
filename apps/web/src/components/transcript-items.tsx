@@ -12,20 +12,13 @@ import { SystemCard } from "@/components/system/system-card";
 import { ToolGroup } from "@/components/tool-trace";
 import { latestPlans } from "@/lib/chat-tool-views";
 import type { TaskInfo, ToolStep, TranscriptEntry } from "@spriessen/contracts";
-import { BrainIcon, CircleSlashIcon } from "lucide-react";
+import { CircleSlashIcon } from "lucide-react";
+import { ThinkingTrace } from "@/components/thinking-trace";
 import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { ChatProse, isFoldable } from "@/components/chat-prose";
 import { MessageActions, TurnHead } from "@/components/message-parts";
-import {
-  Trace,
-  TraceCollapsible,
-  TraceCollapsibleContent,
-  TraceCollapsibleTrigger,
-  TraceIcon,
-  TraceLine,
-  TraceTitle,
-} from "@/components/ui/trace";
+import { Trace } from "@/components/ui/trace";
 
 // The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
@@ -74,27 +67,6 @@ const Output = memo(function Output({
         />
       )}
     </>
-  );
-});
-
-/** Reasoning as a collapsed Trace step: "Thinking…" while live, then past tense. */
-const Thinking = memo(function Thinking({ text, live }: { text: string; live: boolean }) {
-  return (
-    <Trace>
-      <TraceCollapsible>
-        <TraceCollapsibleTrigger>
-          <TraceLine>
-            <TraceIcon>
-              <BrainIcon />
-            </TraceIcon>
-            <TraceTitle>{live ? "Thinking…" : "Thought for a moment"}</TraceTitle>
-          </TraceLine>
-        </TraceCollapsibleTrigger>
-        <TraceCollapsibleContent>
-          <p className="text-muted-foreground text-sm whitespace-pre-wrap">{text}</p>
-        </TraceCollapsibleContent>
-      </TraceCollapsible>
-    </Trace>
   );
 });
 
@@ -266,7 +238,7 @@ function renderGroup(
     </li>
   ) : group.entry.kind === "thinking" ? (
     <li key={group.key} className="w-full">
-      <Thinking text={group.entry.text} live={last} />
+      <ThinkingTrace text={group.entry.text} live={last} />
     </li>
   ) : group.entry.kind === "note" ? (
     <li
