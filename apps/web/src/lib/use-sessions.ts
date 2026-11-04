@@ -7,6 +7,7 @@ import type {
 } from "@spriessen/contracts";
 import { api } from "./api";
 import { notifyError, pollRecovered } from "./notify.ts";
+import { useLiveRefresh } from "./use-live-refresh.ts";
 
 export function useSessions(): {
   phase: "connecting" | "live" | "lost";
@@ -56,6 +57,8 @@ export function useSessions(): {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refresh, selected]);
+  // Bots, chats and the main bot change from other tabs, devices and bots.
+  useLiveRefresh(["sessions", "profiles"], () => refresh(selected));
 
   const select = useCallback(
     (profileId: string | undefined) => {

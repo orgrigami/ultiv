@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import WebSocket from "ws";
 import { buildStack } from "./main.ts";
-import { coalesce } from "./live.ts";
+import { coalesce, liveKindsFor, liveKindsForTool } from "./live.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-live-"));
 process.env["AUTH_DIR"] = join(scratch, "auth");
@@ -144,5 +144,44 @@ describe("bot-to-bot traffic", () => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     expect(kinds).toContain("mailbox");
     socket.close();
+  });
+});
+
+describe("changes bots make through tools", () => {
+  it("map a successful write tool to its slice, reads to nothing", () => {
+    expect(liveKindsForTool("memory_write")).toEqual(["memory"]);
+    expect(liveKindsForTool("skill_learn")).toEqual(["skills"]);
+    expect(liveKindsForTool("schedule_set")).toEqual(["routines"]);
+    expect(liveKindsForTool("sensor_remove")).toEqual(["routines"]);
+    expect(liveKindsForTool("bot_create")).toEqual(["profiles", "sessions"]);
+    expect(liveKindsForTool("memory_recall")).toEqual([]);
+    expect(liveKindsForTool("skill_list")).toEqual([]);
+    expect(liveKindsForTool("web_fetch")).toEqual([]);
+  });
+
+  it("signal the slice without any REST call", async () => {
+    const socket = await openLive(cookie);
+    const kinds: string[] = [];
+    socket.on("message", (data) => kinds.push(JSON.parse(String(data)).kind as string));
+    const call = {
+      at: Date.now(),
+      kind: "tool_call" as const,
+      conversationId: "c1",
+      profile: null,
+      callId: "x",
+      durationMs: 1,
+      error: null,
+    };
+    stack.mind.audit.record({ ...call, name: "memory_write", ok: true });
+    stack.mind.audit.record({ ...call, name: "skill_write", ok: false });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(kinds).toContain("memory");
+    expect(kinds).not.toContain("skills");
+    socket.close();
+  });
+
+  it("org changes over REST refresh the crew", () => {
+    expect(liveKindsFor("PATCH", "/api/org")).toEqual(["profiles", "sessions"]);
+    expect(liveKindsFor("POST", "/api/org/departments")).toEqual(["profiles", "sessions"]);
   });
 });

@@ -30,6 +30,8 @@ export interface AuditService {
    * `tail`, other bots' traffic never pushes this conversation's out.
    */
   readonly ofConversation: (conversationId: string) => readonly AuditEvent[];
+  /** Hear every recorded event (a host maps tool calls to live signals). Returns the unsubscribe. */
+  readonly listen: (fn: (event: AuditEvent) => void) => () => void;
   /**
    * The attention hook: fired for every recorded ESCALATION (ok: false) so a
    * host can page the owner. The audit must never gate — a throwing hook is
@@ -57,6 +59,7 @@ export const makeAudit = (path: string): AuditService => {
     }
   };
   const ledger = makeLedger(() => tail(LEDGER_SEED_LINES));
+  const listeners = new Set<(event: AuditEvent) => void>();
   return {
     setHooks: (hooks) => {
       onEscalation = hooks.onEscalation;
@@ -75,6 +78,13 @@ export const makeAudit = (path: string): AuditService => {
           writable = false;
         }
       }
+      for (const fn of listeners) {
+        try {
+          fn(line);
+        } catch {
+          // A listener must never break the act it observes.
+        }
+      }
       if (event.kind === "escalation" && onEscalation !== undefined) {
         try {
           onEscalation(event);
@@ -85,6 +95,10 @@ export const makeAudit = (path: string): AuditService => {
     },
     tail,
     ofConversation: (conversationId) => ledger.of(conversationId),
+    listen: (fn) => {
+      listeners.add(fn);
+      return () => void listeners.delete(fn);
+    },
   };
 };
 

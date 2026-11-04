@@ -17,13 +17,14 @@ brings the sign-in gate back (docs/SECURITY.md).
 
 ## Signals and where they come from
 
-| Signal                   | Source                                                                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tasks`, `needs-you`     | `mind.tasks.listen` (a task settled), `mind.tasks.onUpdate` (any row change), the running-task conversation watcher (`apps/server/src/live-tasks.ts`, the same in-process view the chat Session holds) |
-| `approvals`, `needs-you` | `mind.approvals.listen`                                                                                                                                                                                |
-| `connectors`             | `mind.mcp.subscribe` (connection state, tools, OAuth)                                                                                                                                                  |
-| `mailbox`                | `mind.mailbox.listen` (every committed envelope write: send, delivery, reply, NACK, expiry), coalesced to one frame per 250 ms — bot-to-bot traffic never passes REST                                  |
-| everything else          | the REST dispatcher maps each mutating route to its slices (`liveKindsFor`), so a PATCH of a bot signals `profiles`+`sessions`                                                                         |
+| Signal                                                          | Source                                                                                                                                                                                                          |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks`, `needs-you`                                            | `mind.tasks.listen` (a task settled), `mind.tasks.onUpdate` (any row change), the running-task conversation watcher (`apps/server/src/live-tasks.ts`, the same in-process view the chat Session holds)          |
+| `approvals`, `needs-you`                                        | `mind.approvals.listen`                                                                                                                                                                                         |
+| `connectors`                                                    | `mind.mcp.subscribe` (connection state, tools, OAuth)                                                                                                                                                           |
+| `mailbox`                                                       | `mind.mailbox.listen` (every committed envelope write: send, delivery, reply, NACK, expiry), coalesced to one frame per 250 ms — bot-to-bot traffic never passes REST                                           |
+| everything else                                                 | the REST dispatcher maps each mutating route to its slices (`liveKindsFor`), so a PATCH of a bot signals `profiles`+`sessions`                                                                                  |
+| `memory`, `skills`, `routines`, `profiles`+`sessions` from bots | `mind.audit.listen`: each successful tool call a bot makes is mapped by name (`liveKindsForTool`: memory writes, skill saves, schedule/sensor/webhook changes, bot and department admin) — reads map to nothing |
 
 `sync` is client-side only: on (re)connect every open screen refetches once,
 so a phone waking from sleep catches up without a poll.
@@ -31,6 +32,9 @@ so a phone waking from sleep catches up without a poll.
 ## What replaced the 5 s polls
 
 `app-state.tsx` (approvals and tasks), `use-tasks.ts` (the chat's task pill),
+`use-sessions.ts` (bots and chats), the routines, vault, skills and memory
+panels (through `lib/use-live-refresh.ts`, which collapses a burst into one
+refetch),
 `use-task-activity.ts` (the task sheet), `connectors-panel.tsx` and the Bot
 talks views (`lib/use-live-load.ts` under `room-timeline.tsx` and
 `rooms-panel.tsx`) all subscribe through `lib/live.ts` now. Window-focus refetches stay everywhere,

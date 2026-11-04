@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { ApiError, api } from "@/lib/api";
 import { bindingSummary } from "@/lib/binding-text";
 import { formatWhen } from "@/lib/format";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 const KINDS: VaultKind[] = ["login", "card", "key", "note", "contact"];
 /** Kinds the credential broker can spend (cards and contacts never). */
@@ -105,6 +106,7 @@ export function VaultContent({ profiles }: { profiles: ProfileInfo[] }) {
   useEffect(() => {
     void load();
   }, [load]);
+  useLiveRefresh(["vault"], load);
 
   const set = (key: string, value: string): void => setFields({ ...fields, [key]: value });
 

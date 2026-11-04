@@ -25,6 +25,7 @@ import { Mark } from "@/components/state-mark";
 import { api } from "@/lib/api";
 import { formatFull, formatWhen } from "@/lib/format";
 import { reloadOnFocus } from "@/lib/reload-on-focus";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 const SOURCE_LABEL: Record<string, string> = {
   cron: "Schedule",
@@ -105,6 +106,8 @@ export function RoutinesContent({
     void load();
     return reloadOnFocus(window, load);
   }, [load]);
+  // Bots create and remove schedules, sensors and webhooks themselves.
+  useLiveRefresh(["routines"], load);
 
   const active = profiles.filter(
     (profile) => profile.archivedAt === null && (botId === undefined || profile.id === botId),

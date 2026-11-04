@@ -38,6 +38,7 @@ import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { type BotFileVersion, versionLine } from "@/lib/bot-files";
 import { formatFull } from "@/lib/format";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 const ORIGIN_LABEL: Record<SkillOrigin, string> = {
   builtin: "built-in",
@@ -471,6 +472,7 @@ function SkillDialog({
     }
   }, [target.profile, target.name]);
   useEffect(() => void load(), [load]);
+  useLiveRefresh(["skills"], load);
 
   const act = (action: () => Promise<unknown>) => async () => {
     setBusy(true);
@@ -625,6 +627,8 @@ export function SkillsContent() {
     }
   }, []);
   useEffect(() => void load(), [load]);
+  // Bots save, learn and propose skills on their own.
+  useLiveRefresh(["skills"], load);
 
   const curate = useCallback(
     async (profile: string) => {

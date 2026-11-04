@@ -35,7 +35,7 @@ import { purgeBot } from "./rest/bot-purge.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
-import { coalesce, LIVE_PATH, liveConnections, liveHub } from "./live.ts";
+import { coalesce, LIVE_PATH, liveConnections, liveHub, liveKindsForTool } from "./live.ts";
 import { startHeartbeat } from "./heartbeat.ts";
 import { watchRunningTasks } from "./live-tasks.ts";
 import { AuthStore } from "./auth/store.ts";
@@ -170,6 +170,12 @@ export async function buildStack(options?: {
     // coalesced "mailbox" frame per burst of envelope writes.
     mind.mailbox.listen(coalesce(() => liveHub.emit("mailbox"), 250)),
     watchRunningTasks(mind, () => liveHub.emit("tasks")).stop,
+    // What bots change through their tools never passes REST: the audit
+    // record of each successful call names the slice to refresh.
+    mind.audit.listen((event) => {
+      if (event.kind !== "tool_call" || event.ok !== true) return;
+      for (const kind of liveKindsForTool(String(event.name))) liveHub.emit(kind);
+    }),
   ];
   // Web Push to the owner's devices (inert until VAPID keys are in .env).
   const push = startPush(mind);

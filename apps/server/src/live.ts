@@ -78,6 +78,21 @@ export const coalesce = (fn: () => void, ms: number): (() => void) => {
 /** The one upgrade path the live socket claims (everything else is chord). */
 export const LIVE_PATH = "/push";
 
+/**
+ * Which slices a bot's tool call changed. Bots change things without
+ * passing REST (a schedule, a memory, a skill, a new bot), so the audit
+ * record of each successful call is mapped here. Reads map to nothing.
+ */
+export const liveKindsForTool = (name: string): LiveKind[] => {
+  if (/^memory_(write|save|core|forget)$/.test(name)) return ["memory"];
+  if (/^skill_(write|edit|learn|delete|install|propose|evolve)$/.test(name)) return ["skills"];
+  if (/^(schedule|sensor|webhook)_(set|create|remove)$/.test(name)) return ["routines"];
+  if (/^(bot|department)_(create|update|move|pause|delete)$/.test(name)) {
+    return ["profiles", "sessions"];
+  }
+  return [];
+};
+
 /** Which slices a REST mutation touches, so screens refetch just those. */
 export const liveKindsFor = (method: string, path: string): LiveKind[] => {
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") return [];
@@ -85,7 +100,9 @@ export const liveKindsFor = (method: string, path: string): LiveKind[] => {
   if (prefix("/api/tasks") || prefix("/api/needs-you")) return ["tasks", "needs-you"];
   if (prefix("/api/approvals")) return ["approvals", "needs-you"];
   if (prefix("/api/sessions") || prefix("/api/state")) return ["sessions"];
-  if (prefix("/api/profiles")) return ["profiles", "sessions"];
+  if (prefix("/api/profiles") || prefix("/api/org")) {
+    return ["profiles", "sessions"];
+  }
   if (prefix("/api/mcp")) return ["connectors"];
   if (prefix("/api/mailbox") || prefix("/api/rooms")) return ["mailbox"];
   if (

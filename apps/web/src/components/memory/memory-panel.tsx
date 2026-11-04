@@ -17,6 +17,7 @@ import { EntitiesTab } from "@/components/memory/entities-tab";
 import { CoreTab } from "@/components/memory/core-tab";
 import { TidyTab } from "@/components/memory/tidy-tab";
 import { FilesTab } from "@/components/memory/files-tab";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 export type MemoryTabId = "facts" | "people" | "core" | "tidy" | "files";
 
@@ -187,6 +188,8 @@ function useMemoryData(profileId: string, enabled: boolean) {
   useEffect(() => {
     if (enabled) void load();
   }, [enabled, load]);
+  // The bot writes memory mid-chat; the open panel follows.
+  useLiveRefresh(["memory"], load, enabled);
   return { data, status, error, load };
 }
 
