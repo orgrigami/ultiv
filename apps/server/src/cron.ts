@@ -137,6 +137,9 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
   };
   const isOnce = job.once !== undefined && job.once !== null;
   let timer: Cron | undefined;
+  // stop() can land while the timezone read is still in flight: the timer
+  // must then never start, or it outlives the scheduler's map (a duplicate).
+  let stopped = false;
   const arm = (): void => {
     if (isOnce) {
       // A past `once` fires immediately (croner semantics) — a restart
@@ -147,6 +150,7 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
       return;
     }
     void timezoneOf().then((timezone) => {
+      if (stopped) return;
       timer = new Cron(
         job.schedule,
         { paused: !job.enabled, ...(timezone !== undefined ? { timezone } : {}) },
@@ -158,7 +162,12 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
   };
   arm();
   // A thin stop-capable stand-in: the scheduler only ever calls stop().
-  return { stop: () => timer?.stop() } as unknown as Cron;
+  return {
+    stop: () => {
+      stopped = true;
+      timer?.stop();
+    },
+  } as unknown as Cron;
 };
 
 /** Arm the scheduler over every registered job; refresh after registry changes. */
@@ -168,19 +177,34 @@ export const startScheduler = async (mind: MindService): Promise<CronScheduler> 
     if (!job.enabled) return false;
     return job.once !== undefined && job.once !== null ? true : isValidSchedule(job.schedule);
   };
-  const refresh = async (): Promise<void> => {
+  const stopAll = (): void => {
     for (const timer of timers.values()) timer.stop();
     timers.clear();
-    for (const job of await listCronJobs(mind.converse)) {
-      if (!armable(job)) continue;
-      timers.set(job.id, armedJob(mind, job, scheduler));
+  };
+  let closed = false;
+  const rearm = async (): Promise<void> => {
+    const jobs = await listCronJobs(mind.converse);
+    if (closed) return;
+    // Stop AFTER the read: nothing can arm in between, so every armed timer
+    // is in the map and the next rearm stops it.
+    stopAll();
+    for (const job of jobs) {
+      if (armable(job)) timers.set(job.id, armedJob(mind, job, scheduler));
     }
   };
+  // Refreshes run one at a time. Two at once (two jobs firing in the same
+  // minute) used to arm every job twice, and the orphaned timers kept firing.
+  let queue: Promise<void> = Promise.resolve();
+  const refresh = (): Promise<void> => {
+    const next = queue.then(rearm);
+    queue = next.catch(() => undefined);
+    return next;
+  };
   const scheduler: CronScheduler = {
-    refresh: () => refresh(),
+    refresh,
     stop: () => {
-      for (const timer of timers.values()) timer.stop();
-      timers.clear();
+      closed = true;
+      stopAll();
     },
   };
   await refresh();
