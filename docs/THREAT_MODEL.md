@@ -143,11 +143,15 @@ hashing); this file is the map of trust.
   form (bare grants and patterns cover the default `vm` target only).
 - **The node agent is a privileged process on the owner's machine** (phase
   6). It dials OUT to the server's `/agent` WebSocket with a pairing token
-  (shown once at pairing, stored hashed; the server never dials in), and
-  runs bash confined to the roots the owner registered — the agent itself
-  refuses a cwd outside them (`resolveInside`), so a steered server-side
-  call cannot point it anywhere else. Revocation kills the token and the
-  live dial at once. A compromised node agent is compromise of that
+  (shown once at pairing, stored hashed, sent as a Bearer header; the server
+  never dials in), and starts each script inside the roots the owner
+  registered — the agent itself refuses a start directory outside them
+  (`resolveInside`). Roots are NOT a jail: the script runs as the owner's
+  account and can `cd` or read anywhere that account can, the token file
+  included (scripts never inherit the token through the environment and
+  answers are scrubbed of it, which stops accidents, not intent). The
+  approval card is the only gate. Revocation kills the token and the live
+  dial at once. A compromised node agent is compromise of that
   machine; the token only lets it run scripts the owner's bot sends, and
   every one rides the same beyond-VM gate (paired AND host-access switch
   on AND an exact-script rule or yolo). Root runs only where the owner

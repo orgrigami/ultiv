@@ -866,15 +866,32 @@ security shape:
   SHA-256 (`ultiv.nodes` doc family, `packages/mind/src/nodes/nodes.ts`).
   The token never appears in any REST read, audit line or log.
 - **The agent dials OUT.** The node runs `apps/agent`
-  (`@spriessen/agent`), a long-lived process that opens the server's
-  `/agent` WebSocket with its token; the server never dials in, one
-  connection per node (a second dial replaces the first), and revocation
-  flips the stored status and kills the live dial at once — the token then
-  verifies false mid-connection.
-- **The agent confines every exec.** Each node carries registered roots
-  (absolute paths); the agent refuses a cwd outside them with
-  `resolveInside` (`@spriessen/core`) — the server never trusts a cwd the
-  agent would refuse. The default cwd is the node's first root.
+  (`@spriessen/agent`, or `spriessen node`), a long-lived process that
+  opens the server's `/agent` WebSocket with its token in the upgrade's
+  `Authorization: Bearer` header (never the URL, which proxies log; the
+  legacy `?token=` query is still read for older agents). The server never
+  dials in, one connection per node (a second dial replaces the first), and
+  revocation flips the stored status and kills the live dial at once — the
+  token then verifies false mid-connection.
+- **The token stays out of scripts.** The agent reads it from a 0600 file
+  (`--token-file`, refused when other accounts can read it), the env key
+  `SPRIESSEN_NODE_TOKEN`, or `--token` (warned: any process of the account
+  can read a command line). Scripts never inherit the agent's
+  `SPRIESSEN_NODE_*` keys, and every answer is scrubbed of the token's text,
+  so `env` or `ps` output never carries it into a transcript. A script runs
+  as the owner's account, so a DELIBERATE script can still read what that
+  account can (the token file included) — the approval card is the gate.
+- **Roots are where a script STARTS, not a jail.** Each node carries
+  registered roots (absolute paths); the agent refuses a start directory
+  outside them with `resolveInside` (`@spriessen/core`), and the default is
+  the first root. The script itself can `cd` anywhere the account can reach
+  — nothing in the app contains a node script (docs/THREAT_MODEL.md). A
+  roots change reaches a connected agent at once (`roots` frame).
+- **Every exec ends.** Each script runs in its own process group; a timeout
+  or a stopped turn (`cancel` frame) kills the whole group, and a timeout
+  still answers with the partial output and exit 124 (the server waits
+  `NODE_EXEC_GRACE_MS` past the agent's timeout). The answer comes when bash
+  exits, so a background job the script started never holds the call open.
 - **No pairing, no execution.** Zero or ambiguous pairing, an unknown name
   or a revoked row answers the bot a structured, owner-actionable error
   naming the owner's fix.
