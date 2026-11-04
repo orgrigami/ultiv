@@ -56,6 +56,13 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
 | "Which tools does it have?"               | Crew, the bot's Access tab; Tools          |
 | "How do I change how it behaves?"         | Crew, the bot's Instructions tab           |
 | "Why didn't it reply?"                    | The note in the chat; Settings for the key |
+| "Can I use you from a terminal?"          | The spriessen command (see below)          |
+| "Can you work on files on my laptop?"     | Pair it as a node: spriessen node pair     |
+
+The **spriessen command** is the app in a terminal: the same chats, cards
+and Needs you, plus serve (run the whole app), daemon (keep it running with
+the OS) and node (pair a machine so you can run scripts there with bash's
+node target, every call behind your owner's approval).
 
 ## The moving parts
 

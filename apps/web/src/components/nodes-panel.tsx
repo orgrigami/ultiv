@@ -94,6 +94,14 @@ export function NodesPanel() {
           <code className="bg-muted font-mono text-xs break-all rounded p-2 select-all">
             {minted?.token}
           </code>
+          <p className="text-muted-foreground text-sm">
+            On that machine, save it to a file only you can read (chmod 600) and run{" "}
+            <code className="font-mono text-xs">
+              spriessen node --server &lt;this address&gt; --token-file &lt;file&gt;
+            </code>
+            . Or skip the copy: sign in there and run{" "}
+            <code className="font-mono text-xs">spriessen node pair</code>.
+          </p>
         </DialogContent>
       </Dialog>
     </section>
