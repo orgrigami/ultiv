@@ -63,6 +63,11 @@ function DialogContent({
   );
 }
 
+/** A tall sheet that fills the phone screen (85% of it on wider screens) and
+ *  lets its content own the scrolling: the work pane and file previews. */
+export const TALL_SHEET =
+  "flex flex-col overflow-hidden p-0 pt-4 sm:p-0 sm:pt-4 h-[calc(100dvh-max(0.75rem,env(safe-area-inset-top)))] max-h-none sm:h-[85dvh]";
+
 function DialogTitle({ ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title

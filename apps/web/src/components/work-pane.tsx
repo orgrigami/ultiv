@@ -8,20 +8,17 @@
 import { ChevronLeftIcon, XIcon } from "lucide-react";
 import { useEffect, type ElementType } from "react";
 import { MemoryContent } from "@/components/memory/memory-panel";
-import { FileDownload, FilePreviewBody, fileSubtitle } from "@/components/file-preview";
+import { FilePreviewBody, fileSubtitle } from "@/components/file-preview";
 import { NeedsList } from "@/components/needs-list";
 import { RoomTimeline } from "@/components/room-timeline";
 import { TaskWork } from "@/components/task-activity";
 import { fullTitle } from "@/components/task-sheet/sheet-header";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, TALL_SHEET } from "@/components/ui/dialog";
 import { useApp } from "@/lib/app-state";
 import { useMedia, WIDE } from "@/lib/use-media";
 import { InWorkPane, useWorkPane } from "@/lib/work-pane";
 import type { WorkItem } from "@/lib/work-stack";
-
-const SHEET =
-  "flex flex-col overflow-hidden p-0 pt-4 sm:p-0 sm:pt-4 h-[calc(100dvh-max(0.75rem,env(safe-area-inset-top)))] max-h-none sm:h-[85dvh]";
 
 function titleOf(item: WorkItem): { title: string; subtitle: string | null } {
   switch (item.kind) {
@@ -50,14 +47,8 @@ function Body({ item }: { item: WorkItem }) {
       return <TaskWork task={fresh} />;
     }
     case "file":
-      return (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-          <div className="mb-3 flex justify-end">
-            <FileDownload file={item.file} />
-          </div>
-          <FilePreviewBody file={item.file} />
-        </div>
-      );
+      // The preview owns its toolbar and its one scroll area.
+      return <FilePreviewBody key={item.file.id} file={item.file} />;
     case "memory":
       return (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
@@ -146,7 +137,7 @@ export function WorkPane() {
     );
   return (
     <Dialog open onOpenChange={(open) => !open && pane.close()}>
-      <DialogContent showCloseButton={false} className={SHEET}>
+      <DialogContent showCloseButton={false} className={TALL_SHEET}>
         <Frame item={item} Title={SheetTitle} />
       </DialogContent>
     </Dialog>

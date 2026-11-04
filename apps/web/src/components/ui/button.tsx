@@ -24,6 +24,9 @@ const buttonVariants = cva(
         muted: "bg-muted/70 text-foreground hover:bg-muted aria-expanded:bg-muted",
         signal:
           "border-border bg-background text-signal hover:bg-signal/10 aria-expanded:bg-signal/10 dark:border-input dark:bg-input/30 dark:hover:bg-signal/20",
+        // An on/off icon control (wrap lines, …): muted off, raised on.
+        toggle:
+          "text-muted-foreground hover:bg-muted hover:text-foreground aria-pressed:bg-muted aria-pressed:text-foreground dark:hover:bg-muted/50",
         segment:
           "text-muted-foreground hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs aria-current:bg-background aria-current:text-foreground aria-current:shadow-xs",
         tab: "text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 aria-pressed:bg-secondary aria-pressed:text-secondary-foreground aria-selected:bg-secondary aria-selected:text-secondary-foreground",
