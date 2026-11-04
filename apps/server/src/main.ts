@@ -36,6 +36,7 @@ import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
 import { coalesce, LIVE_PATH, liveConnections, liveHub } from "./live.ts";
+import { startHeartbeat } from "./heartbeat.ts";
 import { watchRunningTasks } from "./live-tasks.ts";
 import { AuthStore } from "./auth/store.ts";
 import { socketSessions } from "./auth/socket-sessions.ts";
@@ -217,6 +218,9 @@ export async function buildStack(options?: {
   // The live event socket: coarse change signals only (docs/LIVE.md).
   const liveWss = liveConnections();
   liveWss.on("connection", (client) => liveHub.add(client));
+  // Half-open sockets (a phone asleep, a network switch) are found and
+  // dropped; /push also carries a heartbeat frame for the client's watchdog.
+  const stopHeartbeat = startHeartbeat([wss, liveWss], () => liveHub.heartbeat());
   acceptWebSockets(wss, host, {
     principal: async (request) => {
       // The upgrade IS the credential check: no valid session, no link.
@@ -258,6 +262,7 @@ export async function buildStack(options?: {
 
   const close = async () => {
     for (const stop of liveStops) stop?.();
+    stopHeartbeat();
     agents.stop();
     sockets.stop();
     push.stop();

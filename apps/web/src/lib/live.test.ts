@@ -28,3 +28,14 @@ describe("no data polling", () => {
     }
   });
 });
+
+describe("live socket watchdog", () => {
+  it("trusts a socket that spoke within the heartbeat window", async () => {
+    const { isStale, SILENT_AFTER_MS } = await import("./live.ts");
+    expect(isStale(100_000, 100_000 - SILENT_AFTER_MS)).toBe(false);
+    expect(isStale(100_000, 100_000 - SILENT_AFTER_MS - 1)).toBe(true);
+    // Three missed 25 s heartbeats at most before giving up on it.
+    expect(SILENT_AFTER_MS).toBeGreaterThan(2 * 25_000);
+    expect(SILENT_AFTER_MS).toBeLessThan(3 * 25_000);
+  });
+});

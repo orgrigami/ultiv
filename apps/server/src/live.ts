@@ -36,7 +36,15 @@ class LiveHub {
 
   /** One coarse signal to every open client; a dead socket is dropped. */
   emit(kind: LiveKind): void {
-    const frame = JSON.stringify({ kind, at: Date.now() });
+    this.send(JSON.stringify({ kind, at: Date.now() }));
+  }
+
+  /** The keep-alive frame: carries no change, lets the client see the socket is alive. */
+  heartbeat(): void {
+    this.send(JSON.stringify({ kind: "heartbeat", at: Date.now() }));
+  }
+
+  private send(frame: string): void {
     for (const client of this.clients) {
       try {
         if (client.readyState === client.OPEN) client.send(frame);

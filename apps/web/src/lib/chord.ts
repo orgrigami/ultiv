@@ -11,6 +11,7 @@ export type SessionRef = Ref<typeof Session>;
 export type GuestPrincipal = { kind: "guest" };
 
 let hostPromise: Promise<Host<GuestPrincipal>> | undefined;
+let currentSocket: WebSocket | undefined;
 const closedListeners = new Set<() => void>();
 
 /**
@@ -37,15 +38,46 @@ function wsUrl(): string {
   return `${protocol}//${location.host}/chord`;
 }
 
+/**
+ * The link `socket` is over: forget its host so the next open builds a
+ * fresh one, and tell the open sessions. Runs once per socket (a dropped
+ * link's late close event finds it already handled), and never clears a
+ * NEWER host that a reconnect built meanwhile.
+ */
+function linkGone(socket: WebSocket, host: Promise<Host<GuestPrincipal>> | undefined): void {
+  if (currentSocket !== socket) return;
+  currentSocket = undefined;
+  if (hostPromise === host) hostPromise = undefined;
+  for (const listener of closedListeners) listener();
+}
+
+/**
+ * Give up on the current link now, without waiting for its close: after a
+ * network change or a sleep a socket can stay "open" while nothing will
+ * ever arrive on it (the live socket's watchdog notices; see live.ts).
+ */
+export function dropLink(): void {
+  const socket = currentSocket;
+  if (socket === undefined) return;
+  linkGone(socket, hostPromise);
+  try {
+    socket.close();
+  } catch {
+    // Already closing; nothing left to do.
+  }
+}
+
 /** The browser's chord host: a client peer linked upstream to the server. One per page. */
 function clientHost(): Promise<Host<GuestPrincipal>> {
-  hostPromise ??= (async () => {
+  if (hostPromise !== undefined) return hostPromise;
+  const mine: Promise<Host<GuestPrincipal>> = (async () => {
     const host = createHost<GuestPrincipal>({
       name: "web",
       self: { kind: "guest" },
       kind: "client",
     });
     const socket = new WebSocket(wsUrl());
+    currentSocket = socket;
     await new Promise<void>((resolve, reject) => {
       socket.addEventListener("open", () => resolve(), { once: true });
       socket.addEventListener("error", () => reject(new Error("chord link failed")), {
@@ -53,22 +85,21 @@ function clientHost(): Promise<Host<GuestPrincipal>> {
       });
     }).catch((error: unknown) => {
       // A failed open must not stay cached, or no retry could ever connect.
-      hostPromise = undefined;
+      if (hostPromise === mine) hostPromise = undefined;
+      if (currentSocket === socket) currentSocket = undefined;
       throw error;
     });
     // A server restart kills this socket; drop the cache so the next open
     // builds a fresh host instead of reusing the dead one, and tell the open
     // sessions so they reconnect instead of showing stale cards and rows.
-    socket.addEventListener("close", () => {
-      hostPromise = undefined;
-      for (const listener of closedListeners) listener();
-    });
+    socket.addEventListener("close", () => linkGone(socket, mine));
     host.connect(webSocketLink(socket as unknown as WebSocketLike), {
       principal: { kind: "guest" },
     });
     return host;
   })();
-  return hostPromise;
+  hostPromise = mine;
+  return mine;
 }
 
 /** Opens (and holds) the session object for `id` on the server. */

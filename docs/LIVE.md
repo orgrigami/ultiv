@@ -40,10 +40,26 @@ Still on `setInterval`, on purpose:
 - `lib/push.ts` — the Web Push presence heartbeat (per-tab visibility for the
   notifier; not a data poll).
 - `lib/use-now.ts` — the UI clock (`useNow`) for relative times.
+- `lib/live.ts` — the socket watchdog (see below; it reads no data).
+
+## Heartbeat and watchdog
+
+A phone that sleeps or changes networks leaves sockets half-open: no close
+ever arrives, so nothing reconnects and the screen quietly stops updating.
+Every 25 s the server pings each open socket (chord links and `/push`) and
+terminates one that did not answer the previous ping
+(`apps/server/src/heartbeat.ts`); `/push` also carries a
+`{"kind":"heartbeat"}` frame, because browsers answer pings without showing
+them to the page. The client's watchdog (`lib/live.ts`) reconnects when the
+socket has been silent for 70 s (checked every 15 s, when the page becomes
+visible again, and on `online`), and drops the chord link with it
+(`dropLink` in `lib/chord.ts`) so open chats reopen too. The heartbeat
+frame is never dispatched to screens.
 
 ## Testing
 
 `apps/server/src/live.test.ts` connects with a session, triggers a REST
 mutation, and asserts the frame arrives within a second (and that an
-anonymous socket is refused). `apps/web/src/lib/live.test.ts` greps the four
+anonymous socket is refused); `heartbeat.test.ts` drops a client that stops
+answering pings. `apps/web/src/lib/live.test.ts` greps the four
 former poll sites for `setInterval` so a poll cannot quietly come back.
