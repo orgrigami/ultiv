@@ -70,6 +70,15 @@ describe("conversation search", () => {
     await handle.close();
   });
 
+  it("warms up: indexing a bot's chats ahead of any search, only once", async () => {
+    const { handle, history, say, bot } = await setup();
+    await say(bot.id, null, "the warm-up should find this");
+    expect(await history.index(OWNER, bot.id)).toBeGreaterThan(0);
+    expect(await history.index(OWNER, bot.id)).toBe(0);
+    expect(await history.search(OWNER, bot.id, "warm-up", 5)).toHaveLength(1);
+    await handle.close();
+  });
+
   it("filters by who said it and by day", async () => {
     const { handle, history, say, bot } = await setup();
     await say(bot.id, null, "remember the dentist on Friday");

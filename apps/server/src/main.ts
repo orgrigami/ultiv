@@ -45,6 +45,9 @@ import { serveSession } from "./session.ts";
 
 export type { Principal } from "./identity.ts";
 
+/** When the boot warm-up of conversation search starts (after the boot rush). */
+const SEARCH_WARMUP_MS = Number(process.env.SEARCH_WARMUP_MS ?? 60_000);
+
 /**
  * Boots the whole stack: mind, chord host, cron scheduler, REST + WebSocket
  * listeners. `close()` stops the scheduler, drops links, then closes the
@@ -180,11 +183,24 @@ export async function buildStack(options?: {
   // Web Push to the owner's devices (inert until VAPID keys are in .env).
   const push = startPush(mind);
   let refreshSchedules: () => Promise<void> = async () => undefined;
+  let closing = false;
   const scheduler: CronScheduler = await startScheduler(mind);
   refreshSchedules = () => scheduler.refresh();
   // Calendar sensors: the poll loop is server-side (clock + network); the
   // registry and the dedup rings are durable mind docs.
   const sensorLoop: SensorLoop = await startSensorLoop(mind);
+  // Conversation search warm-up: a minute after boot, index each bot's chats
+  // once (only what is new), one bot at a time, so the first search on a
+  // long history is not the one that waits. Never fails the boot.
+  const warmSearch = setTimeout(() => {
+    void (async () => {
+      for (const profile of await mind.profiles.list(OWNER_ID)) {
+        if (closing) return;
+        await mind.history.index(OWNER_ID, profile.id).catch(() => 0);
+      }
+    })().catch(() => undefined);
+  }, SEARCH_WARMUP_MS);
+  warmSearch.unref();
   // The weekly memory tidy (Sundays 09:00 WIB; catches up on boot).
   const memoryTidy = startMemoryTidy({ mind, notify: tidyPush(push.notifier) });
   const host = createHost<Principal>({ name: "server", self: { kind: "server" } });
@@ -256,6 +272,8 @@ export async function buildStack(options?: {
   });
 
   const close = async () => {
+    closing = true;
+    clearTimeout(warmSearch);
     for (const stop of liveStops) stop?.();
     stopHeartbeat();
     agents.stop();

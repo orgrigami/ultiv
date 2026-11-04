@@ -11,6 +11,7 @@ import { Effect } from "effect";
 import type { ConverseService } from "../converse/converse.ts";
 import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND } from "../converse/steps.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
+import type { SessionInfo } from "@spriessen/contracts";
 import type { MessageRole, MessageSearch } from "../search/messages.ts";
 import { timeWindowOf } from "../search/when.ts";
 
@@ -83,6 +84,12 @@ export interface HistoryService {
   ) => Promise<HistoryHit[]>;
   /** Forget a bot's indexed messages (purge cascade). */
   readonly drop: (owner: string, profileId: string) => void;
+  /**
+   * Index what is new in a bot's chats without searching — the boot
+   * warm-up, so the first search on a long history is not the one that
+   * waits. Returns the messages added (0 without the sidecar).
+   */
+  readonly index: (owner: string, profileId: string) => Promise<number>;
 }
 
 const MAX_SESSIONS = 50;
@@ -98,6 +105,8 @@ export const historyService = (deps: {
   readonly search?: MessageSearch;
 }): HistoryService => ({
   drop: (owner, profileId) => deps.search?.drop(owner, profileId),
+  index: (owner, profileId) =>
+    deps.search === undefined ? Promise.resolve(0) : syncBot(deps, deps.search, owner, profileId),
   search: async (owner, profileId, query, limit, filters = {}) => {
     if (query.trim() === "") return [];
     if (deps.search !== undefined) {
@@ -122,18 +131,7 @@ const indexedSearch = async (
   filters: HistoryFilters,
 ): Promise<HistoryHit[]> => {
   const rows = await deps.profiles.listSessions(owner, profileId);
-  const refs = (
-    await Promise.all(
-      rows.map(async (row) => {
-        const key = await deps.profiles.keyOfRow(row);
-        const conversation = await Effect.runPromise(deps.converse.conversationIdOf(key));
-        return conversation === undefined ? [] : [{ conversation, session: row.id }];
-      }),
-    )
-  ).flat();
-  await search.sync({ owner, profile: profileId }, refs, (conversation, after) =>
-    Effect.runPromise(deps.converse.entriesAfter(conversation, after, INDEX_BATCH)),
-  );
+  await syncBot(deps, search, owner, profileId, rows);
   const timed =
     filters.since === undefined && filters.until === undefined
       ? timeWindowOf(query)
@@ -160,6 +158,33 @@ const indexedSearch = async (
     snippet: hit.snippet,
     at: hit.at,
   }));
+};
+
+/** Index what is new in one bot's chats (and drop chats it no longer has). */
+const syncBot = async (
+  deps: { readonly converse: ConverseService; readonly profiles: ProfilesService },
+  search: MessageSearch,
+  owner: string,
+  profileId: string,
+  known?: readonly SessionInfo[],
+): Promise<number> => {
+  const rows = known ?? (await deps.profiles.listSessions(owner, profileId));
+  const refs = (
+    await Promise.all(
+      rows.map(async (row) => {
+        const key = await deps.profiles.keyOfRow(row);
+        const conversation = await Effect.runPromise(deps.converse.conversationIdOf(key));
+        // The harness hands conversation ids over as numbers at runtime
+        // (its type says string); the index keys on the text form.
+        return conversation === undefined
+          ? []
+          : [{ conversation: String(conversation), session: row.id }];
+      }),
+    )
+  ).flat();
+  return search.sync({ owner, profile: profileId }, refs, (conversation, after) =>
+    Effect.runPromise(deps.converse.entriesAfter(conversation, after, INDEX_BATCH)),
+  );
 };
 
 /** The fallback: substring match over recent chats, newest first. */

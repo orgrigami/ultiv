@@ -322,14 +322,17 @@ export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSea
   return {
     sync: async (scope, conversations, readAfter) => {
       const cursors = writer.cursors(scope.owner, scope.profile);
-      const listed = new Set(conversations.map((ref) => ref.conversation));
+      // Keys are text: a numeric id would never match its stored cursor and
+      // every sync would drop and re-index the chat.
+      const refs = conversations.map((ref) => ({ ...ref, conversation: String(ref.conversation) }));
+      const listed = new Set(refs.map((ref) => ref.conversation));
       search.tx(() => {
         for (const conversation of cursors.keys()) {
           if (!listed.has(conversation)) writer.dropConversation(conversation);
         }
       });
       let added = 0;
-      for (const ref of conversations) {
+      for (const ref of refs) {
         let last = cursors.get(ref.conversation) ?? 0;
         for (;;) {
           const entries = await readAfter(ref.conversation, last);
