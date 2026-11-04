@@ -1,0 +1,14 @@
+{
+  "name": "@spriessen/present",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The owner-facing words both clients share: tool calls, approval cards, file kinds, durations. Pure TypeScript over @spriessen/contracts.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@spriessen/contracts": "workspace:*"
+  }
+}
