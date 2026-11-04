@@ -9,7 +9,7 @@
 import { useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import type { DecideOutcome } from "@/components/approval-card";
-import { ModelFields } from "@/components/bot-dialog";
+import { ModelFields } from "@/components/bot-fields";
 import { HomeSelect } from "@/components/department/home-select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
