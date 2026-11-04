@@ -346,8 +346,35 @@ export const wirePolicies = (
       });
     },
     ...(generate !== undefined ? { describe: makeDescriber(generate, converse, profiles) } : {}),
+    // The main bot's crew-minting acts (bot_create, department_create) run
+    // without a card (ownerUnlessMain): the broker reads this LIVE per call,
+    // beside each tool's admin guard. A non-main actor parks the normal card.
+    isMain: (conversationId) => {
+      const profile = profiles.profileOf(conversationId);
+      if (profile === undefined) return false;
+      return profiles.mainOf(profile.owner).then((mainId) => mainId === profile.id);
+    },
+    // The skipped card is audited on the same timeline as the approval and
+    // adjudication events, so "why did this run without a card" is a lookup.
+    onMainSkip: (conversationId, request) => {
+      audit.record({
+        at: Date.now(),
+        kind: "approval",
+        conversationId,
+        profile: profiles.profileOf(conversationId)?.id ?? null,
+        callId: request.callId,
+        name: request.name,
+        durationMs: null,
+        ok: true,
+        error: "card skipped: the acting bot is the org's main bot (ownerUnlessMain)",
+      });
+    },
   });
 };
+
+/** The first non-empty line of a tool description, trimmed (allowlist rows). */
+const firstLineOf = (text: string): string =>
+  (text.split(/\r?\n/).find((entry) => entry.trim() !== "") ?? "").trim();
 
 /** The truth: registry plugins AND the late pi-registry installs act.tools() misses. */
 export const describeMind = (
@@ -355,22 +382,35 @@ export const describeMind = (
   decide: DecideService,
   piRegistry: {
     readonly snapshot: () => {
-      readonly tools: () => ReadonlyArray<{ readonly tool: { readonly name: string } }>;
+      readonly tools: () => ReadonlyArray<{
+        readonly tool: { readonly name: string; readonly description?: string };
+      }>;
     };
   },
-) => ({
-  entity: ENTITY_NAME,
-  decide: decide.available,
-  tools: [
-    ...new Set([
-      ...act.tools().map((tool) => tool.name),
-      ...piRegistry
-        .snapshot()
-        .tools()
-        .map(({ tool }) => tool.name),
-    ]),
-  ],
-});
+) => {
+  // One catalog: the act's registrations first, then the late installs; the
+  // first entry under a name wins. `tools` stays the name list every existing
+  // reader consumes; `catalog` adds the one-line descriptions.
+  const named = new Map<string, string>();
+  for (const tool of [
+    ...act.tools(),
+    ...piRegistry
+      .snapshot()
+      .tools()
+      .map(({ tool }) => tool),
+  ]) {
+    if (!named.has(tool.name)) named.set(tool.name, tool.description ?? "");
+  }
+  return {
+    entity: ENTITY_NAME,
+    decide: decide.available,
+    tools: [...named.keys()],
+    catalog: [...named].map(([name, description]) => ({
+      name,
+      description: firstLineOf(description),
+    })),
+  };
+};
 
 /** The per-profile routine services (memory, history, schedules, triggers, state). */
 export const routineServices = (

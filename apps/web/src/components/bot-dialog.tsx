@@ -3,18 +3,26 @@
  * the Bots page or the switcher) and to edit one. On phones the selects stack
  * and Save spans the sheet.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { XIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ListRow } from "@/components/ui/list-row";
 import { ModelOptions } from "@/components/model-options";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { describeAllowEntry } from "@/lib/approval-text";
-import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
+import { allowlistMatches, notOnList } from "@/lib/allowlist";
+import type {
+  ModelInfo,
+  ProfileApprovalMode,
+  ProfileInfo,
+  ToolCatalogEntry,
+} from "@spriessen/contracts";
 import { deadlineFieldProblem, deadlineValue, formProblem } from "@/lib/deadline-fields";
 
 export interface BotForm {
@@ -182,6 +190,159 @@ export function AutoApproveField({
         Tools approved with "Always allow" skip the approval gate. A host-shell rule covers only
         that exact script. Removing one puts it back under this bot's approval mode.
       </span>
+      {error !== null && <p className="text-destructive text-sm">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * The bot's tool allowlist (edit only): a curated list of installed tools;
+ * null = every installed tool. Each change PATCHes the field wholesale
+ * (there is no merge) and refreshes the page behind the dialog, like the
+ * always-allowed list above. The catalog comes from GET /api/tools, so a
+ * newly installed tool is visible here even before any bot uses it.
+ */
+export function AllowlistField({
+  bot,
+  refresh,
+}: {
+  bot: ProfileInfo;
+  refresh: () => Promise<void>;
+}) {
+  const [catalog, setCatalog] = useState<readonly ToolCatalogEntry[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = false;
+    api
+      .tools()
+      .then((rows) => {
+        if (!alive) setCatalog(rows);
+      })
+      .catch(() => {
+        if (!alive) setCatalog([]);
+      });
+    return () => {
+      alive = true;
+    };
+  }, []);
+  const curated = bot.toolAllowlist;
+  const save = async (next: readonly string[] | null): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateProfile(bot.id, { toolAllowlist: next === null ? null : [...next] });
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggle = (name: string): void => {
+    const list = curated ?? [];
+    void save(list.includes(name) ? list.filter((tool) => tool !== name) : [...list, name]);
+  };
+  const entries = catalog ?? [];
+  const matches = allowlistMatches(entries, query);
+  const gap = curated === null ? 0 : notOnList(entries, curated);
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <span>Allowed tools</span>
+      {curated === null ? (
+        <p className="text-muted-foreground text-xs">
+          Every installed tool. Add one below to start curating: a listed bot may only call the
+          tools on its list, so tools installed later stay out of its reach until you add them.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <p className="text-muted-foreground text-xs">
+            {curated.length === 0
+              ? "No tools."
+              : `${curated.length} ${curated.length === 1 ? "tool" : "tools"}.`}{" "}
+            {catalog !== null &&
+              (gap === 0
+                ? "Every installed tool is on the list."
+                : `${gap} installed ${gap === 1 ? "tool is" : "tools are"} not on the list — they stay out of reach until you add them.`)}
+          </p>
+          {curated.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {curated.map((tool) => (
+                <Badge
+                  key={tool}
+                  variant="secondary"
+                  size="chip"
+                  className="max-w-full"
+                  title={entries.find((entry) => entry.name === tool)?.description ?? tool}
+                >
+                  <span className="truncate font-mono">{tool}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    pill
+                    className="shrink-0"
+                    aria-label={`Remove ${tool} from the allowlist`}
+                    disabled={busy}
+                    onClick={() => toggle(tool)}
+                  >
+                    <XIcon className="size-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+          )}
+          <ConfirmDialog
+            title="Allow every installed tool"
+            warning="This clears the list: the bot may call every installed tool, including ones installed later."
+            confirmLabel="Allow everything"
+            onConfirm={async () => {
+              await save(null);
+            }}
+          >
+            <Button type="button" variant="outline" size="sm" disabled={busy}>
+              Allow everything
+            </Button>
+          </ConfirmDialog>
+        </div>
+      )}
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search installed tools…"
+        aria-label="Search installed tools"
+      />
+      {catalog === null ? (
+        <p className="text-muted-foreground text-xs">Loading the tool catalog…</p>
+      ) : matches.length === 0 ? (
+        <p className="text-muted-foreground text-xs">No installed tool matches.</p>
+      ) : (
+        <div className="bg-card divide-border divide-y overflow-hidden rounded-xl border">
+          {matches.map((tool) => {
+            const on = curated?.includes(tool.name) ?? false;
+            return (
+              <ListRow
+                key={tool.name}
+                title={<span className="truncate font-mono">{tool.name}</span>}
+                subtitle={tool.description === "" ? undefined : tool.description}
+                onClick={() => toggle(tool.name)}
+                trailing={
+                  <Button
+                    variant={on ? "outline" : "ghost"}
+                    size="sm"
+                    className="shrink-0"
+                    disabled={busy}
+                    aria-label={`${on ? "Remove" : "Add"} ${tool.name}`}
+                    onClick={() => toggle(tool.name)}
+                  >
+                    {on ? "Remove" : "Add"}
+                  </Button>
+                }
+              />
+            );
+          })}
+        </div>
+      )}
       {error !== null && <p className="text-destructive text-sm">{error}</p>}
     </div>
   );
@@ -445,7 +606,12 @@ export function EditBotDialog({
       models={models}
       open={open}
       onOpenChange={onOpenChange}
-      extra={<AutoApproveField bot={bot} refresh={refresh} />}
+      extra={
+        <>
+          <AutoApproveField bot={bot} refresh={refresh} />
+          <AllowlistField bot={bot} refresh={refresh} />
+        </>
+      }
       initial={{
         name: bot.name,
         description: bot.description,

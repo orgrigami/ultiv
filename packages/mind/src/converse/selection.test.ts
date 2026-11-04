@@ -16,6 +16,25 @@ import {
   type FauxResponseStep,
 } from "@earendil-works/pi-ai";
 import { converseService } from "./converse.ts";
+import { workspaceDefaultRefOf } from "./selection.ts";
+
+describe("workspaceDefaultRefOf", () => {
+  it("the stored setting wins over the environment", () => {
+    expect(workspaceDefaultRefOf({ ref: "acme/stored" }, "acme/env")).toBe("acme/stored");
+  });
+
+  it("the environment applies when nothing is stored", () => {
+    expect(workspaceDefaultRefOf(null, "acme/env")).toBe("acme/env");
+    expect(workspaceDefaultRefOf(undefined, "acme/env")).toBe("acme/env");
+    expect(workspaceDefaultRefOf({ ref: "  " }, "acme/env")).toBe("acme/env");
+  });
+
+  it("both empty means no default (null)", () => {
+    expect(workspaceDefaultRefOf(null, null)).toBeNull();
+    expect(workspaceDefaultRefOf({ ref: "" }, "   ")).toBeNull();
+    expect(workspaceDefaultRefOf(undefined, undefined)).toBeNull();
+  });
+});
 
 const ctx = BACKGROUND_CONTEXT;
 

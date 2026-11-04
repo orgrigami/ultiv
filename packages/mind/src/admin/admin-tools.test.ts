@@ -131,7 +131,9 @@ describe("the admin tools", () => {
     expect(row !== undefined && handle.mind.profiles.files?.read(row, "instructions").text).toBe(
       "Summaries under 200 words.",
     );
-    expect(asked).toEqual(["bot_create"]);
+    // The fake gate approves everything, so creation consults it (the real
+    // broker skips the card for the main bot — see the real-approvals test).
+    expect(asked).toEqual(["department_create", "bot_create"]);
     const listed = await call(main.id, "departments_list", {});
     expect(listed.text).toContain('Department "Dept X"');
     expect(listed.text).toContain("Finch");
@@ -146,7 +148,9 @@ describe("the admin tools", () => {
     const reply = await call(main.id, "bot_create", { name: "Stray", department: "Nowhere" });
     expect(reply.text).toContain('no department "Nowhere"');
     expect(reply.text).toContain('"Dept X"');
-    expect(asked).toEqual([]);
+    // The stray bot_create was refused by its guard before any card; the
+    // department_create before it consulted the gate (the fake approves all).
+    expect(asked).toEqual(["department_create"]);
     await handle.close();
   });
 
@@ -209,7 +213,7 @@ describe("the admin tools", () => {
     const warn = await call(main.id, "department_delete", { department: "Dept X" });
     expect(warn.text).toContain("still has 1 bot(s): Wren");
     expect(warn.text).toContain('bot_move with to "org"');
-    expect(asked).toEqual([]);
+    expect(asked).toEqual(["department_create"]);
     expect((await call(main.id, "bot_delete", { bot: "Wren" })).text).toContain(
       'deleted bot "Wren"',
     );
@@ -217,7 +221,7 @@ describe("the admin tools", () => {
     expect((await call(main.id, "department_delete", { department: "Dept X" })).text).toContain(
       'deleted department "Dept X"',
     );
-    expect(asked).toEqual(["bot_delete", "department_delete"]);
+    expect(asked).toEqual(["department_create", "bot_delete", "department_delete"]);
     await handle.close();
   });
 
@@ -252,6 +256,55 @@ describe("the admin tools", () => {
     ]) {
       expect(scriptCallable(name, tools)).toBe(false);
     }
+    await handle.close();
+  });
+
+  it("the real broker: the main bot creates without a card, the audit carries the skip, updates still park", async () => {
+    // The mind's own approvals (hooks wired with the profiles index), not the
+    // fake gate: this is the whole path a live bot_create rides.
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { profiles, org, converse, audit, approvals } = handle.mind;
+    await org.ensureOrg("owner-a", "Org A", true);
+    const main = await profiles.create("owner-a", { name: "Kestrel", onboard: false });
+    const chat = await profiles.ensureMain("owner-a", main.id);
+    const row = await profiles.rowOf(chat.id);
+    const key = row !== undefined ? await profiles.keyOfRow(row) : "";
+    const conversationId = String(await Effect.runPromise(converse.conversationIdOf(key as never)));
+    const tools = adminTools({ profiles, approvals, audit, converse });
+    const call = async (name: string, args: object, callId: string) => {
+      const tool = tools.find((entry) => entry.name === name);
+      if (tool === undefined) throw new Error(`missing ${name}`);
+      const result = (await tool.execute(
+        args as never,
+        { conversationId, callId } as never,
+        {} as never,
+      )) as { output: { text: string }[]; isError?: boolean };
+      return result.output.map((part) => part.text).join("");
+    };
+
+    // The main bot creates directly: no card parks, the audit says why.
+    expect(await call("department_create", { name: "Dept X" }, "skip-1")).toContain(
+      'created department "Dept X"',
+    );
+    expect(approvals.pendingFor(conversationId)).toEqual([]);
+    const skip = audit
+      .tail(200)
+      .find((event) => event.kind === "approval" && event.callId === "skip-1");
+    expect(skip?.ok).toBe(true);
+    expect(skip?.name).toBe("department_create");
+    expect(skip?.error).toContain("main bot");
+
+    // bot_update keeps `owner: true`: the same main actor still parks a card.
+    await profiles.create("owner-a", { name: "Wren", onboard: false });
+    const parked = call("bot_update", { bot: "Wren", role: "x" }, "park-1");
+    await expect
+      .poll(() => approvals.pendingFor(conversationId).map((entry) => entry.name), {
+        timeout: 2_000,
+      })
+      .toEqual(["bot_update"]);
+    approvals.decide(conversationId, "park-1", true);
+    await parked;
+    expect(approvals.pendingFor(conversationId)).toEqual([]);
     await handle.close();
   });
 });

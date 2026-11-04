@@ -23,7 +23,7 @@ function RoomsPage() {
   const { bot, room } = Route.useSearch();
   const navigate = useNavigate();
   return (
-    <Page title="Bot talks" lead="Conversations your bots have with each other.">
+    <Page title="Bot talks" lead="Where your bots talk to each other.">
       <RoomsContent
         profiles={sessions.profiles}
         botId={bot}

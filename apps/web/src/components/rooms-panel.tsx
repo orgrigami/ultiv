@@ -1,20 +1,42 @@
 /**
- * Bot talks (rooms): bot-to-bot conversations, READ-ONLY to the owner. The
- * list and the open conversation both refetch on the live "mailbox" signal;
- * the conversation itself is the same `RoomTimeline` the work pane shows.
+ * Bot talks (rooms) in the house voice, READ-ONLY to the owner: list rows
+ * carry the pair's characters and a mono last-activity readout; an open room
+ * shows the pair header and the terrain transcript (the same `RoomTimeline`
+ * the work pane shows), with no composer. The list and the open room both
+ * refetch on the live "mailbox" signal.
  */
-import { CharacterEmpty } from "@/components/character-empty";
-import { RoomTimeline } from "@/components/room-timeline";
-import { SkeletonRows } from "@/components/ui/skeleton";
-import { ArrowLeftIcon, MessagesSquareIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import type { ProfileInfo, RoomInfo } from "@spriessen/contracts";
+import { BotAvatar } from "@/components/bot-avatar";
+import { RoomTimeline } from "@/components/room-timeline";
 import { Button } from "@/components/ui/button";
-import { ErrorState } from "@/components/ui/empty-state";
+import { EmptyState, ErrorState } from "@/components/ui/empty-state";
+import { Heading } from "@/components/ui/heading";
 import { ListRow } from "@/components/ui/list-row";
-import { Tile } from "@/components/ui/tile";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { useLiveLoad } from "@/lib/use-live-load";
+import { cn } from "@/lib/utils";
+
+type NameOf = (profileId: string) => string;
+
+/** The pair header: both characters, the names, the topic as the lead. */
+function PairHeader({ room, nameOf }: { room: RoomInfo; nameOf: NameOf }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        {room.participants.map((id) => (
+          <BotAvatar key={id} id={id} name={nameOf(id)} size="md" />
+        ))}
+        <Heading level={2} size="base">
+          {room.participants.map(nameOf).join(" ↔ ")}
+        </Heading>
+      </div>
+      {room.topic !== "" && <p className="text-muted-foreground text-sm">{room.topic}</p>}
+    </div>
+  );
+}
 
 function OpenRoom({
   roomId,
@@ -23,26 +45,41 @@ function OpenRoom({
   onBack,
 }: {
   roomId: string;
-  /** The list's row, when the room is in it (it may be filtered out). */
+  /** The list's row, when the room is in it (a linked room may be filtered out). */
   room: RoomInfo | undefined;
-  nameOf: (profileId: string) => string;
+  nameOf: NameOf;
   onBack: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
         <ArrowLeftIcon /> All conversations
       </Button>
-      {room !== undefined && (
-        <p className="text-muted-foreground px-1 text-xs">
-          {room.participants.map(nameOf).join(" ↔ ")}
-          {room.topic !== "" ? ` • ${room.topic}` : ""}
-        </p>
-      )}
-      <Tile tone="surface" radius="lg" className="max-h-[70dvh] overflow-y-auto">
-        <RoomTimeline roomId={roomId} />
-      </Tile>
+      {room !== undefined && <PairHeader room={room} nameOf={nameOf} />}
+      <RoomTimeline roomId={roomId} />
     </div>
+  );
+}
+
+function RoomRow({ room, nameOf, onOpen }: { room: RoomInfo; nameOf: NameOf; onOpen: () => void }) {
+  return (
+    <ListRow
+      leading={
+        <span className={cn("flex items-center", room.participants.length > 1 && "-space-x-1.5")}>
+          {room.participants.map((id) => (
+            <BotAvatar key={id} id={id} name={nameOf(id)} size="sm" />
+          ))}
+        </span>
+      }
+      title={room.participants.map(nameOf).join(" ↔ ")}
+      subtitle={room.topic !== "" ? room.topic : undefined}
+      meta={
+        <time className="readout" dateTime={new Date(room.lastMessageAt).toISOString()}>
+          {formatWhen(room.lastMessageAt)}
+        </time>
+      }
+      onClick={onOpen}
+    />
   );
 }
 
@@ -70,7 +107,7 @@ export function RoomsContent({
     "Bot talks may be out of date",
   );
 
-  const nameOf = (profileId: string): string =>
+  const nameOf: NameOf = (profileId) =>
     profiles.find((profile) => profile.id === profileId)?.name ??
     profileId.replace(/^external:/, "").slice(0, 8);
 
@@ -88,22 +125,15 @@ export function RoomsContent({
   if (rooms === null) return <SkeletonRows label="Loading bot talks" />;
   if (rooms.length === 0) {
     return (
-      <CharacterEmpty title="No bot talks yet">
-        Bots start one when they message each other, one per topic.
-      </CharacterEmpty>
+      <EmptyState className="py-8 text-center">
+        No bot talks yet. One starts when two bots message each other.
+      </EmptyState>
     );
   }
   return (
     <div className="flex flex-col gap-1">
       {rooms.map((room) => (
-        <ListRow
-          key={room.id}
-          leading={<MessagesSquareIcon />}
-          title={room.participants.map(nameOf).join(" ↔ ")}
-          subtitle={room.topic !== "" ? room.topic : undefined}
-          meta={formatWhen(room.lastMessageAt)}
-          onClick={() => onOpen(room.id)}
-        />
+        <RoomRow key={room.id} room={room} nameOf={nameOf} onOpen={() => onOpen(room.id)} />
       ))}
     </div>
   );

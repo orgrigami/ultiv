@@ -20,6 +20,7 @@ import { BotSwitcher } from "@/components/bot-switcher";
 import { ModelOptions } from "@/components/model-options";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { useApp } from "@/lib/app-state";
 import { useNewChat } from "@/components/app-nav";
 
 export { BotAvatar, type ChatBot, type LinkState } from "@/components/bot-avatar";
@@ -47,6 +48,10 @@ function SessionDetails({
 }) {
   const selected = models.find((candidate) => candidate.id === model);
   const efforts = selected?.efforts ?? (["off", "low", "high", "max"] as const);
+  // "Workspace default" is only selectable while a default EXISTS (the
+  // stored setting or the environment): with neither, new chats would have
+  // no model at all, so the option is hidden rather than dead.
+  const workspaceDefault = useApp().sessions.workspaceDefault;
   return (
     <div className="flex flex-col gap-3 text-sm">
       <label className="flex flex-col gap-1">
@@ -58,7 +63,7 @@ function SessionDetails({
             onConfigure(event.target.value === "" ? null : event.target.value, null)
           }
         >
-          <option value="">Default model</option>
+          {workspaceDefault !== null && <option value="">Workspace default</option>}
           <ModelOptions models={models} />
         </Select>
       </label>

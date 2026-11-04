@@ -1,7 +1,7 @@
 /**
  * Mailbox routes: read-only. Bot talks are bot-to-bot only, and humans
  * READ them: no route sends into a room ("send as this bot", supervision
- * lines) or changes a message's course (cancel). Deadlines, the exchange cap
+ * lines) or changes a message's course (cancel). Deadlines, topical rooms
  * and the rate limits bound a stuck or runaway talk.
  */
 import type { RouteArgs } from "./types.ts";

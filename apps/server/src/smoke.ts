@@ -125,14 +125,21 @@ const expect = (name: string, ok: boolean): void => {
 };
 
 // The model catalog: overlay providers are listed as provider/model, offline.
-const modelList = await call("GET", "/api/models");
+// The payload also carries the effective workspace default (env here).
+const modelPayload = await call("GET", "/api/models");
+const modelList = { json: modelPayload.json?.models };
 expect(
   "overlay model listed",
-  modelList.status === 200 &&
+  modelPayload.status === 200 &&
     modelList.json.some(
       (model: { id: string; providerName: string }) =>
         model.id === "smoke-local/tiny" && model.providerName === "Smoke Local",
     ),
+);
+expect(
+  "models payload carries the env workspace default",
+  modelPayload.json.workspaceDefault?.source === "env" &&
+    modelPayload.json.workspaceDefault?.ref === "kenari/deepseek-v4-1-flash",
 );
 const catalog = await call("GET", "/api/models/catalog");
 expect(
@@ -228,6 +235,14 @@ const tiny = (modelList.json as { id: string; input?: string[] }[]).find(
   (model) => model.id === "smoke-local/tiny",
 );
 expect("models carry input modalities", tiny !== undefined && Array.isArray(tiny.input));
+// A stored workspace default rides the payload labelled "db" (PUT round-trip below).
+const storedPayload = await call("PUT", "/api/settings/model", { ref: "smoke-local/tiny" });
+expect(
+  "models payload carries a stored default as db",
+  storedPayload.status === 200 &&
+    (await call("GET", "/api/models")).json.workspaceDefault?.source === "db",
+);
+await call("PUT", "/api/settings/model", null);
 
 const hook = await call("POST", "/api/webhooks", { sessionId: created.json.id }, {});
 expect(
@@ -586,6 +601,47 @@ const skillDelete = await call(
   headers,
 );
 expect("owner skill delete", skillDelete.status === 200 && skillDelete.json.ok === true);
+
+// The tool catalog (allowlist editor's payload): names + one-line descriptions.
+const toolCatalog = await call("GET", "/api/tools", undefined, headers);
+expect(
+  "tool catalog lists bot_create with a description",
+  toolCatalog.status === 200 &&
+    Array.isArray(toolCatalog.json) &&
+    toolCatalog.json.some(
+      (tool: { name: string; description: string }) =>
+        tool.name === "bot_create" && tool.description.length > 0,
+    ),
+);
+
+// Workspace default model: the env default first, then a stored one over it,
+// then cleared. The catalog here is the offline overlay.
+const settingsModel = async (): Promise<any> => (await call("GET", "/api/settings/model")).json;
+expect(
+  "workspace default reads the environment",
+  (await settingsModel()).defaultModel?.source === "env" &&
+    (await settingsModel()).defaultModel?.ref === "kenari/deepseek-v4-1-flash",
+);
+const putDefault = await call("PUT", "/api/settings/model", {
+  ref: "smoke-local/tiny",
+  effort: "",
+});
+expect(
+  "workspace default PUT stores over the env",
+  putDefault.status === 200 &&
+    putDefault.json.defaultModel?.source === "db" &&
+    putDefault.json.defaultModel?.ref === "smoke-local/tiny",
+);
+const putUnknown = await call("PUT", "/api/settings/model", { ref: "nowhere/nothing" });
+expect(
+  "workspace default PUT refuses an unknown ref",
+  putUnknown.status === 409 && (await settingsModel()).defaultModel?.ref === "smoke-local/tiny",
+);
+const clearDefault = await call("PUT", "/api/settings/model", null);
+expect(
+  "workspace default PUT null clears",
+  clearDefault.status === 200 && (await settingsModel()).defaultModel?.source === "env",
+);
 
 if (failures.length > 0) {
   console.error(`smoke FAILED: ${failures.join(", ")}`);

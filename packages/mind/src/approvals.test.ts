@@ -257,3 +257,85 @@ describe("editable and owner-only gates", () => {
     expect(seenRecord?.name).toBe("proposed");
   });
 });
+
+describe("main-bot direct creation (ownerUnlessMain)", () => {
+  const CREATE = { callId: "m1", name: "bot_create", input: { name: "Robinson" } };
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("the main bot's call executes directly: no card, no rules, no judge", async () => {
+    const approvals = makeApprovals();
+    let rules = 0;
+    let judged = 0;
+    const skipped: string[] = [];
+    approvals.setHooks({
+      isMain: (conversationId) => conversationId === "main",
+      autoApprove: () => {
+        rules += 1;
+        return false;
+      },
+      adjudicate: () => {
+        judged += 1;
+        return Effect.succeed({ approved: true });
+      },
+      onMainSkip: (_conversationId, request) => skipped.push(request.name),
+    });
+    await expect(
+      Effect.runPromise(approvals.request("main", "m1", CREATE, { ownerUnlessMain: true })),
+    ).resolves.toBe(true);
+    expect(approvals.pendingFor("main")).toEqual([]);
+    expect(rules).toBe(0);
+    expect(judged).toBe(0);
+    expect(skipped).toEqual(["bot_create"]);
+  });
+
+  it("a non-main actor parks the owner card, skipping the hooks like owner:true", async () => {
+    const approvals = makeApprovals();
+    let judged = 0;
+    approvals.setHooks({
+      isMain: () => false,
+      autoApprove: () => true,
+      adjudicate: () => {
+        judged += 1;
+        return Effect.succeed({ approved: true });
+      },
+    });
+    const parked = Effect.runPromise(
+      approvals.request("crew", "m2", CREATE, { ownerUnlessMain: true }),
+    );
+    await settle();
+    expect(approvals.pendingFor("crew")).toEqual([CREATE]);
+    approvals.decide("crew", "m2", true);
+    await expect(parked).resolves.toBe(true);
+    expect(judged).toBe(0);
+  });
+
+  it("an unwired isMain parks too (fail closed)", async () => {
+    const approvals = makeApprovals();
+    const parked = Effect.runPromise(
+      approvals.request("conv", "m3", CREATE, { ownerUnlessMain: true }),
+    );
+    await settle();
+    expect(approvals.pendingFor("conv")).toEqual([CREATE]);
+    approvals.decide("conv", "m3", false);
+    await expect(parked).resolves.toBe(false);
+  });
+
+  it("withApproval + a live isMain: the tool runs with no decide round-trip", async () => {
+    const approvals = makeApprovals();
+    approvals.setHooks({ isMain: () => true });
+    const inner = {
+      name: "department_create",
+      description: "",
+      parameters: Type.Object({ name: Type.String() }),
+      execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
+    };
+    const gated = withApproval(approvals, inner, { ownerUnlessMain: true });
+    const result = (await gated.execute(
+      { name: "Dept X" },
+      { conversationId: "main", callId: "m4" } as never,
+      {} as never,
+    )) as { output: { text: string }[] };
+    expect(result.output[0]?.text).toContain("ran Dept X");
+    expect(approvals.pendingFor("main")).toEqual([]);
+  });
+});

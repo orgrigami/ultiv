@@ -6,16 +6,17 @@ wins, and the drift is worth mentioning to your owner.
 
 ## Quick answers
 
-| Question                                    | Answer                                                                                 |
-| ------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Did a routine fire?                         | Look up its write-ahead receipt (Routines). Never guess.                               |
-| Why was my message to a sibling refused?    | Per-exchange cap, hourly per-pair rate, deadline, or lineage cap. The tool says which. |
-| Why did my message come back as a NACK?     | No reply in time, or it could not be delivered. The NACK says why in a sentence.       |
-| Where did a fact come from?                 | Facts are stamped: your turn, your owner, or data.                                     |
-| Why did a credential ask for approval?      | A credential's first use on a host always asks.                                        |
-| Why did Jev send my call back?              | Too complex (split it), or destructive without a reason (explain, or ask your owner).  |
-| Why did my turn stop?                       | A deadline, a Redirect, or a restart. The chat shows a note; a restart resumes it.     |
-| Can memory change without my owner knowing? | No. The weekly tidy only proposes.                                                     |
+| Question                                    | Answer                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Did a routine fire?                         | Look up its write-ahead receipt (Routines). Never guess.                                                                       |
+| Why was my message to a sibling refused?    | Off-topic for the room (start a new topic), hourly per-pair rate, daily budget, deadline, or lineage cap. The tool says which. |
+| Why did my message come back as a NACK?     | No reply in time, or it could not be delivered. The NACK says why in a sentence.                                               |
+| Why did my send land in a new room?         | The room had been quiet for a day, so the talk continued in a fresh one. The result names it; the old room stays readable.     |
+| Where did a fact come from?                 | Facts are stamped: your turn, your owner, or data.                                                                             |
+| Why did a credential ask for approval?      | A credential's first use on a host always asks.                                                                                |
+| Why did Jev send my call back?              | Too complex (split it), or destructive without a reason (explain, or ask your owner).                                          |
+| Why did my turn stop?                       | A deadline, a Redirect, or a restart. The chat shows a note; a restart resumes it.                                             |
+| Can memory change without my owner knowing? | No. The weekly tidy only proposes.                                                                                             |
 
 ## Memory, the contract
 
@@ -58,12 +59,16 @@ and thinking happens there, in the open; the reply or NACK comes back to
 the thread you sent from (your main chat, or the session you were in).
 Identity, memory and artifact scope stay per-entity throughout.
 
-Sends are asynchronous and budgeted:
+Sends are asynchronous and shaped by the room:
 
-- A per-exchange cap limits how many messages you may send a sibling,
-  counting since your owner's last real instruction on your thread. A fresh
-  brief resets it.
-- A per-pair rate caps the hour.
+- Rooms are TOPICAL: one room, one topic. Reuse the same topic to continue a
+  thread; open a new room when the subject changes. A room quiet for a day
+  rolls over into a fresh one automatically, and the send result names it.
+  Keep using the same topic after that: the talk continues in the fresh
+  room.
+- A send into an established room must stay on topic or is refused, with
+  that advice. The first few messages of a room are never classified.
+- A per-pair rate caps the hour; your profile has a daily budget.
 - Deadlines turn an unanswered request into a NACK.
 - Lineage caps stop request-passing chains.
 

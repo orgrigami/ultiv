@@ -97,6 +97,19 @@ export interface ApprovalsHooks {
     conversationId: string,
     request: ApprovalRequest,
   ) => Promise<string | undefined>;
+  /**
+   * Whether the acting conversation maps to the org's MAIN bot. Consulted
+   * INSIDE the broker for `ownerUnlessMain` gates — defense in depth beside
+   * the tool's own guard. Read live per call; may be async (the profiles
+   * settings doc is a doc read).
+   */
+  readonly isMain?: (conversationId: string) => boolean | Promise<boolean>;
+  /**
+   * Fired once when a call executed directly because the actor was the main
+   * bot (`ownerUnlessMain` + `isMain`): the host records the skipped card in
+   * the audit trail, on the same timeline as approval/adjudication events.
+   */
+  readonly onMainSkip?: (conversationId: string, request: ApprovalRequest) => void;
 }
 
 /** A call parked on the owner; `reason` fills in async (Jev's opinion, then the model's). */
@@ -109,7 +122,9 @@ interface PendingEntry {
 /** What surfaces read: the waiting call plus whatever reason is known. */
 export type PendingCall = ApprovalRequest & { readonly reason?: string };
 
-/** Options a gated tool may pass with its request. */
+/**
+ * Options a gated tool may pass with its request.
+ */
 export interface RequestOptions {
   /** The wait before the call auto-denies; the default suits one-click cards. */
   readonly timeout?: Duration.Duration;
@@ -119,6 +134,14 @@ export interface RequestOptions {
    * creating a bot): delegation must not decide its own scope.
    */
   readonly owner?: boolean;
+  /**
+   * Owner gate with one exception: when the acting conversation IS the org's
+   * main bot, the call executes directly — no card, no rules, no judge (the
+   * owner's Chief of Staff assembles crew autonomously). Any other actor
+   * parks the normal owner card. The main check runs INSIDE the broker (the
+   * `isMain` hook), never in the tool.
+   */
+  readonly ownerUnlessMain?: boolean;
 }
 
 export interface ApprovalsService {
@@ -199,10 +222,28 @@ export const makeApprovals = (
         const k = key(conversationId, callId);
         notes.delete(k); // a stale note must not leak into this call's denial
         overrides.delete(k);
+        // ownerUnlessMain: the main bot's own crew-minting acts run without a
+        // card. The check lives INSIDE the broker (beside the tool's guard):
+        // the hook answers live whether the acting conversation is the main
+        // bot. A non-main actor (or an unwired hook) parks the owner card,
+        // skipping the hooks below exactly like `owner: true` does.
+        if (options?.ownerUnlessMain === true) {
+          const main = yield* Effect.match(
+            Effect.promise(() =>
+              Promise.resolve(hooks.isMain?.(conversationId)).then((value) => value === true),
+            ),
+            { onFailure: () => false, onSuccess: (value) => value },
+          );
+          if (main) {
+            hooks.onMainSkip?.(conversationId, request);
+            return true;
+          }
+        }
         // An owner-only gate skips the hooks entirely: delegation never
         // answers an act that mints actors. The hook may be async (the node
         // target resolves through the registry); a rejection is no approval.
-        if (options?.owner !== true && hooks.autoApprove !== undefined) {
+        const ownerGate = options?.owner === true || options?.ownerUnlessMain === true;
+        if (!ownerGate && hooks.autoApprove !== undefined) {
           const approved = yield* Effect.match(
             Effect.promise(() =>
               Promise.resolve(hooks.autoApprove?.(conversationId, request)).then(
@@ -213,7 +254,7 @@ export const makeApprovals = (
           );
           if (approved) return true;
         }
-        if (options?.owner !== true && hooks.adjudicate !== undefined) {
+        if (!ownerGate && hooks.adjudicate !== undefined) {
           // A failing or slow judge is no verdict: fall through to the owner.
           const judged = hooks
             .adjudicate(conversationId, request)
@@ -299,6 +340,13 @@ export interface ApprovalOptions {
   /** Park on the owner every time (skip auto-approve and the Jev judge). */
   readonly owner?: boolean;
   /**
+   * Park on the owner EXCEPT when the acting conversation is the org's main
+   * bot: it executes directly (no card, no rules, no judge). The main check
+   * runs inside the broker (`isMain` hook); a non-main actor gets the normal
+   * owner card. For the two crew-minting acts only.
+   */
+  readonly ownerUnlessMain?: boolean;
+  /**
    * The card may come back with a corrected input: an approval whose override
    * replaces the proposed arguments wholesale. Only for tools whose whole
    * input is owner-shaped (a form); never for commands or URLs a model
@@ -345,6 +393,7 @@ export const withApproval = <TParameters extends TSchema>(
         },
         {
           ...(options?.owner === true ? { owner: true } : {}),
+          ...(options?.ownerUnlessMain === true ? { ownerUnlessMain: true } : {}),
           ...(options?.timeout !== undefined ? { timeout: options.timeout } : {}),
         },
       ),

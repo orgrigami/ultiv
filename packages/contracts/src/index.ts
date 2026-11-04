@@ -35,16 +35,22 @@ export type {
 export {
   ModelCatalogStatusSchema,
   ModelListSchema,
+  ModelsPayloadSchema,
+  SettingsModelSchema,
   SessionListSchema,
   SessionInfoSchema,
   SessionKindSchema,
+  WorkspaceDefaultModelSchema,
 } from "./sessions.ts";
 export type {
   ModelCatalogStatus,
   Models,
+  ModelsPayload,
+  SettingsModel,
   SessionInfo,
   SessionList,
   SessionKind,
+  WorkspaceDefaultModel,
 } from "./sessions.ts";
 export {
   ProfileInfoSchema,
@@ -204,6 +210,8 @@ export { SensorInfoSchema, SensorListSchema } from "./sensors.ts";
 export type { SensorInfo, SensorList } from "./sensors.ts";
 export { AuditEventSchema, AuditListSchema } from "./audit.ts";
 export type { AuditEvent, AuditList } from "./audit.ts";
+export { ToolCatalogEntrySchema, ToolCatalogSchema } from "./tools.ts";
+export type { ToolCatalogEntry, ToolCatalog } from "./tools.ts";
 export { Ping } from "./ping.ts";
 export {
   McpAuthSchema,

@@ -20,6 +20,7 @@ import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { RoomsService } from "../profiles/rooms.ts";
 import { MAX_RETRIES, shouldSignalReply } from "./policy.ts";
+import type { TopicJudge } from "./topic.ts";
 import {
   Lane,
   findEntry,
@@ -41,6 +42,12 @@ export interface MailboxDeps {
   readonly profiles: ProfilesService;
   readonly rooms: RoomsService;
   readonly audit: AuditService;
+  /**
+   * The on-topic judge (the Jev Decide faculty; the full DecideService
+   * satisfies the narrow dep). Optional: without it the gate admits —
+   * the mailbox never loses mail to a judge outage.
+   */
+  readonly judge?: TopicJudge;
   /** Materializes envelope artifact grants (copy into the recipient's store). */
   readonly grantArtifacts?: (
     owner: string,

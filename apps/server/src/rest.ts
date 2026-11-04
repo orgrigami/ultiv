@@ -31,6 +31,8 @@ import { mailboxRoutes } from "./rest/mailbox.ts";
 import { memoryRoutes, profileRoutes } from "./rest/profiles.ts";
 import { memoryV2Routes } from "./rest/memory-v2.ts";
 import { needsYouRoutes } from "./rest/needs-you.ts";
+import { toolRoutes } from "./rest/tools.ts";
+import { settingsRoutes } from "./rest/settings.ts";
 import { serverCheckRoutes } from "./rest/server-check.ts";
 import { skillRoutes } from "./rest/skills.ts";
 import { roomRoutes } from "./rest/rooms.ts";
@@ -167,9 +169,10 @@ async function route(args: RouteArgs): Promise<void> {
     });
   }
   if (path === "/api/models") {
-    return json(
-      200,
-      mind.models.list().map((spec) => ({
+    const stored = await mind.profiles.workspaceDefaultModel();
+    const env = mind.models.preferredRef();
+    return json(200, {
+      models: mind.models.list().map((spec) => ({
         id: spec.ref,
         label: spec.label,
         provider: spec.provider,
@@ -178,7 +181,13 @@ async function route(args: RouteArgs): Promise<void> {
         defaultEffort: spec.defaultEffort,
         input: [...spec.input],
       })),
-    );
+      workspaceDefault:
+        stored !== null
+          ? { ref: stored.ref, effort: stored.effort, source: "db" }
+          : env !== null
+            ? { ref: env, effort: "", source: "env" }
+            : null,
+    });
   }
   if (path === "/api/models/catalog" && method === "GET") {
     return json(200, { ...mind.models.status(), default: mind.models.defaultRef() });
@@ -248,6 +257,8 @@ async function route(args: RouteArgs): Promise<void> {
   if (await memoryRoutes(args)) return;
   if (await memoryV2Routes(args)) return;
   if (await needsYouRoutes(args)) return;
+  if (await toolRoutes(args)) return;
+  if (await settingsRoutes(args)) return;
   if (await serverCheckRoutes(args)) return;
   if (await skillRoutes(args)) return;
   if (await mailboxRoutes(args)) return;

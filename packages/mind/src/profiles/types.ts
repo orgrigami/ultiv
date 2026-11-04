@@ -82,6 +82,12 @@ export interface ProfilesService {
   /** The owner's main bot — the default surface; exactly one at a time. Null on a fresh workspace. */
   readonly mainOf: (owner: string) => Promise<string | null>;
   readonly setMain: (owner: string, profileId: string) => Promise<void>;
+  /** The stored workspace default model (the settings doc); null = not set. */
+  readonly workspaceDefaultModel: () => Promise<{ ref: string; effort: string } | null>;
+  /** Store the workspace default model; null clears it (the env applies again). */
+  readonly setWorkspaceDefaultModel: (
+    model: { ref: string; effort: string } | null,
+  ) => Promise<void>;
   /** The conversation scope index: persona, audit and artifact scoping read this. */
   readonly scopeOf: (conversationId: string) => ConversationScope | undefined;
   readonly profileOf: (conversationId: string) => ProfileInfo | undefined;

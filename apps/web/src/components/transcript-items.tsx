@@ -2,8 +2,7 @@
  * The transcript body: markdown output, collapsed reasoning, tool traces and
  * machinery notes, grouped so consecutive tool steps read as one sequence.
  */
-import { memo, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { memo } from "react";
 import { AttachmentChips } from "@/components/attachment-chips";
 import { BotAvatar } from "@/components/bot-avatar";
 import { useApp } from "@/lib/app-state";
@@ -17,6 +16,7 @@ import type { TaskInfo, ToolStep, TranscriptEntry } from "@spriessen/contracts";
 import { BrainIcon, CircleSlashIcon } from "lucide-react";
 import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";
+import { ChatProse, isFoldable } from "@/components/chat-prose";
 import { CodeBlockCopyButton } from "@/components/ui/code-block";
 import {
   Trace,
@@ -34,10 +34,8 @@ const roleStyles = {
   user: "self-end max-w-[80%] rounded-xl bg-muted/70 px-3.5 py-2.5 text-chat whitespace-pre-wrap break-words",
 } as const;
 
-// Past this much text a finished reply folds; the fold is a reading aid,
-// never a wall.
-const FOLD_CHARS = 1200;
-const FOLD_LINES = 24;
+// Past this much text a finished reply folds; the fold budget and the
+// prose container live in chat-prose.tsx (shared with the rooms timeline).
 
 /** A new divider when this much time passed since the previous message. */
 const DIVIDER_GAP_MS = 10 * 60_000;
@@ -57,11 +55,8 @@ const Output = memo(function Output({
   streaming: boolean;
   interrupted: boolean;
 }) {
-  const [open, setOpen] = useState(false);
   // Cut while thinking: nothing was said, so only the marker shows.
   const empty = text === "" && !streaming;
-  const foldable =
-    !streaming && !open && (text.length > FOLD_CHARS || text.split("\n").length > FOLD_LINES);
   const copy = !streaming && !empty && (
     <div className="opacity-0 transition-opacity group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 pointer-coarse:opacity-100">
       <CodeBlockCopyButton
@@ -75,31 +70,8 @@ const Output = memo(function Output({
     <>
       {!empty && (
         <div className="min-w-0 max-w-full">
-          <div
-            className={
-              "prose prose-sm chat-prose dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere] " +
-              (foldable
-                ? "max-h-80 overflow-hidden [mask-image:linear-gradient(to_bottom,black_72%,transparent)]"
-                : "")
-            }
-          >
-            <LazyMarkdown text={text} />
-            {streaming && (
-              <span aria-hidden className="text-live">
-                ▍
-              </span>
-            )}
-          </div>
-          {foldable && (
-            <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen(true)}>
-              Show more
-            </Button>
-          )}
-          {open && text.length > FOLD_CHARS && (
-            <Button variant="quiet" size="xs" className="mt-1" onClick={() => setOpen(false)}>
-              Show less
-            </Button>
-          )}
+          <ChatProse text={text} streaming={streaming} foldable={isFoldable(text)} />
+          {copy}
         </div>
       )}
       {interrupted && (

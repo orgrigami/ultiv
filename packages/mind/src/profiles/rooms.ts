@@ -26,7 +26,10 @@ const sameSet = (a: readonly string[], b: readonly string[]): boolean =>
 /** A room's topic key: trimmed, capped. Envelopes use the SAME key (the
  *  mailbox normalizes on send and on read), or a long topic would orphan its
  *  room's transcript. */
-export const normalizeTopic = (topic: string): string => topic.trim().slice(0, 200);
+/** The longest a room topic gets (the key rooms and envelopes share). */
+export const TOPIC_MAX = 200;
+
+export const normalizeTopic = (topic: string): string => topic.trim().slice(0, TOPIC_MAX);
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -52,6 +55,15 @@ export interface RoomsService {
     participants: readonly string[],
     topic: string,
   ) => Promise<RoomInfo>;
+  /**
+   * The pair's CURRENT room for a topic — the most recently active record
+   * matching owner, topic and participant set, or undefined when none.
+   */
+  readonly find: (
+    owner: string,
+    participants: readonly string[],
+    topic: string,
+  ) => Promise<RoomInfo | undefined>;
   readonly get: (owner: string, id: string) => Promise<RoomInfo | undefined>;
   readonly list: (owner: string, profileId?: string) => Promise<RoomList>;
   readonly touch: (owner: string, roomId: string) => Promise<void>;
@@ -91,6 +103,18 @@ export const roomsService = (deps: { readonly converse: ConverseService }): Room
         }),
       );
     },
+    find: (owner, participants, topic) =>
+      readRooms(converse).then(
+        (rooms) =>
+          rooms
+            .filter(
+              (room) =>
+                room.owner === owner &&
+                room.topic === normalizeTopic(topic) &&
+                sameSet(room.participants, participants),
+            )
+            .sort((a, b) => b.lastMessageAt - a.lastMessageAt)[0],
+      ),
     get: (owner, id) =>
       readRooms(converse).then((rooms) =>
         rooms.find((room) => room.owner === owner && room.id === id),

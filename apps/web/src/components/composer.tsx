@@ -26,6 +26,7 @@ import { canSend, SendButton } from "@/components/send-button";
 import { isImageMime } from "@/lib/attachments";
 import { PlusMenu, StagedChips, type Staged } from "@/components/composer-attachments";
 import { canRedirect, keySendMode } from "../lib/send-mode.ts";
+import { grownBoxStyle, useGrownBox } from "@/lib/grown-box";
 
 /** Starter prompts live with the plus menu now; re-exported for the empty chat. */
 export { SUGGESTIONS } from "./composer-attachments.tsx";
@@ -62,40 +63,11 @@ export function Composer({
   onRemoveStaged: (key: string) => void;
   vision: boolean | undefined;
 }) {
-  // The box is a pill at one line and relaxes to a 3xl squircle once the
-  // draft grows past it — a stadium cap on a tall box eats the layout.
-  // Measured, not inferred: the bare textarea auto-grows (field-sizing),
-  // so the rendered height is the truth in every engine. Growth sticks
-  // while a draft exists (the ChatGPT pattern): deleting text back down
-  // to one line mid-edit must not snap the box back — it collapses only
-  // when the draft clears (send or wipe), never mid-typing.
-  const boxRef = React.useRef<HTMLDivElement>(null);
+  // The pill/squircle shape is measured, not inferred — see useGrownBox
+  // (shared with the room composer): the bare textarea auto-grows, so the
+  // rendered height is the truth, and growth sticks while a draft exists.
+  const { boxRef, grown } = useGrownBox(draft);
   const fieldRef = React.useRef<HTMLTextAreaElement>(null);
-  const [grown, setGrown] = React.useState(false);
-  const draftRef = React.useRef(draft);
-  draftRef.current = draft;
-  // watch() must also run when the draft changes, not only on resize: while
-  // growth is sticky the box can already be at one-line height when the draft
-  // clears, so clearing produces NO resize event to collapse from.
-  const watchRef = React.useRef<() => void>(() => {});
-  React.useLayoutEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    // One line tops out at 56px (6px padding + 44px touch-min textarea); a
-    // second line clears 60. Observe, so font-size media changes also apply.
-    const watch = () =>
-      setGrown((was) =>
-        draftRef.current !== "" ? was || el.offsetHeight > 60 : el.offsetHeight > 60,
-      );
-    watch();
-    watchRef.current = watch;
-    const observer = new ResizeObserver(watch);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  React.useEffect(() => {
-    watchRef.current();
-  }, [draft]);
   // The whole box is one target: taps on the pill surface — padding, the
   // rounded ends, the corners above the small CTAs — focus the field with
   // the caret at the end, so no part of the composer is a dead zone. Taps
@@ -136,12 +108,7 @@ export function Composer({
       <div
         ref={boxRef}
         className="chrome-float focus-within:ring-ring/40 flex flex-wrap items-end gap-1.5 p-1.5 focus-within:ring-2 transition-[border-radius] duration-200 ease-out motion-reduce:transition-none"
-        style={
-          {
-            borderRadius: grown ? "var(--radius-3xl)" : "9999px",
-            cornerShape: "squircle",
-          } as React.CSSProperties
-        }
+        style={grownBoxStyle(grown)}
         onPointerDown={focusField}
         onPaste={(event) => {
           const files = Array.from(event.clipboardData.files);

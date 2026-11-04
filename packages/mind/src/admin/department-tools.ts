@@ -3,10 +3,12 @@
  * bots), `department_create`, `department_update` (rename, Instructions, VM
  * size) and `department_delete`. Main bot only (see common.ts); updates and
  * deletes park an owner card first, since every bot in the department
- * follows its Instructions. A delete warns first: a department that still
- * has bots is refused with their names and the way out (move them to the
- * org with bot_move, or export them on the department page). Host-access
- * switches are never read from the model.
+ * follows its Instructions. Creation runs without a card when the MAIN bot
+ * acts (ownerUnlessMain — assembling crew is its job); any other
+ * may-administer actor gets the card. A delete warns first: a department
+ * that still has bots is refused with their names and the way out (move
+ * them to the org with bot_move, or export them on the department page).
+ * Host-access switches are never read from the model.
  */
 import { Duration } from "effect";
 import { Type } from "typebox";
@@ -243,7 +245,16 @@ export const departmentTools = (deps: AdminDeps): readonly ToolRegistration[] =>
   const card = { owner: true, timeout: Duration.minutes(10) } as const;
   return [
     withAudit(deps.audit, listTool(deps), profileOf),
-    withAudit(deps.audit, createTool(deps), profileOf),
+    withAudit(
+      deps.audit,
+      withApproval(deps.approvals, createTool(deps), {
+        ownerUnlessMain: true,
+        editable: true,
+        guard: adminGuard(deps),
+        timeout: Duration.minutes(10),
+      }),
+      profileOf,
+    ),
     withAudit(
       deps.audit,
       withApproval(deps.approvals, updateTool(deps), { ...card, guard: adminGuard(deps) }),

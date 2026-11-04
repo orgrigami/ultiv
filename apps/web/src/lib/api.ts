@@ -9,17 +9,19 @@ import type {
   McpServerInput,
   McpServerList,
   MemoryRecord,
-  ModelInfo,
+  ModelsPayload,
   ProfileInfo,
   ProfilePolicies,
   RoomInfo,
   RoutineEvent,
   SensorInfo,
   SessionInfo,
+  SettingsModel,
   SkillDetail,
   SkillOverview,
   SkillProposal,
   TaskRow,
+  ToolCatalogEntry,
   WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
@@ -269,6 +271,8 @@ export const api = {
       departmentId?: string | null;
       hostAccess?: boolean;
       model?: { id: string; effort?: string } | null;
+      /** The curated tool list, replaced wholesale; null = every installed tool. */
+      toolAllowlist?: readonly string[] | null;
       /** Per-key merge server-side, so a partial object is safe. */
       policies?: Partial<ProfilePolicies>;
     },
@@ -405,7 +409,11 @@ export const api = {
     send<CredentialBinding>(`/api/vault/${encodeURIComponent(id)}/binding`, "PUT", input),
   bindingRemove: (id: string): Promise<boolean> =>
     drop(`/api/vault/${encodeURIComponent(id)}/binding`),
-  models: (): Promise<ModelInfo[]> => getJson<ModelInfo[]>("/api/models"),
+  models: (): Promise<ModelsPayload> => getJson<ModelsPayload>("/api/models"),
+  settingsModel: (): Promise<SettingsModel> => getJson<SettingsModel>("/api/settings/model"),
+  setSettingsModel: (input: { ref: string; effort: string } | null): Promise<SettingsModel> =>
+    send<SettingsModel>("/api/settings/model", "PUT", input),
+  tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {
       title,
