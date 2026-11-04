@@ -141,7 +141,7 @@ const indexedSearch = async (
   const words = timed.rest.trim() === "" ? query : timed.rest;
   const since = filters.since ?? timed.window?.since;
   const until = filters.until ?? timed.window?.until;
-  const hits = search.search({
+  const hits = await search.search({
     owner,
     profile: profileId,
     query: words,

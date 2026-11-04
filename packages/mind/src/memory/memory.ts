@@ -361,11 +361,20 @@ export const memoryService = (deps: {
         })),
       );
       const entities = read.flatMap((store) => store.entities);
+      const legs = searchLegs(read, entities);
+      const semantic =
+        legs.search !== undefined && deps.search?.semantic !== undefined && opts.query !== undefined
+          ? await deps.search.semantic(stores, opts.query, 20).catch((cause: unknown) => {
+              console.warn("memory meaning search unavailable:", String(cause).slice(0, 200));
+              return [];
+            })
+          : undefined;
       const result = recall({
         facts: read.flatMap((store) => store.facts),
         entities,
         cacheKey: stores.join("|"),
-        ...searchLegs(read, entities),
+        ...legs,
+        ...(semantic !== undefined ? { semantic } : {}),
         ...(opts.query !== undefined ? { query: opts.query } : {}),
         ...(opts.includeHistory !== undefined ? { includeHistory: opts.includeHistory } : {}),
         ...(opts.limit !== undefined ? { limit: opts.limit } : {}),

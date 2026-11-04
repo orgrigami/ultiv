@@ -9,6 +9,7 @@
 import type { MemoryFact } from "@spriessen/contracts";
 import type { SearchDb } from "./db.ts";
 import { gramsQuery, termsOf, termsQuery } from "./fts.ts";
+import { FILL_PER_CALL, fillMissing, nearest, toBlob, type Embedder } from "./vectors.ts";
 
 export interface FactSearch {
   /** Bring one store's rows in line with its facts. */
@@ -23,6 +24,16 @@ export interface FactSearch {
   readonly fuzzy: (stores: readonly string[], query: string, limit: number) => string[];
   /** Forget a whole store (a purged bot). */
   readonly drop: (store: string) => void;
+  /**
+   * Meaning-ranked ids over the given stores, when an embedding model is
+   * configured (search/vectors.ts); embeds a batch of facts without a
+   * vector first. Absent without a model.
+   */
+  readonly semantic?: (
+    stores: readonly string[],
+    query: string,
+    limit: number,
+  ) => Promise<string[]>;
 }
 
 const signatureOf = (fact: MemoryFact, names: readonly string[]): string =>
@@ -30,7 +41,7 @@ const signatureOf = (fact: MemoryFact, names: readonly string[]): string =>
 
 const placeholders = (count: number): string => Array.from({ length: count }, () => "?").join(",");
 
-export const factSearch = (search: SearchDb): FactSearch => {
+export const factSearch = (search: SearchDb, embedder?: Embedder): FactSearch => {
   const { db } = search;
   const rowsOf = db.prepare("SELECT rowid, id, sig FROM fact_rows WHERE store = ?");
   const insertRow = db.prepare("INSERT INTO fact_rows (id, store, sig) VALUES (?, ?, ?)");
@@ -42,6 +53,7 @@ export const factSearch = (search: SearchDb): FactSearch => {
   const deleteTerms = db.prepare("DELETE FROM fact_terms WHERE rowid = ?");
   const deleteGrams = db.prepare("DELETE FROM fact_grams WHERE rowid = ?");
   const deleteRow = db.prepare("DELETE FROM fact_rows WHERE rowid = ?");
+  const deleteVec = db.prepare("DELETE FROM fact_vec WHERE rowid = ?");
 
   const write = (rowid: number | bigint, fact: MemoryFact, names: readonly string[]): void => {
     const text = termsOf(fact.text);
@@ -60,6 +72,7 @@ export const factSearch = (search: SearchDb): FactSearch => {
   const remove = (rowid: number | bigint): void => {
     deleteTerms.run(rowid);
     deleteGrams.run(rowid);
+    deleteVec.run(rowid);
     deleteRow.run(rowid);
   };
 
@@ -84,6 +97,7 @@ export const factSearch = (search: SearchDb): FactSearch => {
           if (row !== undefined) {
             deleteTerms.run(row.rowid);
             deleteGrams.run(row.rowid);
+            deleteVec.run(row.rowid);
             updateRow.run(sig, row.rowid);
             write(row.rowid, fact, names);
             continue;
@@ -118,9 +132,44 @@ export const factSearch = (search: SearchDb): FactSearch => {
         limit,
       );
     },
+    ...(embedder !== undefined ? { semantic: semanticOf(search, embedder) } : {}),
     drop: (store) =>
       search.tx(() => {
         for (const row of rowsOf.all(store) as { rowid: number }[]) remove(row.rowid);
       }),
   };
 };
+
+/** The meaning leg over facts: fill missing vectors, then an exact cosine scan. */
+const semanticOf =
+  (search: SearchDb, embedder: Embedder) =>
+  async (stores: readonly string[], query: string, limit: number): Promise<string[]> => {
+    if (stores.length === 0 || query.trim() === "") return [];
+    const { db } = search;
+    const where = `r.store IN (${placeholders(stores.length)})`;
+    const missing = db
+      .prepare(
+        `SELECT r.rowid AS rowid, g.text AS text FROM fact_rows r
+         JOIN fact_grams g ON g.rowid = r.rowid
+         LEFT JOIN fact_vec v ON v.rowid = r.rowid AND v.model = ?
+         WHERE v.rowid IS NULL AND ${where} LIMIT ?`,
+      )
+      .all(embedder.model, ...stores, FILL_PER_CALL) as { rowid: number; text: string }[];
+    const put = db.prepare("INSERT OR REPLACE INTO fact_vec (rowid, model, vec) VALUES (?, ?, ?)");
+    await fillMissing(embedder, missing, (rowid, vector) =>
+      put.run(rowid, embedder.model, toBlob(vector)),
+    );
+    const [vector] = await embedder.embed([query]);
+    if (vector === undefined) return [];
+    const rows = db
+      .prepare(
+        `SELECT v.rowid AS rowid, v.vec AS vec, r.id AS id FROM fact_vec v
+         JOIN fact_rows r ON r.rowid = v.rowid WHERE v.model = ? AND ${where}`,
+      )
+      .all(embedder.model, ...stores) as { rowid: number; vec: Uint8Array; id: string }[];
+    const ids = new Map(rows.map((row) => [row.rowid, row.id]));
+    return nearest(vector, rows, limit).flatMap((hit) => {
+      const id = ids.get(hit.rowid);
+      return id === undefined ? [] : [id];
+    });
+  };

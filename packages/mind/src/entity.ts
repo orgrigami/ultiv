@@ -44,6 +44,7 @@ import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
 import { openSearchDb } from "./search/db.ts";
+import { embedderFromEnv } from "./search/vectors.ts";
 import { temporalPlugin } from "./act/temporal.ts";
 import { Audit, auditLayer } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
@@ -226,11 +227,14 @@ const mindLayerRaw = (
         Effect.sync(() => openSearchDb(wiring.searchDbPath)),
         (db) => Effect.sync(() => db.close()),
       );
+      // The meaning leg is opt-in (MEMORY_EMBEDDINGS=ollama): a local model.
+      const embedder = embedderFromEnv();
       const routines = routineServices(converse, profiles, wiring.onSchedulesChanged, {
         generate,
         decide,
         audit,
         searchDb,
+        ...(embedder !== undefined ? { embedder } : {}),
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
       });

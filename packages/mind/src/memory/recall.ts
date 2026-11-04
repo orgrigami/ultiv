@@ -36,6 +36,12 @@ export interface RecallInput {
     readonly lexical: (query: string, limit: number) => readonly string[];
     readonly fuzzy: (query: string, limit: number) => readonly string[];
   };
+  /**
+   * Meaning-ranked fact ids for the query (search/vectors.ts), computed
+   * before the call; absent without an embedding model. Admitted on its
+   * own: finding what a vague question MEANS is the leg's whole point.
+   */
+  readonly semantic?: readonly string[];
   /** The in-process index cache key: one per pool, so bots don't evict each other. */
   readonly cacheKey?: string;
   /**
@@ -56,7 +62,7 @@ export interface RecallResult {
 }
 
 const RRF_K = 60;
-const WEIGHTS = { l1: 1.0, l2: 0.8, l3: 0.5, l4: 0.3, grams: 0.3 } as const;
+const WEIGHTS = { l1: 1.0, l2: 0.8, l3: 0.5, l4: 0.3, grams: 0.3, meaning: 0.8 } as const;
 /**
  * The trigram leg admits candidates of its own only when the word leg
  * found almost nothing (a typo, a code, a name spelled differently);
@@ -217,7 +223,8 @@ export const recall = (input: RecallInput): RecallResult => {
   const l3 = factsForEntities(neighbours(matched, pool, entities), pool, 20);
   // L4 is a PRIOR over the candidates, not a fourth candidate source: textual
   // or entity evidence must exist before recency/importance can surface a fact.
-  const found = new Set([...l1, ...l2, ...l3]);
+  const meaning = (input.semantic ?? []).filter((id) => inPool.has(id));
+  const found = new Set([...l1, ...l2, ...l3, ...meaning]);
   const admitGrams = found.size < GRAMS_ADMIT_BELOW;
   const gramLeg = admitGrams ? grams : grams.filter((id) => found.has(id));
   const candidates = [...new Set([...found, ...gramLeg])];
@@ -234,6 +241,7 @@ export const recall = (input: RecallInput): RecallResult => {
     { weight: WEIGHTS.l3, ids: l3 },
     { weight: WEIGHTS.l4, ids: l4 },
     { weight: WEIGHTS.grams, ids: gramLeg },
+    { weight: WEIGHTS.meaning, ids: meaning },
   ]);
   const byId = new Map(pool.map((fact) => [fact.id, fact]));
   const ranked = [...fused]

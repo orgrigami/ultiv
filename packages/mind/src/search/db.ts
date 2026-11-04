@@ -11,6 +11,8 @@
  *   as plain tokens, tokenized `unicode61` — the BM25 leg.
  * - `*_grams`: the raw text, tokenized `trigram` — substrings, codes, names
  *   typed differently, and a typo's shared letter runs.
+ * - `*_vec`: optional meaning vectors (search/vectors.ts), only when an
+ *   embedding model is configured.
  */
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -49,6 +51,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS msg_terms USING fts5 (
   terms, concepts, tokenize = 'unicode61 remove_diacritics 2'
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS msg_grams USING fts5 (text, tokenize = 'trigram');
+CREATE TABLE IF NOT EXISTS fact_vec (rowid INTEGER PRIMARY KEY, model TEXT NOT NULL, vec BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS msg_vec (rowid INTEGER PRIMARY KEY, model TEXT NOT NULL, vec BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS msg_cursor (
   conversation TEXT PRIMARY KEY,
   owner TEXT NOT NULL,
@@ -59,7 +63,7 @@ CREATE TABLE IF NOT EXISTS msg_cursor (
 `;
 
 /** Bumped when the schema or the analysis changes: the file is rebuilt. */
-export const SEARCH_SCHEMA_VERSION = "1";
+export const SEARCH_SCHEMA_VERSION = "2";
 
 export interface SearchDb {
   readonly db: DatabaseSync;
@@ -76,6 +80,8 @@ const DROP = [
   "msg_terms",
   "msg_grams",
   "msg_cursor",
+  "fact_vec",
+  "msg_vec",
 ];
 
 /** Open (or create) the sidecar. A schema from another version is dropped and rebuilt. */

@@ -14,6 +14,7 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND } from "../converse/steps.ts";
 import type { SearchDb } from "./db.ts";
 import { gramsQuery, snippetOf, termsOf, termsQuery } from "./fts.ts";
+import { FILL_PER_CALL, fillMissing, nearest, toBlob, type Embedder } from "./vectors.ts";
 
 export type MessageRole = "user" | "assistant" | "tool";
 
@@ -49,7 +50,7 @@ export interface MessageSearch {
     conversations: readonly ConversationRef[],
     readAfter: (conversation: string, afterEntry: number) => Promise<readonly EntryRecord[]>,
   ) => Promise<number>;
-  readonly search: (query: MessageQuery) => MessageHit[];
+  readonly search: (query: MessageQuery) => Promise<MessageHit[]>;
   /** Forget a bot's rows (a purged bot). */
   readonly drop: (owner: string, profile: string) => void;
 }
@@ -105,7 +106,55 @@ export const messageOf = (
   return { role, text, at: at === 0 ? Date.now() : at };
 };
 
-export const messageSearch = (search: SearchDb): MessageSearch => {
+type Row = {
+  rowid: number;
+  conversation: string;
+  session: string;
+  entry: number;
+  role: MessageRole;
+  at: number;
+  text: string;
+};
+
+/** The meaning leg over one bot's messages: fill missing vectors, then a cosine scan. */
+const meaningLeg = async (
+  search: SearchDb,
+  embedder: Embedder,
+  query: MessageQuery,
+  where: { readonly sql: string; readonly params: (string | number)[] },
+): Promise<Row[]> => {
+  const { db } = search;
+  const missing = db
+    .prepare(
+      `SELECT r.rowid AS rowid, r.text AS text FROM msg_rows r
+       LEFT JOIN msg_vec v ON v.rowid = r.rowid AND v.model = ?
+       WHERE v.rowid IS NULL AND r.owner = ? AND r.profile = ?
+       ORDER BY r.at DESC LIMIT ?`,
+    )
+    .all(embedder.model, query.owner, query.profile, FILL_PER_CALL) as {
+    rowid: number;
+    text: string;
+  }[];
+  const put = db.prepare("INSERT OR REPLACE INTO msg_vec (rowid, model, vec) VALUES (?, ?, ?)");
+  await fillMissing(embedder, missing, (rowid, vector) =>
+    put.run(rowid, embedder.model, toBlob(vector)),
+  );
+  const [vector] = await embedder.embed([query.query]);
+  if (vector === undefined) return [];
+  const rows = db
+    .prepare(
+      `SELECT r.rowid AS rowid, r.conversation, r.session, r.entry, r.role, r.at, r.text, v.vec AS vec
+       FROM msg_vec v JOIN msg_rows r ON r.rowid = v.rowid WHERE v.model = ? AND ${where.sql}`,
+    )
+    .all(embedder.model, ...where.params) as (Row & { vec: Uint8Array })[];
+  const byId = new Map(rows.map((row) => [row.rowid, row]));
+  return nearest(vector, rows, 30).flatMap((hit) => {
+    const row = byId.get(hit.rowid);
+    return row === undefined ? [] : [row];
+  });
+};
+
+export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSearch => {
   const { db } = search;
   const cursorsOf = db.prepare(
     "SELECT conversation, last_entry FROM msg_cursor WHERE owner = ? AND profile = ?",
@@ -126,10 +175,12 @@ export const messageSearch = (search: SearchDb): MessageSearch => {
   const deleteRows = db.prepare("DELETE FROM msg_rows WHERE conversation = ?");
   const deleteCursor = db.prepare("DELETE FROM msg_cursor WHERE conversation = ?");
 
+  const deleteVec = db.prepare("DELETE FROM msg_vec WHERE rowid = ?");
   const dropConversation = (conversation: string): void => {
     for (const row of rowsOfConversation.all(conversation) as { rowid: number }[]) {
       deleteTerms.run(row.rowid);
       deleteGrams.run(row.rowid);
+      deleteVec.run(row.rowid);
     }
     deleteRows.run(conversation);
     deleteCursor.run(conversation);
@@ -155,16 +206,6 @@ export const messageSearch = (search: SearchDb): MessageSearch => {
       params.push(query.session);
     }
     return { sql: clauses.join(" AND "), params };
-  };
-
-  type Row = {
-    rowid: number;
-    conversation: string;
-    session: string;
-    entry: number;
-    role: MessageRole;
-    at: number;
-    text: string;
   };
 
   const leg = (
@@ -235,11 +276,18 @@ export const messageSearch = (search: SearchDb): MessageSearch => {
       }
       return added;
     },
-    search: (query) => {
+    search: async (query) => {
+      const meaning =
+        embedder === undefined
+          ? []
+          : await meaningLeg(search, embedder, query, filters(query)).catch((cause: unknown) => {
+              console.warn("history meaning search unavailable:", String(cause).slice(0, 200));
+              return [] as Row[];
+            });
       const words = leg("msg_terms", termsQuery(query.query), query);
       const grams = leg("msg_grams", gramsQuery(query.query), query);
       // Trigrams find on their own only when the words found almost nothing.
-      const found = new Set(words.map((row) => row.rowid));
+      const found = new Set([...words, ...meaning].map((row) => row.rowid));
       const gramLeg = found.size < 3 ? grams : grams.filter((row) => found.has(row.rowid));
       const byId = new Map<number, Row>();
       const score = new Map<number, number>();
@@ -250,6 +298,7 @@ export const messageSearch = (search: SearchDb): MessageSearch => {
         });
       add(words, 1);
       add(gramLeg, 0.4);
+      add(meaning, 0.8);
       // Recency as a light prior over what matched: newer wins a near tie.
       add(
         [...byId.values()].sort((a, b) => b.at - a.at),

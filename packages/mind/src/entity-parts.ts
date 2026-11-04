@@ -35,6 +35,7 @@ import { memoryService, type MemoryService } from "./memory/memory.ts";
 import { memoryTools } from "./memory/tools.ts";
 import { prefetchExtension } from "./memory/prefetch-section.ts";
 import type { SearchDb } from "./search/db.ts";
+import type { Embedder } from "./search/vectors.ts";
 import { factSearch } from "./search/facts.ts";
 import { messageSearch } from "./search/messages.ts";
 import { historyService, type HistoryService } from "./history/history.ts";
@@ -432,6 +433,8 @@ export const routineServices = (
     readonly untrustedTool?: (name: string) => boolean;
     /** The search sidecar: full-text recall and conversation search. */
     readonly searchDb?: SearchDb;
+    /** The optional local embedding model (search/vectors.ts): the meaning leg. */
+    readonly embedder?: Embedder;
   } = {},
 ) => ({
   memory: memoryService({
@@ -441,12 +444,16 @@ export const routineServices = (
     ...(models.decide !== undefined ? { decide: models.decide } : {}),
     ...(models.audit !== undefined ? { audit: models.audit } : {}),
     ...(models.untrustedTool !== undefined ? { untrustedTool: models.untrustedTool } : {}),
-    ...(models.searchDb !== undefined ? { search: factSearch(models.searchDb) } : {}),
+    ...(models.searchDb !== undefined
+      ? { search: factSearch(models.searchDb, models.embedder) }
+      : {}),
   }),
   history: historyService({
     converse,
     profiles,
-    ...(models.searchDb !== undefined ? { search: messageSearch(models.searchDb) } : {}),
+    ...(models.searchDb !== undefined
+      ? { search: messageSearch(models.searchDb, models.embedder) }
+      : {}),
   }),
   schedules: schedulesService({
     converse,
