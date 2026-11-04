@@ -25,22 +25,27 @@ function HomePage() {
   const navigate = useNavigate();
   const activeId = Route.useSearch().bot;
   const profileId = activeId ?? mainId;
-  const [chatId, setChatId] = useState<string | null>(null);
+  // The chat is stamped with the bot it belongs to: while a switch is still
+  // fetching the new bot's chat, the old one must not show under the new
+  // bot's name (a message sent then would reach the wrong bot).
+  const [chat, setChat] = useState<{ profileId: string; id: string } | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const chatId = chat !== null && chat.profileId === profileId ? chat.id : null;
 
   useEffect(() => setLastBot(activeId), [activeId, setLastBot]);
 
   useEffect(() => {
     if (profileId === null) {
-      setChatId(null);
+      setChat(null);
       return;
     }
     let stale = false;
+    setChatError(null);
     api
       .mainChat(profileId)
       .then((session) => {
         if (!stale) {
-          setChatId(session.id);
+          setChat({ profileId, id: session.id });
           setChatError(null);
         }
       })
@@ -86,7 +91,8 @@ function HomePage() {
   return (
     <div className={chatColumn}>
       {chatId !== null ? (
-        <Chat sessionId={chatId} models={sessions.models} bot={bot} />
+        // Keyed: a draft or staged file never carries over to another chat.
+        <Chat key={chatId} sessionId={chatId} models={sessions.models} bot={bot} />
       ) : (
         <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
           {chatError !== null ? `Couldn't open the chat: ${chatError}` : "Opening the chat…"}
