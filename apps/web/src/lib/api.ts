@@ -1,5 +1,4 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
-
 import type {
   AuditEvent,
   CredentialBinding,
@@ -26,15 +25,10 @@ import type {
   VaultItemInfo,
   WebhookInfo,
 } from "@spriessen/contracts";
-
 import type { NodeInfo, NodePairResponse } from "@spriessen/contracts";
-
 import type { NeedsYouExtra } from "./needs-you.ts";
-
 import { UNAUTHORIZED_EVENT } from "./auth.ts";
-
 import { statusText } from "./error-words.ts";
-
 import type {
   ArtifactRow,
   MemoryV2Line,

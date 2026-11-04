@@ -12,31 +12,18 @@
  * doc family and helpers stay exported for the rollback surfaces.
  */
 import { randomUUID } from "node:crypto";
-
 import { Effect } from "effect";
-
 import { InvalidInput, NotFound } from "@spriessen/core";
-
 import type { FactTrust, MemoryRecord } from "@spriessen/contracts";
-
 import type { ConverseService } from "../converse/converse.ts";
-
 import type { AuditService } from "../audit/audit.ts";
-
 import type { ProfilesService } from "../profiles/profiles.ts";
-
 import type { DecideService } from "../decide/decide.ts";
-
 import type { GenerateService } from "../generate/generate.ts";
-
 import { writeFactV2 } from "./consolidate.ts";
-
 import { coreService } from "./core.ts";
-
 import { forgetFact, historyOf, purgeForgotten, restoreFact } from "./forget.ts";
-
 import { entitiesOf, relatedEntity } from "./graph.ts";
-
 import {
   CoreDoc,
   EpisodesDoc,
@@ -50,11 +37,8 @@ import {
   ownerKey,
   profileKey,
 } from "./model.ts";
-
 import { shareOps } from "./share.ts";
-
 import { recall } from "./recall.ts";
-
 import type { MemoryService } from "./memory-api.ts";
 export type { MemoryService } from "./memory-api.ts";
 
