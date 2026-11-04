@@ -64,12 +64,17 @@ The ingress answers the sender ONCE, fast, and honestly:
    `rejectedLast24h` with flat accepts is key rotation). Only the token's
    SHA-256 hash is stored and compared in constant time; the token is shown
    once (at creation or **New token**) — see `docs/SECURITY.md`.
-2. body over 64 KB → `413`.
+2. body over 64 KB → `413`. The route reads at most one byte past the cap
+   and closes the connection, so an oversized upload is never buffered.
 3. rate limit (30/min default, `WEBHOOK_RATE_PER_MIN`) → `429` +
    `retryAfterS`.
 4. schema check (pre-ack): invalid JSON or schema mismatch → `422` with
    detail; the body is retained (last 5, truncated) for the webhook's AUTHOR
    — the entity — to diagnose its own schema drift.
+   Rejects (steps 1–4) are recorded at most 10 per webhook per minute:
+   a caller without the token cannot fill the reject list or push real
+   receipts out of the shared routine log. Past that the caller still gets
+   its answer; only the record is skipped.
 5. everything passed → receipt written (write-ahead), counters bumped,
    payload queued, ack `200 {ok, eventId}`. The `eventId` is the
    correlation handle for "what happened to my event".

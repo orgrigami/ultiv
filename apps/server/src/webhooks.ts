@@ -145,8 +145,51 @@ const flush = async (
 };
 
 /**
+ * Recorded rejects per webhook per minute. Rejects come from callers that
+ * may not hold the token, so each one writing two durable records would let
+ * anyone who knows a webhook id fill its reject list and push real receipts
+ * out of the shared routine log. Past this rate the caller still gets its
+ * answer; only the record is skipped. In-memory, like the delivery bucket.
+ */
+const REJECT_RECORDS_PER_MIN = 10;
+const rejectBuckets = new Map<string, { tokens: number; last: number }>();
+
+const mayRecordReject = (id: string): boolean => {
+  const now = Date.now();
+  const bucket = rejectBuckets.get(id) ?? { tokens: REJECT_RECORDS_PER_MIN, last: now };
+  bucket.tokens = Math.min(
+    REJECT_RECORDS_PER_MIN,
+    bucket.tokens + ((now - bucket.last) / 60_000) * REJECT_RECORDS_PER_MIN,
+  );
+  bucket.last = now;
+  rejectBuckets.set(id, bucket);
+  if (bucket.tokens < 1) return false;
+  bucket.tokens -= 1;
+  return true;
+};
+
+/** Record one rejected call (the webhook's reject list + a settled routine receipt). */
+const recordReject = async (
+  mind: MindService,
+  id: string,
+  reason: "auth" | "schema" | "rate" | "size",
+  detail: string,
+  body: string,
+): Promise<void> => {
+  if (!mayRecordReject(id)) return;
+  await recordWebhookReject(mind.converse, id, { reason, detail, body });
+  const eventId = await recordRoutineFire(mind.converse, {
+    routineId: id,
+    source: "webhook",
+    reason,
+  });
+  await settleRoutineEvent(mind.converse, eventId, "rejected", reason);
+};
+
+/**
  * The ingress pipeline. Everything cheap and synchronous happens pre-ack —
  * after the 2xx the sender assumes success and will never hear "no" again.
+ * `body` is at most one byte over the cap (the route stops reading there).
  */
 export const handleWebhookIngress = async (
   mind: MindService,
@@ -156,79 +199,35 @@ export const handleWebhookIngress = async (
 ): Promise<IngressReply> => {
   const webhook = await findWebhook(mind.converse, id);
   if (webhook === undefined) return { status: 404, json: { error: "unknown webhook" } };
-  const bytes = Buffer.byteLength(body, "utf8");
-  if (bytes > MAX_WEBHOOK_BODY_BYTES) {
-    await recordWebhookReject(mind.converse, id, {
-      reason: "size",
-      detail: `${bytes} bytes exceeds the ${MAX_WEBHOOK_BODY_BYTES}-byte cap`,
-      body,
-    });
-    await recordRoutineFire(mind.converse, {
-      routineId: id,
-      source: "webhook",
-      reason: "size",
-    }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "size"));
+  if (Buffer.byteLength(body, "utf8") > MAX_WEBHOOK_BODY_BYTES) {
+    const detail = `body exceeds the ${MAX_WEBHOOK_BODY_BYTES}-byte cap`;
+    await recordReject(mind, id, "size", detail, body);
     return { status: 413, json: { error: "payload too large" } };
   }
   // Constant-time hash compare (only the hash is stored); never logged.
   if (!(await verifyWebhookToken(mind.converse, id, token))) {
     // The key-rotation alarm: counted per webhook, visible in 24h rejects.
-    await recordWebhookReject(mind.converse, id, {
-      reason: "auth",
-      detail: "bearer token mismatch",
-      body,
-    });
-    await recordRoutineFire(mind.converse, {
-      routineId: id,
-      source: "webhook",
-      reason: "auth",
-    }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "auth"));
+    await recordReject(mind, id, "auth", "bearer token mismatch", body);
     return { status: 401, json: { error: "bad token" } };
   }
   const rate = checkWebhookRate(id);
   if (!rate.ok) {
-    await recordWebhookReject(mind.converse, id, {
-      reason: "rate",
-      detail: `token bucket empty; retry in ${rate.retryAfterS}s`,
-      body,
-    });
-    await recordRoutineFire(mind.converse, {
-      routineId: id,
-      source: "webhook",
-      reason: "rate",
-    }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "rate"));
+    const detail = `token bucket empty; retry in ${rate.retryAfterS}s`;
+    await recordReject(mind, id, "rate", detail, body);
     return { status: 429, json: { error: "rate limited", retryAfterS: rate.retryAfterS } };
   }
   let payload: unknown;
   try {
     payload = body.trim() === "" ? {} : (JSON.parse(body) as unknown);
   } catch {
-    await recordWebhookReject(mind.converse, id, {
-      reason: "schema",
-      detail: "body is not valid JSON",
-      body,
-    });
-    await recordRoutineFire(mind.converse, {
-      routineId: id,
-      source: "webhook",
-      reason: "schema",
-    }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "schema"));
+    await recordReject(mind, id, "schema", "body is not valid JSON", body);
     return { status: 422, json: { error: "body is not valid JSON" } };
   }
   const schemaCheck = checkWebhookPayload(webhook.schema, payload);
   if (!schemaCheck.ok) {
     // Schema rejections are the AUTHOR's bug — the retained body is how the
     // author (the entity) diagnoses its own schema drift.
-    await recordWebhookReject(mind.converse, id, {
-      reason: "schema",
-      detail: schemaCheck.detail,
-      body,
-    });
-    await recordRoutineFire(mind.converse, {
-      routineId: id,
-      source: "webhook",
-      reason: "schema",
-    }).then((eventId) => settleRoutineEvent(mind.converse, eventId, "rejected", "schema"));
+    await recordReject(mind, id, "schema", schemaCheck.detail, body);
     return {
       status: 422,
       json: { error: "payload rejected by schema", detail: schemaCheck.detail },

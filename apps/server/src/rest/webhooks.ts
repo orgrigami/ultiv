@@ -1,8 +1,44 @@
 /** Webhook routes: the registry, the `/hooks/:id` ingress and the test-fire. */
-import { listWebhooks, removeWebhook, rotateWebhookToken } from "@spriessen/mind";
+import type { IncomingMessage } from "node:http";
+import {
+  listWebhooks,
+  MAX_WEBHOOK_BODY_BYTES,
+  removeWebhook,
+  rotateWebhookToken,
+} from "@spriessen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
 import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
 import type { RouteArgs } from "./types.ts";
+
+/**
+ * Read a request body up to `limit` bytes. Past it the stream is paused and
+ * left unread (`over`), so the answer goes out without buffering the rest.
+ * Not `for await`: breaking out of it destroys the socket before the reply.
+ */
+export const readCapped = (
+  req: IncomingMessage,
+  limit: number,
+): Promise<{ body: string; over: boolean }> =>
+  new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    const finish = (over: boolean): void => {
+      req.off("data", onData);
+      req.off("end", onEnd);
+      req.off("error", reject);
+      if (over) req.pause();
+      resolve({ body: Buffer.concat(chunks).subarray(0, limit).toString("utf8"), over });
+    };
+    const onData = (chunk: Buffer): void => {
+      chunks.push(chunk);
+      size += chunk.length;
+      if (size >= limit) finish(true);
+    };
+    const onEnd = (): void => finish(false);
+    req.on("data", onData);
+    req.on("end", onEnd);
+    req.on("error", reject);
+  });
 
 export async function webhookRoutes(
   args: RouteArgs,
@@ -77,8 +113,15 @@ export async function webhookRoutes(
       req.headers["x-spriessen-token"] ??
       req.headers["x-ultiv-token"] ??
       "";
-    const body = (await args.readBody(req)).toString("utf8");
+    // Read at most one byte past the cap: this route needs no sign-in, so an
+    // unbounded read would let anyone make the server buffer any size.
+    const { body, over } = await readCapped(req, MAX_WEBHOOK_BODY_BYTES + 1);
     const reply = await handleWebhookIngress(mind, segment("/hooks/"), String(token), body);
+    if (over) {
+      // The rest of the upload is never read; close instead of draining it.
+      args.res.setHeader("connection", "close");
+      args.res.once("finish", () => req.destroy());
+    }
     json(reply.status, reply.json);
     return true;
   }
