@@ -5,5 +5,5 @@ export default defineConfig({
   fmt: {
     ignorePatterns: ["apps/web/src/routeTree.gen.ts"],
   },
-  test: { env: offlineCatalogEnv },
+  test: { env: offlineCatalogEnv, setupFiles: ["./packages/mind/test-setup.ts"] },
 });

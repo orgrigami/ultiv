@@ -2,7 +2,8 @@
  * Test runs never fetch models.dev nor read the owner's catalog files: every
  * mind a test opens boots on an empty model catalog (validation then accepts
  * any model ref). Bot files (Persona and Instructions) land in a scratch
- * folder, never the repo's var/. Loaded by the root and the package vite configs.
+ * folder, never the repo's var/ — per worker, see test-setup.ts. Loaded by
+ * the root and the package vite configs.
  */
 import { tmpdir } from "node:os";
 import { join } from "node:path";

@@ -149,6 +149,8 @@ const mergeInto = (from: string, target: string, conflicts: string[]): void => {
   for (const entry of readdirSync(from)) {
     const source = join(from, entry);
     const targetPath = join(target, entry);
+    // Listed a moment ago, gone now (another process moved it): nothing to move.
+    if (!existsSync(source)) continue;
     if (
       statSync(source).isDirectory() &&
       existsSync(targetPath) &&
