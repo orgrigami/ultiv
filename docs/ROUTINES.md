@@ -130,12 +130,16 @@ A sensor watches an external source and wakes the entity on events. Tools:
 - **Dedup is the source's natural key** (ICS UID, RSS guid / Atom id),
   stored in a ring on the sensor row — each real-world event wakes the
   entity exactly once, across restarts. Missing uid falls back to
-  `summary@start` / `title@pubAt`. Watch sensors dedup by transition instead
+  `summary@start` / `title@pubAt` (`rssUidOf`, used by both the seen-check
+  and the record). Watch sensors dedup by transition instead
   (`lastState` fingerprint), which is the point of the kind.
 - Fires are write-ahead receipts (`source: "sensor"`), delivered as
   **follow-ups** (never steering).
 - Feed errors land on the sensor's `lastError` — visible in
-  `GET /api/sensors` and `sensor_list`.
+  `GET /api/sensors` and `sensor_list`. A source larger than 5 MB
+  (`SENSOR_MAX_BYTES`) is an error too; it is never buffered whole.
+- A pass that outlasts `SENSOR_POLL_MS` is not doubled: the next tick is
+  skipped while one runs.
 
 ## Cron missed-tick policy
 

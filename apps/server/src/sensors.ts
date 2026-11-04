@@ -22,6 +22,43 @@ import { calendarFeedUrl, parseFeed, parseIcs, type IcsEvent } from "@spriessen/
 import { deliverToSession } from "./deliver.ts";
 
 const POLL_MS = Number(process.env.SENSOR_POLL_MS ?? 300_000);
+/** The most a sensor reads from one source; past it the poll fails with an error. */
+export const SENSOR_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * GET a source as text, refusing anything past SENSOR_MAX_BYTES (a page or
+ * feed that never ends would otherwise be buffered whole in the server).
+ */
+export const fetchSourceText = async (url: string): Promise<string> => {
+  const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+  if (!response.ok) throw new Error(`returned ${response.status}`);
+  if (response.body === null) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > SENSOR_MAX_BYTES) {
+      await reader.cancel();
+      throw new Error(`response is larger than ${SENSOR_MAX_BYTES / 1024 / 1024} MB`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+};
+
+/**
+ * An RSS item's dedup key: the feed's own id (guid / Atom id / link), else
+ * its title and publish time. The seen-check and the fire record must use
+ * the SAME key, or an id-less item re-fires on every poll.
+ */
+export const rssUidOf = (item: {
+  readonly uid: string | null;
+  readonly title: string;
+  readonly pubAt?: number | null;
+}): string => item.uid ?? `${item.title}@${item.pubAt ?? 0}`;
 /** A fire window stays open briefly past the start, so one missed poll isn't a lost wake. */
 const GRACE_MS = 60 * 60 * 1000;
 /** Flood cap for rss sensors: a first poll of a chatty feed wakes at most this many. */
@@ -81,9 +118,7 @@ const pollCalendar = async (mind: MindService, sensors: readonly SensorRow[]): P
   }
   let events: readonly IcsEvent[];
   try {
-    const response = await fetch(feedUrl, { signal: AbortSignal.timeout(15_000) });
-    if (!response.ok) throw new Error(`feed returned ${response.status}`);
-    events = parseIcs(await response.text());
+    events = parseIcs(await fetchSourceText(feedUrl));
   } catch (cause) {
     const error = String(cause).slice(0, 200);
     for (const sensor of sensors) await markPolled(mind, sensor, error);
@@ -121,9 +156,7 @@ const pollRss = async (mind: MindService, sensors: readonly SensorRow[]): Promis
     }
     let items: ReturnType<typeof parseFeed>;
     try {
-      const response = await fetch(sensor.url, { signal: AbortSignal.timeout(15_000) });
-      if (!response.ok) throw new Error(`feed returned ${response.status}`);
-      items = parseFeed(await response.text());
+      items = parseFeed(await fetchSourceText(sensor.url));
     } catch (cause) {
       await markPolled(mind, sensor, String(cause).slice(0, 200));
       continue;
@@ -131,12 +164,11 @@ const pollRss = async (mind: MindService, sensors: readonly SensorRow[]): Promis
     await markPolled(mind, sensor, null);
     const due = items
       .filter(
-        (item) =>
-          matches(sensor, item.title) && !(sensor.seen ?? []).includes(item.uid ?? item.title),
+        (item) => matches(sensor, item.title) && !(sensor.seen ?? []).includes(rssUidOf(item)),
       )
       .slice(0, RSS_BATCH_CAP);
     for (const item of due) {
-      const uid = item.uid ?? `${item.title}@${item.pubAt ?? 0}`;
+      const uid = rssUidOf(item);
       await fire(
         mind,
         sensor,
@@ -177,9 +209,7 @@ const pollWatch = async (mind: MindService, sensors: readonly SensorRow[]): Prom
     }
     let body: string;
     try {
-      const response = await fetch(sensor.url, { signal: AbortSignal.timeout(15_000) });
-      if (!response.ok) throw new Error(`returned ${response.status}`);
-      body = await response.text();
+      body = await fetchSourceText(sensor.url);
     } catch (cause) {
       await markPolled(mind, sensor, String(cause).slice(0, 200));
       continue;
@@ -208,10 +238,19 @@ const pollWatch = async (mind: MindService, sensors: readonly SensorRow[]): Prom
 
 /** Arm the poll loop; refresh is unnecessary — sensors are read fresh each tick. */
 export const startSensorLoop = async (mind: MindService): Promise<SensorLoop> => {
+  // A pass that outlasts the interval (many slow sources) is not doubled:
+  // two passes reading the same baseline would both fire one change.
+  let running = false;
   const timer = setInterval(() => {
-    void sensorPass(mind).catch((cause) => {
-      console.error("sensor poll failed:", String(cause).slice(0, 200));
-    });
+    if (running) return;
+    running = true;
+    void sensorPass(mind)
+      .catch((cause) => {
+        console.error("sensor poll failed:", String(cause).slice(0, 200));
+      })
+      .finally(() => {
+        running = false;
+      });
   }, POLL_MS);
   timer.unref?.();
   await sensorPass(mind).catch((cause) => {
