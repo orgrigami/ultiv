@@ -93,6 +93,7 @@ export function Chat({
         bot={bot}
         onBack={onBack}
         link={session.link}
+        loaded={session.loaded}
         transcript={session.transcript}
         phase={session.phase}
         lastError={session.lastError}

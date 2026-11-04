@@ -137,6 +137,7 @@ export function SessionView({
   sessionId,
   onBack,
   link,
+  loaded = true,
   transcript,
   phase,
   lastError,
@@ -166,6 +167,8 @@ export function SessionView({
   /** Shown as the header's round back button when set. */
   onBack?: (() => void) | undefined;
   link: LinkState;
+  /** The server has loaded the history; until then an empty transcript is "loading", not "new chat". */
+  loaded?: boolean;
   transcript: TranscriptEntry[];
   phase: Phase;
   lastError: string | null;
@@ -254,8 +257,9 @@ export function SessionView({
                 paddingBottom: aboveComposer(footerHeight, 12),
               }}
             >
-              {transcript.length === 0 && link === "connecting" && <ChatSkeleton />}
-              {transcript.length === 0 && link === "live" && !busy && (
+              {transcript.length === 0 &&
+                (link === "connecting" || (link === "live" && !loaded)) && <ChatSkeleton />}
+              {transcript.length === 0 && link === "live" && loaded && !busy && (
                 <EmptyChat bot={bot} onPick={setDraft} />
               )}
               <TranscriptItems

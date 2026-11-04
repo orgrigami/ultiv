@@ -12,8 +12,49 @@ import { onLinkClosed, openSession, reconnectDelay, type SessionRef } from "./ch
 
 export type LinkPhase = "connecting" | "live" | "lost";
 
+type CellSetters = {
+  transcript: (value: TranscriptEntry[]) => void;
+  queued: (value: QueuedInput[]) => void;
+  conversationId: (value: string) => void;
+  loaded: () => void;
+};
+
+/**
+ * Holds a fresh Session object's transcript and queue back until the server
+ * has loaded the conversation. A new object starts empty and publishes its
+ * history only after attach settles; showing that empty start would flash
+ * the "new chat" screen on every open and blank the chat on every
+ * reconnect. The server sets `conversationId` only after its first load,
+ * so that cell is the signal.
+ */
+export function bindLoadedCells(opened: SessionRef, set: CellSetters): Array<() => void> {
+  let loaded = false;
+  const held: { transcript?: TranscriptEntry[]; queued?: QueuedInput[] } = {};
+  return [
+    opened.transcript.subscribe((value) => {
+      if (loaded) set.transcript(value);
+      else held.transcript = value;
+    }),
+    opened.queued.subscribe((value) => {
+      if (loaded) set.queued(value);
+      else held.queued = value;
+    }),
+    opened.conversationId.subscribe((value) => {
+      if (value === null) return;
+      set.conversationId(value);
+      if (loaded) return;
+      loaded = true;
+      set.transcript(held.transcript ?? []);
+      set.queued(held.queued ?? []);
+      set.loaded();
+    }),
+  ];
+}
+
 export function useSession(sessionId: string): {
   link: LinkPhase;
+  /** The server has loaded this chat's history (until then an empty transcript means "not yet"). */
+  loaded: boolean;
   transcript: TranscriptEntry[];
   phase: Phase;
   lastError: string | null;
@@ -51,6 +92,7 @@ export function useSession(sessionId: string): {
   const [effort, setEffort] = useState<ThinkingLevel | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [queued, setQueued] = useState<QueuedInput[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [ref, setRef] = useState<SessionRef | undefined>(undefined);
   // Bumped to reopen the session after the link dropped; the transcript
   // stays on screen meanwhile and is replaced by the fresh one.
@@ -71,6 +113,7 @@ export function useSession(sessionId: string): {
       setEffort(null);
       setConversationId(null);
       setQueued([]);
+      setLoaded(false);
     },
     [sessionId],
   );
@@ -102,15 +145,20 @@ export function useSession(sessionId: string): {
         attempts.current = 0;
         setRef(opened);
         setLink("live");
-        unsubs.push(opened.transcript.subscribe(setTranscript));
+        unsubs.push(
+          ...bindLoadedCells(opened, {
+            transcript: setTranscript,
+            queued: setQueued,
+            conversationId: setConversationId,
+            loaded: () => setLoaded(true),
+          }),
+        );
         unsubs.push(opened.phase.subscribe(setPhase));
         unsubs.push(opened.lastError.subscribe(setLastError));
         unsubs.push(opened.pending.subscribe(setPending));
         unsubs.push(opened.usage.subscribe(setUsage));
         unsubs.push(opened.model.subscribe(setModel));
         unsubs.push(opened.effort.subscribe(setEffort));
-        unsubs.push(opened.conversationId.subscribe(setConversationId));
-        unsubs.push(opened.queued.subscribe(setQueued));
         unsubs.push(
           opened.onStatus((status) => {
             if (status === "gone") lost();
@@ -196,6 +244,7 @@ export function useSession(sessionId: string): {
 
   return {
     link,
+    loaded,
     transcript,
     phase,
     lastError,
