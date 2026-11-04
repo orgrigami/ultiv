@@ -49,7 +49,8 @@ export interface WriteContext {
 
 /**
  * The context of THIS turn: origin from the newest admitted user input,
- * taint from the audit trail (any untrusted-content tool since that input).
+ * taint from this conversation's audit trail (any untrusted-content tool
+ * since that input).
  */
 export const contextOf = async (
   deps: {
@@ -84,15 +85,13 @@ export const contextOf = async (
   }
   const isUntrusted = (name: string): boolean =>
     BASE_UNTRUSTED_TOOLS.includes(name) || (deps.untrustedTool?.(name) ?? false);
+  // This conversation's own trail: a global tail would let a busy crew push
+  // this turn's web_fetch out of the window and read the turn as clean.
   const tainted =
     deps.audit
-      ?.tail(500)
+      ?.ofConversation(conversationId)
       .some(
-        (event) =>
-          event.conversationId === conversationId &&
-          typeof event.name === "string" &&
-          isUntrusted(event.name) &&
-          event.at >= inputAt,
+        (event) => typeof event.name === "string" && isUntrusted(event.name) && event.at >= inputAt,
       ) === true;
   return { origin, tainted, ownerInput };
 };

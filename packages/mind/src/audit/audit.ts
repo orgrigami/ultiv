@@ -5,7 +5,7 @@
  * decisions. Failures to write never break the act: auditing observes, it
  * must not gate.
  */
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { Config, Context, Effect, Layer } from "effect";
 import { ConfigError } from "effect/Config";
@@ -17,12 +17,19 @@ import {
 } from "@spriessen/contracts";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
+import { LEDGER_SEED_LINES, makeLedger, parseLines, readLastLines } from "./tail.ts";
 
 export interface AuditService {
   /** Append one event; never throws. */
   readonly record: (event: AuditEvent) => void;
   /** The most recent events, oldest last. */
   readonly tail: (limit: number) => readonly AuditEvent[];
+  /**
+   * The recent events of ONE conversation, oldest first (up to 200, kept in
+   * memory and seeded from the file after a restart). Unlike a filtered
+   * `tail`, other bots' traffic never pushes this conversation's out.
+   */
+  readonly ofConversation: (conversationId: string) => readonly AuditEvent[];
   /**
    * The attention hook: fired for every recorded ESCALATION (ok: false) so a
    * host can page the owner. The audit must never gate — a throwing hook is
@@ -42,18 +49,31 @@ const clip = (value: string | null): string | null =>
 export const makeAudit = (path: string): AuditService => {
   let writable = true;
   let onEscalation: ((event: AuditEvent) => void) | undefined;
+  const tail = (limit: number): readonly AuditEvent[] => {
+    try {
+      return parseLines(readLastLines(path, limit));
+    } catch {
+      return [];
+    }
+  };
+  const ledger = makeLedger(() => tail(LEDGER_SEED_LINES));
   return {
     setHooks: (hooks) => {
       onEscalation = hooks.onEscalation;
     },
     record: (event) => {
-      if (!writable) return;
-      try {
-        mkdirSync(dirname(path), { recursive: true });
-        appendFileSync(path, `${JSON.stringify({ ...event, error: clip(event.error) })}\n`);
-      } catch {
-        // Unwritable disk must not take the act down; stop trying quietly.
-        writable = false;
+      const line = { ...event, error: clip(event.error) };
+      // Ledger first: its one-time seed reads the file, which must not yet
+      // hold this event (it would be counted twice).
+      ledger.add(line);
+      if (writable) {
+        try {
+          mkdirSync(dirname(path), { recursive: true });
+          appendFileSync(path, `${JSON.stringify(line)}\n`);
+        } catch {
+          // Unwritable disk must not take the act down; stop trying quietly.
+          writable = false;
+        }
       }
       if (event.kind === "escalation" && onEscalation !== undefined) {
         try {
@@ -63,23 +83,8 @@ export const makeAudit = (path: string): AuditService => {
         }
       }
     },
-    tail: (limit) => {
-      try {
-        if (!existsSync(path)) return [];
-        const lines = readFileSync(path, "utf8")
-          .split("\n")
-          .filter((line) => line.trim() !== "");
-        return lines.slice(-limit).flatMap((line) => {
-          try {
-            return [JSON.parse(line) as AuditEvent];
-          } catch {
-            return [];
-          }
-        });
-      } catch {
-        return [];
-      }
-    },
+    tail,
+    ofConversation: (conversationId) => ledger.of(conversationId),
   };
 };
 

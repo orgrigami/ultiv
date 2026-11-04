@@ -203,8 +203,9 @@ export const turnContext = async (
       break scan;
     }
   }
-  const events = (deps.audit?.tail(500) ?? []).filter(
-    (event) => event.conversationId === conversationId && event.at >= inputAt,
+  // This conversation's own trail, never a global tail other bots can flush.
+  const events = (deps.audit?.ofConversation(conversationId) ?? []).filter(
+    (event) => event.at >= inputAt,
   );
   return {
     origin,

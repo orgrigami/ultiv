@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import {
   appearsInOwnerInput,
@@ -11,7 +14,7 @@ import {
 } from "./guard.ts";
 import type { AuditEvent } from "@spriessen/contracts";
 import { Effect } from "effect";
-import type { AuditService } from "../audit/audit.ts";
+import { makeAudit, type AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
 
 // Minimal fakes: entriesOf is NEWEST FIRST (pi-durable scan order).
@@ -39,7 +42,9 @@ const contextDeps = (
   converse: {
     entriesOf: () => Effect.succeed(entries),
   } as unknown as ConverseService,
-  audit: { tail: () => events } as unknown as AuditService,
+  audit: {
+    ofConversation: (id: string) => events.filter((event) => event.conversationId === id),
+  } as unknown as AuditService,
 });
 
 describe("origin detection", () => {
@@ -152,6 +157,28 @@ describe("turn context (origin + taint window)", () => {
       "c1",
     );
     expect(context.tainted).toBe(false);
+  });
+});
+
+describe("taint over the real audit trail", () => {
+  it("stays tainted however much other bots did since", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "spriessen-guard-"));
+    try {
+      const audit = makeAudit(join(dir, "audit.jsonl"));
+      audit.record(auditEvent(6_000, "web_fetch"));
+      // A busy crew: far more calls elsewhere than the old 500-event window.
+      for (let i = 0; i < 800; i += 1) {
+        audit.record({ ...auditEvent(6_001 + i, "artifact_write"), conversationId: `other-${i}` });
+      }
+      const input = { role: "user" as const, content: "summarise this page", timestamp: 5_000 };
+      const deps = { ...contextDeps([entry(20, [input])], []), audit };
+      expect((await contextOf(deps, "c1")).tainted).toBe(true);
+      // After a restart the ledger is seeded from the file.
+      const reopened = makeAudit(join(dir, "audit.jsonl"));
+      expect((await contextOf({ ...deps, audit: reopened }, "c1")).tainted).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

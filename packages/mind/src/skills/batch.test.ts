@@ -280,7 +280,10 @@ describe("the per-turn batch cap", () => {
         ]),
     };
     const turn = await turnContext(
-      { converse: converse as never, audit: { tail: () => [event("skill_edit", 2)] } as never },
+      {
+        converse: converse as never,
+        audit: { ofConversation: () => [event("skill_edit", 2)] } as never,
+      },
       "c1",
     );
     expect(turn.learned).toBe(2);

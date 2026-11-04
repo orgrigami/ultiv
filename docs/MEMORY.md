@@ -64,7 +64,9 @@ Pipeline: **guard → extract → resolve entities → decide → apply** (one
   `[task …]` = automated; a plain message or `[owner]` = the owner; anything
   else unknown). A turn that ran an untrusted-content tool (`web_fetch`,
   `web_search`, `http_request`, `room`, mail/calendar reads, MCP tools) is
-  tainted. Owner+untainted → trust up to owner; owner+tainted → derived, no
+  tainted; the check reads that conversation's own audit trail
+  (`audit.ofConversation`), so other bots' traffic can never push the call
+  out of view. Owner+untainted → trust up to owner; owner+tainted → derived, no
   instructions unless the text appears in the owner's own words; cron/task →
   self, no instructions; webhook/sensor/bot/unknown → untrusted, profile
   scope only. Secrets (API keys, JWTs, private keys, Luhn-valid cards, NIK,

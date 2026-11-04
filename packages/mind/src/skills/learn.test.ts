@@ -82,7 +82,9 @@ const rig = (
   const converse = {
     entriesOf: () => Effect.succeed([{ id: 1, kind: "model", model: [...turn] }]),
   } as unknown as ConverseService;
-  const audit = { tail: () => events } as unknown as AuditService;
+  const audit = {
+    ofConversation: (id: string) => events.filter((event) => event.conversationId === id),
+  } as unknown as AuditService;
   const tool = learnTool({ skills, profiles, converse, audit });
   return {
     skills,

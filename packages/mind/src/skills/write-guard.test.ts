@@ -92,7 +92,9 @@ const rig = (
   const converse = {
     entriesOf: () => Effect.succeed([{ id: 1, kind: "model", model: [...turn] }]),
   } as unknown as ConverseService;
-  const audit = { tail: () => events } as unknown as AuditService;
+  const audit = {
+    ofConversation: (id: string) => events.filter((event) => event.conversationId === id),
+  } as unknown as AuditService;
   const approvals = makeApprovals();
   const deps = { profiles, converse, audit };
   const writeGuard = skillWriteGuard({

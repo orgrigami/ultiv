@@ -48,4 +48,40 @@ describe("Audit (JSONL)", () => {
     audit.record(event(1, "now"));
     expect(audit.tail(10).map((entry) => entry.name)).toEqual(["now"]);
   });
+
+  it("tails a large file from the end, whole lines only", () => {
+    const path = tempFile();
+    // Multi-byte names and lines long enough to straddle the 64 KB chunks.
+    const lines = Array.from({ length: 3_000 }, (_, i) =>
+      JSON.stringify({ ...event(i, `tool-${i}-ü-🌱`), error: "x".repeat(i % 97) }),
+    );
+    writeFileSync(path, `${lines.join("\n")}\n`);
+    const audit = makeAudit(path);
+    expect(audit.tail(3).map((entry) => entry.at)).toEqual([2_997, 2_998, 2_999]);
+    expect(audit.tail(2_000).map((entry) => entry.at)).toEqual(
+      Array.from({ length: 2_000 }, (_, i) => 1_000 + i),
+    );
+    expect(audit.tail(10_000)).toHaveLength(3_000);
+    expect(audit.tail(0)).toEqual([]);
+  });
+
+  it("tails a file without a trailing newline", () => {
+    const path = tempFile();
+    writeFileSync(path, [1, 2, 3].map((at) => JSON.stringify(event(at, "now"))).join("\n"));
+    expect(
+      makeAudit(path)
+        .tail(2)
+        .map((entry) => entry.at),
+    ).toEqual([2, 3]);
+  });
+
+  it("keeps each conversation's recent events apart", () => {
+    const path = tempFile();
+    const audit = makeAudit(path);
+    audit.record(event(1, "web_fetch"));
+    audit.record({ ...event(2, "now"), conversationId: "c2" });
+    expect(audit.ofConversation("c1").map((entry) => entry.name)).toEqual(["web_fetch"]);
+    expect(audit.ofConversation("c2").map((entry) => entry.name)).toEqual(["now"]);
+    expect(audit.ofConversation("nope")).toEqual([]);
+  });
 });
