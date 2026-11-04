@@ -144,10 +144,21 @@ export interface MemoryV2Fact {
   /** Why a version left the present (changed, corrected, ended). */
   retired?: "changed" | "corrected" | "ended";
   confirmations?: number;
+  /** Where it came from: the conversation it was learned in, when known. */
+  source?: { conversation: string | null; origin: string };
+}
+
+/** One of the bot's chats, by the conversation id facts record as their source. */
+export interface MemoryV2Chat {
+  sessionId: string;
+  title: string;
+  kind: string;
 }
 
 export interface MemoryV2State {
   facts: MemoryV2Fact[];
+  /** The bot's chats by conversation id ("Learned in …"); empty for the owner store. */
+  chats?: Record<string, MemoryV2Chat>;
   entities: MemoryV2Entity[];
   core: { owner: MemoryV2Line[]; profile: MemoryV2Line[] };
   proposals: MemoryV2Proposal[];

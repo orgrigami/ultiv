@@ -10,7 +10,13 @@ import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { api, type ArtifactRow, type MemoryV2Fact, type MemoryV2State } from "@/lib/api";
+import {
+  api,
+  type ArtifactRow,
+  type MemoryV2Chat,
+  type MemoryV2Fact,
+  type MemoryV2State,
+} from "@/lib/api";
 import * as t from "@/lib/memory-text";
 import { FactsTab } from "@/components/memory/facts-tab";
 import { EntitiesTab } from "@/components/memory/entities-tab";
@@ -26,6 +32,8 @@ export interface MemoryData {
   facts: MemoryV2Fact[];
   /** The workspace (owner) store's facts — shared memory. */
   sharedFacts: MemoryV2Fact[];
+  /** The bot's chats by conversation id: where a fact was learned. */
+  chats: Record<string, MemoryV2Chat>;
   /** Core lines: owner (workspace-wide) + this bot's own. */
   core: MemoryV2State["core"];
   /** Resolved entities from both stores (own + owner). */
@@ -170,6 +178,7 @@ function useMemoryData(profileId: string, enabled: boolean) {
       setData({
         facts: bot.facts,
         sharedFacts: shared.facts,
+        chats: bot.chats ?? {},
         core: bot.core,
         entities: bot.entities,
         proposals: bot.proposals,

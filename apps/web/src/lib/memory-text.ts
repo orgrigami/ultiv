@@ -36,6 +36,8 @@ export const endTitle = "No longer true?";
 export const endWarning =
   "The bot stops treating this as current. Its history stays, so it can still say what used to hold.";
 export const confirmLabel = "Confirm";
+export const learnedIn = (chat: string): string => `Learned in ${chat}`;
+export const mainChatName = "the main chat";
 export const confirmAria = (text: string): string => `Confirm: ${text.slice(0, 40)}`;
 export const inferredMeta = "the bot's guess, not confirmed";
 export const untilMeta = (day: string): string => `until ${day}`;

@@ -80,6 +80,7 @@ export function FactsTab({ data, profileId, name, reload, initialQuery }: TabPro
           <CurrentView
             botFacts={botFacts.filter((fact) => matches(fact, needle))}
             sharedFacts={sharedFacts.filter((fact) => matches(fact, needle))}
+            chats={data.chats}
             needle={needle}
             profileId={profileId}
             name={name}
@@ -140,6 +141,7 @@ function ViewToggle({ view, onView }: { view: View; onView: (next: View) => void
 function CurrentView({
   botFacts,
   sharedFacts,
+  chats,
   needle,
   profileId,
   name,
@@ -147,6 +149,8 @@ function CurrentView({
 }: {
   botFacts: MemoryV2Fact[];
   sharedFacts: MemoryV2Fact[];
+  /** The bot's chats by conversation id: where a fact was learned. */
+  chats: MemoryData["chats"];
   needle: string;
   profileId: string;
   name: string;
@@ -173,6 +177,9 @@ function CurrentView({
               shared={false}
               profileId={profileId}
               reload={reload}
+              learnedIn={
+                fact.source?.conversation != null ? chats[fact.source.conversation] : undefined
+              }
             />
           ))}
         </section>

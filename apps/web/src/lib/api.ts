@@ -43,6 +43,7 @@ import type {
 } from "./api-types.ts";
 export type {
   ArtifactRow,
+  MemoryV2Chat,
   MemoryV2Entity,
   MemoryV2Fact,
   MemoryV2Line,

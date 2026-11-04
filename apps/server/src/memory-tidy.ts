@@ -14,6 +14,7 @@ import {
   ProfilesDoc,
   ProposalsDoc,
   detectConflicts,
+  LIMITS,
   listRoutineEvents,
   normalize,
   ownerKey,
@@ -171,6 +172,31 @@ const coreFixes = async (
     }));
 };
 
+/**
+ * Past the soft limit (LIMITS.softFacts current facts), the least valuable
+ * — low importance, not the owner's word, longest unconfirmed — are
+ * proposed for the archive: still searchable as history, out of recall.
+ */
+export const detectOversize = (facts: readonly MemoryFact[]): readonly MemoryProposal[] => {
+  const current = facts.filter((fact) => fact.status === "current");
+  const excess = current.length - LIMITS.softFacts;
+  if (excess <= 0) return [];
+  return current
+    .filter((fact) => fact.importance <= 2 && fact.trust !== "owner")
+    .sort((a, b) => a.confirmedAt - b.confirmedAt)
+    .slice(0, Math.min(excess, 10))
+    .map((fact) => ({
+      id: randomUUID(),
+      kind: "archive" as const,
+      at: Date.now(),
+      factIds: [fact.id],
+      summary: `Memory is past ${LIMITS.softFacts} facts; archive this low-importance one? "${fact.text.slice(0, 100)}"`,
+      fingerprint: fingerprintOf("archive", fact.id),
+      status: "open" as const,
+      decidedAt: null,
+    }));
+};
+
 /** Contradictions (mind/memory/conflicts.ts) as proposals: accept keeps the newer fact. */
 export const conflictProposals = (
   facts: readonly MemoryFact[],
@@ -200,6 +226,7 @@ export const tidyStore = async (
   const detected = [
     ...conflictProposals(facts, entities),
     ...detectStale(facts),
+    ...detectOversize(facts),
     ...detectMerge(facts),
     ...detectSecrets(facts),
     ...(await coreFixes(

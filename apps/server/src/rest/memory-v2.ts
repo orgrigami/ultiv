@@ -49,11 +49,33 @@ const readStore = async (args: RouteArgs, profile: string | undefined) => {
   const visible = visibleProposals(proposals, Date.now());
   return {
     facts,
+    chats: profile === undefined || profile === "owner" ? {} : await chatsOf(args, profile),
     entities,
     core: { owner: ownerCore, profile: profileCore },
     proposals: visible.sort((a, b) => b.at - a.at),
     openCount: visible.filter((proposal) => proposal.status === "open").length,
   };
+};
+
+/**
+ * Where facts were learned: the bot's chats by conversation id, so a fact's
+ * `source.conversation` opens the chat it came from ("Learned in …").
+ */
+const chatsOf = async (
+  args: RouteArgs,
+  profile: string,
+): Promise<Record<string, { sessionId: string; title: string; kind: string }>> => {
+  const rows = await args.mind.profiles.listSessions(args.owner, profile);
+  const entries = await Promise.all(
+    rows.map(async (row) => {
+      const key = await args.mind.profiles.keyOfRow(row);
+      const conversation = await run(args.mind.converse.conversationIdOf(key));
+      return conversation === undefined
+        ? []
+        : [[conversation, { sessionId: row.id, title: row.title, kind: row.kind }] as const];
+    }),
+  );
+  return Object.fromEntries(entries.flat());
 };
 
 /** Apply an accepted proposal — the ONLY place proposals change facts. */

@@ -261,3 +261,33 @@ describe("POST /api/memory/v2/facts/:id/update", () => {
     await handle.close();
   });
 });
+
+describe("GET /api/memory/v2 provenance", () => {
+  it("maps a fact's source conversation to the chat it was learned in", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { mind } = handle;
+    const bot = await mind.profiles.create("harry", { name: "Keeper", onboard: false });
+    const main = await mind.profiles.ensureMain("harry", bot.id);
+    const { Effect } = await import("effect");
+    const conversation = await Effect.runPromise(
+      mind.converse.ensure(await mind.profiles.keyForSession("harry", main.id)),
+    );
+    await mind.memory.writeV2({
+      owner: "harry",
+      profileId: bot.id,
+      scope: "profile",
+      writer: bot.id,
+      text: "Harry takes his coffee black",
+      conversation: String(conversation.id),
+    });
+    const read = routeArgs(mind, { path: "/api/memory/v2", profile: bot.id });
+    await memoryV2Routes(read.args);
+    const body = read.body() as {
+      facts: { source: { conversation: string | null } }[];
+      chats: Record<string, { sessionId: string; kind: string }>;
+    };
+    const source = body.facts[0]?.source.conversation ?? "";
+    expect(body.chats[source]).toMatchObject({ sessionId: main.id, kind: "main" });
+    await handle.close();
+  });
+});

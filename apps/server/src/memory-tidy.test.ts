@@ -86,3 +86,38 @@ describe("the tidy push", () => {
     expect(sent).toEqual([expect.objectContaining({ url: "/needs", tag: "memory-tidy" })]);
   });
 });
+
+describe("the soft limit", () => {
+  it("proposes archiving the least valuable facts only past it", async () => {
+    const { detectOversize } = await import("./memory-tidy.ts");
+    const { LIMITS, newFact } = await import("@spriessen/mind");
+    const make = (i: number, importance: number, trust: "self" | "owner" = "self") =>
+      newFact({
+        id: `f${i}`,
+        scope: "profile",
+        profile: "p",
+        text: `fact ${i}`,
+        kind: "note",
+        tags: [],
+        entities: [],
+        triple: null,
+        importance,
+        confidence: 0.7,
+        trust,
+        source: { via: "tool", writer: "p", origin: "owner", conversation: null, episode: null },
+        validFrom: null,
+        supersedes: [],
+        at: i,
+      });
+    const under = Array.from({ length: 20 }, (_, i) => make(i, 1));
+    expect(detectOversize(under)).toEqual([]);
+    const over = Array.from({ length: LIMITS.softFacts + 3 }, (_, i) =>
+      make(i, i < 2 ? 5 : i === 2 ? 1 : 2, i === 3 ? "owner" : "self"),
+    );
+    const proposals = detectOversize(over);
+    expect(proposals).toHaveLength(3);
+    expect(proposals.every((p) => p.kind === "archive")).toBe(true);
+    // Oldest low-importance first; never the owner's word, never importance > 2.
+    expect(proposals.map((p) => p.factIds[0])).toEqual(["f2", "f4", "f5"]);
+  });
+});

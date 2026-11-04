@@ -12,7 +12,8 @@ import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { api, type MemoryV2Fact } from "@/lib/api";
+import { useNavigate } from "@tanstack/react-router";
+import { api, type MemoryV2Chat, type MemoryV2Fact } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import * as t from "@/lib/memory-text";
 
@@ -38,12 +39,20 @@ export function FactRow({
   shared,
   profileId,
   reload,
+  learnedIn,
 }: {
   fact: MemoryV2Fact;
   shared: boolean;
   profileId: string;
   reload: () => Promise<void>;
+  /** The chat it was learned in, when the bot's index knows it. */
+  learnedIn?: MemoryV2Chat | undefined;
 }) {
+  const navigate = useNavigate();
+  const openChat = (chat: MemoryV2Chat): void => {
+    if (chat.kind === "main") void navigate({ to: "/", search: { bot: profileId } });
+    else void navigate({ to: "/c/$sessionId", params: { sessionId: chat.sessionId } });
+  };
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(fact.text);
   const [busy, setBusy] = useState(false);
@@ -78,6 +87,16 @@ export function FactRow({
           <p className="break-words">{fact.text}</p>
           <p className="text-muted-foreground mt-1 text-xs">
             {meta(fact)}
+            {learnedIn !== undefined && (
+              <Button
+                variant="link"
+                size="sm"
+                className="ml-1 h-auto p-0 text-xs"
+                onClick={() => openChat(learnedIn)}
+              >
+                {t.learnedIn(learnedIn.kind === "main" ? t.mainChatName : learnedIn.title)}
+              </Button>
+            )}
             {fact.basis === "inferred" && (
               <Button
                 variant="link"
