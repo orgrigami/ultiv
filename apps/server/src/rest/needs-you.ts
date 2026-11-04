@@ -139,11 +139,16 @@ export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
     ).catch(() => undefined);
     if (sessionId !== undefined) chats[entry.conversationId] = sessionId;
   }
+  const mine = new Set(profiles.map((profile) => profile.id));
   const body: NeedsYouExtra = {
     ...needsYouExtra({
       proposals,
-      audit: args.mind.audit.tail(5_000),
-      profiles: new Set(profiles.map((profile) => profile.id)),
+      // This owner's escalations of the window, however much came after.
+      audit: args.mind.audit.find(
+        (event) => event.kind === "escalation" && event.profile !== null && mine.has(event.profile),
+        { limit: ESCALATION_LIMIT, since: Date.now() - ESCALATION_WINDOW_MS },
+      ),
+      profiles: mine,
       now: Date.now(),
     }),
     chats,

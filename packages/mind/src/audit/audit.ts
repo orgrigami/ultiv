@@ -17,7 +17,7 @@ import {
 } from "@spriessen/contracts";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
-import { LEDGER_SEED_LINES, makeLedger, parseLines, readLastLines } from "./tail.ts";
+import { findIn, LEDGER_SEED_LINES, makeLedger, parseLines, readLastLines } from "./tail.ts";
 
 export interface AuditService {
   /** Append one event; never throws. */
@@ -30,6 +30,16 @@ export interface AuditService {
    * `tail`, other bots' traffic never pushes this conversation's out.
    */
   readonly ofConversation: (conversationId: string) => readonly AuditEvent[];
+  /**
+   * The newest `limit` events that `match` (oldest first), optionally only
+   * those at or after `since`. Unlike a filtered `tail`, a quiet bot's
+   * events are found even when busier bots wrote thousands since: the
+   * window widens (5k, 20k, 50k lines) until it has enough.
+   */
+  readonly find: (
+    match: (event: AuditEvent) => boolean,
+    options: { readonly limit: number; readonly since?: number },
+  ) => readonly AuditEvent[];
   /** Hear every recorded event (a host maps tool calls to live signals). Returns the unsubscribe. */
   readonly listen: (fn: (event: AuditEvent) => void) => () => void;
   /**
@@ -95,6 +105,7 @@ export const makeAudit = (path: string): AuditService => {
     },
     tail,
     ofConversation: (conversationId) => ledger.of(conversationId),
+    find: (match, options) => findIn(tail, match, options),
     listen: (fn) => {
       listeners.add(fn);
       return () => void listeners.delete(fn);

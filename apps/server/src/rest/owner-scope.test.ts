@@ -5,6 +5,7 @@
  * cross-LABEL semantics live in packages/mind/src/migrate/owners.test.ts;
  * the gate itself is tested in apps/server/src/auth/auth.test.ts.
  */
+import type { AuditEvent } from "@spriessen/contracts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
@@ -81,34 +82,37 @@ beforeAll(async () => {
   ).id;
   records.webhook = (await mind.webhooks.create({ sessionId: session.id, name: "door" })).id;
   await mind.state.set(bot.id, "seen", "42");
+  const trail = (): AuditEvent[] => [
+    {
+      at: 1,
+      kind: "tool_call",
+      conversationId: "c",
+      profile: bot.id,
+      callId: null,
+      name: "a",
+      durationMs: null,
+      ok: true,
+      error: null,
+    },
+    {
+      at: 2,
+      kind: "tool_call",
+      conversationId: "c",
+      profile: null,
+      callId: null,
+      name: "x",
+      durationMs: null,
+      ok: true,
+      error: null,
+    },
+  ];
   const audited = {
     ...mind,
     audit: {
       ...mind.audit,
-      tail: () => [
-        {
-          at: 1,
-          kind: "tool_call",
-          conversationId: "c",
-          profile: bot.id,
-          callId: null,
-          name: "a",
-          durationMs: null,
-          ok: true,
-          error: null,
-        },
-        {
-          at: 2,
-          kind: "tool_call",
-          conversationId: "c",
-          profile: null,
-          callId: null,
-          name: "x",
-          durationMs: null,
-          ok: true,
-          error: null,
-        },
-      ],
+      tail: () => trail(),
+      find: (match: (event: AuditEvent) => boolean, options: { limit: number }) =>
+        trail().filter(match).slice(-options.limit),
     },
   } as typeof mind;
   const rest = createRestHandler({

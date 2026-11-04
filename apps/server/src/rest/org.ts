@@ -376,15 +376,10 @@ const departmentSummary = async (
   const active = bots.filter((profile) => profile.archivedAt === null);
   const ids = new Set(bots.map((profile) => profile.id));
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const calls = mind.audit
-    .tail(5_000)
-    .filter(
-      (event) =>
-        event.kind === "tool_call" &&
-        event.profile !== null &&
-        ids.has(event.profile) &&
-        event.at >= weekAgo,
-    );
+  const calls = mind.audit.find(
+    (event) => event.kind === "tool_call" && event.profile !== null && ids.has(event.profile),
+    { limit: Number.MAX_SAFE_INTEGER, since: weekAgo },
+  );
   const pending = (await mind.approvals.pendingAll()).filter((entry) => {
     const scope = mind.profiles.scopeOf(entry.conversationId);
     return scope !== undefined && ids.has(scope.profileId);

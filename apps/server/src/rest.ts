@@ -210,22 +210,20 @@ async function route(args: RouteArgs): Promise<void> {
     const profile = queryOr(args, "profile");
     const conversation = queryOr(args, "conversation");
     const kind = queryOr(args, "kind");
-    // Filters read a wider window, then keep the newest `capped`.
+    // The newest `capped` matches, searched past other bots' traffic.
     // Only events of the caller's own bots; unmapped (profile null) events
     // can't be attributed to an owner, so they stay hidden — except the
     // owner-level kinds, which exist exactly for the account's own view.
     const mine = await ownedProfileIds(args);
-    const events = mind.audit
-      .tail(5_000)
-      .filter(
-        (event) =>
-          (event.profile !== null && mine.has(event.profile)) ||
-          (event.profile === null && OWNER_LEVEL_KINDS.has(event.kind)),
-      )
-      .filter((event) => profile === undefined || event.profile === profile)
-      .filter((event) => conversation === undefined || event.conversationId === conversation)
-      .filter((event) => kind === undefined || event.kind === kind)
-      .slice(-capped);
+    const events = mind.audit.find(
+      (event) =>
+        ((event.profile !== null && mine.has(event.profile)) ||
+          (event.profile === null && OWNER_LEVEL_KINDS.has(event.kind))) &&
+        (profile === undefined || event.profile === profile) &&
+        (conversation === undefined || event.conversationId === conversation) &&
+        (kind === undefined || event.kind === kind),
+      { limit: capped },
+    );
     return json(200, events);
   }
   // Routine fire receipts — "did it actually fire?" is a lookup, not a guess.

@@ -58,6 +58,27 @@ export const parseLines = (lines: readonly string[]): AuditEvent[] =>
     }
   });
 
+/** The windows `findIn` widens through, in lines. */
+const FIND_WINDOWS = [5_000, 20_000, 50_000] as const;
+
+/** Search the trail's tail, widening the window until it has enough (see AuditService.find). */
+export const findIn = (
+  tail: (limit: number) => readonly AuditEvent[],
+  match: (event: AuditEvent) => boolean,
+  options: { readonly limit: number; readonly since?: number },
+): AuditEvent[] => {
+  const since = options.since ?? Number.NEGATIVE_INFINITY;
+  let found: AuditEvent[] = [];
+  for (const window of FIND_WINDOWS) {
+    const events = tail(window);
+    found = events.filter((event) => event.at >= since && match(event));
+    const exhausted = events.length < window;
+    const pastSince = events.length > 0 && (events[0]?.at ?? 0) < since;
+    if (found.length >= options.limit || exhausted || pastSince) break;
+  }
+  return found.slice(-options.limit);
+};
+
 /** Events kept per conversation, and conversations kept, in the ledger. */
 const PER_CONVERSATION = 200;
 const CONVERSATIONS = 1_000;

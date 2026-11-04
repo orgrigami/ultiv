@@ -84,4 +84,21 @@ describe("Audit (JSONL)", () => {
     expect(audit.ofConversation("c2").map((entry) => entry.name)).toEqual(["now"]);
     expect(audit.ofConversation("nope")).toEqual([]);
   });
+
+  it("finds a quiet bot's events past thousands of other events", () => {
+    const path = tempFile();
+    const quiet = { ...event(1, "memory_write"), profile: "quiet" };
+    const busy = Array.from({ length: 12_000 }, (_, i) =>
+      JSON.stringify({ ...event(2 + i, "now"), profile: "busy" }),
+    );
+    writeFileSync(path, `${[JSON.stringify(quiet), ...busy].join("\n")}\n`);
+    const audit = makeAudit(path);
+    // The old filtered tail(5000) saw nothing of it.
+    expect(audit.tail(5_000).filter((entry) => entry.profile === "quiet")).toEqual([]);
+    const found = audit.find((entry) => entry.profile === "quiet", { limit: 10 });
+    expect(found.map((entry) => entry.name)).toEqual(["memory_write"]);
+    // `since` stops the search at the cutoff instead of widening further.
+    expect(audit.find((entry) => entry.profile === "quiet", { limit: 10, since: 5 })).toEqual([]);
+    expect(audit.find((entry) => entry.profile === "busy", { limit: 3 })).toHaveLength(3);
+  });
 });
