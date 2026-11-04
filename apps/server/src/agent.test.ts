@@ -328,4 +328,17 @@ describe("the node agent endpoint", () => {
     ]);
     expect(closed).toBe("closed");
   });
+
+  it("an agent whose token is revoked stops instead of redialing forever", async () => {
+    const node = await pair("node-stop-on-revoke", ["/tmp"]);
+    const child = spawnAgent(node.token, ["--backoff-ms", "50"]);
+    await waitConnected(node.id);
+    await revokeNode(stack.mind.converse, node.id);
+    stack.nodes.drop(node.id);
+    const exit = await new Promise<number | null>((resolve) => {
+      child.once("exit", (code) => resolve(code));
+      setTimeout(() => resolve(-1), 10_000);
+    });
+    expect(exit).toBe(0);
+  });
 });

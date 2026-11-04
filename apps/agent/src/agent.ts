@@ -10,18 +10,20 @@
  * the script's process group. Heartbeats ride the protocol's JSON ping/pong
  * and a watchdog: no pong for 2.5 beats means the link is dead (a laptop
  * that slept, a NAT that dropped it) and the agent redials. A dropped dial
- * reconnects with exponential backoff, reset only after a fresh `ready`, so
- * an auth refusal backs off instead of hammering. Nothing here ever logs
- * the token.
+ * reconnects with exponential backoff, reset only after a fresh `ready`; a
+ * dial the server refuses outright (close 4001: the token is revoked or was
+ * never paired) stops the agent, since no redial could succeed. Nothing here
+ * ever logs the token.
  */
-import { resolveInside } from "@spriessen/core";
 import {
   NODE_MAX_FRAME_BYTES,
   type NodeAgentInbound,
   type NodeAgentOutbound,
 } from "@spriessen/contracts";
 import WebSocket from "ws";
-import { runScript, type RunningScript } from "./run-script.ts";
+import { createExecs, type Execs } from "./execs.ts";
+
+export { confine } from "./confine.ts";
 
 export interface AgentOptions {
   /** The server origin, e.g. `http://127.0.0.1:8787` (ws(s):// also accepted). */
@@ -52,6 +54,8 @@ export interface AgentHandle {
 const HEARTBEAT_DEFAULT_MS = 15_000;
 const BACKOFF_DEFAULT_MS = 1_000;
 const MAX_BACKOFF_DEFAULT_MS = 30_000;
+/** The endpoint's close code for a token it does not accept (apps/server/src/agent.ts). */
+const REFUSED = 4001;
 
 /** ws(s):// passes through; an http(s):// origin becomes its ws(s) form. */
 export const agentUrlOf = (url: string): string =>
@@ -60,21 +64,38 @@ export const agentUrlOf = (url: string): string =>
     .replace(/^http:/, "ws:")
     .replace(/^https:/, "wss:") + "/agent";
 
-/** The start directory: inside one registered root, or refused. */
-export const confine = (roots: readonly string[], cwd: string | undefined): string => {
-  const want = cwd ?? roots[0];
-  if (want === undefined) throw new Error("the agent has no registered roots");
-  for (const root of roots) {
-    try {
-      return resolveInside(root, want);
-    } catch {
-      // try the next root
-    }
+/** What the dial's frames change: the roots, the last sign of life, the backoff. */
+interface FrameState {
+  roots: readonly string[];
+  lastPong: number;
+  backoff: number;
+}
+
+const applyFrame = (
+  frame: NodeAgentOutbound,
+  state: FrameState,
+  deps: {
+    readonly execs: Execs;
+    readonly log: (line: string) => void;
+    readonly backoffStart: number;
+    readonly onReady: AgentOptions["onReady"];
+  },
+): void => {
+  if (frame.type === "ready") {
+    state.roots = frame.node.roots;
+    state.backoff = deps.backoffStart;
+    deps.log(`agent: connected as node ${frame.node.name || frame.node.id}`);
+    deps.onReady?.(frame.node);
+  } else if (frame.type === "roots") {
+    state.roots = frame.roots;
+    deps.log(`agent: roots updated (${state.roots.length})`);
+  } else if (frame.type === "exec") {
+    deps.execs.start(frame, state.roots);
+  } else if (frame.type === "cancel") {
+    deps.execs.cancel(frame.id);
+  } else if (frame.type === "pong") {
+    state.lastPong = Date.now();
   }
-  throw new Error(
-    `cwd "${want.slice(0, 200)}" is outside this node's registered roots ` +
-      `(${roots.map((root) => root.slice(0, 120)).join(", ")})`,
-  );
 };
 
 export const connectAgent = (options: AgentOptions): AgentHandle => {
@@ -82,70 +103,20 @@ export const connectAgent = (options: AgentOptions): AgentHandle => {
   const backoffStart = options.backoffMs ?? BACKOFF_DEFAULT_MS;
   const maxBackoff = options.maxBackoffMs ?? MAX_BACKOFF_DEFAULT_MS;
   const log = options.log ?? (() => undefined);
-  let roots: readonly string[] = [];
-  let backoff = backoffStart;
   let socket: WebSocket | undefined;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
-  let lastPong = 0;
   let stopped = false;
   let resolveDone: () => void = () => undefined;
   const done = new Promise<void>((resolve) => (resolveDone = resolve));
-  const running = new Map<string, RunningScript>();
   const reply = (message: NodeAgentInbound): void => {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
+  const execs = createExecs({ reply, secret: options.token, bashPath: options.bashPath });
 
-  const handleExec = (frame: Extract<NodeAgentOutbound, { type: "exec" }>): void => {
-    let cwd: string;
-    try {
-      cwd = confine(roots, frame.cwd);
-    } catch (cause) {
-      reply({ type: "error", id: frame.id, message: String(cause) });
-      return;
-    }
-    const script = runScript({
-      script: frame.script,
-      cwd,
-      timeoutMs: frame.timeoutMs,
-      secret: options.token,
-      ...(options.bashPath !== undefined ? { bashPath: options.bashPath } : {}),
-    });
-    running.set(frame.id, script);
-    script.result.then(
-      (result) => {
-        if (running.delete(frame.id)) reply({ type: "result", id: frame.id, ...result });
-      },
-      (cause: unknown) => {
-        if (running.delete(frame.id))
-          reply({
-            type: "error",
-            id: frame.id,
-            message: `the agent could not run the script: ${String(cause)}`,
-          });
-      },
-    );
-  };
-
-  const handleFrame = (frame: NodeAgentOutbound): void => {
-    if (frame.type === "ready") {
-      roots = frame.node.roots;
-      backoff = backoffStart;
-      log(`agent: connected as node ${frame.node.name || frame.node.id}`);
-      options.onReady?.(frame.node);
-    } else if (frame.type === "roots") {
-      roots = frame.roots;
-      log(`agent: roots updated (${roots.length})`);
-    } else if (frame.type === "exec") {
-      handleExec(frame);
-    } else if (frame.type === "cancel") {
-      const script = running.get(frame.id);
-      running.delete(frame.id); // a cancelled exec sends nothing back
-      script?.kill();
-    } else if (frame.type === "pong") {
-      lastPong = Date.now();
-    }
-  };
+  const state: FrameState = { roots: [], lastPong: 0, backoff: backoffStart };
+  const handleFrame = (frame: NodeAgentOutbound): void =>
+    applyFrame(frame, state, { execs, log, backoffStart, onReady: options.onReady });
 
   const dial = (): void => {
     if (stopped) return;
@@ -155,9 +126,9 @@ export const connectAgent = (options: AgentOptions): AgentHandle => {
     });
     socket = ws;
     ws.on("open", () => {
-      lastPong = Date.now();
+      state.lastPong = Date.now();
       heartbeat = setInterval(() => {
-        if (Date.now() - lastPong > heartbeatMs * 2.5) {
+        if (Date.now() - state.lastPong > heartbeatMs * 2.5) {
           log("agent: no heartbeat answer; redialing");
           ws.terminate(); // the close handler below redials
           return;
@@ -166,7 +137,7 @@ export const connectAgent = (options: AgentOptions): AgentHandle => {
       }, heartbeatMs);
     });
     ws.on("message", (data) => {
-      lastPong = Date.now(); // any frame proves the link is alive
+      state.lastPong = Date.now(); // any frame proves the link is alive
       let frame: NodeAgentOutbound;
       try {
         frame = JSON.parse(String(data)) as NodeAgentOutbound;
@@ -175,17 +146,23 @@ export const connectAgent = (options: AgentOptions): AgentHandle => {
       }
       handleFrame(frame);
     });
-    ws.on("close", () => {
+    ws.on("close", (code) => {
       if (heartbeat !== undefined) clearInterval(heartbeat);
       heartbeat = undefined;
       if (socket === ws) socket = undefined;
+      if (code === REFUSED && !stopped) {
+        // The token itself was refused (revoked, or never paired): no redial
+        // can ever succeed, so stop and say what the owner can do.
+        log("agent: the server refused this node's token (revoked or not paired); stopping");
+        stop();
+      }
       if (stopped) {
         resolveDone();
         return;
       }
-      log(`agent: dial closed; retrying in ${backoff}ms`);
-      retry = setTimeout(dial, backoff);
-      backoff = Math.min(backoff * 2, maxBackoff);
+      log(`agent: dial closed; retrying in ${state.backoff}ms`);
+      retry = setTimeout(dial, state.backoff);
+      state.backoff = Math.min(state.backoff * 2, maxBackoff);
     });
     ws.on("error", () => ws.terminate());
   };
@@ -195,8 +172,7 @@ export const connectAgent = (options: AgentOptions): AgentHandle => {
     stopped = true;
     if (heartbeat !== undefined) clearInterval(heartbeat);
     if (retry !== undefined) clearTimeout(retry);
-    for (const script of running.values()) script.kill();
-    running.clear();
+    execs.killAll();
     if (socket === undefined) resolveDone();
     else socket.terminate();
   };
