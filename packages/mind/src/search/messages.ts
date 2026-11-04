@@ -154,7 +154,90 @@ const meaningLeg = async (
   });
 };
 
-export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSearch => {
+/** The WHERE clauses every message query carries: always the owner and the bot. */
+const filtersOf = (query: MessageQuery): { sql: string; params: (string | number)[] } => {
+  const clauses = ["r.owner = ?", "r.profile = ?"];
+  const params: (string | number)[] = [query.owner, query.profile];
+  const optional: [string, string | number | undefined][] = [
+    ["r.at >= ?", query.since],
+    ["r.at <= ?", query.until],
+    ["r.role = ?", query.role],
+    ["r.session = ?", query.session],
+  ];
+  for (const [clause, value] of optional) {
+    if (value === undefined) continue;
+    clauses.push(clause);
+    params.push(value);
+  }
+  return { sql: clauses.join(" AND "), params };
+};
+
+/** One FTS leg over one bot's messages, BM25-ranked. */
+const ftsLeg = (
+  search: SearchDb,
+  table: "msg_terms" | "msg_grams",
+  match: string | null,
+  query: MessageQuery,
+): Row[] => {
+  if (match === null) return [];
+  const where = filtersOf(query);
+  return search.db
+    .prepare(
+      `SELECT r.rowid AS rowid, r.conversation, r.session, r.entry, r.role, r.at, r.text
+       FROM ${table} JOIN msg_rows r ON r.rowid = ${table}.rowid
+       WHERE ${table} MATCH ? AND ${where.sql}
+       ORDER BY bm25(${table}) LIMIT ?`,
+    )
+    .all(match, ...where.params, 100) as Row[];
+};
+
+/** Ranked search: words, letters (on their own only when words found little), meaning, recency. */
+const searchMessages = async (
+  search: SearchDb,
+  embedder: Embedder | undefined,
+  query: MessageQuery,
+): Promise<MessageHit[]> => {
+  const meaning =
+    embedder === undefined
+      ? []
+      : await meaningLeg(search, embedder, query, filtersOf(query)).catch((cause: unknown) => {
+          console.warn("history meaning search unavailable:", String(cause).slice(0, 200));
+          return [] as Row[];
+        });
+  const words = ftsLeg(search, "msg_terms", termsQuery(query.query), query);
+  const grams = ftsLeg(search, "msg_grams", gramsQuery(query.query), query);
+  const found = new Set([...words, ...meaning].map((row) => row.rowid));
+  const gramLeg = found.size < 3 ? grams : grams.filter((row) => found.has(row.rowid));
+  const byId = new Map<number, Row>();
+  const score = new Map<number, number>();
+  const add = (rows: readonly Row[], weight: number): void =>
+    rows.forEach((row, rank) => {
+      byId.set(row.rowid, row);
+      score.set(row.rowid, (score.get(row.rowid) ?? 0) + weight / (RRF_K + rank + 1));
+    });
+  add(words, 1);
+  add(gramLeg, 0.4);
+  add(meaning, 0.8);
+  // Recency as a light prior over what matched: newer wins a near tie.
+  add(
+    [...byId.values()].sort((a, b) => b.at - a.at),
+    0.2,
+  );
+  return [...score]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, query.limit)
+    .flatMap(([rowid]) => {
+      const row = byId.get(rowid);
+      if (row === undefined) return [];
+      const { conversation, session, entry, role, at } = row;
+      return [
+        { conversation, session, entry, role, at, snippet: snippetOf(row.text, query.query) },
+      ];
+    });
+};
+
+/** The write side: cursor-driven indexing and dropping, one bot at a time. */
+const messageWriter = (search: SearchDb) => {
   const { db } = search;
   const cursorsOf = db.prepare(
     "SELECT conversation, last_entry FROM msg_cursor WHERE owner = ? AND profile = ?",
@@ -172,10 +255,10 @@ export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSea
   const rowsOfConversation = db.prepare("SELECT rowid FROM msg_rows WHERE conversation = ?");
   const deleteTerms = db.prepare("DELETE FROM msg_terms WHERE rowid = ?");
   const deleteGrams = db.prepare("DELETE FROM msg_grams WHERE rowid = ?");
+  const deleteVec = db.prepare("DELETE FROM msg_vec WHERE rowid = ?");
   const deleteRows = db.prepare("DELETE FROM msg_rows WHERE conversation = ?");
   const deleteCursor = db.prepare("DELETE FROM msg_cursor WHERE conversation = ?");
 
-  const deleteVec = db.prepare("DELETE FROM msg_vec WHERE rowid = ?");
   const dropConversation = (conversation: string): void => {
     for (const row of rowsOfConversation.all(conversation) as { rowid: number }[]) {
       deleteTerms.run(row.rowid);
@@ -186,147 +269,84 @@ export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSea
     deleteCursor.run(conversation);
   };
 
-  const filters = (query: MessageQuery): { sql: string; params: (string | number)[] } => {
-    const clauses = ["r.owner = ?", "r.profile = ?"];
-    const params: (string | number)[] = [query.owner, query.profile];
-    if (query.since !== undefined) {
-      clauses.push("r.at >= ?");
-      params.push(query.since);
-    }
-    if (query.until !== undefined) {
-      clauses.push("r.at <= ?");
-      params.push(query.until);
-    }
-    if (query.role !== undefined) {
-      clauses.push("r.role = ?");
-      params.push(query.role);
-    }
-    if (query.session !== undefined) {
-      clauses.push("r.session = ?");
-      params.push(query.session);
-    }
-    return { sql: clauses.join(" AND "), params };
+  /** Index one batch of a conversation's entries; returns the rows added and the new cursor. */
+  const write = (
+    scope: { readonly owner: string; readonly profile: string },
+    ref: ConversationRef,
+    entries: readonly EntryRecord[],
+    from: number,
+  ): { added: number; last: number } => {
+    let added = 0;
+    let last = from;
+    search.tx(() => {
+      for (const entry of entries) {
+        const id = Number(entry.id);
+        last = Math.max(last, id);
+        const message = messageOf(entry);
+        if (message === null) continue;
+        const { owner, profile } = scope;
+        const row = [
+          ref.conversation,
+          id,
+          owner,
+          profile,
+          ref.session,
+          message.role,
+          message.at,
+          message.text,
+        ] as const;
+        const inserted = insertRow.run(...row);
+        if (inserted.changes === 0) continue;
+        const terms = termsOf(message.text);
+        insertTerms.run(inserted.lastInsertRowid, terms.terms, terms.concepts);
+        insertGrams.run(inserted.lastInsertRowid, message.text);
+        added += 1;
+      }
+      setCursor.run(ref.conversation, scope.owner, scope.profile, ref.session, last);
+    });
+    return { added, last };
   };
 
-  const leg = (
-    table: "msg_terms" | "msg_grams",
-    match: string | null,
-    query: MessageQuery,
-  ): Row[] => {
-    if (match === null) return [];
-    const where = filters(query);
-    return db
-      .prepare(
-        `SELECT r.rowid AS rowid, r.conversation, r.session, r.entry, r.role, r.at, r.text
-         FROM ${table} JOIN msg_rows r ON r.rowid = ${table}.rowid
-         WHERE ${table} MATCH ? AND ${where.sql}
-         ORDER BY bm25(${table}) LIMIT ?`,
-      )
-      .all(match, ...where.params, 100) as Row[];
-  };
+  const cursors = (owner: string, profile: string): Map<string, number> =>
+    new Map(
+      (cursorsOf.all(owner, profile) as { conversation: string; last_entry: number }[]).map(
+        (row) => [row.conversation, row.last_entry],
+      ),
+    );
 
+  return { dropConversation, write, cursors };
+};
+
+export const messageSearch = (search: SearchDb, embedder?: Embedder): MessageSearch => {
+  const writer = messageWriter(search);
   return {
     sync: async (scope, conversations, readAfter) => {
-      const cursors = new Map(
-        (
-          cursorsOf.all(scope.owner, scope.profile) as {
-            conversation: string;
-            last_entry: number;
-          }[]
-        ).map((row) => [row.conversation, row.last_entry]),
-      );
+      const cursors = writer.cursors(scope.owner, scope.profile);
       const listed = new Set(conversations.map((ref) => ref.conversation));
-      let added = 0;
       search.tx(() => {
         for (const conversation of cursors.keys()) {
-          if (!listed.has(conversation)) dropConversation(conversation);
+          if (!listed.has(conversation)) writer.dropConversation(conversation);
         }
       });
+      let added = 0;
       for (const ref of conversations) {
         let last = cursors.get(ref.conversation) ?? 0;
         for (;;) {
           const entries = await readAfter(ref.conversation, last);
           if (entries.length === 0) break;
-          search.tx(() => {
-            for (const entry of entries) {
-              const id = Number(entry.id);
-              last = Math.max(last, id);
-              const message = messageOf(entry);
-              if (message === null) continue;
-              const inserted = insertRow.run(
-                ref.conversation,
-                id,
-                scope.owner,
-                scope.profile,
-                ref.session,
-                message.role,
-                message.at,
-                message.text,
-              );
-              if (inserted.changes === 0) continue;
-              const terms = termsOf(message.text);
-              insertTerms.run(inserted.lastInsertRowid, terms.terms, terms.concepts);
-              insertGrams.run(inserted.lastInsertRowid, message.text);
-              added += 1;
-            }
-            setCursor.run(ref.conversation, scope.owner, scope.profile, ref.session, last);
-          });
+          const wrote = writer.write(scope, ref, entries, last);
+          added += wrote.added;
+          last = wrote.last;
           if (entries.length < BATCH) break;
         }
       }
       return added;
     },
-    search: async (query) => {
-      const meaning =
-        embedder === undefined
-          ? []
-          : await meaningLeg(search, embedder, query, filters(query)).catch((cause: unknown) => {
-              console.warn("history meaning search unavailable:", String(cause).slice(0, 200));
-              return [] as Row[];
-            });
-      const words = leg("msg_terms", termsQuery(query.query), query);
-      const grams = leg("msg_grams", gramsQuery(query.query), query);
-      // Trigrams find on their own only when the words found almost nothing.
-      const found = new Set([...words, ...meaning].map((row) => row.rowid));
-      const gramLeg = found.size < 3 ? grams : grams.filter((row) => found.has(row.rowid));
-      const byId = new Map<number, Row>();
-      const score = new Map<number, number>();
-      const add = (rows: readonly Row[], weight: number): void =>
-        rows.forEach((row, rank) => {
-          byId.set(row.rowid, row);
-          score.set(row.rowid, (score.get(row.rowid) ?? 0) + weight / (RRF_K + rank + 1));
-        });
-      add(words, 1);
-      add(gramLeg, 0.4);
-      add(meaning, 0.8);
-      // Recency as a light prior over what matched: newer wins a near tie.
-      add(
-        [...byId.values()].sort((a, b) => b.at - a.at),
-        0.2,
-      );
-      return [...score]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, query.limit)
-        .flatMap(([rowid]) => {
-          const row = byId.get(rowid);
-          return row === undefined
-            ? []
-            : [
-                {
-                  conversation: row.conversation,
-                  session: row.session,
-                  entry: row.entry,
-                  role: row.role,
-                  at: row.at,
-                  snippet: snippetOf(row.text, query.query),
-                },
-              ];
-        });
-    },
+    search: (query) => searchMessages(search, embedder, query),
     drop: (owner, profile) =>
       search.tx(() => {
-        for (const row of cursorsOf.all(owner, profile) as { conversation: string }[]) {
-          dropConversation(row.conversation);
+        for (const conversation of writer.cursors(owner, profile).keys()) {
+          writer.dropConversation(conversation);
         }
       }),
   };

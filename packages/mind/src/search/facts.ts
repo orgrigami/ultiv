@@ -76,9 +76,6 @@ export const factSearch = (search: SearchDb, embedder?: Embedder): FactSearch =>
     deleteRow.run(rowid);
   };
 
-  const ranked = (sql: string, stores: readonly string[], match: string, limit: number): string[] =>
-    (db.prepare(sql).all(match, ...stores, limit) as { id: string }[]).map((row) => row.id);
-
   return {
     sync: (store, facts, namesOf) =>
       search.tx(() => {
@@ -108,36 +105,41 @@ export const factSearch = (search: SearchDb, embedder?: Embedder): FactSearch =>
         // Rows of facts no longer in the store (a purge cleared them).
         for (const row of existing.values()) remove(row.rowid);
       }),
-    lexical: (stores, query, limit) => {
-      const match = termsQuery(query);
-      if (match === null || stores.length === 0) return [];
-      return ranked(
-        `SELECT r.id AS id FROM fact_terms JOIN fact_rows r ON r.rowid = fact_terms.rowid
-         WHERE fact_terms MATCH ? AND r.store IN (${placeholders(stores.length)})
-         ORDER BY bm25(fact_terms, 1.0, 2.0, 2.0, 0.8) LIMIT ?`,
-        stores,
-        match,
-        limit,
-      );
-    },
-    fuzzy: (stores, query, limit) => {
-      const match = gramsQuery(query);
-      if (match === null || stores.length === 0) return [];
-      return ranked(
-        `SELECT r.id AS id FROM fact_grams JOIN fact_rows r ON r.rowid = fact_grams.rowid
-         WHERE fact_grams MATCH ? AND r.store IN (${placeholders(stores.length)})
-         ORDER BY bm25(fact_grams) LIMIT ?`,
-        stores,
-        match,
-        limit,
-      );
-    },
+    lexical: (stores, query, limit) =>
+      rankFacts(search, "fact_terms", termsQuery(query), stores, limit),
+    fuzzy: (stores, query, limit) =>
+      rankFacts(search, "fact_grams", gramsQuery(query), stores, limit),
     ...(embedder !== undefined ? { semantic: semanticOf(search, embedder) } : {}),
     drop: (store) =>
       search.tx(() => {
         for (const row of rowsOf.all(store) as { rowid: number }[]) remove(row.rowid);
       }),
   };
+};
+
+/** BM25 weights per table: text, tags, entity names, concepts — or the one grams column. */
+const BM25 = {
+  fact_terms: "bm25(fact_terms, 1.0, 2.0, 2.0, 0.8)",
+  fact_grams: "bm25(fact_grams)",
+} as const;
+
+/** One FTS leg over the given stores: ranked fact ids. */
+const rankFacts = (
+  search: SearchDb,
+  table: keyof typeof BM25,
+  match: string | null,
+  stores: readonly string[],
+  limit: number,
+): string[] => {
+  if (match === null || stores.length === 0) return [];
+  const rows = search.db
+    .prepare(
+      `SELECT r.id AS id FROM ${table} JOIN fact_rows r ON r.rowid = ${table}.rowid
+       WHERE ${table} MATCH ? AND r.store IN (${placeholders(stores.length)})
+       ORDER BY ${BM25[table]} LIMIT ?`,
+    )
+    .all(match, ...stores, limit) as { id: string }[];
+  return rows.map((row) => row.id);
 };
 
 /** The meaning leg over facts: fill missing vectors, then an exact cosine scan. */
