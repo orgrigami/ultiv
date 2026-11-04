@@ -18,7 +18,7 @@ export const wakeTextOf = (task: TaskInfo): string | undefined => {
       const text = task.result ?? "";
       const digest =
         text.length > WAKE_RESULT_CHARS
-          ? `${text.slice(0, WAKE_RESULT_CHARS)}\n[truncated — full result: task_status "${task.id}"]`
+          ? `${text.slice(0, WAKE_RESULT_CHARS)}\n[truncated; full result: task_status "${task.id}"]`
           : text;
       return `[task ${task.id} finished]\n\n${digest}`;
     }

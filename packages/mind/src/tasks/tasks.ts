@@ -128,7 +128,7 @@ const RESUME_NOTE =
 /** Framing the task sees once, above its brief (the row keeps the raw prompt). */
 export const TASK_BRIEF =
   "[task brief] You are a background task your bot started; your final reply is the result " +
-  "it receives. A [from parent] line is a new instruction from it — follow it. For long " +
+  "it receives. A [from parent] line is a new instruction from it: follow it. For long " +
   "work, post a one-line milestone to your owner with notify_owner (rarely; never the result).";
 
 /** The wake prefix a parent bot's task_message arrives under, in the task's chat. */

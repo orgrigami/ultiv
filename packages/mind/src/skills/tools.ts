@@ -264,7 +264,7 @@ const editTool = (
     name: SKILL_EDIT,
     description:
       "Apply several skill changes in ONE all-or-nothing batch (create and/or update): " +
-      "every op is checked first, and if any op is refused NOTHING is saved — your skills " +
+      "every op is checked first, and if any op is refused NOTHING is saved and your skills " +
       "stay exactly as they were. Each op counts toward your per-turn save cap. Same rules " +
       "per op as skill_write: the body replaces the skill's whole text, `files` is the " +
       "complete reference set, never secrets. Removing a skill is not a batch op: use " +
@@ -286,7 +286,7 @@ const editTool = (
       for (const [index, item] of (args.ops ?? []).entries()) {
         if (item.op === "remove") {
           return text(
-            `op ${index + 1} is a remove: skill_edit never deletes — use skill_delete ` +
+            `op ${index + 1} is a remove: skill_edit never deletes; use skill_delete ` +
               "(your owner approves deletions)",
             true,
           );

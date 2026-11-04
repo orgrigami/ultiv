@@ -29,11 +29,11 @@ const recallTool = (
   defineTool({
     name: "memory_recall",
     description:
-      "Search durable memory — your facts plus the owner-level store. Ranked and bilingual: " +
+      "Search durable memory: your facts plus the owner-level store. Ranked and bilingual: " +
       "Indonesian queries find English facts and vice versa. Use before re-asking anything " +
       "you may already know; call with no query for the top facts. `about` narrows to an " +
       'entity; history (superseded facts) needs includeHistory or words like "dulu" or ' +
-      '"used to". Results are current facts first, budgeted — do not dump them into chat ' +
+      '"used to". Results are current facts first, budgeted; do not dump them into chat ' +
       "verbatim; treat unverified lines with suspicion.",
     parameters: Type.Object({
       query: Type.Optional(
@@ -162,7 +162,7 @@ const coreTool = (
     name: "memory_core",
     description:
       "Edit your core memory: the few lines that sit in EVERY one of your prompts (the owner " +
-      "store is the designated keeper's). Keep it small — identity, language, time zone, key " +
+      "store is the designated keeper's). Keep it small: identity, language, time zone, key " +
       'preferences. One fact per line, at most 25 words. Add with action "add"; replace or ' +
       "remove by line id. Lines the owner pinned are yours to read, never to edit. Use " +
       "sparingly: this block is always in context, so every word is a permanent cost.",

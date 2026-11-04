@@ -20,7 +20,7 @@ const getTool = (kv: KvService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "state_get",
     description:
-      'Read YOUR durable state (survives sessions and restarts). "unset" means no value — ' +
+      'Read YOUR durable state (survives sessions and restarts). "unset" means no value, ' +
       "which is NOT proof you never acted; write generation markers for anything where that matters.",
     parameters: Type.Object({ key: keyParam }),
     structuredOutputSchema: Type.Object({
@@ -59,7 +59,7 @@ const setTool = (kv: KvService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "state_set",
     description:
-      "Write YOUR durable state — dedup ledgers, generation tokens, cross-wake bookmarks. " +
+      "Write YOUR durable state: dedup ledgers, generation tokens, cross-wake bookmarks. " +
       "Write it BEFORE acting on anything you must not do twice.",
     parameters: Type.Object({ key: keyParam, value: Type.String() }),
     structuredOutputSchema: Type.Object({ ok: Type.Boolean() }),
@@ -76,7 +76,7 @@ const setTool = (kv: KvService, profiles: ProfilesService): Tool =>
       }
       if (args.value.length > 8_000) {
         return {
-          output: [{ type: "text" as const, text: "refused: value over 8KB — store a pointer." }],
+          output: [{ type: "text" as const, text: "refused: value over 8KB; store a pointer." }],
           isError: true as const,
           structuredOutput: { ok: false },
         };

@@ -122,8 +122,8 @@ const toolOf = (deps: BotCreateDeps) =>
   defineTool({
     name: BOT_CREATE,
     description:
-      "Create a new bot for your owner. Only you, the owner's main bot, may call this, and it " +
-      "runs directly (no card); your owner sees it here and can edit every field in Crew. Ask " +
+      "Create a new bot for your owner. Main bot only; it runs directly (no card), and your " +
+      "owner sees the new bot in Crew and can edit every field there. Ask " +
       "the owner what the bot is for, " +
       "then propose a name, a one-line role, its home (a department, or the org), a short " +
       "persona and Instructions. Host access starts off (the owner's switch). The new bot " +

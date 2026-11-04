@@ -75,7 +75,7 @@ const parseOf = (text: string): unknown => {
 };
 
 const schemaInstruction = (schema: TSchema): string =>
-  `\n\nReply with ONLY a JSON value matching this JSON schema — no prose, no code fence:\n${JSON.stringify(schema)}`;
+  `\n\nReply with ONLY a JSON value matching this JSON schema, with no prose and no code fence:\n${JSON.stringify(schema)}`;
 
 export const generateService = (
   models: Models,

@@ -177,7 +177,7 @@ const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>
     name: "vault_list",
     description:
       "List the vault's items for this profile: names, kinds, masked hints (e.g. " +
-      "'VISA •••• 4242'), and access class. Secret items are USE-ONLY — no tool returns " +
+      "'VISA •••• 4242'), and access class. Secret items are USE-ONLY: no tool returns " +
       "their values, so never claim to know one; if a secret is missing, ask your owner to " +
       "add it in the app's Vault, never in chat. Contacts are " +
       "readable through vault_contacts.",
@@ -222,7 +222,7 @@ const contactsTool = (store: VaultStore, holder: ScopeHolder): Tool =>
     name: "vault_contacts",
     description:
       "Search the vault's contacts (reference class): who to email or call, with the " +
-      "address the user stored. Use it to resolve 'email Mom' into a real address. Contacts " +
+      "address your owner stored. Use it to resolve 'email Mom' into a real address. Contacts " +
       "are your owner's personal data: use them for the task at hand, and never pass them to " +
       "other bots, rooms or webhooks unless your owner asked.",
     parameters: Type.Object({

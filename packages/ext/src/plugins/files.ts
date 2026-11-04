@@ -300,7 +300,7 @@ const findTool = (root: string, holder: ScopeHolder): Tool =>
         matches.length === 0
           ? "no matches"
           : `${matches.join("\n")}\n${total} match(es) for "${pattern}"` +
-            (total > MAX_FIND_PATHS ? ` — showing the first ${MAX_FIND_PATHS}` : "");
+            (total > MAX_FIND_PATHS ? `, showing the first ${MAX_FIND_PATHS}` : "");
       return { output: [{ type: "text" as const, text }], structuredOutput: { matches } };
     },
   });

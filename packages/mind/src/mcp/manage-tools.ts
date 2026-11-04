@@ -72,7 +72,7 @@ const KeyFields = {
   clientIdItem: Type.Optional(
     Type.String({
       description:
-        "OAuth only: existing vault item (name or id) holding the client id — use this when " +
+        "OAuth only: existing vault item (name or id) holding the client id; use this when " +
         "the id came in through a secure field instead of passing it as plain clientId.",
     }),
   ),

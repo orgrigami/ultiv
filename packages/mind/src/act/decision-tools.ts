@@ -23,7 +23,7 @@ export function scoreTool(decide: DecideService): ToolRegistration<typeof ScoreP
   return {
     name: "jev_score",
     description:
-      "Your typed judgment: the probability (0..1) that a statement holds — your own decision faculty, Jev. Prefer it over guessing for yes/no judgments.",
+      "Your typed judgment: the probability (0..1) that a statement holds, from your own decision faculty, Jev. Prefer it over guessing for yes/no judgments.",
     parameters: ScoreParams,
     structuredOutputSchema: Type.Object({ probability: Type.Number() }),
     execute: async (args) => {

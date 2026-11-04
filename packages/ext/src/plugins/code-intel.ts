@@ -238,7 +238,7 @@ const outlineTool = (root: string, holder: ScopeHolder): Tool =>
       let text = lines.join("\n");
       let truncated = false;
       if (!complete) {
-        text = `${text}\n(truncated — narrow with path or depth)`;
+        text = `${text}\n(truncated: narrow with path or depth)`;
         truncated = true;
       }
       return {
@@ -336,7 +336,7 @@ const navTool = (root: string, holder: ScopeHolder): Tool =>
       const base = { scope, action: args.action, name: args.name };
       if (scanned.parsed.length === 0) {
         const text =
-          `${scopeLine(scope, scanned)}\nno parseable code files here — only TypeScript, ` +
+          `${scopeLine(scope, scanned)}\nno parseable code files here; only TypeScript, ` +
           "TSX, JavaScript and Python are parsed, so there is nothing to navigate";
         return {
           output: [{ type: "text" as const, text }],
@@ -359,7 +359,7 @@ const navTool = (root: string, holder: ScopeHolder): Tool =>
           : `${hit.path}:${hit.line}:${hit.column}`,
         `    ${hit.excerpt}`,
       ]);
-      const over = hits.length > MAX_NAV_HITS ? ` — showing the first ${MAX_NAV_HITS}` : "";
+      const over = hits.length > MAX_NAV_HITS ? `, showing the first ${MAX_NAV_HITS}` : "";
       const text =
         `${scopeLine(scope, scanned)}\n${lines.join("\n")}${lines.length > 0 ? "\n" : ""}` +
         `${hits.length} match(es) for "${args.name}" (${args.action})${over}`;

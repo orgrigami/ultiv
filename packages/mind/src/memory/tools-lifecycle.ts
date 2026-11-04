@@ -21,7 +21,7 @@ export const forgetTool = (memory: MemoryService, profiles: ProfilesService): To
     description:
       "Retract one of your facts by id: it becomes a restorable tombstone, hidden from recall " +
       "but kept for history until the owner purges. Use when a fact is wrong or no longer " +
-      "yours to claim — prefer memory_write with `replaces` when a CORRECTION exists. Your " +
+      "yours to claim; when it was wrong and you know the right version, use memory_update (correct) instead. Your " +
       "own facts only; owner-stated facts can be forgotten only when the owner asked in this " +
       "turn. Always give the reason.",
     parameters: Type.Object({
@@ -56,9 +56,9 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
     name: "memory_history",
     description:
       "Show one fact's version chain: every version with its validity window, what changed " +
-      "(created, refined, superseded, forgotten) and where it came from. Use it to check " +
-      "whether a fact changed over time before relying on it, or to find the id to correct " +
-      "with `replaces`. History stays until the owner purges — forgetting is reversible.",
+      "(created, refined, superseded, corrected, ended, forgotten) and where it came from. Use it to check " +
+      "whether a fact changed over time before relying on it, or to find the #handle for memory_update. History stays until the owner purges, so " +
+      "forgetting is reversible.",
     parameters: Type.Object({
       id: Type.String({ description: "The fact's #handle to trace." }),
     }),
@@ -116,7 +116,7 @@ export const relatedTool = (memory: MemoryService, profiles: ProfilesService): T
   defineTool({
     name: "memory_related",
     description:
-      "Open an entity's card: a person, pet, place or project your memory knows — its current " +
+      "Open an entity's card: a person, pet, place or project your memory knows: its current " +
       "facts and its neighbours (connected through facts like lives_in or has_pet, 1 hop by " +
       "default, 2 with depth). Use it before answering questions about someone or something " +
       "specific, and to see how two things connect. Names match by id, name or alias in " +

@@ -51,7 +51,7 @@ export const onboardProfile = async (
     const submission = await run(
       converse.submit(
         conversation,
-        `[onboarding] You are ${profile.name} — a new bot in this workspace, created by the ` +
+        `[onboarding] You are ${profile.name}, a new bot in this workspace, created by the ` +
           `owner just now.${description}${persona}\n\nIntroduce yourself in one or two lines ` +
           `(who you are, what you are for), then stand by. Use no tools for this.`,
       ),

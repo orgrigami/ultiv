@@ -224,7 +224,7 @@ const sandboxTool = (
       `your home's microVM (the working directory; on a single-bot install that is the whole VM ` +
       `at ${HOME}); "host" DIRECTLY on the host computer running this server (privileged, no ` +
       "sandbox: the whole real filesystem, configuration, and every program are reachable, and " +
-      'changes are permanent — only when the task genuinely needs the host); and "node" on a ' +
+      'changes are permanent; use it only when the task genuinely needs the host); and "node" on a ' +
       "node your owner paired (their other machine). " +
       "In the VM: real Linux in a sandbox: coreutils, pipes, grep, jq, tar, python. The " +
       "network is OFF by default: only the hosts your owner allowlisted for this home are " +
@@ -234,7 +234,7 @@ const sandboxTool = (
       "network has been opened fully). Shared folders have size caps; over a cap the folder " +
       "turns read-only. Every file you create or change under " +
       HOME +
-      " is an artifact: it persists across restarts and the user can see it. The folder " +
+      " is an artifact: it persists across restarts and your owner can see it. The folder " +
       "/home/org-shared is shared with the whole org: never write vault values, tokens or " +
       "credentials there. Working directory " +
       "carries over between calls (per target). Each call waits for your owner's approval " +
@@ -365,7 +365,7 @@ const nodeUnpaired = () => ({
       text:
         'no node is paired for target "node": ask your owner to pair one in Settings → Nodes ' +
         "(pairing mints a token their node agent dials in with); once more than one is paired, " +
-        'name the node with the "node" field — a name that matches no single paired node ' +
+        'name the node with the "node" field; a name that matches no single paired node ' +
         "answers this same error",
     },
   ],

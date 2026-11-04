@@ -30,7 +30,7 @@ const setTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
       "Watch a source and get woken on events. kind 'calendar' watches the owner's ICS feed " +
       "(woken `leadMinutes` before matching events); kind 'rss' watches `url` and wakes on " +
       "every new item whose title contains `match`; kind 'watch' polls `url` and wakes once " +
-      "each time its content CHANGES (edge-triggered — first poll is the baseline). Each " +
+      "each time its content CHANGES (edge-triggered: the first poll is the baseline). Each " +
       "event/change wakes you exactly once, even across restarts. The owner approves each " +
       "sensor: first say in a sentence what it watches and when it will wake you.",
     parameters: Type.Object({

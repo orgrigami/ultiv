@@ -28,7 +28,7 @@ const jobSummary = (job: CronJobInfo): Record<string, unknown> => ({
 const SetParams = Type.Object({
   prompt: Type.String({
     description:
-      "What you should do when the schedule fires — you are woken with exactly this text, " +
+      "What you should do when the schedule fires: you are woken with exactly this text, " +
       "so make it self-contained.",
   }),
   schedule: Type.Optional(
@@ -61,7 +61,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
     description:
       "Schedule a future wake-up for yourself: a recurring cron schedule or a one-shot time. " +
       "When it fires, `prompt` arrives in your main chat as an input and you act on it. Use " +
-      "`now` to ground times; cron renders in the profile's timezone. The owner approves " +
+      "`now` to ground times; cron runs in your owner's time zone. Your owner approves " +
       "each schedule: first say in a sentence when it fires and what it will make you do.",
     parameters: SetParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), next: Type.Array(Type.Number()) }),
@@ -105,7 +105,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
           {
             type: "text" as const,
             text:
-              `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`} — delivers into ${main.id}` +
+              `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`}, delivers into ${main.id}` +
               (next.length > 0 ? `\nnext fires: ${rendered} (verify this is what you meant)` : "") +
               "\nyour owner sees this under Routines",
           },
@@ -163,7 +163,7 @@ const removeTool = (schedules: SchedulesService, profiles: ProfilesService): Too
   defineTool({
     name: "schedule_remove",
     gated: true,
-    description: "Cancel one of YOUR schedules by id. The user approves each removal.",
+    description: "Cancel one of YOUR schedules by id. Your owner approves each removal.",
     parameters: Type.Object({ id: Type.String({ description: "The schedule id." }) }),
     structuredOutputSchema: Type.Object({ removed: Type.Boolean() }),
     execute: async (args, api) => {

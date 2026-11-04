@@ -233,7 +233,7 @@ describe("file_find", () => {
     for (let i = 0; i < 103; i += 1) await tree.writeFile(`/many/f${i}.txt`, "x");
     const capped = await call("file_find", { pattern: "f*.txt" });
     expect(capped.text.split("\n").filter((line) => line.startsWith("many/"))).toHaveLength(100);
-    expect(capped.text).toContain('103 match(es) for "f*.txt" — showing the first 100');
+    expect(capped.text).toContain('103 match(es) for "f*.txt", showing the first 100');
   });
 });
 

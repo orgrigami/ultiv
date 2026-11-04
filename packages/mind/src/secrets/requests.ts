@@ -72,7 +72,7 @@ interface Waiting {
 }
 
 const CANCELLED =
-  "the owner cancelled the secure input or did not answer in time; nothing was stored — do not ask again unless they want to";
+  "the owner cancelled the secure input or did not answer in time; nothing was stored; do not ask again unless they want to";
 
 const nameOf = (spec: SecretSpec, field: SecretField): string =>
   (spec.fields.length > 1 ? `${spec.label} · ${field.label}` : spec.label).slice(0, 120);

@@ -402,7 +402,7 @@ export const withApproval = <TParameters extends TSchema>(
       const note = approvals.noteFor(conversationId, api.callId);
       return textResult(
         note ??
-          "not approved (the owner denied it, stopped the turn, or did not answer in time) — do not retry; tell the owner what was not done",
+          "not approved (the owner denied it, stopped the turn, or did not answer in time); do not retry; tell the owner what was not done",
       );
     }
     // An editable card may return the input as the owner corrected it; it

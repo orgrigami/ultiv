@@ -106,7 +106,7 @@ const eventsTool = (feedUrl: string): Tool =>
   defineTool({
     name: "calendar_events",
     description:
-      "The user's calendar events for today (or the next few days) from their ICS feed. " +
+      "Your owner's calendar events for today (or the next few days) from their ICS feed. " +
       "Recurring events are NOT expanded (only a series' first occurrence is listed), so " +
       "never call a day free on this alone.",
     parameters: Params,

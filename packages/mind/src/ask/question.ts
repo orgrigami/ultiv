@@ -46,11 +46,11 @@ export const answerOf = (override: unknown): string | undefined => {
 
 const DISMISSED =
   "the owner dismissed the question or did not answer in time; carry on with your best " +
-  "judgement and say what you assumed — do not ask the same question again";
+  "judgement and say what you assumed. Do not ask the same question again";
 
 /** The tool result when the owner wrote a message instead of tapping the card. */
 export const OWNER_REPLIED =
-  "the owner didn't use the card; they sent you a message instead, which comes next — " +
+  "the owner didn't use the card; they sent you a message instead, which comes next: " +
   "read it as their answer and go on (do not ask the same question again)";
 
 /**

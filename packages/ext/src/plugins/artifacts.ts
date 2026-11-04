@@ -292,7 +292,7 @@ export const searchArtifacts = (
 const ArtifactInfoShape = ArtifactInfoSchema;
 
 const WriteParams = Type.Object({
-  name: Type.String({ description: 'File name, e.g. "report.md" — the extension sets the type.' }),
+  name: Type.String({ description: 'File name, e.g. "report.md"; the extension sets the type.' }),
   content: Type.String({
     description: `The file's UTF-8 content, up to ${MAX_WRITE_CHARS} chars.`,
   }),
@@ -302,11 +302,11 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
   defineTool({
     name: "artifact_write",
     description:
-      "Write a file into the workspace the app can serve: reports, data, code, anything the " +
-      "user should keep. Returns the artifact id clients fetch it by. The owner sees a file " +
+      "Write a file into the workspace the app can serve: reports, data, code, anything your " +
+      "owner should keep. Returns the artifact id clients fetch it by. The owner sees a file " +
       "card with preview and download in the chat for every write; to share a file made " +
-      "earlier (by you or bash), link it in your reply as a markdown link — " +
-      "[name](/api/artifacts/<id>) — a bare path in plain text shows no card.",
+      "earlier (by you or bash), link it in your reply as a markdown link, " +
+      "[name](/api/artifacts/<id>); a bare path in plain text shows no card.",
     parameters: WriteParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), name: Type.String() }),
     execute: (args, api) => {
@@ -398,7 +398,7 @@ const ListParams = Type.Object({
     Type.Union([Type.Literal("session"), Type.Literal("all")], {
       description:
         '"session" (default): only this conversation\'s artifacts. "all": search the whole ' +
-        "workspace — use it when the file was not written in this conversation.",
+        "workspace; use it when the file was not written in this conversation.",
     }),
   ),
 });
@@ -408,7 +408,7 @@ const artifactListTool = (dirOf: (conversationId: string) => string): Tool =>
     name: "artifact_list",
     description:
       "List or search the workspace's artifacts (id, name, type, size, recency). Defaults to " +
-      'THIS conversation\'s artifacts; widen with scope "all" when needed — that searches this ' +
+      'THIS conversation\'s artifacts; widen with scope "all" when needed, which searches this ' +
       "profile's whole workspace.",
     parameters: ListParams,
     structuredOutputSchema: Type.Array(ArtifactInfoShape),

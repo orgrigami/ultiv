@@ -37,7 +37,7 @@ export const historyTools = (
     name: "history_search",
     description:
       "Search YOUR past conversations (all of this bot's chats, never another bot's) for what " +
-      "was said or decided — use it before re-asking the owner anything a previous chat may " +
+      "was said or decided; use it before re-asking the owner anything a previous chat may " +
       "have settled. Words in English or Indonesian, any order; a misspelling still finds. " +
       'A time phrase in the query ("last week", "kemarin", "in March") narrows the search.',
     parameters: Type.Object({

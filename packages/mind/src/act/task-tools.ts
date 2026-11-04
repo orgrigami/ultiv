@@ -42,7 +42,7 @@ const StatusParams = Type.Object({ id: Type.String({ description: "The task id."
 export const AGENT_OWNER = "agent";
 
 const REFUSE_NESTED =
-  "refused: you are already running AS a background task — tasks cannot spawn sub-tasks (it " +
+  "refused: you are already running AS a background task, and tasks cannot spawn sub-tasks (it " +
   "compounds cost). Do the work yourself in this conversation, or finish and let the parent decide.";
 
 /**
@@ -60,11 +60,11 @@ const spawnTool = (
     name: "task_spawn",
     description:
       "Start a background task: your own sub-agent turn, run in its own durable conversation. " +
-      "Prefer it whenever the work needs more than two or three tool rounds — research across " +
-      "several pages, reading or watching many files, long scripts, batch jobs, anything you " +
+      "Prefer it whenever the work needs more than two or three tool rounds: research across " +
+      "several pages, reading many files, long scripts, batch jobs, anything you " +
       "would rather not hold this conversation open for. Keep inline only what is quick or " +
       "needs your owner's taste mid-way. When you spawn, tell your owner in a sentence what " +
-      "is running and that you will report the result, then END YOUR TURN — you are woken " +
+      "is running and that you will report the result, then END YOUR TURN: you are woken " +
       "automatically with the result as a new input when the task settles. Do NOT poll " +
       "task_status in a loop.",
     parameters: SpawnParams,
@@ -105,7 +105,7 @@ const statusTool = (tasks: TasksService): Tool =>
     name: "task_status",
     description:
       "One-shot status check for a background task by id. Tasks you spawned wake you with their " +
-      "result automatically — use this only for an on-demand check, never to poll in a loop. " +
+      "result automatically; use this only for an on-demand check, never to poll in a loop. " +
       "Shows its last few steps.",
     parameters: StatusParams,
     structuredOutputSchema: Type.Object({
@@ -134,7 +134,7 @@ const cancelTool = (tasks: TasksService): Tool =>
     name: "task_cancel",
     description:
       "Stop a running background task by id: its conversation is aborted and the task is marked " +
-      "cancelled. The user can also stop tasks from the app.",
+      "cancelled. Your owner can also stop tasks from the app.",
     parameters: StatusParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), cancelled: Type.Boolean() }),
     execute: async (args) => {

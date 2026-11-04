@@ -134,7 +134,7 @@ export const accessOf = (
 };
 
 const DENIED =
-  "not approved (the owner denied it, stopped the turn, or did not answer in time) — do not retry; tell the owner what was not done";
+  "not approved (the owner denied it, stopped the turn, or did not answer in time); do not retry; tell the owner what was not done";
 
 /** Null when the call may run; else the denial text for the model. */
 export const approvalFor = async (

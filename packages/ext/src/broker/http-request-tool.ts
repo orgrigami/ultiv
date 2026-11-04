@@ -212,7 +212,7 @@ const runCall = async (
       const note = hooks?.noteFor(context.conversationId, context.callId);
       return fail(
         note ??
-          "not approved (denied, stopped, or no answer in time) — do not retry; tell your owner",
+          "not approved (denied, stopped, or no answer in time); do not retry; tell your owner",
       );
     }
     if (spend !== null && card === FIRST_USE_APPROVAL && context.scope !== undefined) {

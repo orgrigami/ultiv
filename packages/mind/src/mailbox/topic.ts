@@ -35,7 +35,7 @@ export const OFF_TOPIC_BELOW = 0.2;
 
 /** The refusal teaches the fix; the bot keeps its draft, nothing is lost. */
 export const OFF_TOPIC_REASON =
-  "off-topic for this room — open a new room for this subject (the room tool) and send there; " +
+  "off-topic for this room: open a new room for this subject (the room tool) and send there; " +
   "your draft is kept, nothing was sent";
 
 const TOPIC_INSTRUCTIONS =

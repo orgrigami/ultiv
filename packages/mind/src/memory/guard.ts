@@ -185,7 +185,7 @@ export const checkContent = (text: string): ContentVerdict => {
       return {
         ok: false,
         reason:
-          `refused: the text looks like a ${label}. Never store secrets in memory — ` +
+          `refused: the text looks like a ${label}. Never store secrets in memory; ` +
           `save it in the vault and write a pointer like "credential for X is at vault:<item>".`,
       };
     }
@@ -195,7 +195,7 @@ export const checkContent = (text: string): ContentVerdict => {
     return {
       ok: false,
       reason:
-        "refused: the text contains a card-like number. Never store cards — " +
+        "refused: the text contains a card-like number. Never store cards; " +
         'write a pointer like "payment card is at vault:<item>".',
     };
   }
@@ -203,14 +203,14 @@ export const checkContent = (text: string): ContentVerdict => {
     return {
       ok: false,
       reason:
-        "refused: the text looks like a NIK (national ID). Never store IDs — " +
+        "refused: the text looks like a NIK (national ID). Never store IDs; " +
         'write a pointer like "NIK is at vault:<item>".',
     };
   }
   if (/\b(otp|verification code|kode verifikasi)\b[^0-9]{0,20}\d{4,8}\b/i.test(text)) {
     return {
       ok: false,
-      reason: "refused: OTP/verification codes are single-use secrets — never store them.",
+      reason: "refused: OTP/verification codes are single-use secrets; never store them.",
     };
   }
   return { ok: true, reason: null };

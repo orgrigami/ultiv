@@ -144,7 +144,7 @@ describe("code-intel tools", () => {
     const outline = await call("code_outline", { path: "big" });
     expect(outline.isError).toBe(false);
     expect(outline.text.length).toBeLessThan(6200);
-    expect(outline.text).toContain("(truncated — narrow with path or depth)");
+    expect(outline.text).toContain("(truncated: narrow with path or depth)");
     expect((outline.structured as { truncated: boolean }).truncated).toBe(true);
   });
 

@@ -61,7 +61,7 @@ const sendTool = (post: PostJson, from: string): Tool =>
     name: "email_send",
     gated: true,
     description:
-      "Send an email to a person — real outbound to the world; it can't be unsent. Your owner " +
+      "Send an email to a person: real outbound to the world; it can't be unsent. Your owner " +
       "approves every send: first state the recipient, subject and gist in a sentence. Draft " +
       "the body in the conversation first; dispatch only on a clear instruction. Include only " +
       "the personal data the email needs.",
