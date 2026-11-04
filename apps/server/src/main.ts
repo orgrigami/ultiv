@@ -4,7 +4,6 @@
  * REST live here; every AI capability lives in @spriessen/mind.
  */
 import { createServer } from "node:http";
-import { reachableUrls } from "./listen.ts";
 import { pathToFileURL } from "node:url";
 import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
@@ -42,6 +41,8 @@ import { AuthStore } from "./auth/store.ts";
 import { socketSessions } from "./auth/socket-sessions.ts";
 import { createRestHandler } from "./rest.ts";
 import { serveSession } from "./session.ts";
+import { startServer } from "./start.ts";
+import { staticHandler } from "./static.ts";
 
 export type { Principal } from "./identity.ts";
 
@@ -56,6 +57,8 @@ const SEARCH_WARMUP_MS = Number(process.env.SEARCH_WARMUP_MS ?? 60_000);
 export async function buildStack(options?: {
   readonly storage?: Storage;
   readonly vault?: { readonly dir?: string };
+  /** A web build folder (apps/web/dist) the server serves itself (`spriessen serve`). */
+  readonly webDist?: string;
 }) {
   // The node agents' dial exists before the mind: openMind injects its exec
   // as the bash tool's `node` target transport (mind/node facade).
@@ -225,7 +228,11 @@ export async function buildStack(options?: {
   // No agent is dialed in before the server listens: a crash or kill left
   // the stored flags behind, so they reset here (reads use the live state).
   await markAllNodesDisconnected(mind.converse);
-  const http = createServer(createRestHandler({ mind, scheduler, push, auth, nodes: agents }));
+  const rest = createRestHandler({ mind, scheduler, push, auth, nodes: agents });
+  const web = options?.webDist !== undefined ? staticHandler(options.webDist) : undefined;
+  const http = createServer((req, res) => {
+    if (web?.(req, res) !== true) rest(req, res);
+  });
   // noServer: the http server's one upgrade handler routes by path (the
   // chord links here, the live event socket in slice 10).
   const wss = new WebSocketServer({ noServer: true });
@@ -316,18 +323,10 @@ export async function buildStack(options?: {
 const isMain =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
-  const port = Number(process.env.PORT ?? 8787);
-  // Unset HOST binds every interface, IPv4 AND IPv6 (Node's dual-stack `::`),
-  // so localhost, 127.0.0.1, [::1], the LAN and the tailnet all reach it; HOST narrows it.
-  const host = process.env.HOST === "" ? undefined : process.env.HOST;
-  const stack = await buildStack();
-  const ready = () =>
-    console.log(`spriessen server listening on ${reachableUrls(stack.http, host).join("  ")}`);
-  if (host === undefined) stack.http.listen(port, ready);
-  else stack.http.listen(port, host, ready);
+  const server = await startServer(buildStack, { log: (line) => console.log(line) });
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.once(signal, () => {
-      void stack.close().then(() => process.exit(0));
+      void server.close().then(() => process.exit(0));
     });
   }
 }
