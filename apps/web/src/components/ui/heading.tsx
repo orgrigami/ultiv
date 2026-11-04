@@ -3,7 +3,8 @@ import * as React from "react";
 import { cn } from "cn";
 
 const headingSize = {
-  title: "text-title",
+  /** The page title: the display face, tightened. */
+  title: "font-heading text-title tracking-tight",
   base: "text-base",
   ui: "text-ui",
   sm: "text-sm",

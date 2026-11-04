@@ -22,7 +22,7 @@ import {
   SquarePenIcon,
   SunMoonIcon,
   UsersIcon,
-  WandSparklesIcon,
+  BookOpenIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -103,7 +103,7 @@ const SCREENS: readonly {
     icon: KeyRoundIcon,
     keywords: ["logins", "passwords"],
   },
-  { id: "skills", title: "Skills", to: "/skills", icon: WandSparklesIcon },
+  { id: "skills", title: "Skills", to: "/skills", icon: BookOpenIcon },
   {
     id: "settings",
     title: "Settings",

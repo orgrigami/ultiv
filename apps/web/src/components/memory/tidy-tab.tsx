@@ -3,7 +3,7 @@
  * run-tidy-now with real feedback, and the purge. Nothing changes until the
  * owner accepts.
  */
-import { SparklesIcon } from "lucide-react";
+import { ListChecksIcon } from "lucide-react";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ErrorState, EmptyState } from "@/components/ui/empty-state";
@@ -29,7 +29,7 @@ export function TidyTab({ data, profileId, reload }: TabProps) {
       <div className="flex flex-col gap-2">
         {data.openCount > 0 && (
           <Badge variant="secondary" className="w-fit">
-            <SparklesIcon className="size-3" /> {t.tidyOpenBadge(data.openCount)}
+            <ListChecksIcon className="size-3" /> {t.tidyOpenBadge(data.openCount)}
           </Badge>
         )}
         {open.length === 0 && <EmptyState>{t.tidyEmpty}</EmptyState>}

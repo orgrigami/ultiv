@@ -22,7 +22,7 @@ const KNOWN_REASONS: Record<string, string | null> = {
 
 const sentence = (text: string): string => {
   const trimmed = text.trim();
-  const capped = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  const capped = trimmed.charAt(0).toLocaleUpperCase("en") + trimmed.slice(1);
   return /[.!?]$/.test(capped) ? capped : `${capped}.`;
 };
 

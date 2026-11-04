@@ -51,6 +51,7 @@ import { formatWhen } from "@/lib/format";
 import { ACTIVITY_LIMIT, cardLine, tabCount, type ProfileCounts } from "@/lib/profile-summary";
 import { RowButton } from "@/components/ui/row-button";
 import { cn } from "@/lib/utils";
+import { Heading } from "@/components/ui/heading";
 
 export const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
@@ -185,13 +186,13 @@ function Profile({
       hero={
         <div className="flex flex-col items-center gap-2 pt-1 pb-2 text-center">
           <BotAvatar id={bot.id} name={bot.name} size="hero" />
-          <h1 className="font-heading text-title mt-1 flex max-w-full items-center gap-1.5 font-semibold tracking-tight">
+          <Heading level={1} size="title" className="mt-1 flex max-w-full items-center gap-1.5">
             <span className="truncate">{bot.name}</span>
             {isMain && (
               <StarIcon className="fill-live text-live size-4 shrink-0" aria-label="Main bot" />
             )}
             {bot.archivedAt !== null && <Badge variant="outline">Hidden</Badge>}
-          </h1>
+          </Heading>
           <p className="text-muted-foreground max-w-sm text-sm">
             {bot.description !== "" ? bot.description : "No role yet"}
           </p>

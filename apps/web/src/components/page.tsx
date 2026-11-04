@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { pageTitle } from "@/lib/brand";
+import { Heading } from "@/components/ui/heading";
 
 /** Sets the tab's title ("Crew · Spriessen") while a screen is open. */
 export function useDocumentTitle(screen: string | undefined): void {
@@ -35,7 +36,9 @@ export function Page({
           {back}
           {hero ?? (
             <>
-              <h1 className="font-heading text-title font-semibold tracking-tight">{title}</h1>
+              <Heading level={1} size="title">
+                {title}
+              </Heading>
               {lead !== undefined && <p className="text-muted-foreground text-sm">{lead}</p>}
               <div className="border-t" />
             </>

@@ -26,6 +26,7 @@ export function ChecklistBox({ status }: { status: ChecklistItem["status"] }) {
   if (status === "in_progress") {
     return (
       <span className="border-live mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[5px] border">
+        {/* ai-design-check-ignore-next-line pulse-for-live-only -- the step the bot is working on right now: live state, motion-safe only */}
         <span className="bg-live size-2 rounded-[3px] motion-safe:animate-pulse" />
       </span>
     );

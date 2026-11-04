@@ -269,9 +269,7 @@ export function BotCreateCard(props: {
         )}
       </p>
       {props.reason && (
-        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">
-          {props.reason}
-        </p>
+        <p className="text-muted-foreground border-border border-l pl-2 text-xs">{props.reason}</p>
       )}
       <form
         className="flex flex-col gap-3"

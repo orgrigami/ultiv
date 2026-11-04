@@ -104,6 +104,7 @@ function shapeOf(kind: MarkKind) {
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
+            /* ai-design-check-ignore-next-line no-endless-loop -- "needs you": rings until the owner acts on it, then the mark changes; motion-safe only */
             className="motion-safe:animate-[ping-soft_2.4s_cubic-bezier(0,0,0.2,1)_infinite]"
           />
         </g>

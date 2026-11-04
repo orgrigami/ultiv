@@ -412,6 +412,7 @@ svg.lucide {
       )
       0 0 / 200% 100% no-repeat,
     var(--muted);
+  /* ai-design-check-ignore-next-line no-endless-loop -- loading skeleton: runs only until the content arrives; off under reduced motion */
   animation: sheen 1.4s ease-in-out infinite;
 }
 @keyframes sheen {
@@ -465,13 +466,19 @@ svg.lucide {
   transform-box: fill-box;
   transform-origin: center;
 }
-.brand-mark:hover .char-eyes,
-.char:hover .char-eyes,
+/* The hover blink only where hover exists: a tap must not leave it stuck. */
+@media (hover: hover) {
+  .brand-mark:hover .char-eyes,
+  .char:hover .char-eyes {
+    animation: char-blink 180ms ease-in-out;
+  }
+}
 :focus-visible > .char .char-eyes,
 .char[data-blink] .char-eyes {
   animation: char-blink 180ms ease-in-out;
 }
 .char[data-mood="thinking"] .char-eyes {
+  /* ai-design-check-ignore-next-line no-endless-loop -- the bot is thinking: stops when its turn ends; off under reduced motion */
   animation: char-look 1.6s ease-in-out infinite;
 }
 .char[data-mood="alert"] {
@@ -499,14 +506,14 @@ svg.lucide {
     transform: translateY(-12%);
   }
 }
+/* Reduced motion stops EVERY character animation, whatever triggered it
+   (hover, focus, data-blink, mood): !important beats each trigger's
+   specificity without listing them one by one. */
 @media (prefers-reduced-motion: reduce) {
-  .char-eyes,
   .char,
-  .brand-mark:hover .char-eyes,
-  .char:hover .char-eyes,
-  .char[data-mood] .char-eyes,
-  .char[data-mood="alert"] {
-    animation: none;
+  .char *,
+  .brand-mark .char-eyes {
+    animation: none !important;
   }
 }
 
@@ -536,6 +543,7 @@ svg.lucide {
   transform: scale(0.9);
 }
 .send-btn[aria-busy="true"] svg {
+  /* ai-design-check-ignore-next-line no-endless-loop -- a send in flight (aria-busy): stops when it lands; off under reduced motion */
   animation: send-lift 600ms ease-in-out infinite;
 }
 @keyframes send-lift {
@@ -554,6 +562,7 @@ svg.lucide {
   border-radius: 999px;
   border: 1.5px solid currentColor;
   opacity: 0;
+  /* ai-design-check-ignore-next-line no-endless-loop -- live work: shown only while a turn or task runs; off under reduced motion */
   animation: working-ring 1.6s ease-out infinite;
   pointer-events: none;
 }
@@ -633,6 +642,7 @@ svg.lucide {
   }
 }
 .live-breathe {
+  /* ai-design-check-ignore-next-line no-endless-loop -- live work: shown only while a turn or task runs; off under reduced motion */
   animation: breathe 2.6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {

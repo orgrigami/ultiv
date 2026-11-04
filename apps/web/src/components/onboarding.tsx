@@ -3,7 +3,7 @@
  * identity, seeded to introduce itself in its own chat — which the home screen
  * opens straight into. Custom identity stays available below the templates.
  */
-import { CheckIcon, SparklesIcon } from "lucide-react";
+import { CheckIcon, SproutIcon } from "lucide-react";
 import { useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import { catalogSummary } from "@/components/model-options";
@@ -88,7 +88,7 @@ export function OnboardingHome({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SparklesIcon className="size-4" /> Meet your first bot
+          <SproutIcon className="size-4" /> Meet your first bot
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

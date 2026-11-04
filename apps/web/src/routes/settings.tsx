@@ -9,7 +9,7 @@ import {
   BlocksIcon,
   ChevronRightIcon,
   KeyRoundIcon,
-  SparklesIcon,
+  BookOpenIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -83,7 +83,7 @@ function SettingsPage() {
           />
           <LinkRow
             to="skills"
-            icon={SparklesIcon}
+            icon={BookOpenIcon}
             title="Skills"
             detail="Instructions your bots can follow"
           />

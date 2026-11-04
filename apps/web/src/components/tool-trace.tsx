@@ -8,6 +8,7 @@
 import { memo, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  BookOpenIcon,
   BrainIcon,
   CalendarClockIcon,
   FolderIcon,
@@ -20,7 +21,6 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   ShieldXIcon,
-  SparklesIcon,
   TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -59,7 +59,7 @@ const FAMILY_ICONS: Record<ToolFamily, ReactNode> = {
   task: <ListTodoIcon />,
   routine: <CalendarClockIcon />,
   artifact: <FolderIcon />,
-  skill: <SparklesIcon />,
+  skill: <BookOpenIcon />,
   code: <TerminalIcon />,
   credentials: <KeyRoundIcon />,
   connectors: <PlugIcon />,
@@ -138,7 +138,7 @@ function Body({
     <div className="mt-1 mb-1 ml-[3.75rem] max-w-prose">
       <FoldText
         text={view.body ?? ""}
-        className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed italic [&>button]:ml-[-1px]"
+        className="border-border text-muted-foreground border-l pl-3 text-sm leading-relaxed [&>button]:ml-[-1px]"
       />
       <div className="text-muted-foreground/80 mt-1 flex flex-wrap items-center gap-x-2 pl-3 text-xs">
         {view.tags?.map((tag) => (

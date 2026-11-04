@@ -10,6 +10,7 @@ import "./diagram.css";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Maximize2Icon, TriangleAlertIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CodeBlockCopyButton } from "@/components/ui/code-block";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { drawDiagram, type Drawn } from "@/lib/diagram";
@@ -96,9 +97,7 @@ export function Diagram({
         <CodeBlockCopyButton value={source} aria-label="Copy diagram source" />
         {drawn?.ok === true && <Larger svg={drawn.svg} label={label} />}
       </figcaption>
-      {drawn === null && (
-        <div className="bg-muted/60 mx-3 mb-3 h-36 rounded-xl motion-safe:animate-pulse" />
-      )}
+      {drawn === null && <Skeleton className="mx-3 mb-3 h-36" />}
       {drawn?.ok === true && (
         <div className="overflow-x-auto px-3 pb-3">
           <Drawing svg={drawn.svg} />

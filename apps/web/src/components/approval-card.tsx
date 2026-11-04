@@ -158,7 +158,7 @@ function DecisionCard({
         {risk}
       </p>
       {reason !== null && reason !== undefined && reason !== "" && (
-        <p className="text-muted-foreground border-border border-l pl-2 text-xs italic">{reason}</p>
+        <p className="text-muted-foreground border-border border-l pl-2 text-xs">{reason}</p>
       )}
       {change !== null && <ChangeDetails change={change} />}
       <Button
