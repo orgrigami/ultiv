@@ -1,4 +1,5 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
+
 import type {
   AuditEvent,
   CredentialBinding,
@@ -22,14 +23,45 @@ import type {
   SkillProposal,
   TaskRow,
   ToolCatalogEntry,
-  WaitingApproval,
   VaultItemInfo,
   WebhookInfo,
 } from "@spriessen/contracts";
+
 import type { NodeInfo, NodePairResponse } from "@spriessen/contracts";
+
 import type { NeedsYouExtra } from "./needs-you.ts";
+
 import { UNAUTHORIZED_EVENT } from "./auth.ts";
+
 import { statusText } from "./error-words.ts";
+
+import type {
+  ArtifactRow,
+  MemoryV2Line,
+  MemoryV2State,
+  PendingApprovalRow,
+  PushConfig,
+  RoomDetail,
+  SecretStored,
+  ServerCheck,
+  TaskActivity,
+} from "./api-types.ts";
+export type {
+  ArtifactRow,
+  MemoryV2Entity,
+  MemoryV2Fact,
+  MemoryV2Line,
+  MemoryV2Proposal,
+  MemoryV2State,
+  PendingApprovalRow,
+  PushConfig,
+  RoomDetail,
+  RoomLine,
+  RoomLineStatus,
+  SecretStored,
+  ServerCheck,
+  TaskActivity,
+} from "./api-types.ts";
 
 /**
  * The registries are plain REST on the server's HTTP handler (CRUD over
@@ -59,11 +91,6 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
-}
-
-export interface SecretStored {
-  ok: boolean;
-  stored: { key: string; name: string }[];
 }
 
 async function failure(response: Response, method: string, path: string): Promise<ApiError> {
@@ -109,136 +136,6 @@ async function drop(path: string): Promise<boolean> {
     throw await failure(response, "DELETE", path);
   }
   return true;
-}
-
-export interface RoomDetail {
-  room: RoomInfo;
-  participants: { profileId: string; name: string }[];
-  timeline: RoomLine[];
-}
-
-/** Delivery status of a bot-to-bot message (mailbox lines only). */
-export type RoomLineStatus = "pending" | "replied" | "failed" | "dead" | "expired" | "cancelled";
-
-export interface RoomLine {
-  at: number;
-  speaker: string;
-  /** Mailbox lines only: the sender's profile id (names can collide). */
-  speakerId?: string;
-  text: string;
-  system: boolean;
-  id?: string;
-  status?: RoomLineStatus;
-  error?: string | null;
-}
-
-/** GET /api/push/config — whether the server can push, and this owner's device count. */
-export interface PushConfig {
-  configured: boolean;
-  publicKey: string | null;
-  devices: number;
-}
-
-/** One row of GET /api/approvals — a gate waiting on the owner somewhere. */
-export interface PendingApprovalRow {
-  conversationId: string;
-  profile: string;
-  kind: string;
-  sessionId: string | null;
-  callId: string;
-  name: string;
-  input: unknown;
-  reason: string | null;
-}
-
-/** GET /api/server/check — which keys are set (never their values) and how the server runs. */
-export interface ServerCheck {
-  keys: { names: string[]; set: boolean; enables: string; group: "models" | "features" }[];
-  models: { providers: string[]; count: number; default: string; source: string };
-  microvm: { available: boolean; detail: string };
-  listen: { port: number; scope: "all" | "loopback" | "specific" };
-}
-
-/** One row of GET /api/artifacts — a file a bot made (or the owner uploaded). */
-export interface ArtifactRow {
-  id: string;
-  name: string;
-  mime: string;
-  bytes: number;
-  createdAt: number;
-  conversationId: string | null;
-  owner: string | null;
-  profile: string | null;
-}
-
-/** One row of GET /api/tasks/:id/activity — progress, waiting gate, conversation. */
-export interface TaskActivity {
-  conversationId: string | null;
-  waiting: WaitingApproval | null;
-  steps: {
-    kind: string;
-    at: number;
-    text: string;
-    /** Newer servers: the tool call's structure (older ones only send `text`). */
-    tool?: {
-      name: string;
-      status: "running" | "done" | "error";
-      input: unknown;
-      output: string | null;
-      durationMs: number | null;
-    };
-  }[];
-}
-
-/** GET /api/memory/v2 — the v2 store: facts, entities, core, tidy proposals. */
-export interface MemoryV2Proposal {
-  id: string;
-  kind: string;
-  at: number;
-  factIds: string[];
-  summary: string;
-  status: "open" | "accepted" | "rejected";
-}
-export interface MemoryV2Line {
-  id: string;
-  text: string;
-  pinned: boolean;
-  at: number;
-}
-export interface MemoryV2Entity {
-  id: string;
-  name: string;
-  type: string;
-  aliases: string[];
-  summary: string;
-  createdAt: number;
-  /** Set when this entity was merged into another; the id stays a redirect. */
-  mergedInto: string | null;
-}
-export interface MemoryV2Fact {
-  id: string;
-  /** Which store the fact lives in: "owner" = workspace-wide. */
-  scope: "profile" | "owner";
-  text: string;
-  status: "current" | "superseded" | "archived" | "forgotten";
-  kind: string;
-  tags: string[];
-  /** Entity ids this fact is about (from the graph doc). */
-  entities: string[];
-  importance: number;
-  trust: string;
-  createdAt: number;
-  expiredAt: number | null;
-  /** The fact that replaced this one (supersede chain). */
-  supersededBy: string | null;
-  supersedes: string[];
-}
-export interface MemoryV2State {
-  facts: MemoryV2Fact[];
-  entities: MemoryV2Entity[];
-  core: { owner: MemoryV2Line[]; profile: MemoryV2Line[] };
-  proposals: MemoryV2Proposal[];
-  openCount: number;
 }
 
 export const api = {
