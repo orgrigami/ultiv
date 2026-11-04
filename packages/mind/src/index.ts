@@ -28,6 +28,7 @@ export * from "./memory/lexicon.ts";
 export * from "./memory/stopwords.ts";
 export * from "./memory/search-index.ts";
 export * from "./memory/recall.ts";
+export { detectConflicts, type Conflict } from "./memory/conflicts.ts";
 export * from "./memory/tools.ts";
 export * from "./memory/tools-lifecycle.ts";
 export * from "./schedules/schedules.ts";

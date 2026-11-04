@@ -232,6 +232,17 @@ export const api = {
       `/api/memory/v2/facts/${encodeURIComponent(id)}?profile=${encodeURIComponent(profile ?? "owner")}`,
       "DELETE",
     ),
+  /** The owner's lifecycle act on a fact: it changed, it was wrong, it ended, or it holds. */
+  memoryFactUpdate: (
+    id: string,
+    profile: string,
+    update: { op: "change" | "correct" | "end" | "confirm"; text?: string; at?: string },
+  ): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(
+      `/api/memory/v2/facts/${encodeURIComponent(id)}/update?profile=${encodeURIComponent(profile)}`,
+      "POST",
+      update,
+    ),
   memoryFactRestore: (id: string, profile?: string): Promise<{ ok: boolean }> =>
     send<{ ok: boolean }>(
       `/api/memory/v2/facts/${encodeURIComponent(id)}/restore?profile=${encodeURIComponent(profile ?? "owner")}`,

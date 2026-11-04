@@ -136,6 +136,14 @@ export interface MemoryV2Fact {
   /** The fact that replaced this one (supersede chain). */
   supersededBy: string | null;
   supersedes: string[];
+  /** World-time validity: the day it started, and the day it stops (or stopped) holding. */
+  validFrom?: number | null;
+  validTo?: number | null;
+  /** How the bot knows it; "inferred" until the owner confirms. */
+  basis?: "owner_said" | "observed" | "inferred" | "confirmed";
+  /** Why a version left the present (changed, corrected, ended). */
+  retired?: "changed" | "corrected" | "ended";
+  confirmations?: number;
 }
 
 export interface MemoryV2State {

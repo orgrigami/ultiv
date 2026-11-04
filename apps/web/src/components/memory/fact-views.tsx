@@ -1,6 +1,7 @@
 /**
- * Fact row views: the current-fact row (forget + edit via tombstone & re-add,
- * bot-scope facts only — the owner store has no human add route), the history
+ * Fact row views: the current-fact row (forget; edit as "it changed" or "it
+ * was wrong"; "no longer true"; confirm a guess — the same lifecycle a bot
+ * runs with memory_update, bot-scope facts only), the history
  * view (superseded facts grouped under their successor, archived bucketed),
  * and the forgotten list with per-item restore.
  */
@@ -17,12 +18,17 @@ import * as t from "@/lib/memory-text";
 
 const param = (shared: boolean, profileId: string): string => (shared ? "owner" : profileId);
 
+const dayOf = (at: number): string => new Date(at).toISOString().slice(0, 10);
+
 const meta = (fact: MemoryV2Fact): string => {
   const parts = [
     formatWhen(fact.createdAt),
     fact.tags.length > 0 ? fact.tags.join(", ") : null,
-    fact.status !== "current" ? fact.status : null,
-    fact.trust === "untrusted" ? "unverified" : null,
+    fact.status !== "current" ? (fact.retired ?? fact.status) : null,
+    fact.validTo !== undefined && fact.validTo !== null && fact.status === "current"
+      ? t.untilMeta(dayOf(fact.validTo))
+      : null,
+    fact.trust === "untrusted" ? "unverified" : fact.basis === "inferred" ? t.inferredMeta : null,
   ];
   return parts.filter((part) => part !== null).join(" · ");
 };
@@ -43,17 +49,11 @@ export function FactRow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const save = async (): Promise<void> => {
-    const next = draft.trim();
-    if (next === "" || next === fact.text) {
-      setEditing(false);
-      return;
-    }
+  const act = async (update: Parameters<typeof api.memoryFactUpdate>[2]): Promise<void> => {
     setBusy(true);
     setError(null);
     try {
-      await api.memoryFactForget(fact.id, profileId);
-      await api.profileMemoryAdd(profileId, next);
+      await api.memoryFactUpdate(fact.id, param(shared, profileId), update);
       setEditing(false);
       await reload();
     } catch (cause) {
@@ -62,13 +62,35 @@ export function FactRow({
       setBusy(false);
     }
   };
+  const save = (op: "change" | "correct"): void => {
+    const next = draft.trim();
+    if (next === "" || next === fact.text) {
+      setEditing(false);
+      return;
+    }
+    void act({ op, text: next });
+  };
 
   return (
     <div className="flex flex-col gap-1 rounded-lg border px-2.5 py-2 text-sm">
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="break-words">{fact.text}</p>
-          <p className="text-muted-foreground mt-1 text-xs">{meta(fact)}</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            {meta(fact)}
+            {fact.basis === "inferred" && (
+              <Button
+                variant="link"
+                size="sm"
+                className="ml-1 h-auto p-0 text-xs"
+                aria-label={t.confirmAria(fact.text)}
+                disabled={busy}
+                onClick={() => void act({ op: "confirm" })}
+              >
+                {t.confirmLabel}
+              </Button>
+            )}
+          </p>
           {error !== null && <ErrorState message={error} className="mt-1" />}
         </div>
         {!shared && (
@@ -107,10 +129,23 @@ export function FactRow({
             onChange={(event) => setDraft(event.target.value)}
             className="mt-1"
           />
-          <div className="mt-1 flex gap-2">
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => void save()}>
-              {busy ? t.savingLabel : "Save"}
+          <div className="mt-1 flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => save("change")}>
+              {busy ? t.savingLabel : t.changedLabel}
             </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => save("correct")}>
+              {t.wrongLabel}
+            </Button>
+            <ConfirmDialog
+              title={t.endTitle}
+              warning={t.endWarning}
+              confirmLabel={t.endLabel}
+              onConfirm={() => act({ op: "end" })}
+            >
+              <Button variant="ghost" size="sm" disabled={busy}>
+                {t.endLabel}
+              </Button>
+            </ConfirmDialog>
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => setEditing(false)}>
               {t.cancelLabel}
             </Button>

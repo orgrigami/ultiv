@@ -28,7 +28,17 @@ export const historyOrphans = "Earlier versions (their successor is gone)";
 export const historyArchived = "Archived";
 export const editLabel = "Edit";
 export const editNote =
-  "Saving tombstones the old fact and re-adds your version — the bot recalls only the new text.";
+  "Did it change, or was it wrong? A change keeps the old version as the past; a correction replaces it for good.";
+export const changedLabel = "It changed";
+export const wrongLabel = "It was wrong";
+export const endLabel = "No longer true";
+export const endTitle = "No longer true?";
+export const endWarning =
+  "The bot stops treating this as current. Its history stays, so it can still say what used to hold.";
+export const confirmLabel = "Confirm";
+export const confirmAria = (text: string): string => `Confirm: ${text.slice(0, 40)}`;
+export const inferredMeta = "the bot's guess, not confirmed";
+export const untilMeta = (day: string): string => `until ${day}`;
 export const editAria = (text: string): string => `Edit fact: ${text.slice(0, 40)}`;
 export const factTextLabel = "Fact text";
 export const savingLabel = "Saving…";
@@ -131,6 +141,9 @@ export const affectedTitle = "Affected facts:";
 export const willForget =
   "Accepting forgets these facts — they become restorable tombstones, but the bot stops recalling them.";
 export const acceptLabel = "Accept";
+export const keepNewerLabel = "Keep the newer one";
+export const conflictNote =
+  "Keeping the newer one moves the older fact into history; nothing is forgotten. If the older one was simply wrong, correct it from Facts instead.";
 export const acceptingLabel = "Accepting…";
 export const rejectLabel = "Not now";
 export const rejectingLabel = "Dismissing…";

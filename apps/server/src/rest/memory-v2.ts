@@ -9,6 +9,7 @@ import { departmentKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@sp
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 import { runTidy, tidyPush } from "../memory-tidy.ts";
+import { factUpdateRoute } from "./memory-facts.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -103,7 +104,33 @@ const applyProposal = async (
     }
     return;
   }
-  if (proposal.kind === "secret" || proposal.kind === "conflict") {
+  if (proposal.kind === "conflict") {
+    // [older, newer]: the newer one holds; the older one changed — kept as
+    // the past, linked forward, never forgotten (both were true once, or
+    // the owner would have chosen correct).
+    const [older, newer] = proposal.factIds;
+    if (older === undefined || newer === undefined) return;
+    await run(
+      args.mind.converse.docs.commit(async (tx) => {
+        const store = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
+        const next = store.facts.find((fact) => fact.id === newer);
+        store.facts = store.facts.map((fact) =>
+          fact.id === older && fact.status === "current"
+            ? {
+                ...fact,
+                status: "superseded" as const,
+                retired: "changed" as const,
+                supersededBy: newer,
+                validTo: next?.validFrom ?? Date.now(),
+                expiredAt: Date.now(),
+              }
+            : fact,
+        );
+      }),
+    );
+    return;
+  }
+  if (proposal.kind === "secret") {
     await setStatus(proposal.factIds, "forgotten");
   }
   // core-fix, entity-merge, backfill: record-only accepts need no fact change.
@@ -199,6 +226,7 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
       json(200, { purged });
       return true;
     }
+    if (await factUpdateRoute(args, profile)) return true;
     const factMatch = path.match(/^\/api\/memory\/v2\/facts\/([^/]+)$/);
     if (factMatch !== null && method === "DELETE") {
       // The owner's unconditional tombstone (restore or purge from here).

@@ -1,5 +1,6 @@
 /**
- * One tidy suggestion. Accept applies it (forgetting kinds warn first);
+ * One tidy suggestion. Accept applies it (forgetting kinds warn first; a
+ * conflict keeps the newer fact and leaves the older one in history);
  * "Not now" is a permanent reject and says so. Merge/stale cards let the
  * owner adjust the affected fact text before accepting — the edit is applied
  * as tombstone + re-add, then the proposal is accepted (other kinds have no
@@ -21,7 +22,7 @@ interface CardProps {
 }
 
 /** Kinds whose accept forgets facts — those cards must warn. */
-const FORGETS = new Set(["secret", "conflict"]);
+const FORGETS = new Set(["secret"]);
 /** Kinds where editing the affected fact text before accept makes sense. */
 const EDITABLE = new Set(["merge", "stale"]);
 
@@ -91,6 +92,9 @@ export function ProposalCard({ proposal, facts, profileId, reload }: CardProps) 
         </div>
       )}
       {forgets && <p className="text-destructive mt-1.5 text-xs">{t.willForget}</p>}
+      {proposal.kind === "conflict" && (
+        <p className="text-muted-foreground mt-1.5 text-xs">{t.conflictNote}</p>
+      )}
       {error !== null && <ErrorState message={error} className="mt-1.5" />}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button
@@ -99,7 +103,11 @@ export function ProposalCard({ proposal, facts, profileId, reload }: CardProps) 
           disabled={busy !== null}
           onClick={() => void decide("accept")}
         >
-          {busy === "accept" ? t.acceptingLabel : t.acceptLabel}
+          {busy === "accept"
+            ? t.acceptingLabel
+            : proposal.kind === "conflict"
+              ? t.keepNewerLabel
+              : t.acceptLabel}
         </Button>
         <Button
           variant="ghost"

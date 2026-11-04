@@ -7,12 +7,13 @@
  */
 import { Cron } from "croner";
 import { randomUUID } from "node:crypto";
-import type { MemoryFact, MemoryProposal } from "@spriessen/contracts";
+import type { MemoryEntity, MemoryFact, MemoryProposal } from "@spriessen/contracts";
 import { Effect } from "effect";
 import {
   FactsDoc,
   ProfilesDoc,
   ProposalsDoc,
+  detectConflicts,
   listRoutineEvents,
   normalize,
   ownerKey,
@@ -170,6 +171,24 @@ const coreFixes = async (
     }));
 };
 
+/** Contradictions (mind/memory/conflicts.ts) as proposals: accept keeps the newer fact. */
+export const conflictProposals = (
+  facts: readonly MemoryFact[],
+  entities: readonly MemoryEntity[],
+): readonly MemoryProposal[] =>
+  detectConflicts(facts, entities).map(({ older, newer, reason }) => ({
+    id: randomUUID(),
+    kind: "conflict" as const,
+    at: Date.now(),
+    factIds: [older.id, newer.id],
+    summary:
+      `These disagree (${reason}): "${older.text.slice(0, 90)}" vs "${newer.text.slice(0, 90)}" ` +
+      "— keep the newer one?",
+    fingerprint: fingerprintOf("conflict", older.id, newer.id),
+    status: "open" as const,
+    decidedAt: null,
+  }));
+
 export const tidyStore = async (
   deps: TidyDeps,
   owner: string,
@@ -177,7 +196,9 @@ export const tidyStore = async (
 ): Promise<{ created: number }> => {
   const key = profileId === null ? ownerKey(owner) : profileKey(owner, profileId);
   const facts = await deps.mind.memory.readFacts(owner, profileId);
+  const entities = await deps.mind.memory.entities(owner, profileId);
   const detected = [
+    ...conflictProposals(facts, entities),
     ...detectStale(facts),
     ...detectMerge(facts),
     ...detectSecrets(facts),
