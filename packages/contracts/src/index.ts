@@ -200,7 +200,13 @@ export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";
 export type { ArtifactInfo, ArtifactList } from "./artifacts.ts";
 export { WebhookInfoSchema, WebhookListSchema, WebhookRejectSchema } from "./webhooks.ts";
 export type { WebhookInfo, WebhookList, WebhookReject, JsonSchemaObject } from "./webhooks.ts";
-export { NodeInfoSchema, NodePairResponseSchema, NODE_OUTPUT_CAP } from "./nodes.ts";
+export {
+  NodeInfoSchema,
+  NodePairResponseSchema,
+  NODE_EXEC_GRACE_MS,
+  NODE_MAX_FRAME_BYTES,
+  NODE_OUTPUT_CAP,
+} from "./nodes.ts";
 export type {
   NodeInfo,
   NodeList,

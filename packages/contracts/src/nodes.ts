@@ -36,6 +36,16 @@ export type NodePairResponse = Static<typeof NodePairResponseSchema>;
 /** The bash tool's output cap: the agent's results never exceed it per stream. */
 export const NODE_OUTPUT_CAP = 20_000;
 
+/**
+ * How much longer the server waits than the agent's own timeout: the agent
+ * kills the script at `timeoutMs` and answers with its partial output (exit
+ * 124); the server only gives up when even that answer never comes.
+ */
+export const NODE_EXEC_GRACE_MS = 5_000;
+
+/** The largest frame either side accepts (two capped streams + JSON overhead). */
+export const NODE_MAX_FRAME_BYTES = 1024 * 1024;
+
 /** Server → agent. */
 export type NodeAgentOutbound =
   | { readonly type: "pong" }
@@ -49,12 +59,22 @@ export type NodeAgentOutbound =
       };
     }
   | {
+      /** The owner changed the node's roots: replaces the agent's copy at once. */
+      readonly type: "roots";
+      readonly roots: readonly string[];
+    }
+  | {
       readonly type: "exec";
       readonly id: string;
       readonly script: string;
-      /** Where to run; confined to the node's registered roots. */
+      /** Where to START; must lie inside one of the node's registered roots. */
       readonly cwd?: string;
       readonly timeoutMs: number;
+    }
+  | {
+      /** The turn that asked for exec `id` stopped: kill the script, send nothing back. */
+      readonly type: "cancel";
+      readonly id: string;
     };
 
 /** Agent → server (after the server's `ready`). */

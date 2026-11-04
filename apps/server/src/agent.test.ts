@@ -6,10 +6,13 @@
  * revocation mid-connection, a cwd outside the registered roots, the output
  * cap, and agent death answering as a structured error, never a hang. The
  * reconnect test drops a live dial and expects the agent's own backoff loop
- * to bring the node back.
+ * to bring the node back. A roots change reaches a live agent at once, the
+ * legacy `?token=` query still authenticates, and shutting the endpoint down
+ * never waits on a connected agent.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,8 +20,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { NODE_OUTPUT_CAP, type NodeInfo } from "@spriessen/contracts";
-import { pairNode, revokeNode } from "@spriessen/mind";
+import { createNodeTransport, pairNode, revokeNode, updateNodeRoots } from "@spriessen/mind";
 import WebSocket from "ws";
+import { agentEndpoint } from "./agent.ts";
 import { buildStack } from "./main.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-agent-"));
@@ -38,8 +42,17 @@ let port = 0;
 let base = "";
 const agents: ChildProcess[] = [];
 
+/** The owner's install story: the token in a 0600 file, never on the command line. */
+const tokenFileOf = (token: string): string => {
+  const path = join(scratch, `token-${Math.random().toString(36).slice(2)}`);
+  writeFileSync(path, token);
+  chmodSync(path, 0o600);
+  return path;
+};
+
 const spawnAgent = (token: string, extra: string[] = []): ChildProcess => {
-  const child = spawn(process.execPath, [AGENT_MAIN, "--url", base, "--token", token, ...extra], {
+  const args = [AGENT_MAIN, "--url", base, "--token-file", tokenFileOf(token), ...extra];
+  const child = spawn(process.execPath, args, {
     cwd: ROOT,
     stdio: ["ignore", "ignore", "pipe"],
   });
@@ -258,5 +271,61 @@ describe("the node agent endpoint", () => {
     );
     expect(bad.isError).toBe(true);
     expect(bad.output[0]?.text).toContain("no node is paired");
+  });
+
+  it("a roots change reaches the live agent without a redial", async () => {
+    const node = await pair("node-roots", ["/tmp"]);
+    spawnAgent(node.token);
+    await waitConnected(node.id);
+    const work = join(scratch, "work-root");
+    mkdirSync(work, { recursive: true });
+    const updated = await updateNodeRoots(stack.mind.converse, node.id, [work]);
+    stack.nodes.pushRoots(node.id, updated?.roots ?? []);
+    const start = Date.now();
+    let refusal = "";
+    while (refusal === "" && Date.now() - start < 5_000) {
+      refusal = await stack.nodeTransport
+        .exec(node.id, { script: "pwd", cwd: "/tmp", timeoutMs: 5_000 })
+        .then(
+          () => "",
+          (cause: unknown) => String(cause),
+        );
+    }
+    expect(refusal).toMatch(/outside this node's registered roots/);
+    const inside = await stack.nodeTransport.exec(node.id, { script: "pwd -P", timeoutMs: 5_000 });
+    expect(inside.stdout.trim()).toBe(realpathSync(work));
+  });
+
+  it("still accepts a pre-header agent's ?token= query", async () => {
+    const node = await pair("node-legacy", ["/tmp"]);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/agent?token=${node.token}`);
+    const ready = await new Promise<string>((resolve, reject) => {
+      ws.on("message", (data) => resolve(String(data)));
+      ws.on("close", (code) => reject(new Error(`closed ${code}`)));
+    });
+    expect(JSON.parse(ready)).toMatchObject({ type: "ready", node: { id: node.id } });
+    ws.close();
+  });
+
+  it("shutting the endpoint down never waits on a connected agent", async () => {
+    const node = await pair("node-stop", ["/tmp"]);
+    const transport = createNodeTransport();
+    const endpoint = agentEndpoint({ converse: stack.mind.converse, transport });
+    const http = createServer((_req, res) => res.end());
+    http.on("upgrade", (req, socket, head) => endpoint.handleUpgrade(req, socket, head));
+    await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
+    const address = http.address();
+    const own = typeof address === "object" && address !== null ? address.port : 0;
+    const ws = new WebSocket(`ws://127.0.0.1:${own}/agent`, {
+      headers: { authorization: `Bearer ${node.token}` },
+    });
+    await new Promise((resolve) => ws.on("message", resolve));
+    expect(transport.connected(node.id)).toBe(true);
+    endpoint.stop();
+    const closed = await Promise.race([
+      new Promise((resolve) => http.close(() => resolve("closed"))),
+      new Promise((resolve) => setTimeout(() => resolve("hung"), 3_000)),
+    ]);
+    expect(closed).toBe("closed");
   });
 });

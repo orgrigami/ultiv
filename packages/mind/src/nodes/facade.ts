@@ -16,7 +16,12 @@ export const nodeShellFacadeOf = (
   converseRef: { current?: ConverseService },
   exec: (
     nodeId: string,
-    request: { readonly script: string; readonly cwd?: string; readonly timeoutMs: number },
+    request: {
+      readonly script: string;
+      readonly cwd?: string;
+      readonly timeoutMs: number;
+      readonly signal?: AbortSignal;
+    },
   ) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>,
 ): NodeShellTransport => ({
   resolve: async (owner, name) => {

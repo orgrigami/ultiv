@@ -16,7 +16,7 @@ import { handleAuthRoutes } from "./auth/routes.ts";
 import { BadBody } from "./auth/http.ts";
 import type { AuthStore } from "./auth/store.ts";
 import { OWNER_ID } from "./identity.ts";
-import { errorOf, queryOr, type RouteArgs } from "./rest/types.ts";
+import { errorOf, queryOr, type NodeLinks, type RouteArgs } from "./rest/types.ts";
 
 /** A service refusal (a home rule, a bad value) the owner can act on: 409, not a crash. */
 const isRefusal = (error: unknown): boolean =>
@@ -59,7 +59,7 @@ export interface RestDeps {
    */
   readonly auth?: AuthStore;
   /** The /agent endpoint's live dial registry: revocation kills the connection. */
-  readonly nodes?: { readonly drop: (nodeId: string) => void };
+  readonly nodes?: NodeLinks;
 }
 
 const readBody = async (req: IncomingMessage): Promise<Buffer> => {

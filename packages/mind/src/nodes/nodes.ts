@@ -71,10 +71,9 @@ export const pairNode = async (
   const roots = [...(input.roots ?? [])];
   const problem = nodeRootProblem(roots);
   if (problem !== undefined) throw new Error(problem);
-  const mine = (await readStored(converse)).filter(
-    (row) => row.owner === owner && row.status === "paired",
-  );
-  if (mine.some((row) => row.name === name))
+  const taken = (items: readonly StoredNode[]): boolean =>
+    items.some((row) => row.owner === owner && row.status === "paired" && row.name === name);
+  if (taken(await readStored(converse)))
     throw new Error(`a paired node named ${name} already exists`);
   const token = mintToken();
   const row: StoredNode = {
@@ -88,12 +87,16 @@ export const pairNode = async (
     createdAt: Date.now(),
     tokenHash: hashNodeToken(token),
   };
-  await Effect.runPromise(
+  // Re-checked inside the commit: two pairings racing on one name.
+  const added = await Effect.runPromise(
     converse.docs.commit(async (tx) => {
       const draft = await tx.doc(NodesDoc);
+      if (taken(draft.items)) return false;
       draft.items = [...draft.items, row];
+      return true;
     }),
   );
+  if (!added) throw new Error(`a paired node named ${name} already exists`);
   return { node: publicOf(row), token };
 };
 
@@ -216,6 +219,18 @@ export const markNodeDisconnected = async (
       draft.items = draft.items.map((candidate) =>
         candidate.id === id ? { ...candidate, connected: false } : candidate,
       );
+    }),
+  );
+};
+
+/** Boot: no agent is dialed in yet, whatever a crashed run left stored. */
+export const markAllNodesDisconnected = async (converse: ConverseService): Promise<void> => {
+  const stored = await readStored(converse);
+  if (!stored.some((row) => row.connected)) return;
+  await Effect.runPromise(
+    converse.docs.commit(async (tx) => {
+      const draft = await tx.doc(NodesDoc);
+      draft.items = draft.items.map((candidate) => ({ ...candidate, connected: false }));
     }),
   );
 };

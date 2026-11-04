@@ -3,13 +3,21 @@
  * owner's machine) dials OUT; this registry holds the ONE live connection
  * per paired node (a second dial replaces the first) and turns exec requests
  * into answers. Pending execs are bounded twice: every request carries a
- * timeout, and a closed connection rejects its pending execs at once — a
- * dead agent is a structured error, never a hang. The ext side (the bash
+ * timeout (the server waits NODE_EXEC_GRACE_MS past it, so the agent's own
+ * kill answers first with the partial output and exit 124), and a closed
+ * connection rejects its pending execs at once — a dead agent is a
+ * structured error, never a hang. A request's abort signal (the turn
+ * stopped: Redirect, a deadline, the harness closing) sends `cancel`, which
+ * kills the script's process group on the node. The ext side (the bash
  * tool's node backend) consumes this through a narrow interface, so ext
  * never imports mind.
  */
 import { randomUUID } from "node:crypto";
-import type { NodeAgentInbound, NodeAgentOutbound } from "@spriessen/contracts";
+import {
+  NODE_EXEC_GRACE_MS,
+  type NodeAgentInbound,
+  type NodeAgentOutbound,
+} from "@spriessen/contracts";
 
 /** What the endpoint registers per live agent dial. */
 export interface NodeConn {
@@ -23,6 +31,8 @@ export interface NodeExecRequest {
   readonly script: string;
   readonly cwd?: string;
   readonly timeoutMs: number;
+  /** Aborted when the asking turn stops; the node kills the script. */
+  readonly signal?: AbortSignal;
 }
 
 export interface NodeExecResult {
@@ -44,12 +54,16 @@ export interface NodeTransport {
   readonly exec: (nodeId: string, request: NodeExecRequest) => Promise<NodeExecResult>;
   /** Deliver one agent message (the endpoint parses frames and forwards). */
   readonly receive: (nodeId: string, message: NodeAgentInbound) => void;
+  /** Tell a live agent its node's roots changed (no-op while offline). */
+  readonly pushRoots: (nodeId: string, roots: readonly string[]) => void;
 }
 
 interface Pending {
   readonly resolve: (result: NodeExecResult) => void;
   readonly reject: (cause: Error) => void;
   readonly timer: ReturnType<typeof setTimeout>;
+  /** Detaches the abort listener once the exec settles. */
+  readonly detach: () => void;
 }
 
 const pendingRefusal = (why: string): Error => new Error(`node exec refused: ${why}`);
@@ -62,6 +76,7 @@ export const createNodeTransport = (): NodeTransport => {
     for (const [id, entry] of pending) {
       if (entry.nodeId !== nodeId) continue;
       clearTimeout(entry.timer);
+      entry.detach();
       pending.delete(id);
       entry.reject(pendingRefusal(why));
     }
@@ -95,12 +110,28 @@ export const createNodeTransport = (): NodeTransport => {
           );
           return;
         }
+        if (request.signal?.aborted === true) {
+          reject(pendingRefusal("the turn was stopped before the script started"));
+          return;
+        }
         const id = randomUUID();
+        const onAbort = (): void => {
+          const entry = pending.get(id);
+          if (entry === undefined) return;
+          clearTimeout(entry.timer);
+          pending.delete(id);
+          conns.get(nodeId)?.send({ type: "cancel", id });
+          reject(pendingRefusal("the turn was stopped; the script was killed on the node"));
+        };
+        const detach = (): void => request.signal?.removeEventListener("abort", onAbort);
         const timer = setTimeout(() => {
           pending.delete(id);
+          detach();
+          conns.get(nodeId)?.send({ type: "cancel", id });
           reject(pendingRefusal(`the node agent did not answer within ${request.timeoutMs} ms`));
-        }, request.timeoutMs);
-        pending.set(id, { nodeId, resolve, reject, timer });
+        }, request.timeoutMs + NODE_EXEC_GRACE_MS);
+        pending.set(id, { nodeId, resolve, reject, timer, detach });
+        request.signal?.addEventListener("abort", onAbort, { once: true });
         conn.send({
           type: "exec",
           id,
@@ -117,6 +148,7 @@ export const createNodeTransport = (): NodeTransport => {
       const entry = pending.get(message.id);
       if (entry === undefined || entry.nodeId !== nodeId) return;
       clearTimeout(entry.timer);
+      entry.detach();
       pending.delete(message.id);
       if (message.type === "result") {
         entry.resolve({
@@ -128,5 +160,6 @@ export const createNodeTransport = (): NodeTransport => {
         entry.reject(new Error(`node exec failed: ${message.message}`));
       }
     },
+    pushRoots: (nodeId, roots) => conns.get(nodeId)?.send({ type: "roots", roots: [...roots] }),
   };
 };

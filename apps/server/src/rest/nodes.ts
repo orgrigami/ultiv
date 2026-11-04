@@ -3,7 +3,8 @@
  * pair response is the ONLY place a token ever appears — list/read answers
  * never carry it or its hash, and nothing here logs either. Another owner's
  * node reads exactly like a missing one (404 / filtered out), so ids cannot
- * be probed across accounts.
+ * be probed across accounts. Reads answer `connected` from the live dial;
+ * a roots change reaches a connected agent at once.
  */
 import { listNodes, nodeOf, pairNode, revokeNode, updateNodeRoots } from "@spriessen/mind";
 import { findOwnedNode, nodesOwned } from "./owner-scope.ts";
@@ -16,7 +17,12 @@ export async function nodeRoutes(
   const { req, mind, path, json, owner } = args;
   const method = req.method ?? "GET";
   if (path === "/api/nodes" && method === "GET") {
-    json(200, await nodesOwned(args, await listNodes(mind.converse)));
+    const mine = await nodesOwned(args, await listNodes(mind.converse));
+    // `connected` is the live dial, never a stored flag a crash left behind.
+    json(
+      200,
+      mine.map((node) => ({ ...node, connected: args.nodes?.connected(node.id) ?? false })),
+    );
     return true;
   }
   if (path === "/api/nodes" && method === "POST") {
@@ -47,7 +53,10 @@ export async function nodeRoutes(
     }
     const body = await args.readJson<{ roots?: string[] }>(req);
     try {
-      json(200, await updateNodeRoots(mind.converse, id, body.roots ?? []));
+      const updated = await updateNodeRoots(mind.converse, id, body.roots ?? []);
+      // The live agent switches at once: narrowing roots never waits for a redial.
+      if (updated !== undefined) args.nodes?.pushRoots(id, updated.roots);
+      json(200, updated);
     } catch (cause) {
       json(400, { error: String(cause).slice(0, 300) });
     }

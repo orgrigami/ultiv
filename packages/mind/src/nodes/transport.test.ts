@@ -3,10 +3,17 @@
  * fake connections: execs only run while a dial is live, a request's timeout
  * bounds it, a closed or dropped dial rejects its pending execs at once (a
  * dead agent is a structured error, never a hang), a second dial replaces
- * the first, and a ping answers pong.
+ * the first, and a ping answers pong. The server waits NODE_EXEC_GRACE_MS
+ * past the agent's own timeout (so the agent's partial answer wins), an
+ * aborted turn cancels the script on the node, and a roots change reaches a
+ * live dial.
  */
-import { describe, expect, it } from "vite-plus/test";
-import type { NodeAgentInbound, NodeAgentOutbound } from "@spriessen/contracts";
+import { describe, expect, it, vi } from "vite-plus/test";
+import {
+  NODE_EXEC_GRACE_MS,
+  type NodeAgentInbound,
+  type NodeAgentOutbound,
+} from "@spriessen/contracts";
 import { createNodeTransport, type NodeConn } from "./transport.ts";
 
 /** A fake agent dial: records the frames sent to it, reports how often it closed. */
@@ -92,14 +99,82 @@ describe("the node transport", () => {
     await expect(pending).resolves.toMatchObject({ stdout: "hi\n" });
   });
 
-  it("times out an exec that never answers", async () => {
+  it("times out an exec that never answers, after the grace, and cancels it", async () => {
+    vi.useFakeTimers();
+    try {
+      const transport = createNodeTransport();
+      const conn = fakeConn();
+      transport.connect("node-x", conn);
+      const pending = transport.exec("node-x", { script: "sleep", timeoutMs: 80 });
+      const outcome = pending.then(
+        () => "resolved",
+        (cause: unknown) => String(cause),
+      );
+      await vi.advanceTimersByTimeAsync(80 + NODE_EXEC_GRACE_MS - 1);
+      expect(conn.frames.some((frame) => frame.type === "cancel")).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await outcome).toMatch(/did not answer within 80 ms/);
+      expect(conn.frames.at(-1)).toMatchObject({ type: "cancel" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("takes the agent's own timeout answer that lands inside the grace", async () => {
+    vi.useFakeTimers();
+    try {
+      const transport = createNodeTransport();
+      const conn = fakeConn();
+      transport.connect("node-x", conn);
+      const pending = transport.exec("node-x", { script: "echo partial; sleep 9", timeoutMs: 80 });
+      await vi.advanceTimersByTimeAsync(80 + 300); // the agent killed it and is answering
+      answer(transport, "node-x", conn.frames, { stdout: "partial\n", exitCode: 124 });
+      await expect(pending).resolves.toMatchObject({ stdout: "partial\n", exitCode: 124 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an aborted turn sends cancel and rejects at once", async () => {
     const transport = createNodeTransport();
-    transport.connect("node-x", fakeConn());
-    const started = Date.now();
-    await expect(transport.exec("node-x", { script: "sleep", timeoutMs: 80 })).rejects.toThrow(
-      /did not answer within 80 ms/,
-    );
-    expect(Date.now() - started).toBeLessThan(5_000);
+    const conn = fakeConn();
+    transport.connect("node-x", conn);
+    const controller = new AbortController();
+    const pending = transport.exec("node-x", {
+      script: "sleep 30",
+      timeoutMs: 30_000,
+      signal: controller.signal,
+    });
+    const exec = conn.frames.find((frame) => frame.type === "exec");
+    controller.abort();
+    await expect(pending).rejects.toThrow(/the turn was stopped/);
+    expect(conn.frames.at(-1)).toEqual({
+      type: "cancel",
+      id: exec?.type === "exec" ? exec.id : "",
+    });
+    // A late answer for the cancelled id is dropped, never a crash.
+    answer(transport, "node-x", conn.frames, { stdout: "late", exitCode: 0 });
+  });
+
+  it("refuses an exec whose turn already stopped, sending nothing", async () => {
+    const transport = createNodeTransport();
+    const conn = fakeConn();
+    transport.connect("node-x", conn);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      transport.exec("node-x", { script: "x", timeoutMs: 1_000, signal: controller.signal }),
+    ).rejects.toThrow(/stopped before the script started/);
+    expect(conn.frames).toEqual([]);
+  });
+
+  it("pushes a roots change to a live dial, and nothing while offline", () => {
+    const transport = createNodeTransport();
+    transport.pushRoots("node-x", ["/srv"]); // offline: a no-op
+    const conn = fakeConn();
+    transport.connect("node-x", conn);
+    transport.pushRoots("node-x", ["/srv", "/work"]);
+    expect(conn.frames).toEqual([{ type: "roots", roots: ["/srv", "/work"] }]);
   });
 
   it("rejects pending execs the moment a dial disconnects", async () => {

@@ -4,13 +4,20 @@ import type { MindService } from "@spriessen/mind";
 import type { CronScheduler } from "../cron.ts";
 import type { PushService } from "../push/index.ts";
 
+/** The live node dials, as the REST routes reach them (main.ts's agent endpoint). */
+export interface NodeLinks {
+  readonly drop: (nodeId: string) => void;
+  readonly pushRoots: (nodeId: string, roots: readonly string[]) => void;
+  readonly connected: (nodeId: string) => boolean;
+}
+
 export interface RouteArgs {
   readonly mind: MindService;
   readonly scheduler: CronScheduler;
   /** Web Push; absent in stacks built without it (tests). */
   readonly push?: PushService;
   /** The /agent endpoint's dial registry; revocation kills the live connection. */
-  readonly nodes?: { readonly drop: (nodeId: string) => void };
+  readonly nodes?: NodeLinks;
   readonly req: IncomingMessage;
   readonly res: ServerResponse;
   readonly url: URL;

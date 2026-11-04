@@ -69,7 +69,12 @@ export interface MindOptions {
    */
   readonly nodeExec?: (
     nodeId: string,
-    request: { readonly script: string; readonly cwd?: string; readonly timeoutMs: number },
+    request: {
+      readonly script: string;
+      readonly cwd?: string;
+      readonly timeoutMs: number;
+      readonly signal?: AbortSignal;
+    },
   ) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 }
 
@@ -111,6 +116,11 @@ export interface MindWiring {
   /** The /agent exec dial injected by the server (the `node` target's transport). */
   readonly nodeExec?: (
     nodeId: string,
-    request: { readonly script: string; readonly cwd?: string; readonly timeoutMs: number },
+    request: {
+      readonly script: string;
+      readonly cwd?: string;
+      readonly timeoutMs: number;
+      readonly signal?: AbortSignal;
+    },
   ) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 }

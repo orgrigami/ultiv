@@ -152,6 +152,12 @@ const markerCwd = (stderr: string): string | undefined => {
     : undefined;
 };
 
+/** The asking turn's abort signal (chord's Context; tests pass none). */
+const signalOf = (context: unknown): AbortSignal | undefined => {
+  const signal = (context as { readonly abortSignal?: unknown } | undefined)?.abortSignal;
+  return signal instanceof AbortSignal ? signal : undefined;
+};
+
 const execFailure = (what: string, cause: unknown) => ({
   output: [{ type: "text" as const, text: `${what} failed: ${String(cause)}` }],
   isError: true as const,
@@ -251,7 +257,7 @@ const sandboxTool = (
       node: Type.Optional(Type.String()),
       nodeId: Type.Optional(Type.String()),
     }),
-    execute: async (args, api) => {
+    execute: async (args, api, context) => {
       const conversationId = String(api.conversationId);
       const target = bashTargetOf(args);
       if (target === "invalid") {
@@ -277,7 +283,7 @@ const sandboxTool = (
           session = { nodeId: node.id, name: node.name, cwd: node.roots[0] ?? "/" };
           nodeSessions.set(conversationId, session);
         }
-        const result = await nodeShellBackend(nodes, node.id).exec(
+        const result = await nodeShellBackend(nodes, node.id, signalOf(context)).exec(
           wrapScript(args.script),
           session.cwd,
           NODE_TIMEOUT_MS,

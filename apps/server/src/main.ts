@@ -15,7 +15,7 @@ import { artifactsDir, copyArtifact, resolveInside, upgradeMcpHomes } from "@spr
 import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
 import { agentEndpoint, AGENT_PATH } from "./agent.ts";
-import { createNodeTransport } from "@spriessen/mind";
+import { createNodeTransport, markAllNodesDisconnected } from "@spriessen/mind";
 import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy, tidyPush } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
@@ -222,6 +222,9 @@ export async function buildStack(options?: {
   // pairing token on the upgrade itself (no session cookie), so their path
   // routes BEFORE the session authorize in the upgrade handler below.
   const agents = agentEndpoint({ converse: mind.converse, transport });
+  // No agent is dialed in before the server listens: a crash or kill left
+  // the stored flags behind, so they reset here (reads use the live state).
+  await markAllNodesDisconnected(mind.converse);
   const http = createServer(createRestHandler({ mind, scheduler, push, auth, nodes: agents }));
   // noServer: the http server's one upgrade handler routes by path (the
   // chord links here, the live event socket in slice 10).
@@ -231,7 +234,7 @@ export async function buildStack(options?: {
   liveWss.on("connection", (client) => liveHub.add(client));
   // Half-open sockets (a phone asleep, a network switch) are found and
   // dropped; /push also carries a heartbeat frame for the client's watchdog.
-  const stopHeartbeat = startHeartbeat([wss, liveWss], () => liveHub.heartbeat());
+  const stopHeartbeat = startHeartbeat([wss, liveWss, agents.wss], () => liveHub.heartbeat());
   acceptWebSockets(wss, host, {
     principal: async (request) => {
       // The upgrade IS the credential check: no valid session, no link.

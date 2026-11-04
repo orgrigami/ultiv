@@ -2,9 +2,12 @@
   "name": "@spriessen/agent",
   "version": "0.0.0",
   "private": true,
-  "description": "The Spriessen node agent: dials OUT to the server's /agent endpoint with a pairing token and runs bash execs confined to its registered roots.",
+  "description": "The Spriessen node agent: dials OUT to the server's /agent endpoint with a pairing token and runs bash execs that start inside its registered roots.",
   "license": "MIT",
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "start": "node src/main.ts",
     "test": "vp test"

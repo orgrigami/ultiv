@@ -23,6 +23,8 @@ export interface NodeShellExecRequest {
   readonly script: string;
   readonly cwd?: string;
   readonly timeoutMs: number;
+  /** The asking turn's signal: an abort cancels the script on the node. */
+  readonly signal?: AbortSignal;
 }
 
 export interface NodeShellExecResult {
@@ -50,7 +52,11 @@ const notAWorkspace = (op: string): never => {
 };
 
 /** One node's backend: execs ride the transport, everything workspace-shaped refuses. */
-export const nodeShellBackend = (transport: NodeShellTransport, nodeId: string): ShellBackend => ({
+export const nodeShellBackend = (
+  transport: NodeShellTransport,
+  nodeId: string,
+  signal?: AbortSignal,
+): ShellBackend => ({
   // The node's filesystem is already the durable world: nothing to reset.
   prepare: async () => undefined,
   exec: async (script, cwd, timeoutMs): Promise<ShellExecResult> => {
@@ -58,6 +64,7 @@ export const nodeShellBackend = (transport: NodeShellTransport, nodeId: string):
       script,
       ...(cwd !== undefined ? { cwd } : {}),
       timeoutMs,
+      ...(signal !== undefined ? { signal } : {}),
     });
     return {
       stdout: result.stdout ?? "",
