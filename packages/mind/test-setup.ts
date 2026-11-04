@@ -13,3 +13,15 @@ process.env.BOT_FILES_DIR = join(
   tmpdir(),
   `spriessen-test-bot-files-${process.env.VITEST_POOL_ID ?? "0"}-${process.pid}`,
 );
+
+/**
+ * Every test file gets its own audit trail. Without one the audit lands in
+ * the repo's var/audit.jsonl, shared by every run: a test reading the
+ * tail (topic.test.ts counts its refusals in the last 50 events) then saw
+ * earlier runs' events and failed when run twice in a row. A file that sets
+ * AUDIT_LOG itself (at module load, after this) keeps its own.
+ */
+process.env.AUDIT_LOG = join(
+  tmpdir(),
+  `spriessen-test-audit-${process.env.VITEST_POOL_ID ?? "0"}-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jsonl`,
+);
