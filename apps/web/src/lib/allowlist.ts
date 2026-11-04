@@ -11,10 +11,12 @@ export const allowlistMatches = (
   catalog: readonly ToolCatalogEntry[],
   query: string,
 ): readonly ToolCatalogEntry[] => {
-  const q = query.trim().toLowerCase();
+  const q = query.trim().toLocaleLowerCase("en");
   if (q === "") return [...catalog];
   return catalog.filter(
-    (tool) => tool.name.toLowerCase().includes(q) || tool.description.toLowerCase().includes(q),
+    (tool) =>
+      tool.name.toLocaleLowerCase("en").includes(q) ||
+      tool.description.toLocaleLowerCase("en").includes(q),
   );
 };
 

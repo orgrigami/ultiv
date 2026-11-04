@@ -14,9 +14,11 @@ import { ListRow } from "@/components/ui/list-row";
 import { ModelOptions } from "@/components/model-options";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Tile } from "@/components/ui/tile";
 import { api } from "@/lib/api";
 import { describeAllowEntry } from "@/lib/approval-text";
 import { allowlistMatches, notOnList } from "@/lib/allowlist";
+import { plural } from "@/lib/plural";
 import type {
   ModelInfo,
   ProfileApprovalMode,
@@ -260,7 +262,7 @@ export function AllowlistField({
           <p className="text-muted-foreground text-xs">
             {curated.length === 0
               ? "No tools."
-              : `${curated.length} ${curated.length === 1 ? "tool" : "tools"}.`}{" "}
+              : `${curated.length} ${plural(curated.length, "tool", "tools")}.`}{" "}
             {catalog !== null &&
               (gap === 0
                 ? "Every installed tool is on the list."
@@ -317,7 +319,7 @@ export function AllowlistField({
       ) : matches.length === 0 ? (
         <p className="text-muted-foreground text-xs">No installed tool matches.</p>
       ) : (
-        <div className="bg-card divide-border divide-y overflow-hidden rounded-xl border">
+        <Tile className="divide-border divide-y overflow-hidden">
           {matches.map((tool) => {
             const on = curated?.includes(tool.name) ?? false;
             return (
@@ -341,7 +343,7 @@ export function AllowlistField({
               />
             );
           })}
-        </div>
+        </Tile>
       )}
       {error !== null && <p className="text-destructive text-sm">{error}</p>}
     </div>
