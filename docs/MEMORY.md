@@ -265,7 +265,9 @@ bookkeeping are not messages.
 
 - Indexing is incremental by entry-id cursor per conversation and runs
   before each search (never stale); chats that left the bot's list (deleted
-  chats) and purged bots drop their rows.
+  chats) and purged bots drop their rows. A minute after boot the server
+  indexes each bot's chats once (`SEARCH_WARMUP_MS`), so the first search on
+  a long history does not wait.
 - Ranking: BM25 over the bilingual analysis, trigram overlap (on its own
   only when words found little), the meaning leg when configured, and a
   light recency prior.
@@ -338,6 +340,7 @@ end day, and links "Learned in …" to the chat it came from.
 | `OLLAMA_URL`          | `http://127.0.0.1:11434` | where the embedding model runs                |
 | `EMBEDDING_MODEL`     | `embeddinggemma`         | the embedding model's name                    |
 | `SEARCH_DB`           | `var/search.sqlite`      | the search sidecar (derived, rebuildable)     |
+| `SEARCH_WARMUP_MS`    | `60000`                  | when the boot indexing of conversations runs  |
 | `MEMORY_TIDY_CRON`    | `0 9 * * 0`              | tidy schedule (croner, Asia/Jakarta)          |
 
 ## Credits
