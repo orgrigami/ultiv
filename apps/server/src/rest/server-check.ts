@@ -2,10 +2,12 @@
  * GET /api/server/check — a read-only first look at how this server is set
  * up, for Settings › Server. It reports which keys are set (true/false, and
  * what each turns on), never a value; which model providers the catalog
- * found; whether the microVM sandbox can likely run here; and whether the
- * server listens beyond this machine.
+ * found; whether the microVM sandbox can likely run here; whether the
+ * server listens beyond this machine; and how memory's meaning search is
+ * set up (the embedding model, local or remote, its last result).
  */
 import { existsSync } from "node:fs";
+import type { MeaningStatus } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
 
 export interface KeyCheck {
@@ -21,6 +23,8 @@ export interface ServerCheck {
   keys: KeyCheck[];
   models: { providers: string[]; count: number; default: string; source: string };
   microvm: { available: boolean; detail: string };
+  /** Memory meaning search (MEMORY_EMBEDDINGS): model null = off. */
+  meaning: MeaningStatus;
   listen: {
     port: number;
     /** all = every interface (LAN and tailnet too); loopback = this machine only. */
@@ -62,6 +66,7 @@ export function serverCheck(input: {
   hasKvm: boolean;
   catalog: { providers: readonly string[]; models: number; source: string };
   defaultModel: string;
+  meaning: MeaningStatus;
 }): ServerCheck {
   const { env } = input;
   const host = isSet(env.HOST) ? env.HOST?.trim() : undefined;
@@ -88,6 +93,7 @@ export function serverCheck(input: {
       source: input.catalog.source,
     },
     microvm,
+    meaning: input.meaning,
     listen: {
       port: Number.isFinite(port) ? port : 8787,
       scope:
@@ -112,6 +118,7 @@ export async function serverCheckRoutes(args: RouteArgs): Promise<boolean> {
       hasKvm: process.platform === "linux" && existsSync("/dev/kvm"),
       catalog: status,
       defaultModel: args.mind.models.defaultRef(),
+      meaning: args.mind.meaning(),
     }),
   );
   return true;

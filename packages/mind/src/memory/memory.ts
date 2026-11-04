@@ -40,6 +40,7 @@ import {
 import { shareOps } from "./share.ts";
 import { recall, type RecallInput } from "./recall.ts";
 import type { FactSearch } from "../search/facts.ts";
+import { reportEmbeddingFailure } from "../search/vectors.ts";
 import { confirmFact, endFact } from "./lifecycle.ts";
 import type { MemoryService } from "./memory-api.ts";
 export type { MemoryService } from "./memory-api.ts";
@@ -365,7 +366,7 @@ export const memoryService = (deps: {
       const semantic =
         legs.search !== undefined && deps.search?.semantic !== undefined && opts.query !== undefined
           ? await deps.search.semantic(stores, opts.query, 20).catch((cause: unknown) => {
-              console.warn("memory meaning search unavailable:", String(cause).slice(0, 200));
+              reportEmbeddingFailure("memory recall", cause);
               return [];
             })
           : undefined;

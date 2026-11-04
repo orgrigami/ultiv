@@ -17,6 +17,7 @@ import type { OrgService } from "./org/service.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { MemoryService } from "./memory/memory.ts";
 import type { HistoryService } from "./history/history.ts";
+import type { MeaningStatus } from "./search/embedders.ts";
 import type { SchedulesService } from "./schedules/schedules.ts";
 import type { ReceiptsService } from "./routines/receipts.ts";
 import type { WebhooksService } from "./webhooks/webhooks.ts";
@@ -86,4 +87,6 @@ export interface MindService {
   /** Secure inputs: browser-typed keys go to the vault, never the model. */
   readonly secrets: SecretRequestsService;
   readonly describe: () => MindDescription;
+  /** The memory meaning leg: which embedding model, local or remote, last result. */
+  readonly meaning: () => MeaningStatus;
 }

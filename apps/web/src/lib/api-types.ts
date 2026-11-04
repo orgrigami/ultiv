@@ -58,6 +58,15 @@ export interface ServerCheck {
   models: { providers: string[]; count: number; default: string; source: string };
   microvm: { available: boolean; detail: string };
   listen: { port: number; scope: "all" | "loopback" | "specific" };
+  /** Memory meaning search: the embedding model (null = off), where it runs, its last result. */
+  meaning?: {
+    model: string | null;
+    remote: boolean;
+    tools: boolean;
+    lastOkAt: number | null;
+    lastError: string | null;
+    lastErrorAt: number | null;
+  };
 }
 
 /** One row of GET /api/artifacts — a file a bot made (or the owner uploaded). */

@@ -1,61 +1,42 @@
 /**
- * The optional meaning leg: embeddings from a LOCAL model (Ollama), stored
- * as float32 blobs beside the FTS rows and searched by an exact cosine scan
- * (no vector extension; a bot's memory and chats are small enough). Off by
- * default — words, synonyms and trigrams already cover most recall. With
- * `MEMORY_EMBEDDINGS=ollama`, `OLLAMA_URL` (default http://127.0.0.1:11434)
- * and `EMBEDDING_MODEL` (default `embeddinggemma`, multilingual) facts and
- * messages are embedded lazily, a batch per search, and a vague question
- * ("that idea we had about the garden") finds what it means. Nothing ever
- * leaves the machine unless OLLAMA_URL points elsewhere. Any failure (no
- * server, no model, a timeout) drops the leg for that search: search
- * degrades to words, it never breaks.
+ * The optional meaning leg: embeddings stored as float32 blobs beside the
+ * FTS rows and searched by an exact cosine scan (no vector extension; a
+ * bot's memory and chats are small enough). Off by default — words,
+ * synonyms and trigrams already cover most recall. Where the vectors come
+ * from (a local Ollama, any catalog provider with an embedding API, any
+ * OpenAI-compatible endpoint) is search/embedders.ts. Facts and messages
+ * are embedded lazily, a batch per search, and a vague question ("that
+ * idea we had about the garden") finds what it means. Any failure drops
+ * the leg for that search: search degrades to words, it never breaks.
  */
 
 export interface Embedder {
   /** Stored with each vector: a new model re-embeds instead of mixing spaces. */
   readonly model: string;
+  /**
+   * Whether texts leave the machine (and the owner's own network). A remote
+   * embedder is never sent tool results: pages, mail and files a bot read
+   * stay out of a third party's hands.
+   */
+  readonly remote: () => boolean;
   readonly embed: (texts: readonly string[]) => Promise<Float32Array[]>;
 }
 
-const DEFAULT_URL = "http://127.0.0.1:11434";
-const DEFAULT_MODEL = "embeddinggemma";
-const TIMEOUT_MS = 10_000;
-/** Characters of one text sent to the model (its context is short anyway). */
-const TEXT_CAP = 2_000;
 /** A neighbour below this cosine is not a match, whatever its rank. */
 export const MIN_SIMILARITY = 0.3;
 /** Rows embedded per search call; the rest wait for the next one. */
 export const FILL_PER_CALL = 64;
 const BATCH = 32;
 
-/** An Ollama `/api/embed` client. */
-export const ollamaEmbedder = (url: string, model: string): Embedder => ({
-  model: `ollama:${model}`,
-  embed: async (texts) => {
-    if (texts.length === 0) return [];
-    const response = await fetch(`${url.replace(/\/$/, "")}/api/embed`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ model, input: texts.map((text) => text.slice(0, TEXT_CAP)) }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (!response.ok) throw new Error(`embedding model answered ${response.status}`);
-    const body = (await response.json()) as { embeddings?: unknown };
-    if (!Array.isArray(body.embeddings) || body.embeddings.length !== texts.length) {
-      throw new Error("embedding model returned no vectors");
-    }
-    return body.embeddings.map((vector) => Float32Array.from(vector as number[]));
-  },
-});
+const WARN_EVERY_MS = 10 * 60_000;
+let lastWarned = 0;
 
-/** The configured embedder, or undefined (the default: no meaning leg). */
-export const embedderFromEnv = (): Embedder | undefined => {
-  const mode = process.env.MEMORY_EMBEDDINGS?.trim().toLowerCase();
-  if (mode !== "ollama" && mode !== "on") return undefined;
-  const url = process.env.OLLAMA_URL?.trim() || DEFAULT_URL;
-  const model = process.env.EMBEDDING_MODEL?.trim() || DEFAULT_MODEL;
-  return ollamaEmbedder(url, model);
+/** A failed meaning leg, logged at most once per ten minutes (not per search). */
+export const reportEmbeddingFailure = (where: string, cause: unknown): void => {
+  const now = Date.now();
+  if (now - lastWarned < WARN_EVERY_MS) return;
+  lastWarned = now;
+  console.warn(`${where}: meaning search unavailable, words only:`, String(cause).slice(0, 300));
 };
 
 export const toBlob = (vector: Float32Array): Uint8Array =>
@@ -95,14 +76,24 @@ export const fillMissing = async (
   }
 };
 
-/** The nearest rows to a query vector, best first, above MIN_SIMILARITY. */
+/**
+ * The nearest rows to a query vector, best first — only those that stand
+ * out. Models differ in their baseline: unrelated texts score ~0.05 on
+ * OpenAI's small model and ~0.37 on bge-m3, so a fixed floor lets one
+ * model's noise through. A row is kept when it is at least halfway from
+ * the scan's median score to its top score (and never below
+ * MIN_SIMILARITY): relative to what this model calls unrelated here.
+ */
 export const nearest = (
   query: Float32Array,
   rows: readonly { readonly rowid: number; readonly vec: Uint8Array }[],
   limit: number,
-): { readonly rowid: number; readonly score: number }[] =>
-  rows
+): { readonly rowid: number; readonly score: number }[] => {
+  const scored = rows
     .map((row) => ({ rowid: row.rowid, score: cosine(query, fromBlob(row.vec)) }))
-    .filter((row) => row.score >= MIN_SIMILARITY)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
+    .sort((a, b) => b.score - a.score);
+  const top = scored[0]?.score ?? 0;
+  const median = scored[Math.floor(scored.length / 2)]?.score ?? top;
+  const floor = Math.max(MIN_SIMILARITY, median + (top - median) / 2);
+  return scored.filter((row) => row.score >= floor).slice(0, limit);
+};

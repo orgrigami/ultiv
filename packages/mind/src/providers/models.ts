@@ -42,6 +42,7 @@ import { applyKenari, parseKenariListing } from "./kenari.ts";
 import { gateModels } from "./gate.ts";
 import { bySpecOrder, compactionFor, normalizeRef, specOf, type ModelSpec } from "./refs.ts";
 import { providerOf, type EnvLookup, type WireOptions } from "./wire.ts";
+import { embeddingEndpointOf, type EmbeddingEndpoint } from "./embedding-endpoint.ts";
 
 export interface CatalogStatus {
   /** Where the installed catalog came from this run. */
@@ -75,6 +76,13 @@ export interface ModelCatalogService {
   readonly status: () => CatalogStatus;
   /** Per-model compaction thresholds for the live catalog. */
   readonly compaction: () => CompactionSettings;
+  /**
+   * Where a provider serves embeddings (the memory meaning leg), from the
+   * live catalog: its endpoint and key, or why it cannot.
+   */
+  readonly embeddingEndpointOf: (
+    providerId: string,
+  ) => EmbeddingEndpoint | { readonly problem: string };
 }
 
 export class ModelCatalog extends Context.Service<ModelCatalog, ModelCatalogService>()(
@@ -158,6 +166,7 @@ export const createCatalog = async (
   let kenariError: string | null = null;
   let kenariListed = 0;
   let installed: Installed = { specs: [], byRef: new Map(), compaction: compactionFor([]) };
+  let merged: Catalog = {};
 
   const install = async (): Promise<void> => {
     let overlay: unknown;
@@ -169,6 +178,7 @@ export const createCatalog = async (
     const listing = kenariEntry !== undefined ? parseKenariListing(kenariEntry.body) : undefined;
     kenariListed = listing !== undefined ? Object.keys(listing).length : 0;
     const catalog = mergeOverlay(applyKenari(parseCatalog(entry?.body), listing), overlay);
+    merged = catalog;
     installed = installInto(raw, catalog, { env: options.env, allow: options.allow });
   };
 
@@ -251,6 +261,12 @@ export const createCatalog = async (
     refresh,
     status,
     compaction: () => installed.compaction,
+    embeddingEndpointOf: (providerId) => {
+      const provider = merged[providerId];
+      return provider === undefined
+        ? { problem: `no provider named ${providerId} in the model catalog` }
+        : embeddingEndpointOf(provider, options.env, options.allow);
+    },
     close: () => clearInterval(timer),
   };
 };

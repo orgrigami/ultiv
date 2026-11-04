@@ -74,3 +74,4 @@ export * from "./versions/store.ts";
 // The owner-facing error sentence (task errors here, turn banners in the server).
 export { ownerErrorText, scrubSecrets } from "@spriessen/core";
 export { parseWhen } from "./memory/dates.ts";
+export type { MeaningStatus } from "./search/embedders.ts";

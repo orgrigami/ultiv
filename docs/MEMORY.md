@@ -287,14 +287,37 @@ Without the sidecar the tool falls back to a substring scan of recent chats.
 
 ## Meaning leg (optional)
 
-Off by default. With `MEMORY_EMBEDDINGS=ollama`, `OLLAMA_URL` (default
-`http://127.0.0.1:11434`) and `EMBEDDING_MODEL` (default `embeddinggemma`,
-multilingual), facts and messages are embedded by a local model
-(`search/vectors.ts`) — lazily, 64 per search — stored as float32 blobs keyed
-by model (a new model re-embeds instead of mixing spaces), dropped with the
-text they belong to, and searched by an exact cosine scan (≥ 0.3). The leg
-joins fact recall and conversation search and finds on its own. Any failure
-drops it for that search; words carry on.
+Off by default. `MEMORY_EMBEDDINGS` picks where embeddings come from
+(`search/embedders.ts`):
+
+| Value                | Endpoint                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ollama`             | A local Ollama: `OLLAMA_URL` (default `http://127.0.0.1:11434`), `EMBEDDING_MODEL` (default `embeddinggemma`)                                                                                                                                                                                                                                                                                                                          |
+| `<provider>/<model>` | Any model-catalog provider with an embedding API, through the endpoint and key its chat models use (`providers/embedding-endpoint.ts`): OpenAI-compatible gateways (e.g. `kenari/bge-m3`, `kenari/text-embedding-3-small`, `openrouter/…`, Together, DeepInfra, a keyless local server listed in `SPRIESSEN_PROVIDERS`), `openai/…`, `mistral/mistral-embed`, `google/…` (its OpenAI-compatible path). Anthropic has no embedding API. |
+| `openai-compatible`  | Any OpenAI-shaped `/embeddings` endpoint: `EMBEDDING_URL` (its base, e.g. `http://127.0.0.1:1234/v1` for LM Studio), `EMBEDDING_MODEL`, optional `EMBEDDING_API_KEY`                                                                                                                                                                                                                                                                   |
+
+Kenari serves embeddings without listing them in `/v1/models`; at the time
+of writing: `bge-m3` (1024 dims, multilingual — a good fit for EN/ID),
+`text-embedding-3-small`/`-large`, `mistral-embed`, `codestral-embed`,
+`qwen3-embedding-0.6b`.
+
+Facts and messages are embedded lazily (64 per search), stored as float32
+blobs keyed by model (a new model re-embeds instead of mixing spaces),
+dropped with the text they belong to, and searched by an exact cosine
+scan. The cutoff adapts to the model: a row counts when it is at least
+halfway from the scan's median similarity to its top (never below 0.3) —
+unrelated texts score ~0.05 on OpenAI's small model but ~0.37 on bge-m3. The
+leg joins fact recall and conversation search and finds on its own.
+
+**Remote endpoints** (anything outside loopback, private ranges, the
+tailnet and `.local`) are sent facts and messages but never tool results —
+pages, mail and files a bot read stay on the machine;
+`EMBEDDING_INCLUDE_TOOLS=on` overrides. Any failure (no server, a bad key,
+a timeout) drops the leg for that search — words carry on — and is logged
+at most once per ten minutes. Settings › Server shows the model, whether it
+is remote, and its last success or error (`GET /api/server/check`,
+`mind.meaning()`); a key is never shown. Changing the setting takes effect
+at the next server start.
 
 ## REST (owner surface)
 
@@ -331,17 +354,20 @@ end day, and links "Learned in …" to the chat it came from.
 
 ## Flags
 
-| Flag                  | Default                  | Effect                                        |
-| --------------------- | ------------------------ | --------------------------------------------- |
-| `SPRIESSEN_MEMORY_V2` | on                       | `off` = v1-seam fallback, NOT a full rollback |
-| `MEMORY_EXTRACT`      | on                       | `off` = deterministic extraction only         |
-| `MEMORY_PREFETCH`     | on                       | `off` = no recall before each turn            |
-| `MEMORY_EMBEDDINGS`   | off                      | `ollama` = the meaning leg (a local model)    |
-| `OLLAMA_URL`          | `http://127.0.0.1:11434` | where the embedding model runs                |
-| `EMBEDDING_MODEL`     | `embeddinggemma`         | the embedding model's name                    |
-| `SEARCH_DB`           | `var/search.sqlite`      | the search sidecar (derived, rebuildable)     |
-| `SEARCH_WARMUP_MS`    | `60000`                  | when the boot indexing of conversations runs  |
-| `MEMORY_TIDY_CRON`    | `0 9 * * 0`              | tidy schedule (croner, Asia/Jakarta)          |
+| Flag                      | Default                  | Effect                                                                 |
+| ------------------------- | ------------------------ | ---------------------------------------------------------------------- |
+| `SPRIESSEN_MEMORY_V2`     | on                       | `off` = v1-seam fallback, NOT a full rollback                          |
+| `MEMORY_EXTRACT`          | on                       | `off` = deterministic extraction only                                  |
+| `MEMORY_PREFETCH`         | on                       | `off` = no recall before each turn                                     |
+| `MEMORY_EMBEDDINGS`       | off                      | `ollama`, `<provider>/<model>` or `openai-compatible`: the meaning leg |
+| `OLLAMA_URL`              | `http://127.0.0.1:11434` | the Ollama endpoint (`ollama`)                                         |
+| `EMBEDDING_MODEL`         | `embeddinggemma`         | the model (`ollama`, `openai-compatible`)                              |
+| `EMBEDDING_URL`           | —                        | the base URL (`openai-compatible`)                                     |
+| `EMBEDDING_API_KEY`       | —                        | its key, if it needs one (`openai-compatible`)                         |
+| `EMBEDDING_INCLUDE_TOOLS` | off                      | `on` = send tool results to a remote model too                         |
+| `SEARCH_DB`               | `var/search.sqlite`      | the search sidecar (derived, rebuildable)                              |
+| `SEARCH_WARMUP_MS`        | `60000`                  | when the boot indexing of conversations runs                           |
+| `MEMORY_TIDY_CRON`        | `0 9 * * 0`              | tidy schedule (croner, Asia/Jakarta)                                   |
 
 ## Credits
 

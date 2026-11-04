@@ -28,6 +28,8 @@ import { SkeletonRows } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import type { AuditEvent } from "@spriessen/contracts";
 import { api, type ServerCheck } from "@/lib/api";
+import { meaningLine } from "@/lib/meaning-text";
+import { formatWhen } from "@/lib/format";
 import {
   addPasskey,
   passkeys,
@@ -408,6 +410,7 @@ function ServerSection({
               : "Set by HOST in the server's environment."
           }
         />
+        <StatusLine {...meaningLine(check.meaning, formatWhen)} />
         <StatusLine
           ok={check.microvm.available}
           title={check.microvm.available ? "Sandbox can run" : "Sandbox unavailable"}

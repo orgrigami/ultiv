@@ -14,7 +14,15 @@ import type { EntryRecord } from "@earendil-works/pi-durable";
 import { ATTACHMENTS_MARK, INPUT_ENTRY_KIND } from "../converse/steps.ts";
 import type { SearchDb } from "./db.ts";
 import { gramsQuery, snippetOf, termsOf, termsQuery } from "./fts.ts";
-import { FILL_PER_CALL, fillMissing, nearest, toBlob, type Embedder } from "./vectors.ts";
+import {
+  FILL_PER_CALL,
+  fillMissing,
+  nearest,
+  reportEmbeddingFailure,
+  toBlob,
+  type Embedder,
+} from "./vectors.ts";
+import { embedsTools } from "./embedders.ts";
 
 export type MessageRole = "user" | "assistant" | "tool";
 
@@ -128,7 +136,7 @@ const meaningLeg = async (
     .prepare(
       `SELECT r.rowid AS rowid, r.text AS text FROM msg_rows r
        LEFT JOIN msg_vec v ON v.rowid = r.rowid AND v.model = ?
-       WHERE v.rowid IS NULL AND r.owner = ? AND r.profile = ?
+       WHERE v.rowid IS NULL AND r.owner = ? AND r.profile = ?${embedsTools(embedder) ? "" : " AND r.role != 'tool'"}
        ORDER BY r.at DESC LIMIT ?`,
     )
     .all(embedder.model, query.owner, query.profile, FILL_PER_CALL) as {
@@ -201,7 +209,7 @@ const searchMessages = async (
     embedder === undefined
       ? []
       : await meaningLeg(search, embedder, query, filtersOf(query)).catch((cause: unknown) => {
-          console.warn("history meaning search unavailable:", String(cause).slice(0, 200));
+          reportEmbeddingFailure("history search", cause);
           return [] as Row[];
         });
   const words = ftsLeg(search, "msg_terms", termsQuery(query.query), query);

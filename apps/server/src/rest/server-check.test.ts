@@ -8,6 +8,14 @@ const base = {
   hasKvm: false,
   catalog: { providers: ["kenari"], models: 3, source: "cache" },
   defaultModel: "kenari/some-model",
+  meaning: {
+    model: null,
+    remote: false,
+    tools: false,
+    lastOkAt: null,
+    lastError: null,
+    lastErrorAt: null,
+  },
 };
 
 describe("serverCheck", () => {
@@ -40,5 +48,17 @@ describe("serverCheck", () => {
     expect(serverCheck({ ...base, arch: "x64" }).microvm.available).toBe(false);
     expect(serverCheck({ ...base, platform: "linux", hasKvm: true }).microvm.available).toBe(true);
     expect(serverCheck({ ...base, platform: "linux" }).microvm.available).toBe(false);
+  });
+
+  it("reports meaning search as configured, with no key or text", () => {
+    const meaning = {
+      model: "kenari:text-embedding-3-small",
+      remote: true,
+      tools: false,
+      lastOkAt: 5,
+      lastError: null,
+      lastErrorAt: null,
+    };
+    expect(serverCheck({ ...base, meaning }).meaning).toEqual(meaning);
   });
 });

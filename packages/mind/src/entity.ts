@@ -44,7 +44,7 @@ import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
 import { openSearchDb } from "./search/db.ts";
-import { embedderFromEnv } from "./search/vectors.ts";
+import { embedderFromEnv, MEANING_OFF, trackedEmbedder } from "./search/embedders.ts";
 import { temporalPlugin } from "./act/temporal.ts";
 import { Audit, auditLayer } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
@@ -228,7 +228,12 @@ const mindLayerRaw = (
         (db) => Effect.sync(() => db.close()),
       );
       // The meaning leg is opt-in (MEMORY_EMBEDDINGS=ollama): a local model.
-      const embedder = embedderFromEnv();
+      const configured = embedderFromEnv(
+        (name) => process.env[name],
+        (providerId) => models.embeddingEndpointOf(providerId),
+      );
+      const meaning = configured === undefined ? undefined : trackedEmbedder(configured);
+      const embedder = meaning?.embedder;
       const routines = routineServices(converse, profiles, wiring.onSchedulesChanged, {
         generate,
         decide,
@@ -322,6 +327,7 @@ const mindLayerRaw = (
         bindings: wiring.bindings,
         audit,
         describe: () => describeMind(act, decide, piRegistry),
+        meaning: () => meaning?.status() ?? MEANING_OFF,
       };
     }),
   );

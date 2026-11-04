@@ -27,7 +27,7 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import type { CatalogModel, CatalogProvider } from "./catalog.ts";
 
-type WireApi =
+export type WireApi =
   | "openai-completions"
   | "openai-responses"
   | "anthropic-messages"
@@ -70,6 +70,11 @@ const PACKAGES: Readonly<Record<string, { readonly api: WireApi; readonly baseUr
 export type EnvLookup = (name: string) => string | undefined;
 
 /** Replace `${VAR}` placeholders; undefined when any is unset. */
+/** The wire format and default endpoint models.dev's package name implies, if the mind speaks it. */
+export const packageOf = (
+  npm: string,
+): { readonly api: WireApi; readonly baseUrl?: string } | undefined => PACKAGES[npm];
+
 export const expandUrl = (url: string, env: EnvLookup): string | undefined => {
   let missing = false;
   const expanded = url.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => {

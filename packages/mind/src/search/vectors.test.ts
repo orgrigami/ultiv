@@ -10,7 +10,8 @@ import { newFact } from "../memory/model.ts";
 import { openSearchDb } from "./db.ts";
 import { factSearch } from "./facts.ts";
 import { messageSearch } from "./messages.ts";
-import { cosine, embedderFromEnv, type Embedder } from "./vectors.ts";
+import { cosine, type Embedder } from "./vectors.ts";
+import { embedderFromEnv } from "./embedders.ts";
 
 /** Three "topics": gardening, money, everything else. */
 const TOPICS: readonly (readonly string[])[] = [
@@ -20,6 +21,7 @@ const TOPICS: readonly (readonly string[])[] = [
 let calls = 0;
 const fake: Embedder = {
   model: "fake:topics",
+  remote: () => false,
   embed: async (texts) => {
     calls += 1;
     return texts.map((text) => {
@@ -31,6 +33,7 @@ const fake: Embedder = {
 };
 const broken: Embedder = {
   model: "broken",
+  remote: () => false,
   embed: async () => {
     throw new Error("no server");
   },
@@ -135,5 +138,22 @@ describe("the meaning leg", () => {
     else process.env.MEMORY_EMBEDDINGS = before;
     expect(cosine(Float32Array.from([1, 0]), Float32Array.from([2, 0]))).toBeCloseTo(1);
     expect(cosine(Float32Array.from([1, 0]), Float32Array.from([0, 1]))).toBe(0);
+  });
+});
+
+describe("the meaning cutoff", () => {
+  it("adapts to the model's baseline instead of a fixed floor", async () => {
+    const { nearest, toBlob } = await import("./vectors.ts");
+    // bge-m3-like: unrelated texts sit near 0.37, the match near 0.9.
+    const at = (cos: number) => toBlob(Float32Array.from([cos, Math.sqrt(1 - cos * cos)]));
+    const query = Float32Array.from([1, 0]);
+    const rows = [0.9, 0.37, 0.36, 0.4, 0.35].map((cos, rowid) => ({ rowid, vec: at(cos) }));
+    expect(nearest(query, rows, 5).map((row) => row.rowid)).toEqual([0]);
+    // OpenAI-small-like: unrelated near 0.05, the match near 0.58.
+    const low = [0.58, 0.05, 0.04, 0.07].map((cos, rowid) => ({ rowid, vec: at(cos) }));
+    expect(nearest(query, low, 5).map((row) => row.rowid)).toEqual([0]);
+    // Two close matches both stand out.
+    const pair = [0.88, 0.86, 0.36, 0.35, 0.37].map((cos, rowid) => ({ rowid, vec: at(cos) }));
+    expect(nearest(query, pair, 5).map((row) => row.rowid)).toEqual([0, 1]);
   });
 });
