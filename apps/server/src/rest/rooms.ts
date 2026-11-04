@@ -12,6 +12,8 @@ import { errorOf, queryOr, type RouteArgs } from "./types.ts";
 export interface RoomLine {
   readonly at: number;
   readonly speaker: string;
+  /** Mailbox lines only: the sender's profile id — seat and avatar by it. */
+  readonly speakerId?: string;
   readonly text: string;
   readonly system: boolean;
   /** Mailbox lines only: the envelope id and its delivery status. */

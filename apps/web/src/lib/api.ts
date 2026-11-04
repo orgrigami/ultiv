@@ -116,6 +116,8 @@ export type RoomLineStatus = "pending" | "replied" | "failed" | "dead" | "expire
 export interface RoomLine {
   at: number;
   speaker: string;
+  /** Mailbox lines only: the sender's profile id (names can collide). */
+  speakerId?: string;
   text: string;
   system: boolean;
   id?: string;

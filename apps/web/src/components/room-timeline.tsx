@@ -2,9 +2,9 @@
  * A bot-to-bot conversation as a real chat: one bubble per turn, speakers
  * seated on opposite sides (the room's first participant left, everyone else
  * right, the owner's supervision lines right), consecutive turns grouped
- * under one avatar and name, day dividers between. Opened from a mail pill,
- * it lives in the work pane — beside the chat on desktop, full-height sheet
- * on phones.
+ * under one avatar and name, day dividers between. Seating and grouping
+ * rules live in `lib/room-turns.ts`. Opened from a mail pill, it lives in the
+ * work pane — beside the chat on desktop, full-height sheet on phones.
  */
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { CircleAlertIcon, UserIcon } from "lucide-react";
@@ -13,18 +13,21 @@ import { LazyMarkdown } from "@/components/lazy-markdown";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api, type RoomDetail, type RoomLine } from "@/lib/api";
-import { formatClock, formatDivider, formatFull } from "@/lib/format";
+import { formatClock, formatFull } from "@/lib/format";
 import { notifyError } from "@/lib/notify";
+import { seatLines, type SeatedLine, type Side } from "@/lib/room-turns";
 import { STATUS_LABEL } from "@/lib/room-status";
 import { cn } from "@/lib/utils";
 import { enter } from "@/components/system/card-shell";
 
-const bubbleOf = (side: "left" | "right", grouped: boolean, owner: boolean): string =>
+const bubbleOf = ({ side, grouped, owner }: SeatedLine): string =>
   cn(
     "w-fit max-w-full rounded-2xl border px-3.5 py-2.5 text-chat leading-relaxed break-words",
     "[&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_p]:my-1 [&_li]:my-0.5 [&_ul]:my-1.5 [&_ol]:my-1.5",
     "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2",
-    "[&_code]:rounded [&_code]:bg-muted/60 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em]",
+    // Inline code only: a fenced block's <code> sits in a <pre> and keeps
+    // the CodeBlock's own look.
+    "[&_:not(pre)>code]:rounded [&_:not(pre)>code]:bg-muted/60 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5 [&_:not(pre)>code]:text-[0.85em]",
     side === "left"
       ? "bg-muted/70 border-border/60"
       : owner
@@ -33,7 +36,7 @@ const bubbleOf = (side: "left" | "right", grouped: boolean, owner: boolean): str
     grouped ? (side === "left" ? "rounded-tl-sm" : "rounded-tr-sm") : "",
   );
 
-const Meta = ({ line, side }: { line: RoomLine; side: "left" | "right" }) => (
+const Meta = ({ line, side }: { line: RoomLine; side: Side }) => (
   <p className={cn("text-xs", side === "right" && "text-right")}>
     <span className="font-semibold">{line.speaker}</span>
     <time
@@ -46,120 +49,106 @@ const Meta = ({ line, side }: { line: RoomLine; side: "left" | "right" }) => (
   </p>
 );
 
+function Avatar({ seated }: { seated: SeatedLine }) {
+  if (seated.grouped) return <span className="w-7 shrink-0" aria-hidden />;
+  if (seated.owner)
+    return (
+      <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full">
+        <UserIcon className="size-3.5" />
+      </span>
+    );
+  return <BotAvatar id={seated.line.speakerId} name={seated.line.speaker} size="sm" />;
+}
+
+function RoomTurn({ seated }: { seated: SeatedLine }) {
+  const { line, side, grouped } = seated;
+  if (line.system)
+    return (
+      <li className={`w-full ${enter}`}>
+        <p className="text-muted-foreground text-center text-xs">{line.text}</p>
+      </li>
+    );
+  const status = line.status === undefined ? undefined : STATUS_LABEL[line.status];
+  return (
+    <li
+      className={cn("flex w-full items-end gap-2", side === "right" && "flex-row-reverse", enter)}
+    >
+      <Avatar seated={seated} />
+      <div
+        className={cn(
+          "flex min-w-0 max-w-[88%] flex-col gap-0.5 sm:max-w-[78%]",
+          side === "right" && "items-end",
+        )}
+      >
+        {!grouped && <Meta line={line} side={side} />}
+        <div
+          className={bubbleOf(seated)}
+          data-slot="room-bubble"
+          title={grouped ? formatFull(line.at) : undefined}
+        >
+          <LazyMarkdown text={line.text} />
+        </div>
+        {status !== undefined && (
+          <p
+            className={cn(
+              "flex items-center gap-1.5 text-xs",
+              line.status === "pending" ? "text-muted-foreground" : "text-destructive",
+              side === "right" && "flex-row-reverse",
+            )}
+          >
+            {line.status !== "pending" && <CircleAlertIcon className="size-3 shrink-0" />}
+            {status}
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+const DayDivider = ({ label }: { label: string }) => (
+  <li role="separator" className="text-muted-foreground/70 flex items-center gap-3 py-1">
+    <span className="bg-border h-px flex-1" />
+    <span className="readout text-xs">{label}</span>
+    <span className="bg-border h-px flex-1" />
+  </li>
+);
+
 export function RoomTimeline({ roomId }: { roomId: string }) {
   const [detail, setDetail] = useState<RoomDetail | null>(null);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
+    setFailed(false);
     setDetail(await api.room(roomId));
   }, [roomId]);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     load().catch((cause: unknown) => {
       notifyError("Couldn't load the conversation", cause, "room-timeline-load");
       setFailed(true);
     });
   }, [load]);
 
+  useEffect(reload, [reload]);
+
   if (failed)
     return (
       <div className="px-4 pt-3">
-        <ErrorState message="Couldn't load the conversation." onRetry={() => void load()} />
+        <ErrorState message="Couldn't load the conversation." onRetry={reload} />
       </div>
     );
   if (detail === null) return <SkeletonRows label="Loading the conversation" rows={4} />;
 
-  const profileIdOf = (speaker: string): string | undefined =>
-    detail.participants.find((participant) => participant.name === speaker)?.profileId;
-  /** The room's first participant sits left; everyone else (and the owner's
-   *  supervision lines) answer from the right, like a two-sided chat. */
-  const sideOf = (speaker: string, system: boolean): "left" | "right" => {
-    if (system || speaker === "owner") return "right";
-    const index = detail.participants.findIndex((participant) => participant.name === speaker);
-    return index <= 0 ? "left" : "right";
-  };
-
-  let lastDay = "";
-  let lastSpeaker: string | null = null;
-  let lastWasTurn = false;
-
+  const seated = seatLines(detail.timeline, detail.room.participants, detail.participants);
   return (
     <ol className="flex flex-col gap-2.5 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-      {detail.timeline.map((line, index) => {
-        const divider = formatDivider(line.at);
-        const showDivider = divider !== lastDay;
-        if (showDivider) lastDay = divider;
-        const status = line.status === undefined ? undefined : STATUS_LABEL[line.status];
-        const side = sideOf(line.speaker, line.system);
-        const owner = line.system || line.speaker === "owner";
-        // A new turn: different speaker, a day break, or a non-message line.
-        const newTurn = showDivider || line.system || line.speaker !== lastSpeaker || !lastWasTurn;
-        const grouped = !newTurn;
-        lastSpeaker = line.speaker;
-        lastWasTurn = !line.system;
-
-        return (
-          <Fragment key={line.id ?? index}>
-            {showDivider && (
-              <li
-                role="separator"
-                className="text-muted-foreground/70 flex items-center gap-3 py-1"
-              >
-                <span className="bg-border h-px flex-1" />
-                <span className="readout text-xs">{divider}</span>
-                <span className="bg-border h-px flex-1" />
-              </li>
-            )}
-            {line.system ? (
-              <li className={`w-full ${enter}`}>
-                <p className="text-muted-foreground text-center text-xs">{line.text}</p>
-              </li>
-            ) : (
-              <li
-                className={cn(
-                  "flex w-full items-end gap-2",
-                  side === "right" && "flex-row-reverse",
-                  enter,
-                )}
-              >
-                {grouped ? (
-                  <span className="w-7 shrink-0" aria-hidden />
-                ) : owner ? (
-                  <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full">
-                    <UserIcon className="size-3.5" />
-                  </span>
-                ) : (
-                  <BotAvatar id={profileIdOf(line.speaker)} name={line.speaker} size="sm" />
-                )}
-                <div
-                  className={cn(
-                    "flex min-w-0 max-w-[88%] flex-col gap-0.5 sm:max-w-[78%]",
-                    side === "right" && "items-end",
-                  )}
-                >
-                  {!grouped && <Meta line={line} side={side} />}
-                  <div className={bubbleOf(side, grouped, owner)} data-slot="room-bubble">
-                    <LazyMarkdown text={line.text} />
-                  </div>
-                  {status !== undefined && (
-                    <p
-                      className={cn(
-                        "flex items-center gap-1.5 text-xs",
-                        line.status === "pending" ? "text-muted-foreground" : "text-destructive",
-                        side === "right" && "flex-row-reverse",
-                      )}
-                    >
-                      {line.status !== "pending" && <CircleAlertIcon className="size-3 shrink-0" />}
-                      {status}
-                    </p>
-                  )}
-                </div>
-              </li>
-            )}
-          </Fragment>
-        );
-      })}
-      {detail.timeline.length === 0 && (
+      {seated.map((entry, index) => (
+        <Fragment key={entry.line.id ?? index}>
+          {entry.divider !== null && <DayDivider label={entry.divider} />}
+          <RoomTurn seated={entry} />
+        </Fragment>
+      ))}
+      {seated.length === 0 && (
         <li className="text-muted-foreground py-8 text-center text-xs">No messages yet.</li>
       )}
     </ol>

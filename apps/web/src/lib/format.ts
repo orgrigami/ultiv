@@ -17,19 +17,23 @@ const shortDate = (date: Date, now: Date): string =>
     ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
   });
 
-/** A day word (or date) plus the clock time: "Today 5:46 PM", "Tomorrow 9:00 AM". */
-export function formatDivider(at: number, now: Date = new Date()): string {
+/** A day on its own: "Today", "Yesterday", "Tomorrow", else "Oct 25". */
+export function formatDay(at: number, now: Date = new Date()): string {
   const date = new Date(at);
   const dayOffset = (days: number): Date => {
     const shifted = new Date(now);
     shifted.setDate(now.getDate() + days);
     return shifted;
   };
-  if (sameDay(date, now)) return `Today ${clock(date)}`;
-  if (sameDay(date, dayOffset(-1))) return `Yesterday ${clock(date)}`;
-  if (sameDay(date, dayOffset(1))) return `Tomorrow ${clock(date)}`;
-  return `${shortDate(date, now)} ${clock(date)}`;
+  if (sameDay(date, now)) return "Today";
+  if (sameDay(date, dayOffset(-1))) return "Yesterday";
+  if (sameDay(date, dayOffset(1))) return "Tomorrow";
+  return shortDate(date, now);
 }
+
+/** A day word (or date) plus the clock time: "Today 5:46 PM", "Tomorrow 9:00 AM". */
+export const formatDivider = (at: number, now: Date = new Date()): string =>
+  `${formatDay(at, now)} ${clock(new Date(at))}`;
 
 const MINUTE = 60_000;
 

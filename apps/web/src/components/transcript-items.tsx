@@ -85,7 +85,7 @@ const Output = memo(function Output({
           >
             <LazyMarkdown text={text} />
             {streaming && (
-              <span aria-hidden className="text-accent-foreground">
+              <span aria-hidden className="text-live">
                 ▍
               </span>
             )}

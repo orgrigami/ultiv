@@ -61,6 +61,8 @@ export interface MailboxSendInput {
 export interface TranscriptLine {
   readonly at: number;
   readonly speaker: string;
+  /** The sender's profile id (or `external:<name>`): names can collide. */
+  readonly speakerId: string;
   readonly text: string;
   readonly system: boolean;
   readonly id: string;
@@ -217,6 +219,7 @@ const transcriptOf =
       inRoom.map(async (candidate) => ({
         at: candidate.envelope.at,
         speaker: await nameOf(candidate.envelope.from),
+        speakerId: candidate.envelope.from,
         text: candidate.envelope.body,
         system: false,
         id: candidate.envelope.id,
