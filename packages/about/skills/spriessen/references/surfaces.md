@@ -1,47 +1,61 @@
-# The surfaces
+# The places in the app
 
 When you tell your owner where something lives, name it the way the app
-names it.
+names it. Five places sit in the navigation on every screen size: Chat,
+Past chats, Needs you, Crew and Settings. The rest open from them.
 
-## Surfaces
+## The five
 
-- **Chat** (main screen): talking with a bot; yours is one of the switchable
-  profiles. Queued messages, steering and redirects happen here. Bot-to-bot
-  mail shows as a compact pill; your owner opens it to read the whole
-  exchange, so keep requests complete in the message itself.
-- **Bots**: creating and editing entities: personas, models, tool
-  allowlists, approval policies, per-bot settings. Memory panels open from
-  here and from every chat.
-- **Vault**: secrets your owner entered, and the bindings that say where a
-  credential may be spent on the web. You never see secret bytes; you spend
-  them through tools.
-- **Connectors**: MCP servers your owner attached. Their tools arrive in your
-  toolset (subject to your allowlist) and are marked untrusted.
-- **Routines**: cron jobs, inbound webhooks, and calendar and feed sensors.
-  What you set with schedule tools shows up here, along with fire receipts
-  and dead letters.
-- **History**: every session, rereadable. Your words and tool receipts are
-  both in there. Write as if it will be reread, because it will.
-- **Bot talks (rooms)**: bot-to-bot conversations, one per pair and topic.
-  Only bots write in them. Your owner can read any room as it happens, but
-  cannot post in one or cancel a message; to change course, they tell you
-  in your own chat. A mail pill in a chat opens the room directly.
-- **Skills**: the procedure library, grouped per bot: built-in skills,
-  self-written skills, and evolution proposals awaiting your owner's accept.
-- **Approvals**: the inbox of cards waiting for a yes, including ones your
-  siblings parked.
+- **Chat**: talking with one bot at a time; the pill at the top switches
+  bots. Queued messages, steering and Redirect happen here, and a run that
+  failed leaves queued messages "Not sent" until your owner taps Retry.
+  Each message you trade with a sibling shows as a compact pill; your owner
+  opens it to read the whole talk, so keep requests complete in the message
+  itself. Your memory opens in place from any chat.
+- **Past chats**: every session, rereadable and searchable. Your words and
+  tool receipts are both in there. Write as if it will be reread, because
+  it will.
+- **Needs you**: everything waiting on your owner, with a count in the nav:
+  approval cards, your questions, failed tasks, routine escalations, memory
+  tidy proposals, and work parked after too many restarts (with Retry).
+- **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
+  (its Persona and Instructions files, with history), Memory, Routines,
+  Access (approval mode, always-allowed tools, tool list, host access),
+  Files (its own workspace) and Activity (its audit trail). Bot talks and
+  all routines open from here too.
+- **Settings**: this server and this device: which keys and models are
+  set up, phone notifications, theme, sign-in, and the way into Tools.
+
+## Opened from those
+
+- **Tools**: one page with three tabs. **Connectors**: MCP servers your
+  owner attached; their tools arrive in your toolset (subject to your tool
+  list) and their output is untrusted data. **Skills**: the procedure
+  library per bot: built-in skills like this one, skills you wrote, and
+  proposals awaiting your owner's accept. **Vault**: secrets your owner
+  entered, and the bindings that say where a credential may be spent on
+  the web. You never see secret bytes; you spend them through tools.
+- **Routines**: cron jobs, inbound webhooks, and calendar, feed and page
+  watches. What you set with schedule tools shows up here, along with fire
+  receipts and dead letters.
+- **Bot talks**: bot-to-bot conversations, one per pair of bots and topic.
+  Only bots write in them, and the view updates live. Your owner reads any
+  talk but cannot post in one or cancel a message; to change course, they
+  tell you in your own chat. A mail pill in a chat opens the talk beside it.
 
 ## Where to point your owner
 
-| Your owner asks...                        | Send them to                        |
-| ----------------------------------------- | ----------------------------------- |
-| "What did the bot do yesterday?"          | History (and the audit trail)       |
-| "Did that job actually run?"              | Routines, fire receipts             |
-| "Why is it waiting?"                      | Approvals                           |
-| "What does it remember about me?"         | Memory panel, from Bots or any chat |
-| "How do I give it a password or API key?" | Vault                               |
-| "What are the bots saying to each other?" | Bot talks (rooms)                   |
-| "Which tools does it have?"               | Bots (allowlist), Connectors        |
+| Your owner asks...                        | Send them to                               |
+| ----------------------------------------- | ------------------------------------------ |
+| "What did the bot do yesterday?"          | Past chats, or the bot's Activity tab      |
+| "Did that job actually run?"              | Routines, fire receipts                    |
+| "Why is it waiting?"                      | Needs you                                  |
+| "What does it remember about me?"         | The memory panel in any chat, or Crew      |
+| "How do I give it a password or API key?" | Tools, Vault tab                           |
+| "What are the bots saying to each other?" | Bot talks (from Crew, or a mail pill)      |
+| "Which tools does it have?"               | Crew, the bot's Access tab; Tools          |
+| "How do I change how it behaves?"         | Crew, the bot's Instructions tab           |
+| "Why didn't it reply?"                    | The note in the chat; Settings for the key |
 
 ## The moving parts
 
@@ -50,10 +64,16 @@ names it.
   sibling inside a message. Markdown files preview rendered for your owner:
   headings, tables and lists, with the source one toggle away. A mermaid
   fence becomes a diagram, so briefs can include one.
-- **Task**: background work in its own session.
+- **Checklist**: your visible plan for multi-step work, a card in the chat
+  that ticks as you go.
+- **Diagram**: a `graph` call (mermaid text) drawn as a card your owner can
+  enlarge.
+- **Task**: background work in its own session, shown in the task pill.
 - **Approval**: a parked gated call carrying your one-sentence reason to your
   owner's phone.
-- **Push notification**: how your owner hears about a finished task or a
-  waiting approval while away. It carries the event kind and bot name only,
-  never your message text.
+- **Question**: an `ask_user_question` card with options as buttons; the
+  answer comes back as the tool's result.
+- **Push notification**: how your owner hears about a finished task, a
+  waiting approval or a routine's reply while away. It carries the event
+  kind and bot name only, never your message text.
 - **Audit trail**: the append-only record of what every profile did.
