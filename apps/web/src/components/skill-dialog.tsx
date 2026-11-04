@@ -1,0 +1,500 @@
+/**
+ * One skill opened in the Skills tab: its loaded body, reference files,
+ * versions with revert, pending proposals and the actions row, in a dialog.
+ */
+
+import {
+  FileTextIcon,
+  HistoryIcon,
+  PencilIcon,
+  PowerIcon,
+  PowerOffIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import type { SkillDetail, SkillMeta, SkillProposal } from "@spriessen/contracts";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { RowButton } from "@/components/ui/row-button";
+import { LazyMarkdown } from "@/components/lazy-markdown";
+import { SkillEditor } from "@/components/skills-edit";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ErrorState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
+import { type BotFileVersion, versionLine } from "@/lib/bot-files";
+import { formatFull } from "@/lib/format";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+
+import { ORIGIN_LABEL } from "./skill-origin.ts";
+
+/** The SKILL.md body without its frontmatter; the header shows that instead. */
+export const bodyWithoutFrontmatter = (body: string): string =>
+  body.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+
+/** The one-line identity under the dialog title: origin, version, last change. */
+export function describeMeta(meta: SkillMeta): string {
+  const updated =
+    meta.updatedAt === 0 ? "ships with the app" : `updated ${formatFull(meta.updatedAt)}`;
+  return `${ORIGIN_LABEL[meta.origin]} · v${meta.version} · ${updated}`;
+}
+
+/** One reference file of a skill, opened inline below its row. */
+export function ReferenceFile({
+  profile,
+  name,
+  path,
+  open,
+  onToggle,
+}: {
+  profile: string;
+  name: string;
+  path: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || content !== null) return;
+    let gone = false;
+    api
+      .skillFile(profile, name, path)
+      .then((file) => {
+        if (!gone) setContent(file.content);
+      })
+      .catch((cause: unknown) => {
+        if (!gone) setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      gone = true;
+    };
+  }, [open, content, profile, name, path]);
+  return (
+    <li>
+      <RowButton
+        aria-expanded={open}
+        onClick={onToggle}
+        className="hover:bg-muted/60 flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-xs"
+      >
+        <FileTextIcon className="text-muted-foreground size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate font-mono">{path}</span>
+      </RowButton>
+      {open && (
+        <div className="mt-1 mb-2 ml-6">
+          {error !== null ? (
+            <ErrorState message={`Couldn't load the file: ${error}`} />
+          ) : content === null ? (
+            <SkeletonRows label="Loading the file" rows={3} rowClassName="h-4 rounded-full" />
+          ) : (
+            <pre className="bg-card text-foreground max-h-64 overflow-auto rounded-lg border p-2.5 font-mono text-xs leading-relaxed">
+              {content}
+            </pre>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** A skill's reference files, each inspectable in place. */
+export function ReferenceFiles({
+  profile,
+  name,
+  files,
+}: {
+  profile: string;
+  name: string;
+  files: readonly string[];
+}) {
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  return (
+    <div className="mt-2">
+      <p className="section-label mb-1">Reference files</p>
+      <ul className="flex flex-col">
+        {files.map((path) => (
+          <ReferenceFile
+            key={path}
+            profile={profile}
+            name={name}
+            path={path}
+            open={openPath === path}
+            onToggle={() => setOpenPath(openPath === path ? null : path)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** A skill's history, newest first, with Restore on every older version. */
+export function SkillVersions({
+  profile,
+  name,
+  current,
+  busy,
+  onRestore,
+}: {
+  profile: string;
+  name: string;
+  current: number;
+  busy: boolean;
+  onRestore: (n: number) => void;
+}) {
+  const [versions, setVersions] = useState<BotFileVersion[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    let gone = false;
+    api
+      .skillVersions(profile, name)
+      .then((list) => {
+        if (!gone) setVersions(list);
+      })
+      .catch((cause: unknown) => {
+        if (!gone) setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    return () => {
+      gone = true;
+    };
+  }, [open, profile, name, current]);
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <div>
+        <Button size="sm" variant="outline" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <HistoryIcon aria-hidden />
+          {open ? "Hide versions" : "Versions"}
+        </Button>
+      </div>
+      {open &&
+        (error !== null ? (
+          <ErrorState message={`Couldn't load the versions: ${error}`} />
+        ) : versions === null ? (
+          <SkeletonRows label="Loading the versions" rows={2} />
+        ) : (
+          <ol className="divide-border divide-y rounded-xl border" aria-label={`${name} versions`}>
+            {versions.map((version) => (
+              <li key={version.n} className="flex flex-col gap-1 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground min-w-0 text-xs break-words">
+                    {versionLine(version)}
+                  </span>
+                  {version.n === current ? (
+                    <span className="shrink-0 text-xs">Current</span>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => onRestore(version.n)}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </div>
+                <p className="line-clamp-3 text-sm whitespace-pre-wrap">
+                  {bodyWithoutFrontmatter(version.text)}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ))}
+    </div>
+  );
+}
+
+/** One parked change with its accept/reject pair. */
+export function ProposalCard({
+  proposal,
+  busy,
+  onDecide,
+}: {
+  proposal: SkillProposal;
+  busy: boolean;
+  onDecide: (verdict: "accept" | "reject") => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+      <p className="min-w-0 break-words">{proposal.note}</p>
+      {proposal.kind === "absorb" ? (
+        <p className="text-muted-foreground text-xs">
+          Keeps “{proposal.skill}” and removes{" "}
+          {(proposal.absorbed ?? []).map((source) => source.name).join(", ")} (merged body drafted
+          against v{proposal.baseVersion})
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          Proposes a new version (base v{proposal.baseVersion})
+        </p>
+      )}
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => onDecide("accept")}>
+          Accept
+        </Button>
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => onDecide("reject")}>
+          Reject
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** The footer actions: edit, enable, undo (after a second version), remove. */
+export function ActionRow({
+  meta,
+  busy,
+  onEdit,
+  onToggle,
+  onRevert,
+  onDelete,
+}: {
+  meta: SkillMeta;
+  busy: boolean;
+  onEdit: () => void;
+  onToggle: () => void;
+  onRevert: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between gap-2 border-t pt-3">
+      <div className="flex items-center gap-1">
+        {meta.origin !== "builtin" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={busy}
+            aria-label="Edit skill text"
+            title="Edit skill text"
+            onClick={onEdit}
+          >
+            <PencilIcon />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={busy}
+          aria-label={meta.enabled ? "Disable skill" : "Enable skill"}
+          title={meta.enabled ? "Disable skill" : "Enable skill"}
+          onClick={onToggle}
+        >
+          {meta.enabled ? <PowerIcon /> : <PowerOffIcon />}
+        </Button>
+        {meta.origin !== "builtin" && meta.version > 1 && (
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={busy}
+            aria-label="Undo the last change"
+            title="Undo the last change"
+            onClick={onRevert}
+          >
+            <RotateCcwIcon />
+          </Button>
+        )}
+        {meta.origin !== "builtin" && (
+          <ConfirmDialog
+            title={`Remove ${meta.name}?`}
+            warning="The bot loses this procedure right away. This cannot be undone."
+            confirmLabel="Remove skill"
+            onConfirm={onDelete}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={busy}
+              aria-label="Remove skill"
+              title="Remove skill"
+            >
+              <Trash2Icon />
+            </Button>
+          </ConfirmDialog>
+        )}
+      </div>
+      <Badge variant={meta.enabled ? "secondary" : "outline"}>
+        {meta.enabled ? "enabled" : "disabled"}
+      </Badge>
+    </div>
+  );
+}
+
+/** The loaded skill: identity line, text, open proposals, action row. */
+export function LoadedSkill({
+  profile,
+  detail,
+  busy,
+  error,
+  onEdit,
+  onToggle,
+  onRevert,
+  onDelete,
+  onDecide,
+  onRestore,
+}: {
+  profile: string;
+  detail: SkillDetail;
+  busy: boolean;
+  error: string | null;
+  onEdit: () => void;
+  onToggle: () => void;
+  onRevert: () => void;
+  onDelete: () => Promise<void>;
+  onDecide: (proposal: SkillProposal, verdict: "accept" | "reject") => void;
+  onRestore: (n: number) => void;
+}) {
+  return (
+    <>
+      <p className="text-muted-foreground mt-1 text-sm">{describeMeta(detail.meta)}</p>
+      {detail.meta.description !== "" && (
+        <p className="text-muted-foreground mt-1 text-sm">{detail.meta.description}</p>
+      )}
+      {detail.meta.files.length > 0 && (
+        <ReferenceFiles profile={profile} name={detail.meta.name} files={detail.meta.files} />
+      )}
+      <div className="prose prose-sm dark:prose-invert mt-3 max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-1.5 [&_hr]:my-3 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_h1]:mt-3 [&_h2]:mt-3 [&_h3]:mt-2 [&_pre]:my-2 [&_code]:[overflow-wrap:anywhere]">
+        <LazyMarkdown text={bodyWithoutFrontmatter(detail.body)} />
+      </div>
+      {detail.proposals.length > 0 && (
+        <div className="mt-5 flex flex-col gap-2">
+          <SectionHeader title={`Proposals (${detail.proposals.length})`} />
+          {detail.proposals.map((proposal) => (
+            <ProposalCard
+              key={proposal.id}
+              proposal={proposal}
+              busy={busy}
+              onDecide={(verdict) => onDecide(proposal, verdict)}
+            />
+          ))}
+        </div>
+      )}
+      {detail.meta.origin !== "builtin" && (
+        <SkillVersions
+          profile={profile}
+          name={detail.meta.name}
+          current={detail.meta.version}
+          busy={busy}
+          onRestore={onRestore}
+        />
+      )}
+      {error !== null && (
+        <div className="mt-3">
+          <ErrorState message={error} />
+        </div>
+      )}
+      <ActionRow
+        meta={detail.meta}
+        busy={busy}
+        onEdit={onEdit}
+        onToggle={onToggle}
+        onRevert={onRevert}
+        onDelete={onDelete}
+      />
+    </>
+  );
+}
+
+/** The detail dialog for one skill: its text, its proposals, its actions. */
+export function SkillDialog({
+  target,
+  onClose,
+  reloadOverview,
+}: {
+  target: { profile: string; name: string };
+  onClose: () => void;
+  reloadOverview: () => Promise<void>;
+}) {
+  const [detail, setDetail] = useState<SkillDetail | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setDetail(await api.skill(target.profile, target.name));
+      setLoadError(null);
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, [target.profile, target.name]);
+  useEffect(() => void load(), [load]);
+  useLiveRefresh(["skills"], load);
+
+  const act = (action: () => Promise<unknown>) => async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await load();
+      await reloadOverview();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decide = (proposal: SkillProposal, verdict: "accept" | "reject"): void => {
+    void act(() => api.skillProposal(target.profile, proposal.id, verdict))();
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogTitle>{target.name}</DialogTitle>
+        {loadError !== null ? (
+          <div className="mt-3">
+            <ErrorState
+              message={`Couldn't load the skill: ${loadError}`}
+              onRetry={() => void load()}
+            />
+          </div>
+        ) : detail === null ? (
+          <SkeletonRows label="Loading the skill" className="mt-3" rows={2} />
+        ) : (
+          <LoadedSkill
+            profile={target.profile}
+            detail={detail}
+            busy={busy}
+            error={error}
+            onEdit={() => setEditing(true)}
+            onToggle={() =>
+              void act(() =>
+                api.skillSave(target.profile, target.name, { enabled: !detail.meta.enabled }),
+              )()
+            }
+            onRevert={() => void act(() => api.skillRevert(target.profile, target.name))()}
+            onDelete={async () => {
+              await api.skillRemove(target.profile, target.name);
+              await reloadOverview();
+              onClose();
+            }}
+            onDecide={decide}
+            onRestore={(n) => void act(() => api.skillRestore(target.profile, target.name, n))()}
+          />
+        )}
+        {editing && detail !== null && (
+          <SkillEditor
+            profile={target.profile}
+            name={target.name}
+            body={detail.body}
+            onSaved={async () => {
+              await load();
+              await reloadOverview();
+            }}
+            onClose={() => setEditing(false)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
