@@ -33,6 +33,7 @@ import type { MailboxService } from "./mailbox/mailbox.ts";
 import { messageTools } from "./mailbox/tools.ts";
 import { memoryService, type MemoryService } from "./memory/memory.ts";
 import { memoryTools } from "./memory/tools.ts";
+import { prefetchExtension } from "./memory/prefetch-section.ts";
 import type { SearchDb } from "./search/db.ts";
 import { factSearch } from "./search/facts.ts";
 import { messageSearch } from "./search/messages.ts";
@@ -94,6 +95,8 @@ export const installFaculties = (
   piRegistry.install(codemodeExtension());
   piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.departmentInstructions));
   piRegistry.install(memoryCoreExtension(memory, profiles));
+  // Recall before each turn: the few memories the latest input is about.
+  piRegistry.install(prefetchExtension({ memory, profiles, converse: f.converse }));
   if (f.skills !== undefined) {
     piRegistry.install(
       skillsExtension({

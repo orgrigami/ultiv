@@ -14,6 +14,7 @@ import type { GenerateService } from "../generate/generate.ts";
 import type { FactKind } from "@spriessen/contracts";
 import { flags } from "./model.ts";
 import { normalize } from "./text.ts";
+import { isStopWord } from "./stopwords.ts";
 import { normalizeTriple, PREDICATE_GUIDE } from "./predicates.ts";
 
 export interface ExtractedFact {
@@ -31,6 +32,48 @@ export interface ExtractDeps {
   readonly generate?: GenerateService;
 }
 
+/** Days and months (EN/ID): capitalized by grammar, never entity names. */
+const CALENDAR_WORDS: ReadonlySet<string> = new Set([
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "senin",
+  "selasa",
+  "rabu",
+  "kamis",
+  "jumat",
+  "sabtu",
+  "minggu",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "januari",
+  "februari",
+  "maret",
+  "mei",
+  "juni",
+  "juli",
+  "agustus",
+  "oktober",
+  "desember",
+  "today",
+  "tomorrow",
+  "yesterday",
+]);
+
 const KINDS: readonly FactKind[] = ["fact", "preference", "instruction", "event", "note"];
 
 const wibDate = (): string => {
@@ -42,11 +85,16 @@ const wibDate = (): string => {
 const fallback = (text: string, known: readonly string[]): ExtractedFact => {
   const normalized = normalize(text);
   const matched = known.filter((name) => normalized.includes(normalize(name)));
-  // Capitalized tokens (original casing) are entity candidates.
+  // Capitalized tokens (original casing) are entity candidates — but not
+  // function words that open a sentence ("The") nor days and months
+  // ("Monday", "Maret"): those are capitalized by grammar, not names.
   const capitalized = [
     ...new Set(
       (text.match(/\b[A-Z][a-z]{2,}\b/g) ?? []).filter(
-        (token) => !matched.some((name) => name.startsWith(token)),
+        (token) =>
+          !matched.some((name) => name.startsWith(token)) &&
+          !isStopWord(token.toLowerCase()) &&
+          !CALENDAR_WORDS.has(token.toLowerCase()),
       ),
     ),
   ].slice(0, 4);
