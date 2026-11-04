@@ -4,53 +4,12 @@
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { Session } from "@spriessen/contracts";
 import { buildStack } from "./main.ts";
-import { smokeMcp } from "./smoke-mcp.ts";
+import { smokeLate } from "./smoke-late.ts";
+import { prepareSmokeEnv, smokeSignIn } from "./smoke-env.ts";
 
-// The vault seals under this key for the smoke run only; the vault and the
-// artifact workspace point at throwaway dirs so the run is hermetic.
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rmSync } from "node:fs";
 
-process.env.VAULT_KEY = "smoke-vault-key";
-const scratchVault = mkdtempSync(join(tmpdir(), "spriessen-smoke-vault-"));
-const scratchArtifacts = mkdtempSync(join(tmpdir(), "spriessen-smoke-artifacts-"));
-process.env.ARTIFACTS_DIR = scratchArtifacts;
-// Skill stores stay hermetic too.
-process.env.SKILLS_DIR = join(scratchArtifacts, "skills");
-process.env.BOT_FILES_DIR = join(scratchArtifacts, "bot-files");
-// Keep the audit trail hermetic: never append to a real var/audit.jsonl.
-process.env.AUDIT_LOG = join(scratchArtifacts, "audit.jsonl");
-// Connector configs land in the scratch dir too.
-process.env.MCP_DIR = join(scratchArtifacts, "mcp");
-// Sign-in state and per-owner stores stay hermetic: the boot migration must
-// find nothing of the machine's real data.
-process.env.AUTH_DIR = join(scratchArtifacts, "auth");
-process.env.VAULT_DIR = scratchVault;
-process.env.PUSH_DIR = join(scratchArtifacts, "push");
-// The model catalog never touches the network here: no models.dev fetch, a
-// scratch cache, and one keyless local provider from an overlay. The default
-// model stays unregistered, so onboarding turns fail fast as they always have.
-process.env.MODELS_DEV_URL = "off";
-process.env.MODELS_DEV_CACHE = join(scratchArtifacts, "models-dev.json");
-process.env.MODELS_OVERLAY = join(scratchArtifacts, "models.local.json");
-process.env.KENARI_MODELS_CACHE = join(scratchArtifacts, "kenari-models.json");
-process.env.SPRIESSEN_PROVIDERS = "smoke-local";
-process.env.SPRIESSEN_MODEL = "kenari/deepseek-v4-1-flash";
-writeFileSync(
-  process.env.MODELS_OVERLAY,
-  JSON.stringify({
-    "smoke-local": {
-      name: "Smoke Local",
-      npm: "@ai-sdk/openai-compatible",
-      api: "http://127.0.0.1:9/v1",
-      env: [],
-      models: {
-        tiny: { id: "tiny", name: "Tiny", tool_call: true, limit: { context: 8192, output: 1024 } },
-      },
-    },
-  }),
-);
+const { scratchVault, scratchArtifacts } = prepareSmokeEnv();
 
 const stack = await buildStack({ storage: new MemoryStorage(), vault: { dir: scratchVault } });
 await new Promise<void>((resolve, reject) => {
@@ -96,29 +55,7 @@ const call = async (
 };
 
 // REST surface: owner scoping, artifacts, webhook auth, cron validation.
-// The stack listens on loopback, so the one-time bootstrap can set the
-// passcode; every later call rides the session cookie.
-const signInSmoke = async (): Promise<Response> =>
-  fetch(`${base}/api/auth/sign-in`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ passcode: "smoke-passcode-9" }),
-  });
-
-const set = await fetch(`${base}/api/auth/passcode`, {
-  method: "POST",
-  headers: { "content-type": "application/json" },
-  body: JSON.stringify({ passcode: "smoke-passcode-9" }),
-});
-// A passcode survives only from an earlier run against this same scratch
-// dir (the scratch is fresh each run); sign in instead, then.
-const signedIn = set.status === 200 ? set : set.status === 409 ? await signInSmoke() : null;
-if (signedIn === null || signedIn.status !== 200) {
-  throw new Error(`smoke sign-in failed: set=${set.status}`);
-}
-const smokeCookie = signedIn.headers.get("set-cookie")?.split(";")[0];
-if (smokeCookie === undefined) throw new Error("no session cookie from sign-in");
-cookie = smokeCookie;
+cookie = await smokeSignIn(base);
 const failures: string[] = [];
 const expect = (name: string, ok: boolean): void => {
   if (!ok) failures.push(name);
@@ -530,118 +467,8 @@ expect(
   afterDelete.json.every((p: { id: string }) => p.id !== rid),
 );
 
-// Vault: secrets seal; responses carry masks only.
-const login = await call(
-  "POST",
-  "/api/vault",
-  {
-    kind: "login",
-    name: "Gmail",
-    login: { url: "https://mail.google.com", username: "smoker@gmail.com", password: "hunter2" },
-  },
-  headers,
-);
-expect(
-  "vault seals and masks",
-  login.status === 200 &&
-    login.json.masked.includes("smoker@gmail.com") &&
-    !JSON.stringify(login.json).includes("hunter2"),
-);
-const vaultList = await call("GET", "/api/vault", undefined, headers);
-expect("vault list metadata only", vaultList.status === 200 && vaultList.json.length === 1);
-
-// Approvals inbox + memory.
-const approvals = await call("GET", "/api/approvals", undefined, headers);
-expect("approval inbox empty", approvals.status === 200 && approvals.json.length === 0);
-const memoryWrite = await call("POST", "/api/memory", { text: "smoker prefers brevity" }, headers);
-expect("owner memory write", memoryWrite.status === 200);
-const memoryRead = await call("GET", "/api/memory", undefined, headers);
-expect("owner memory read", memoryRead.json.length === 1);
-
-// Connectors: added, used and removed on the running stack.
-await smokeMcp(call, headers, expect);
-
-// Skills: the built-in library lists for every bot; the owner can write,
-// toggle, reread and remove one; sections pick it up on the next render.
-const skillsOverview = await call("GET", "/api/skills", undefined, headers);
-expect(
-  "skills overview lists built-ins per bot",
-  skillsOverview.status === 200 &&
-    skillsOverview.json.builtins.length === 1 &&
-    skillsOverview.json.profiles.length >= 1 &&
-    skillsOverview.json.profiles[0].skills.length === 1,
-);
-const smokeSkillBody =
-  "---\nname: smoke-skill\ndescription: A skill the smoke run wrote\n---\n\n# steps";
-const skillPut = await call(
-  "PUT",
-  `/api/skills/${bootBot.json.id}/smoke-skill`,
-  { body: smokeSkillBody },
-  headers,
-);
-expect("owner skill write", skillPut.status === 200 && skillPut.json.version === 1);
-const skillRead = await call(
-  "GET",
-  `/api/skills/${bootBot.json.id}/smoke-skill`,
-  undefined,
-  headers,
-);
-expect("owner skill reread", skillRead.status === 200 && skillRead.json.body.includes("# steps"));
-const skillToggle = await call(
-  "PUT",
-  `/api/skills/${bootBot.json.id}/smoke-skill`,
-  { enabled: false },
-  headers,
-);
-expect("owner skill disable", skillToggle.status === 200 && skillToggle.json.enabled === false);
-const skillDelete = await call(
-  "DELETE",
-  `/api/skills/${bootBot.json.id}/smoke-skill`,
-  undefined,
-  headers,
-);
-expect("owner skill delete", skillDelete.status === 200 && skillDelete.json.ok === true);
-
-// The tool catalog (allowlist editor's payload): names + one-line descriptions.
-const toolCatalog = await call("GET", "/api/tools", undefined, headers);
-expect(
-  "tool catalog lists bot_create with a description",
-  toolCatalog.status === 200 &&
-    Array.isArray(toolCatalog.json) &&
-    toolCatalog.json.some(
-      (tool: { name: string; description: string }) =>
-        tool.name === "bot_create" && tool.description.length > 0,
-    ),
-);
-
-// Workspace default model: the env default first, then a stored one over it,
-// then cleared. The catalog here is the offline overlay.
-const settingsModel = async (): Promise<any> => (await call("GET", "/api/settings/model")).json;
-expect(
-  "workspace default reads the environment",
-  (await settingsModel()).defaultModel?.source === "env" &&
-    (await settingsModel()).defaultModel?.ref === "kenari/deepseek-v4-1-flash",
-);
-const putDefault = await call("PUT", "/api/settings/model", {
-  ref: "smoke-local/tiny",
-  effort: "",
-});
-expect(
-  "workspace default PUT stores over the env",
-  putDefault.status === 200 &&
-    putDefault.json.defaultModel?.source === "db" &&
-    putDefault.json.defaultModel?.ref === "smoke-local/tiny",
-);
-const putUnknown = await call("PUT", "/api/settings/model", { ref: "nowhere/nothing" });
-expect(
-  "workspace default PUT refuses an unknown ref",
-  putUnknown.status === 409 && (await settingsModel()).defaultModel?.ref === "smoke-local/tiny",
-);
-const clearDefault = await call("PUT", "/api/settings/model", null);
-expect(
-  "workspace default PUT null clears",
-  clearDefault.status === 200 && (await settingsModel()).defaultModel?.source === "env",
-);
+// Vault, approvals, memory, connectors, skills, tools, workspace default.
+await smokeLate(call, headers, expect, bootBot.json.id as string);
 
 if (failures.length > 0) {
   console.error(`smoke FAILED: ${failures.join(", ")}`);
