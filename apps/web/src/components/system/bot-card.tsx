@@ -12,6 +12,7 @@ import { RowButton } from "@/components/ui/row-button";
 import { useApp } from "@/lib/app-state";
 import { api } from "@/lib/api";
 import { formatClock, formatFull } from "@/lib/format";
+import { notifyError } from "@/lib/notify";
 import { useOpenWork } from "@/lib/work-pane";
 import type { SystemMessage } from "@/lib/system-text";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,9 @@ function MailPill({
           topic: detail_.room.topic === "" ? null : detail_.room.topic,
         }),
       )
-      .catch(() => undefined)
+      .catch((cause: unknown) =>
+        notifyError("Couldn't open the conversation", cause, "mail-pill-open"),
+      )
       .finally(() => setBusy(false));
   };
   return (

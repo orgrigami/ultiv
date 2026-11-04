@@ -14,6 +14,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { MailboxEntry, MailboxEnvelope, MailboxList, RoomInfo } from "@spriessen/contracts";
+import { scrubSecrets } from "@spriessen/core";
 import {
   armDeadline,
   cancelEntry,
@@ -26,7 +27,8 @@ import {
 import { ROOM_EXCHANGE_CAP, exchangeUsed, lastBriefedAt, validateSend } from "./policy.ts";
 import type { MailboxOrigin } from "./policy.ts";
 import { recover, type RecoveryReport } from "./recovery.ts";
-import { isExternal, readEntries, writeEntries } from "./store.ts";
+import { normalizeTopic } from "../profiles/rooms.ts";
+import { isExternal, onEntriesChanged, readEntries, writeEntries } from "./store.ts";
 
 export {
   EXTERNAL_RATE_PER_HOUR,
@@ -57,6 +59,9 @@ export interface MailboxSendInput {
    */
   readonly originConversation?: string | null;
 }
+
+/** The speaker name for a bot that no longer exists (room view + room tool). */
+export const REMOVED_BOT = "Removed bot";
 
 export interface TranscriptLine {
   readonly at: number;
@@ -98,6 +103,8 @@ export interface MailboxService {
   readonly transcriptOf: (owner: string, room: RoomInfo) => Promise<readonly TranscriptLine[]>;
   /** The conversation a profile tunnels at in a room (their latest send origin, else main). */
   readonly endpointOf: (owner: string, room: RoomInfo, profileId: string) => Promise<string>;
+  /** Hear any committed mailbox change (send, delivery, status). Returns the unsubscribe. */
+  readonly listen: (fn: () => void) => () => void;
   /** Hear a message expire unanswered. Returns the unsubscribe. */
   readonly onExpired: (fn: (entry: MailboxEntry) => void) => () => void;
   /** Remove every entry touching a profile (purge cascade). */
@@ -167,7 +174,7 @@ const envelopeOf = (
 
 const sendOps = (e: Engine): Pick<MailboxService, "send" | "deliverExternal"> => ({
   send: async (input) => {
-    const topic = (input.topic ?? "").trim();
+    const topic = normalizeTopic(input.topic ?? "");
     const originConversation = input.originConversation ?? null;
     await validateSend(e.deps.converse, e.deps.profiles, {
       owner: input.owner,
@@ -184,7 +191,7 @@ const sendOps = (e: Engine): Pick<MailboxService, "send" | "deliverExternal"> =>
   deliverExternal: async (input) => {
     const sender = `external:${input.from.replace(/^external:/, "")}`;
     const chain = [...input.chain, sender];
-    const topic = (input.topic ?? "").trim();
+    const topic = normalizeTopic(input.topic ?? "");
     await validateSend(e.deps.converse, e.deps.profiles, {
       owner: input.owner,
       from: sender,
@@ -204,7 +211,7 @@ const transcriptOf =
     const entries = await readEntries(e.deps.converse);
     const nameOf = async (id: string): Promise<string> => {
       if (isExternal(id)) return id.replace(/^external:/, "");
-      return (await e.deps.profiles.get(owner, id))?.name ?? id;
+      return (await e.deps.profiles.get(owner, id))?.name ?? REMOVED_BOT;
     };
     const inRoom = entries
       .filter(
@@ -224,7 +231,8 @@ const transcriptOf =
         system: false,
         id: candidate.envelope.id,
         status: candidate.status,
-        error: candidate.error,
+        // Rows from before errors were owner-worded hold raw causes: scrub.
+        error: candidate.error === null ? null : scrubSecrets(candidate.error),
       })),
     );
   };
@@ -251,14 +259,20 @@ export const mailboxService = (deps: MailboxDeps): MailboxService => {
     },
     dead: (owner) =>
       service.list(owner).then((entries) => entries.filter((entry) => entry.status === "dead")),
-    purgeProfile: (_owner, profileId) =>
-      readEntries(converse).then(async (entries) => {
-        const remaining = entries.filter(
+    purgeProfile: async (_owner, profileId) => {
+      // Filter INSIDE the commit: writing back a snapshot read earlier would
+      // wipe any message admitted in between.
+      let removed = 0;
+      await writeEntries(converse, (items) => {
+        const remaining = items.filter(
           (entry) => entry.envelope.from !== profileId && entry.envelope.to !== profileId,
         );
-        await writeEntries(converse, () => remaining);
-        return entries.length - remaining.length;
-      }),
+        removed = items.length - remaining.length;
+        return remaining;
+      });
+      return removed;
+    },
+    listen: (fn) => onEntriesChanged(converse, fn),
     onExpired: (fn) => {
       e.expiredListeners.add(fn);
       return () => void e.expiredListeners.delete(fn);

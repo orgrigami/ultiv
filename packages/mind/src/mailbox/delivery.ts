@@ -13,7 +13,7 @@
  *   messages and re-arming deadlines.
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { NotFound } from "@spriessen/core";
+import { NotFound, ownerErrorText } from "@spriessen/core";
 import type { MailboxEntry, RoomInfo } from "@spriessen/contracts";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
@@ -191,7 +191,11 @@ const finishWithNack = async (
 
 const onFailure = async (e: Engine, entry: MailboxEntry, cause: unknown): Promise<void> => {
   const retries = entry.retries + 1;
-  const error = String(cause).slice(0, 300);
+  // Stored for the owner (room view, audit, the sender's NACK): one readable,
+  // scrubbed sentence — never `String(cause)`, which is a bare tag for Effect
+  // errors and can carry secret-looking values. The full cause goes to the log.
+  logged("mailbox delivery attempt failed")(cause);
+  const error = ownerErrorText(cause).slice(0, 300);
   if (retries < MAX_RETRIES) {
     const updated = await updatePending(e.deps.converse, entry.envelope.id, { retries, error });
     if (updated === undefined) return;
@@ -229,7 +233,7 @@ const prepare = async (e: Engine, entry: MailboxEntry) => {
   }
   const endpointId = entry.endpoint ?? (await endpointFor(e, owner, room, envelope.to, entries));
   const chat = await run(converse.open(endpointId));
-  if (chat === undefined) throw new Error(`tunnel endpoint ${endpointId} unmapped`);
+  if (chat === undefined) throw new Error("the recipient's conversation for this talk is missing");
   return {
     room,
     chat,

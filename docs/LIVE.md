@@ -22,6 +22,7 @@ brings the sign-in gate back (docs/SECURITY.md).
 | `tasks`, `needs-you`     | `mind.tasks.listen` (a task settled), `mind.tasks.onUpdate` (any row change), the running-task conversation watcher (`apps/server/src/live-tasks.ts`, the same in-process view the chat Session holds) |
 | `approvals`, `needs-you` | `mind.approvals.listen`                                                                                                                                                                                |
 | `connectors`             | `mind.mcp.subscribe` (connection state, tools, OAuth)                                                                                                                                                  |
+| `mailbox`                | `mind.mailbox.listen` (every committed envelope write: send, delivery, reply, NACK, expiry), coalesced to one frame per 250 ms — bot-to-bot traffic never passes REST                                  |
 | everything else          | the REST dispatcher maps each mutating route to its slices (`liveKindsFor`), so a PATCH of a bot signals `profiles`+`sessions`                                                                         |
 
 `sync` is client-side only: on (re)connect every open screen refetches once,
@@ -30,8 +31,9 @@ so a phone waking from sleep catches up without a poll.
 ## What replaced the 5 s polls
 
 `app-state.tsx` (approvals and tasks), `use-tasks.ts` (the chat's task pill),
-`use-task-activity.ts` (the task sheet) and `connectors-panel.tsx` all
-subscribe through `lib/live.ts` now. Window-focus refetches stay everywhere,
+`use-task-activity.ts` (the task sheet), `connectors-panel.tsx` and the Bot
+talks views (`lib/use-live-load.ts` under `room-timeline.tsx` and
+`rooms-panel.tsx`) all subscribe through `lib/live.ts` now. Window-focus refetches stay everywhere,
 because a sleeping tab misses frames and a locked phone misses all of them.
 Still on `setInterval`, on purpose:
 

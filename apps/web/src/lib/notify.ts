@@ -3,9 +3,10 @@
  * Pass an id for anything that can repeat (polls, refreshes) so it shows once.
  */
 import { toast } from "sonner";
+import { networkText } from "./error-words.ts";
 
 export const errorText = (cause: unknown): string =>
-  cause instanceof Error ? cause.message : String(cause);
+  cause instanceof Error ? networkText(cause.message) : String(cause);
 
 export function notifyError(title: string, cause: unknown, id?: string): void {
   toast.error(title, { description: errorText(cause), ...(id !== undefined ? { id } : {}) });

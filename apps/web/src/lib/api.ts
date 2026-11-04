@@ -27,6 +27,7 @@ import type {
 import type { NodeInfo, NodePairResponse } from "@spriessen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
 import { UNAUTHORIZED_EVENT } from "./auth.ts";
+import { statusText } from "./error-words.ts";
 
 /**
  * The registries are plain REST on the server's HTTP handler (CRUD over
@@ -47,8 +48,12 @@ function base(): string {
 export class ApiError extends Error {
   readonly status: number;
 
+  /** The request, for logs and debugging — never shown in the message. */
+  readonly request: string;
+
   constructor(status: number, method: string, path: string, detail: string | null) {
-    super(detail === null ? `${method} ${path}: ${status}` : detail);
+    super(detail ?? statusText(status));
+    this.request = `${method} ${path}: ${status}`;
     this.name = "ApiError";
     this.status = status;
   }
@@ -358,10 +363,6 @@ export const api = {
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
   roomByEnvelope: (envelopeId: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/by-envelope/${encodeURIComponent(envelopeId)}`),
-  roomSay: (id: string, to: string, text: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(id)}/say`, "POST", { to, text }),
-  mailboxCancel: (id: string): Promise<unknown> =>
-    send<unknown>(`/api/mailbox/${encodeURIComponent(id)}/cancel`, "POST", {}),
   mcpServers: (): Promise<McpServerList> => getJson<McpServerList>("/api/mcp/servers"),
   mcpAdd: (input: McpServerInput): Promise<McpServerInfo> =>
     send<McpServerInfo>("/api/mcp/servers", "POST", input),

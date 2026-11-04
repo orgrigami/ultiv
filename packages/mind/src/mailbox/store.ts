@@ -7,6 +7,7 @@ import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import type { MailboxEntry } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
+import { normalizeTopic } from "../profiles/rooms.ts";
 
 export const MailboxDoc = defineDoc<{ items: MailboxEntry[] }>({
   kind: "ultiv.mailbox",
@@ -21,12 +22,12 @@ export const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
 
 export const isExternal = (id: string): boolean => id.startsWith("external:");
 
-/** Legacy rows predate owner/origin/topic; normalize on every read. */
+/** Legacy rows predate owner/origin/topic (and the topic cap); normalize on every read. */
 const normalize = (entry: MailboxEntry): MailboxEntry => ({
   ...entry,
   owner: entry.owner ?? "",
   origin: entry.origin ?? "tool",
-  envelope: { ...entry.envelope, topic: entry.envelope.topic ?? "" },
+  envelope: { ...entry.envelope, topic: normalizeTopic(entry.envelope.topic ?? "") },
 });
 
 export const readEntries = (converse: ConverseService): Promise<MailboxEntry[]> =>
@@ -38,6 +39,31 @@ export const findEntry = (
 ): Promise<MailboxEntry | undefined> =>
   readEntries(converse).then((entries) => entries.find((entry) => entry.envelope.id === id));
 
+/**
+ * Change listeners per store (keyed by the converse service, so two minds in
+ * one process never hear each other). Every write below signals AFTER its
+ * commit; a listener only learns "something changed" and re-reads.
+ */
+const listeners = new WeakMap<ConverseService, Set<() => void>>();
+
+/** Hear every committed mailbox change. Returns the unsubscribe. */
+export const onEntriesChanged = (converse: ConverseService, fn: () => void): (() => void) => {
+  const set = listeners.get(converse) ?? new Set<() => void>();
+  listeners.set(converse, set);
+  set.add(fn);
+  return () => void set.delete(fn);
+};
+
+const changed = (converse: ConverseService): void => {
+  for (const fn of listeners.get(converse) ?? []) {
+    try {
+      fn();
+    } catch (cause) {
+      console.error("mailbox change listener failed:", cause);
+    }
+  }
+};
+
 export const writeEntries = (
   converse: ConverseService,
   change: (items: MailboxEntry[]) => MailboxEntry[],
@@ -47,7 +73,7 @@ export const writeEntries = (
       const draft = await tx.doc(MailboxDoc);
       draft.items = change(draft.items);
     }),
-  );
+  ).then(() => changed(converse));
 
 export type EntryPatch = Partial<
   Pick<
@@ -98,7 +124,10 @@ export const updatePending = (
         ? undefined
         : normalize(JSON.parse(JSON.stringify(patched)) as MailboxEntry);
     }),
-  );
+  ).then((patched) => {
+    if (patched !== undefined) changed(converse);
+    return patched;
+  });
 
 /** A counting lane: N holders at once, everyone else waits in FIFO order. */
 export class Lane {

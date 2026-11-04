@@ -23,7 +23,10 @@ export const RoomsDoc = defineDoc<{ items: RoomInfo[] }>({
 const sameSet = (a: readonly string[], b: readonly string[]): boolean =>
   a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
 
-const normalizeTopic = (topic: string): string => topic.trim().slice(0, 200);
+/** A room's topic key: trimmed, capped. Envelopes use the SAME key (the
+ *  mailbox normalizes on send and on read), or a long topic would orphan its
+ *  room's transcript. */
+export const normalizeTopic = (topic: string): string => topic.trim().slice(0, 200);
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -61,24 +64,32 @@ export const roomsService = (deps: { readonly converse: ConverseService }): Room
   return {
     ensure: async (owner, participants, topic) => {
       const normalized = normalizeTopic(topic);
-      const existing = await readRooms(converse);
-      const found = existing.find(
-        (room) =>
-          room.owner === owner &&
-          room.topic === normalized &&
-          sameSet(room.participants, participants),
+      const matches = (room: RoomInfo): boolean =>
+        room.owner === owner &&
+        room.topic === normalized &&
+        sameSet(room.participants, participants);
+      const existing = (await readRooms(converse)).find(matches);
+      if (existing !== undefined) return existing;
+      // Find-or-insert in ONE commit: two deliveries racing for a new pair
+      // would otherwise each create the room. A plain copy leaves the
+      // transaction (draft values die with it).
+      return run(
+        converse.docs.commit(async (tx) => {
+          const draft = await tx.doc(RoomsDoc);
+          const found = draft.items.find(matches);
+          if (found !== undefined) return JSON.parse(JSON.stringify(found)) as RoomInfo;
+          const room: RoomInfo = {
+            id: randomUUID(),
+            owner,
+            topic: normalized,
+            participants: [...participants],
+            createdAt: Date.now(),
+            lastMessageAt: Date.now(),
+          };
+          draft.items = [...draft.items, room];
+          return room;
+        }),
       );
-      if (found !== undefined) return found;
-      const room: RoomInfo = {
-        id: randomUUID(),
-        owner,
-        topic: normalized,
-        participants: [...participants],
-        createdAt: Date.now(),
-        lastMessageAt: Date.now(),
-      };
-      await writeRooms(converse, (items) => [...items, room]);
-      return room;
     },
     get: (owner, id) =>
       readRooms(converse).then((rooms) =>
@@ -99,13 +110,18 @@ export const roomsService = (deps: { readonly converse: ConverseService }): Room
             : room,
         ),
       ),
-    purgeProfile: (owner, profileId) =>
-      readRooms(converse).then(async (rooms) => {
-        const remaining = rooms.filter(
-          (room) => room.owner === owner && !room.participants.includes(profileId),
+    purgeProfile: async (owner, profileId) => {
+      // Only THIS owner's rooms with the profile go; every other room —
+      // other owners' included — stays. Filtered inside the commit.
+      let removed = 0;
+      await writeRooms(converse, (items) => {
+        const remaining = items.filter(
+          (room) => room.owner !== owner || !room.participants.includes(profileId),
         );
-        if (remaining.length !== rooms.length) await writeRooms(converse, () => remaining);
-        return rooms.length - remaining.length;
-      }),
+        removed = items.length - remaining.length;
+        return remaining;
+      });
+      return removed;
+    },
   };
 };

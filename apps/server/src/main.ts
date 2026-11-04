@@ -35,7 +35,7 @@ import { purgeBot } from "./rest/bot-purge.ts";
 import { startScheduler, type CronScheduler } from "./cron.ts";
 import { principalOfAccount, type Principal } from "./identity.ts";
 import { authorize } from "./auth/guard.ts";
-import { LIVE_PATH, liveConnections, liveHub } from "./live.ts";
+import { coalesce, LIVE_PATH, liveConnections, liveHub } from "./live.ts";
 import { watchRunningTasks } from "./live-tasks.ts";
 import { AuthStore } from "./auth/store.ts";
 import { socketSessions } from "./auth/socket-sessions.ts";
@@ -165,6 +165,9 @@ export async function buildStack(options?: {
       liveHub.emit("needs-you");
     }),
     mind.mcp?.subscribe(() => liveHub.emit("connectors")),
+    // Bot-to-bot traffic never passes REST, so the mind signals it: one
+    // coalesced "mailbox" frame per burst of envelope writes.
+    mind.mailbox.listen(coalesce(() => liveHub.emit("mailbox"), 250)),
     watchRunningTasks(mind, () => liveHub.emit("tasks")).stop,
   ];
   // Web Push to the owner's devices (inert until VAPID keys are in .env).

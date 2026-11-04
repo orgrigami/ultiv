@@ -10,7 +10,7 @@ import { Type } from "typebox";
 import { definePlugin, defineTool, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
 import type { MailboxService } from "./mailbox.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
-import type { RoomsService } from "../profiles/rooms.ts";
+import { normalizeTopic, type RoomsService } from "../profiles/rooms.ts";
 
 const MessageParams = Type.Object({
   to: Type.String({
@@ -158,14 +158,18 @@ const roomTool = (mailbox: MailboxService, profiles: ProfilesService, rooms: Roo
       }
       return (async () => {
         const { owner, profileId } = scope;
-        let room = args.room !== undefined ? await rooms.get(owner, args.room) : undefined;
+        // Only rooms this bot sits in: another pair's room reads as missing.
+        const found = args.room !== undefined ? await rooms.get(owner, args.room) : undefined;
+        let room = found?.participants.includes(profileId) === true ? found : undefined;
         if (room === undefined && args.peer !== undefined) {
           const candidates = (await rooms.list(owner, profileId)).filter((candidate) =>
             candidate.participants.includes(args.peer as string),
           );
           room =
             args.topic !== undefined
-              ? candidates.find((candidate) => candidate.topic === args.topic)
+              ? candidates.find(
+                  (candidate) => candidate.topic === normalizeTopic(String(args.topic)),
+                )
               : candidates[0];
         }
         if (room === undefined) {

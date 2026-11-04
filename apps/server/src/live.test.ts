@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import WebSocket from "ws";
 import { buildStack } from "./main.ts";
+import { coalesce } from "./live.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-live-"));
 process.env["AUTH_DIR"] = join(scratch, "auth");
@@ -102,6 +103,46 @@ describe("the live socket", () => {
     // A read signals nothing.
     await fetch(`${base}/api/profiles`, { headers: { cookie } });
     expect(await nextFrame(socket, 400)).toBeNull();
+    socket.close();
+  });
+});
+
+describe("coalesce", () => {
+  it("collapses a burst into one trailing call", async () => {
+    let calls = 0;
+    const signal = coalesce(() => {
+      calls += 1;
+    }, 20);
+    signal();
+    signal();
+    signal();
+    expect(calls).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(calls).toBe(1);
+    signal();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(calls).toBe(2);
+  });
+});
+
+describe("bot-to-bot traffic", () => {
+  it("signals mailbox without any REST call", async () => {
+    const socket = await openLive(cookie);
+    const { profiles, mailbox } = stack.mind;
+    const a = await profiles.create("owner", { name: "Left", onboard: false });
+    const b = await profiles.create("owner", { name: "Right", onboard: false });
+    const kinds: string[] = [];
+    socket.on("message", (data) => kinds.push(JSON.parse(String(data)).kind as string));
+    await mailbox.send({
+      owner: "owner",
+      from: a.id,
+      to: b.id,
+      kind: "notify",
+      body: "hello",
+      origin: "tool",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(kinds).toContain("mailbox");
     socket.close();
   });
 });

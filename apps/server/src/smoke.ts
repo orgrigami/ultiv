@@ -445,22 +445,26 @@ expect(
 const scopedArtifacts = await call("GET", `/api/artifacts?profile=${rid}`, undefined, headers);
 expect("artifact list by profile", scopedArtifacts.json.length === 1);
 
-// Mailbox: human-instructed send is admitted; unknown targets refuse.
+// Mailbox: bot talks are bot-to-bot only. Seed one as a bot's tool send
+// (no model runs offline); a human cannot send into one over REST.
 const cosProfile = await call("POST", "/api/profiles", { name: "CoS" }, headers);
-const message = await call(
+const message = await stack.mind.mailbox.send({
+  owner: "owner",
+  from: cosProfile.json.id as string,
+  to: rid,
+  kind: "request",
+  body: "status?",
+  topic: "smoke check",
+  origin: "tool",
+});
+expect("mailbox send admitted", message.status === "pending");
+const humanSend = await call(
   "POST",
   `/api/profiles/${cosProfile.json.id}/messages`,
-  { to: rid, kind: "request", body: "status?", topic: "smoke check" },
+  { to: rid, kind: "request", body: "x" },
   headers,
 );
-expect("mailbox send admitted", message.status === 200 && message.json.status === "pending");
-const refused = await call(
-  "POST",
-  `/api/profiles/${cosProfile.json.id}/messages`,
-  { to: "nope", kind: "request", body: "x" },
-  headers,
-);
-expect("mailbox refuses unknown target", refused.status === 400);
+expect("no human send into a bot talk", humanSend.status === 404);
 const mailboxList = await call("GET", "/api/mailbox", undefined, headers);
 expect("mailbox list", mailboxList.status === 200 && mailboxList.json.length >= 1);
 
@@ -489,7 +493,9 @@ const said = await call(
   { to: rid, text: "supervision ping" },
   headers,
 );
-expect("room say", said.status === 200 && said.json.ok === true);
+expect("bot talks are read-only to humans", said.status === 404);
+const cancelled = await call("POST", `/api/mailbox/${message.envelope.id}/cancel`, {}, headers);
+expect("no human cancel in a bot talk", cancelled.status === 404);
 
 // Main bot: the first spawned bot claims main automatically; it is
 // switchable, one at a time, and not removable.

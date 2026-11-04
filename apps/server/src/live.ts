@@ -51,6 +51,22 @@ class LiveHub {
 export const liveHub = new LiveHub();
 export const liveConnections = (): WebSocketServer => new WebSocketServer({ noServer: true });
 
+/**
+ * Trailing-edge coalescing: calls within `ms` of the first collapse into one
+ * `fn` at the end of the window. The timer never holds the process open.
+ */
+export const coalesce = (fn: () => void, ms: number): (() => void) => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return () => {
+    if (timer !== null) return;
+    timer = setTimeout(() => {
+      timer = null;
+      fn();
+    }, ms);
+    timer.unref?.();
+  };
+};
+
 /** The one upgrade path the live socket claims (everything else is chord). */
 export const LIVE_PATH = "/push";
 

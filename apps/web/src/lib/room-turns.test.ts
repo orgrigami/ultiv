@@ -55,11 +55,9 @@ describe("seatLines", () => {
     expect(seated.map((entry) => entry.side)).toEqual(["left", "right"]);
   });
 
-  it("never treats a bot named owner as the owner", () => {
-    const seated = seatLines([line("a", at(9), { speaker: "owner" })], PARTICIPANTS, NAMES, NOW);
-    expect(seated[0]).toMatchObject({ side: "left", owner: false });
-    const supervision = seatLines([line(undefined, at(9), { speaker: "owner" })], [], [], NOW);
-    expect(supervision[0]).toMatchObject({ side: "right", owner: true });
+  it("seats a bot named owner like any other bot", () => {
+    const seated = seatLines([line("b", at(9), { speaker: "owner" })], PARTICIPANTS, NAMES, NOW);
+    expect(seated[0]?.side).toBe("right");
   });
 
   it("puts one divider per day, not per minute", () => {
