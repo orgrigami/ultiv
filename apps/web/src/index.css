@@ -384,21 +384,6 @@ svg.lucide {
   font-variant-numeric: tabular-nums;
 }
 
-/* Mermaid diagrams (pele) read the app's own tokens, so they follow the
-   theme without a re-render. */
-.mermaid-block {
-  --pele-bg: transparent;
-  --pele-fg: var(--color-foreground);
-  --pele-muted: var(--color-muted-foreground);
-  --pele-line: var(--color-foreground);
-  --pele-surface: var(--color-muted);
-  --pele-surface-alt: var(--color-accent);
-  --pele-border: var(--border);
-  --pele-accent: var(--color-primary);
-  --pele-font: var(--font-sans);
-  --pele-radius: var(--radius-lg);
-}
-
 /* Skeleton: a placeholder bar with a slow sheen; flat under reduced motion. */
 .skeleton {
   display: block;

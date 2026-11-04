@@ -17,7 +17,7 @@ const allowedHosts = parseAllowedHosts(process.env.ALLOWED_HOSTS);
 const proxy = proxyTo(process.env.API_URL ?? `http://127.0.0.1:${process.env.PORT ?? 8787}`);
 
 export default defineConfig({
-  plugins: [tanstackRouter({ target: "react" }), tailwindcss(), react()],
+  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), tailwindcss(), react()],
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),

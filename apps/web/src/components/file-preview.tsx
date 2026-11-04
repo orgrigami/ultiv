@@ -6,7 +6,6 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { render } from "pele";
 import { DownloadIcon, Maximize2Icon, Minimize2Icon, XIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -108,70 +107,18 @@ function useWorkSurface(): HTMLElement | null {
   return el;
 }
 
-/** Rendered markdown, split so a ```mermaid fence becomes a diagram. */
-type Segment = { kind: "md"; text: string } | { kind: "mermaid"; code: string };
-
-function splitMermaid(text: string): Segment[] {
-  const parts: Segment[] = [];
-  const fences = /```mermaid\n([\s\S]*?)```/g;
-  let last = 0;
-  let match: RegExpExecArray | null;
-  while ((match = fences.exec(text)) !== null) {
-    if (match.index > last) parts.push({ kind: "md", text: text.slice(last, match.index) });
-    parts.push({ kind: "mermaid", code: (match[1] ?? "").trim() });
-    last = fences.lastIndex;
-  }
-  if (last < text.length) parts.push({ kind: "md", text: text.slice(last) });
-  return parts;
-}
-
-/** One mermaid fence as a themed SVG (pele); unparseable source stays code. */
-function MermaidBlock({ code }: { code: string }) {
-  const [result, setResult] = useState<{ svg: string } | { failed: true } | null>(null);
-  useEffect(() => {
-    try {
-      setResult({ svg: render(code).svg });
-    } catch {
-      setResult({ failed: true });
-    }
-  }, [code]);
-  if (result === null) return null;
-  if ("failed" in result)
-    return (
-      <div className="not-prose my-3">
-        <pre className="text-muted-foreground overflow-x-auto scrollbar-thin rounded-lg border p-3 text-xs">
-          <code>{code}</code>
-        </pre>
-      </div>
-    );
-  return (
-    <div
-      className="mermaid-block not-prose my-3 overflow-x-auto scrollbar-thin rounded-lg border p-3 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
-      dangerouslySetInnerHTML={{ __html: result.svg }}
-    />
-  );
-}
-
 /** Markdown: rendered as prose by default, the source one toggle away. */
 function MarkdownPreview({ file }: { file: FileRef }) {
   const { text, failed } = useArtifactText(file.id);
   const [source, setSource] = useState(false);
   const [full, setFull] = useState(false);
   const workSurface = useWorkSurface();
-  const segments = useMemo(() => splitMermaid(text ?? ""), [text]);
   if (text === null) return <FetchState failed={failed} />;
 
+  // ```mermaid fences draw through the shared Diagram (lazy Pele, sanitized SVG).
   const rendered = (
     <article className="prose chat-prose md-doc dark:prose-invert max-w-none">
-      {segments.map((segment, index) =>
-        segment.kind === "md" ? (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static split of one text
-          <LazyMarkdown key={index} text={segment.text} />
-        ) : (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static split of one text
-          <MermaidBlock key={index} code={segment.code} />
-        ),
-      )}
+      <LazyMarkdown text={text} />
     </article>
   );
 
