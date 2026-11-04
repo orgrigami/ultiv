@@ -185,3 +185,21 @@ describe("changes bots make through tools", () => {
     expect(liveKindsFor("POST", "/api/org/departments")).toEqual(["profiles", "sessions"]);
   });
 });
+
+describe("refused mutations", () => {
+  it("a malformed body is a 400 and signals nothing", async () => {
+    const socket = await openLive(cookie);
+    const kinds: string[] = [];
+    socket.on("message", (data) => kinds.push(JSON.parse(String(data)).kind as string));
+    const response = await fetch(`${base}/api/profiles`, {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: "{not json",
+    });
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toContain("not valid JSON");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(kinds.filter((kind) => kind !== "heartbeat")).toEqual([]);
+    socket.close();
+  });
+});

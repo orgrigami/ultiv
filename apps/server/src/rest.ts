@@ -69,7 +69,13 @@ const readBody = async (req: IncomingMessage): Promise<Buffer> => {
 
 const readJson = async <T>(req: IncomingMessage): Promise<T> => {
   const raw = (await readBody(req)).toString("utf8");
-  return (raw === "" ? {} : JSON.parse(raw)) as T;
+  if (raw === "") return {} as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // The caller's mistake, not a server fault: 400, not a 500 SyntaxError.
+    throw new BadBody("the body is not valid JSON", 400);
+  }
 };
 
 export const createRestHandler = (deps: RestDeps) => {
@@ -120,7 +126,9 @@ export const createRestHandler = (deps: RestDeps) => {
       };
       await route(args);
       // A mutation is a signal: tell the live sockets which slices changed
-      // (the client refetches; the frames never carry data).
+      // (the client refetches; the frames never carry data). A refused one
+      // changed nothing.
+      if (res.statusCode >= 400) return;
       for (const kind of liveKindsFor(req.method ?? "GET", url.pathname)) liveHub.emit(kind);
     })().catch((error) =>
       isPathEscape(error)
