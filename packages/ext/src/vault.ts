@@ -27,7 +27,20 @@ export const vaultConfigured = (): boolean => {
 
 // The salt keeps its pre-rename spelling: changing it would make every stored
 // secret unreadable.
-const kekOf = (): Buffer => scryptSync(process.env.VAULT_KEY ?? "", "ultiv-vault/v1", 32);
+const deriveKek = (key: string): Buffer => scryptSync(key, "ultiv-vault/v1", 32);
+
+/**
+ * The KEK for the current VAULT_KEY. scrypt is deliberately slow (~20 ms,
+ * synchronous), and every seal and open needs the KEK — listing contacts
+ * opens each one — so it is derived once per key value, not per call. A
+ * changed VAULT_KEY (tests, a rotation) derives afresh.
+ */
+let kekCache: { readonly key: string; readonly kek: Buffer } | undefined;
+const kekOf = (): Buffer => {
+  const key = process.env.VAULT_KEY ?? "";
+  if (kekCache?.key !== key) kekCache = { key, kek: deriveKek(key) };
+  return kekCache.kek;
+};
 
 /** Sealed secret payload: the value under a per-item DEK, the DEK under the KEK. */
 export interface Sealed {
