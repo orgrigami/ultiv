@@ -16,6 +16,7 @@ import { applyOps, MAX_SKILL_OPS, SkillBatchRefused } from "./batch.ts";
 import { parseSkillDoc } from "./frontmatter.ts";
 import { batchAllowanceRefusal, turnContext } from "./learn.ts";
 import * as store from "./store.ts";
+import { skillVersions } from "./store-versions.ts";
 
 let root: string | undefined;
 afterEach(() => {
@@ -99,7 +100,7 @@ describe("applyOps", () => {
     expect(listed).toContain("alpha");
     expect(listed).toContain("beta");
     expect(listed).toContain("gamma");
-    const alpha = store.skillVersions(root ?? "", OWNER, PROFILE, "alpha").at(-1);
+    const alpha = skillVersions(root ?? "", OWNER, PROFILE, "alpha").at(-1);
     expect(alpha?.reason).toContain("batch");
     expect(alpha?.reason).toContain("update");
     expect(alpha?.turn).toBe("c1#call-1");
@@ -167,7 +168,7 @@ describe("applyOps", () => {
     }
     expect(message).toContain("injected write failure");
     expect(state()).toBe(before);
-    const versions = store.skillVersions(root ?? "", OWNER, PROFILE, "keeper");
+    const versions = skillVersions(root ?? "", OWNER, PROFILE, "keeper");
     expect(versions.map((version) => version.n)).toEqual([1]);
   });
 
@@ -185,7 +186,7 @@ describe("applyOps", () => {
     expect(
       store.listSkills(root ?? "", OWNER, PROFILE, builtins).some((meta) => meta.name === "doomed"),
     ).toBe(false);
-    expect(store.skillVersions(root ?? "", OWNER, PROFILE, "doomed").length).toBeGreaterThan(0);
+    expect(skillVersions(root ?? "", OWNER, PROFILE, "doomed").length).toBeGreaterThan(0);
   });
 
   it("refuses built-in targets, duplicates, state mismatches and oversized batches", async () => {

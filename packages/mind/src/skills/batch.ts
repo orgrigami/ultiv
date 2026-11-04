@@ -33,12 +33,12 @@ import {
   readSkill,
   readSkillFile,
   removeSkill,
-  skillVersions,
   skillsOf,
   versionsOf,
   writeIndex,
   writeSkill,
 } from "./store.ts";
+import { skillVersions } from "./store-versions.ts";
 
 /** Ops in one batch, and the per-op ceiling. */
 export const MAX_SKILL_OPS = 8;

@@ -15,13 +15,11 @@ import {
   readSkill,
   readSkillFile,
   removeSkill,
-  restoreSkillVersion,
-  revertSkill,
   setSkillEnabled,
   skillsDir,
-  skillVersions,
   writeSkill,
 } from "./store.ts";
+import { restoreSkillVersion, revertSkill, skillVersions } from "./store-versions.ts";
 import { addProposal, decideProposal, listProposals } from "./proposals.ts";
 import { applyOps as applySkillOps, type SkillOp, type SkillOpOutcome } from "./batch.ts";
 import { applyAbsorb, curateProfile, proposalKind, staleAbsorbReason } from "./curate.ts";
