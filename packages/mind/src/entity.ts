@@ -11,7 +11,7 @@
  * through this service; nothing reaches a provider raw.
  */
 import { Context, Effect, Layer } from "effect";
-import { type ToolRegistration } from "@earendil-works/pi-durable";
+import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { openRuntime, type Runtime } from "@spriessen/core";
 import { nodeShellFacadeOf } from "./nodes/facade.ts";
 import {
@@ -36,22 +36,19 @@ import {
   makeVaultStore,
   vaultPlugin,
   makeBindingStore,
-  type BindingStore,
-  type McpManager,
-  type VaultStore,
 } from "@spriessen/ext";
-import { Approvals, approvalsLayer, type ApprovalsService } from "./approvals.ts";
+import { Approvals, approvalsLayer } from "./approvals.ts";
 import { actService } from "./act/act.ts";
 import { tasksVisibleTo } from "./act/task-live.ts";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
 import { temporalPlugin } from "./act/temporal.ts";
-import { Audit, auditLayer, type AuditService } from "./audit/audit.ts";
+import { Audit, auditLayer } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
 import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
 import { deadlinesExtension, limitsOf, turnDeadlines } from "./converse/deadlines.ts";
-import { Tasks, MAX_RUNNING_TASKS, tasksLayer, type TasksService } from "./tasks/tasks.ts";
+import { Tasks, MAX_RUNNING_TASKS, tasksLayer } from "./tasks/tasks.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
@@ -59,102 +56,25 @@ import { botsTools, taskActivity } from "./profiles/bots-tools.ts";
 import { checklistTools } from "./checklist/tools.ts";
 import { adminTools } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
-import { roomsService, type RoomsService } from "./profiles/rooms.ts";
-import { mailboxService, type MailboxService } from "./mailbox/mailbox.ts";
-import {
-  departmentInstructionsOf,
-  departmentOfProfile,
-  orgService,
-  type OrgService,
-} from "./org/service.ts";
+import { roomsService } from "./profiles/rooms.ts";
+import { mailboxService } from "./mailbox/mailbox.ts";
+import { departmentInstructionsOf, departmentOfProfile, orgService } from "./org/service.ts";
 import {
   defaultDeleteDeptStore,
   defaultDestroyHomeVm,
   defaultReconcileDeptGroups,
   defaultRetireBotUser,
 } from "./org/home-scope.ts";
-import { type MindError, type MindOptions, type MindWiring } from "./entity-options.ts";
+import type { MindError, MindOptions, MindWiring } from "./entity-options.ts";
 import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
-import { type MemoryService } from "./memory/memory.ts";
-import { type HistoryService } from "./history/history.ts";
-import { type SchedulesService } from "./schedules/schedules.ts";
-import { type ReceiptsService } from "./routines/receipts.ts";
-import { type WebhooksService } from "./webhooks/webhooks.ts";
-import { type KvService } from "./state/kv.ts";
-import { type SensorsService } from "./sensors/sensors.ts";
-import { Generate, generateLayer, type GenerateService } from "./generate/generate.ts";
-import { Decide, decideLayer, type DecideService } from "./decide/decide.ts";
-import {
-  MindModels,
-  ModelCatalog,
-  modelsLayer,
-  type ModelCatalogService,
-} from "./providers/models.ts";
+import { Generate, generateLayer } from "./generate/generate.ts";
+import { Decide, decideLayer } from "./decide/decide.ts";
+import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
 import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
-import type { SecretRequestsService } from "./secrets/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
-
-export interface MindDescription {
-  readonly entity: string;
-  /** The decide faculty is configured (TYPESAFE_API_KEY present). */
-  readonly decide: boolean;
-  readonly tools: readonly string[];
-  /** The same catalog with each tool's one-line description (allowlist editor). */
-  readonly catalog: readonly { readonly name: string; readonly description: string }[];
-}
-
-export interface MindService {
-  /** Durable conversations — chat is one form of the entity, not its whole. */
-  readonly converse: ConverseService;
-  /** Typed decisions through Jev — usable with zero chat. */
-  readonly decide: DecideService;
-  /** The mind's tool surface. */
-  readonly act: ReturnType<typeof actService>;
-  /** The user-approval surface behind gated acts. */
-  readonly approvals: ApprovalsService;
-  /** One-shot app-facing completion (titles, extraction) — no conversation. */
-  readonly generate: GenerateService;
-  /** The model catalog: configured providers' models from models.dev, cached. */
-  readonly models: ModelCatalogService;
-  /** Background sub-agent tasks in their own durable conversations. */
-  readonly tasks: TasksService;
-  /** User-defined entities above sessions: registry, Bot Mode, DM threads. */
-  readonly profiles: ProfilesService;
-  /** Contextual rooms between bots — one conversation per participant. */
-  readonly rooms: RoomsService;
-  /** Inter-entity messaging on per-pair DM threads. */
-  readonly mailbox: MailboxService;
-  /** The org: one per install, flat departments, members, grants, templates. */
-  readonly org: OrgService;
-  /** Skills: built-in and self-written procedures, per profile, evolvable. */
-  readonly skills: SkillsService;
-  /** The memory seam: profile and owner stores with write authority. */
-  readonly memory: MemoryService;
-  /** Rereading the entity's own past: search over durable transcripts. */
-  readonly history: HistoryService;
-  /** Self-set schedules: cron and one-shot wake-ups the entity owns. */
-  readonly schedules: SchedulesService;
-  /** Routine fire receipts — the durable ledger that a trigger FIRED. */
-  readonly receipts: ReceiptsService;
-  /** Self-set inbound webhooks with schema validation and reject accounting. */
-  readonly webhooks: WebhooksService;
-  /** Durable profile-scoped key-value state — the entity's dedup ledgers live here. */
-  readonly state: KvService;
-  /** Watches on external sources (calendar) that wake the entity. */
-  readonly sensors: SensorsService;
-  /** The credential vault, when VAULT_KEY is configured; else null. */
-  readonly vault: VaultStore | null;
-  /** Credential-broker bindings (null without a vault). */
-  readonly bindings: BindingStore | null;
-  /** The append-only trail of the mind's acts. */
-  readonly audit: AuditService;
-  /** MCP connectors: owner-owned servers, added and removed live. */
-  readonly mcp: McpManager;
-  /** Secure inputs: browser-typed keys go to the vault, never the model. */
-  readonly secrets: SecretRequestsService;
-  readonly describe: () => MindDescription;
-}
+import type { MindService } from "./entity-api.ts";
+export type { MindDescription, MindService } from "./entity-api.ts";
 
 export class Mind extends Context.Service<Mind, MindService>()("spriessen/mind/Mind") {}
 
