@@ -11,6 +11,7 @@ import {
   type ToolStep,
 } from "@spriessen/contracts";
 import { adminView } from "./admin-tool-views.ts";
+import { codeView } from "./code-tool-views.ts";
 import { plural } from "./plural.ts";
 import { checklistView, graphView } from "./chat-tool-views.ts";
 import { parseWrittenArtifact, type FileRef } from "./file-meta.ts";
@@ -828,6 +829,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
     default: {
       const admin = adminView(step);
       if (admin !== null) return { kind: "human", view: admin };
+      const code = codeView(step);
+      if (code !== null) return { kind: "human", view: code };
       const verbed = VERBED[step.name];
       if (verbed !== undefined) {
         const output = rawOf(step.output);

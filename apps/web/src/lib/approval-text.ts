@@ -40,6 +40,16 @@ const KNOWN: Record<string, Known> = {
     risk: "Higher risk: the email leaves this app and can't be unsent.",
   },
   artifact_delete: { action: "delete a file", risk: "Higher risk: the file is removed for good." },
+  skill_install: {
+    action: "install a skill from the web",
+    risk: "Higher risk: it downloads instructions this bot will follow. Install only from a source you trust.",
+    risky: true,
+  },
+  skill_delete: {
+    action: "delete one of its skills",
+    risk: "Removes the skill from its list. Its past versions stay in the history.",
+    risky: false,
+  },
   file_edit: {
     action: "change one of its files",
     risk: "Changes a file in its own folder. bash and the Files tab see the new text.",
@@ -128,6 +138,9 @@ const humanize = (tool: string): string =>
     .replace(/[_.-]+/g, " ")
     .trim()
     .toLocaleLowerCase("en");
+
+/** Whether a gated tool has its own card words (not the name-based guess). */
+export const hasOwnWords = (name: string): boolean => Object.hasOwn(KNOWN, name);
 
 export interface ApprovalText {
   /** Completes "Eve wants to …". */

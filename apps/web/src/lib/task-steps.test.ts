@@ -1,49 +1,12 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  formatDuration,
-  humanizeToolName,
-  prettyPayload,
-  previewOf,
-  timelineOf,
-  toolLine,
-} from "./task-steps.ts";
+import { presentationOf } from "./tool-text.ts";
+import { timelineOf, toolStepOf, type TimelineItem } from "./task-steps.ts";
 
-const page = JSON.stringify({
-  pages: [{ url: "https://plato.stanford.edu/x", content: "# Aristotle on Causality\n\nbody" }],
-});
-
-describe("toolLine", () => {
-  it("says what known tools did", () => {
-    expect(toolLine("now", {}, '{"utc":"x"}').line).toBe("Checked the time");
-    expect(toolLine("web_search", { query: "four causes" }, null).line).toBe(
-      "Searched the web for “four causes”",
-    );
-    expect(toolLine("web_fetch", { urls: ["https://plato.stanford.edu/x"] }, page).line).toBe(
-      "Read plato.stanford.edu · Aristotle on Causality",
-    );
-    expect(
-      toolLine("web_fetch", { urls: ["https://www.a.org/", "https://b.org/"] }, null).line,
-    ).toBe("Read a.org +1 more");
-    expect(toolLine("bash", { script: "ls -la\nwc -l" }, null).line).toBe("Ran ls -la");
-    expect(toolLine("artifact_write", { name: "r.md", content: "…" }, null).icon).toBe("file");
-  });
-
-  it("falls back safely", () => {
-    expect(toolLine("docs_search_pages", {}, null)).toEqual({
-      icon: "tool",
-      line: "Used docs search pages",
-    });
-    expect(toolLine("web_fetch", "not json", "{broken").line).toBe("Read a web page");
-    expect(toolLine("web_fetch", null, '{"pages":"nope"}').line).toBe("Read a web page");
-    expect(toolLine("web_search", { query: 42 }, null).line).toBe("Searched the web");
-    expect(toolLine("http_request", { url: "::bad" }, null).line).toBe("GET ::bad");
-    expect(humanizeToolName("")).toBe("Used a tool");
-    expect(humanizeToolName("getPageText")).toBe("Get page text");
-  });
-});
+const brief = "Research the textual basis of a live dispute over Aristotle";
+const toolsOf = (items: TimelineItem[]) =>
+  items.filter((item): item is Extract<TimelineItem, { kind: "tool" }> => item.kind === "tool");
 
 describe("timelineOf", () => {
-  const brief = "Research the textual basis of a live dispute over Aristotle";
   it("drops the brief and the final result, keeps the rest in order", () => {
     const items = timelineOf(
       [
@@ -69,11 +32,11 @@ describe("timelineOf", () => {
       "Final answer",
     );
     expect(items.map((item) => item.kind)).toEqual(["thinking", "tool", "tool", "note"]);
-    const [, legacy, live, note] = items;
-    expect(legacy).toMatchObject({ line: "Checked the time", status: "done" });
-    expect(legacy?.kind === "tool" && legacy.output).toContain('"utc": "z"');
-    expect(live).toMatchObject({ line: "Read a.org", status: "running", output: null });
-    expect(note).toMatchObject({ text: "halfway" });
+    const [legacy, live] = toolsOf(items);
+    // A legacy "name → output" row reads its name and output back out.
+    expect(legacy).toMatchObject({ name: "now", status: "done", outputRaw: '{"utc":"z"}' });
+    expect(live).toMatchObject({ name: "web_fetch", status: "running", outputRaw: null });
+    expect(items[3]).toMatchObject({ text: "halfway" });
   });
 
   it("keeps bot messages that are not the result", () => {
@@ -82,20 +45,36 @@ describe("timelineOf", () => {
   });
 });
 
-describe("helpers", () => {
-  it("pretty-prints and previews", () => {
-    expect(prettyPayload('{"a":1}')).toBe('{\n  "a": 1\n}');
-    expect(prettyPayload("plain")).toBe("plain");
-    expect(prettyPayload({})).toBeNull();
-    expect(prettyPayload(null)).toBeNull();
-    expect(previewOf("abcdef", 3)).toEqual({ text: "abc…", more: true });
-    expect(previewOf("ab", 3)).toEqual({ text: "ab", more: false });
+describe("toolStepOf", () => {
+  it("hands task rows to the same lens a chat uses", () => {
+    const [row] = toolsOf(
+      timelineOf(
+        [
+          {
+            kind: "tool",
+            at: 1,
+            text: "web_search",
+            tool: {
+              name: "web_search",
+              status: "done",
+              input: '{"query":"four causes"}',
+              output: '{"hits":[]}',
+              durationMs: 40,
+            },
+          },
+        ],
+        brief,
+        null,
+      ),
+    );
+    const step = toolStepOf(row!);
+    expect(step.input).toEqual({ query: "four causes" });
+    expect(step.output).toContain('"hits"');
+    expect(presentationOf(step).kind).toBe("human");
   });
 
-  it("formats durations", () => {
-    expect(formatDuration(12)).toBe("<1s");
-    expect(formatDuration(4210)).toBe("4s");
-    expect(formatDuration(95_000)).toBe("1m 35s");
-    expect(formatDuration(null)).toBeNull();
+  it("keeps the lens's hidden tools hidden in tasks too", () => {
+    const [row] = toolsOf(timelineOf([{ kind: "tool", at: 1, text: "now → {}" }], brief, null));
+    expect(presentationOf(toolStepOf(row!)).kind).toBe("hidden");
   });
 });
