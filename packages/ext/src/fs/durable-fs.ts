@@ -13,90 +13,33 @@ import { randomUUID } from "node:crypto";
 import type { ArtifactInfo } from "@spriessen/contracts";
 import { resolveInside } from "@spriessen/core";
 import { mimeOfName, VFS_INDEX_ID } from "../plugins/artifacts.ts";
-
-/** Minimal fs-shape types, local since just-bash was replaced by microsandbox. */
-type BufferEncoding = "utf8" | "utf-8" | "latin1" | "binary";
-type FileContent = string | Uint8Array;
-interface FsStat {
-  readonly isFile: boolean;
-  readonly isDirectory: boolean;
-  readonly isSymbolicLink: boolean;
-  readonly mode: number;
-  readonly size: number;
-  readonly mtime: Date;
-}
-interface MkdirOptions {
-  readonly recursive?: boolean;
-}
-interface RmOptions {
-  readonly force?: boolean;
-  readonly recursive?: boolean;
-}
-interface CpOptions {
-  readonly recursive?: boolean;
-}
-interface CreateExclusiveOptions {
-  readonly directory?: boolean;
-  readonly mode: number;
-}
+import {
+  DEFAULT_MODE_DIR,
+  DEFAULT_MODE_FILE,
+  eexists,
+  eisdir,
+  enoent,
+  enotdir,
+  enotempty,
+  normalize,
+  parentOf,
+} from "./durable-fs-shapes.ts";
+import type {
+  BufferEncoding,
+  CpOptions,
+  CreateExclusiveOptions,
+  DirentEntry,
+  FileContent,
+  FsStat,
+  MkdirOptions,
+  ReadFileOptions,
+  RmOptions,
+  VfsEntry,
+  VfsIndex,
+  WriteFileOptions,
+} from "./durable-fs-shapes.ts";
 
 /** The index is stored as a reserved artifact pair in the same directory. */
-
-interface VfsEntry {
-  readonly kind: "file" | "dir" | "symlink";
-  /** The artifact id backing a file (shared by hard links). */
-  readonly id?: string;
-  /** The target of a symlink. */
-  readonly target?: string;
-  mode: number;
-  mtime: number;
-}
-
-interface VfsIndex {
-  readonly paths: Record<string, VfsEntry>;
-}
-
-const normalize = (value: string): string => {
-  const resolved = posix.resolve("/", value);
-  return resolved === "/" ? "/" : resolved.replace(/\/+$/, "");
-};
-
-const parentOf = (value: string): string => {
-  const parent = posix.dirname(value);
-  return parent === value ? "/" : parent;
-};
-
-const enoent = (operation: string, value: string): Error =>
-  Object.assign(new Error(`ENOENT: no such file or directory, ${operation} '${value}'`), {
-    code: "ENOENT",
-  });
-const eexists = (value: string): Error =>
-  Object.assign(new Error(`EEXIST: file already exists, '${value}'`), { code: "EEXIST" });
-const eisdir = (value: string): Error =>
-  Object.assign(new Error(`EISDIR: illegal operation on a directory, ${value}`), {
-    code: "EISDIR",
-  });
-const enotdir = (value: string): Error =>
-  Object.assign(new Error(`ENOTDIR: not a directory, ${value}`), { code: "ENOTDIR" });
-const enotempty = (value: string): Error =>
-  Object.assign(new Error(`ENOTEMPTY: directory not empty, ${value}`), { code: "ENOTEMPTY" });
-
-const DEFAULT_MODE_FILE = 0o666;
-const DEFAULT_MODE_DIR = 0o777;
-
-/** Not exported by any dependency; defined here for callers' convenience. */
-interface ReadFileOptions {
-  readonly encoding?: BufferEncoding | null;
-}
-interface WriteFileOptions {
-  readonly encoding?: BufferEncoding;
-}
-interface DirentEntry {
-  readonly name: string;
-  readonly isFile: boolean;
-  readonly isDirectory: boolean;
-  readonly isSymbolicLink: boolean;
-}
 
 export interface DurableFsOptions {
   /** Artifact-store scope directory this tree persists into. */
