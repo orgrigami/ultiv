@@ -18,8 +18,14 @@ spriessen                             # the terminal UI
 The script syncs dependencies, builds the web app and the CLI, and writes a
 small `spriessen` launcher that runs with the repo's own Node (the one `vp
 node` resolves), never whatever `node` is first on PATH. Re-run it after a
-`git pull` to update; `--uninstall` removes the launcher (your sign-in in
+pull to update by hand; `--uninstall` removes the launcher (your sign-in in
 `~/.config/spriessen` stays).
+
+**Updating:** `spriessen update` fetches, fast-forwards the checkout, re-runs
+the installer and restarts any installed daemon; `spriessen update --check`
+only lists what is new. It never merges, rebases or touches your edits: with
+uncommitted changes, local commits, a detached HEAD or no upstream it says
+why and changes nothing.
 
 Without installing: `vp -C apps/cli build`, then `vp node
 apps/cli/bin/spriessen.mjs …`; or, unbuilt, `vp node apps/cli/src/main.ts …`

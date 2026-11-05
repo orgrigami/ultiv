@@ -28,7 +28,7 @@ type Action = (typeof ACTIONS)[number];
 const run = (command: string, args: readonly string[]): number =>
   spawnSync(command, args, { stdio: "inherit" }).status ?? 1;
 
-const unitPath = (role: DaemonRole): string =>
+export const unitPath = (role: DaemonRole): string =>
   process.platform === "darwin"
     ? join(homedir(), "Library", "LaunchAgents", `${LAUNCHD_LABELS[role]}.plist`)
     : join(homedir(), ".config", "systemd", "user", SYSTEMD_NAMES[role]);
@@ -84,7 +84,7 @@ const install = (spec: UnitSpec): number => {
   return started;
 };
 
-const control = (role: DaemonRole, action: Exclude<Action, "install">): number => {
+export const control = (role: DaemonRole, action: Exclude<Action, "install">): number => {
   const path = unitPath(role);
   if (action !== "uninstall" && !existsSync(path)) {
     console.error(`Not installed. Run: spriessen daemon install ${role}`);

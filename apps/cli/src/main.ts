@@ -13,7 +13,7 @@ import { serverOf } from "./config.ts";
 import { SignInRequired } from "./client/http.ts";
 import { report } from "./errors.ts";
 
-const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version"]);
+const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version", "check"]);
 
 export const HELP = `spriessen — your crew from the terminal
 
@@ -31,6 +31,7 @@ Usage:
   spriessen daemon <install|uninstall|start|stop|restart|status|logs> [server|node]
                                     keep serve (or node) running with the OS
   spriessen node [pair|list|revoke|roots]               this machine as a paired node
+  spriessen update [--check]                            pull the checkout, rebuild, restart daemons
 
 Every client command takes --server <url> (default: the saved one, else
 http://127.0.0.1:8787). Config lives in ~/.config/spriessen (0600).
@@ -51,6 +52,7 @@ const COMMANDS: Record<string, Command> = {
   serve: async (parsed) => (await import("./commands/serve.ts")).serveCommand(parsed),
   daemon: async (parsed) => (await import("./commands/daemon.ts")).daemonCommand(parsed),
   node: async (parsed, argv) => (await import("./commands/node.ts")).nodeCommand(parsed, argv),
+  update: async (parsed) => (await import("./commands/update.ts")).updateCommand(parsed),
   chat: async (parsed) => openTui(parsed),
 };
 

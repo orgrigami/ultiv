@@ -8,7 +8,7 @@
 # It syncs dependencies, builds the web app and the CLI, and writes a small
 # launcher that runs the CLI with the repo's own Node (the one `vp node`
 # resolves from mise.toml) — never whatever `node` happens to be first on
-# PATH. Re-run it after `git pull` to update. Everything goes through vp.
+# PATH. `spriessen update` pulls and re-runs it. Everything goes through vp.
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -65,7 +65,8 @@ if [ ! -x "\$NODE" ]; then
 	# vp moved to another Node build since the install: ask it again.
 	NODE=\$(cd "$REPO" && "$VP" node -e 'process.stdout.write(process.execPath)') || exit 1
 fi
-exec "\$NODE" "$REPO/apps/cli/bin/spriessen.mjs" "\$@"
+# Where this launcher lives: \`spriessen update\` reinstalls it here.
+SPRIESSEN_LAUNCHER="$TARGET" exec "\$NODE" "$REPO/apps/cli/bin/spriessen.mjs" "\$@"
 EOF
 chmod 755 "$TARGET"
 
