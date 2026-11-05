@@ -13,6 +13,12 @@ export type Step = TranscriptEntry;
 
 /** The app entry kind an owner input with attachments is placed as. */
 export const INPUT_ENTRY_KIND = "ultiv.input";
+/**
+ * The transcript id an entry's first step carries: the projection scales the
+ * nominal record number by 100 (later blocks of the same entry add offsets).
+ * Reaction rows store THIS shape, so the web joins them to TranscriptEntry.id.
+ */
+export const stepIdOf = (entryId: number): number => entryId * 100;
 /** The reference-line block an input's attachments append; display text cuts here. */
 export const ATTACHMENTS_MARK = "\n\nAttached artifacts:";
 

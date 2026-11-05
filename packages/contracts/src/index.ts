@@ -293,3 +293,12 @@ export type {
   GraphDetails,
   GraphParams,
 } from "./chat-tools.ts";
+export {
+  REACTIONS_TOOL,
+  REACTION_NAMES,
+  REACTION_EMOJI,
+  ReactionParamsSchema,
+  ReactionRowSchema,
+  ReactionsListSchema,
+} from "./reactions.ts";
+export type { ReactionName, ReactionParams, ReactionRow, ReactionsList } from "./reactions.ts";

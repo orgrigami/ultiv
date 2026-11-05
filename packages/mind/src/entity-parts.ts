@@ -31,6 +31,7 @@ import { profilesExtension, memoryCoreExtension } from "./profiles/section.ts";
 import type { RoomsService } from "./profiles/rooms.ts";
 import type { MailboxService } from "./mailbox/mailbox.ts";
 import { messageTools } from "./mailbox/tools.ts";
+import { reactTools } from "./reactions/tools.ts";
 import { memoryService, type MemoryService } from "./memory/memory.ts";
 import { memoryTools } from "./memory/tools.ts";
 import { prefetchExtension } from "./memory/prefetch-section.ts";
@@ -131,6 +132,18 @@ export const installFaculties = (
     defineExtension({
       name: "ultius.mind.mailbox",
       tools: messageTools(mailbox, profiles, rooms),
+    }),
+  );
+  // Reactions ride the always-on path like the other faculties: registry only,
+  // never in the allowlist catalog, so allowlisted bots keep react too.
+  piRegistry.install(
+    defineExtension({
+      name: "ultius.mind.reactions",
+      tools: reactTools({
+        converse: f.converse,
+        profiles,
+        ...(f.audit !== undefined ? { audit: f.audit } : {}),
+      }),
     }),
   );
   piRegistry.install(

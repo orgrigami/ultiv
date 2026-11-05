@@ -63,7 +63,7 @@ export function humanizeToolName(name: string): string {
 }
 
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
-const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now"]);
+const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now", "react"]);
 
 /** One web hit. */
 export type SearchHit = {
