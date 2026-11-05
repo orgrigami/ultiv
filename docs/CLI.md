@@ -5,16 +5,26 @@ the same bots, the same approval cards. It talks to a server over the
 surfaces the web uses (REST, the chord `Session` object, the `/push` live
 signals), so nothing a bot does differs by client. Code: `apps/cli`.
 
-## Running it
+## Installing
+
+From a checkout of the repo, with [Vite+](https://viteplus.dev) (`vp`) installed:
 
 ```sh
-vp -C apps/cli build                   # once: the bundle the bin runs
-vp node apps/cli/bin/spriessen.mjs     # or link the bin onto PATH
+sh scripts/install-cli.sh             # into ~/.local/bin (--prefix <dir> for elsewhere)
+spriessen login                       # once per server
+spriessen                             # the terminal UI
 ```
 
-Without the build, `vp node apps/cli/src/main.ts <command>` runs every
-command except the terminal UI (TSX), and `vpx apps/cli/src/main.ts` runs
-the UI from source.
+The script syncs dependencies, builds the web app and the CLI, and writes a
+small `spriessen` launcher that runs with the repo's own Node (the one `vp
+node` resolves), never whatever `node` is first on PATH. Re-run it after a
+`git pull` to update; `--uninstall` removes the launcher (your sign-in in
+`~/.config/spriessen` stays).
+
+Without installing: `vp -C apps/cli build`, then `vp node
+apps/cli/bin/spriessen.mjs …`; or, unbuilt, `vp node apps/cli/src/main.ts …`
+for every command except the UI (`vpx apps/cli/src/main.ts` runs the UI
+from source).
 
 ## Signing in
 
