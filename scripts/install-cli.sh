@@ -12,7 +12,7 @@
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-PREFIX="$HOME/.local/bin"
+PREFIX="${HOME}/.local/bin"
 UNINSTALL=0
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -22,17 +22,17 @@ while [ $# -gt 0 ]; do
 	*) echo "install-cli: unknown option $1 (try --help)" >&2; exit 1 ;;
 	esac
 done
-TARGET="$PREFIX/spriessen"
+TARGET="${PREFIX}/spriessen"
 
-if [ "$UNINSTALL" = 1 ]; then
-	rm -f "$TARGET"
-	echo "Removed $TARGET. Your sign-in and node token stay in ~/.config/spriessen."
+if [ "${UNINSTALL}" = 1 ]; then
+	rm -f "${TARGET}"
+	echo "Removed ${TARGET}. Your data, keys and sign-in stay in ~/.spriessen."
 	exit 0
 fi
 
 VP=$(command -v vp || true)
-[ -n "$VP" ] || VP="$HOME/.vite-plus/bin/vp"
-if [ ! -x "$VP" ]; then
+[ -n "${VP}" ] || VP="${HOME}/.vite-plus/bin/vp"
+if [ ! -x "${VP}" ]; then
 	echo "install-cli: Vite+ (vp) is not installed. Install it first: https://viteplus.dev" >&2
 	exit 1
 fi
@@ -41,41 +41,41 @@ fi
 step() {
 	label=$1
 	shift
-	echo "$label"
+	echo "${label}"
 	if ! out=$("$@" 2>&1); then
-		printf '%s\n' "$out" >&2
+		printf '%s\n' "${out}" >&2
 		echo "install-cli: that step failed (output above)." >&2
 		exit 1
 	fi
 }
 
-cd "$REPO"
-step "1/4 Installing dependencies…" "$VP" install --frozen-lockfile
-step "2/4 Building the web app…" "$VP" -C apps/web build
-step "3/4 Building the spriessen command…" "$VP" -C apps/cli build
-NODE=$("$VP" node -e 'process.stdout.write(process.execPath)')
+cd "${REPO}"
+step "1/4 Installing dependencies..." "${VP}" install --frozen-lockfile
+step "2/4 Building the web app..." "${VP}" -C apps/web build
+step "3/4 Building the spriessen command..." "${VP}" -C apps/cli build
+NODE=$("${VP}" node -e 'process.stdout.write(process.execPath)')
 
-echo "4/4 Writing $TARGET…"
-mkdir -p "$PREFIX"
-cat >"$TARGET" <<EOF
+echo "4/4 Writing ${TARGET}..."
+mkdir -p "${PREFIX}"
+cat >"${TARGET}" <<EOF
 #!/bin/sh
 # The spriessen command, installed from $REPO by scripts/install-cli.sh.
-NODE="$NODE"
-${SPRIESSEN_HOME:+export SPRIESSEN_HOME="\${SPRIESSEN_HOME:-$SPRIESSEN_HOME}"}
+NODE="${NODE}"
+${SPRIESSEN_HOME:+export SPRIESSEN_HOME="\${SPRIESSEN_HOME:-${SPRIESSEN_HOME}}"}
 if [ ! -x "\$NODE" ]; then
 	# vp moved to another Node build since the install: ask it again.
-	NODE=\$(cd "$REPO" && "$VP" node -e 'process.stdout.write(process.execPath)') || exit 1
+	NODE=\$(cd "${REPO}" && "${VP}" node -e 'process.stdout.write(process.execPath)') || exit 1
 fi
 # Where this launcher lives: \`spriessen update\` reinstalls it here.
-SPRIESSEN_LAUNCHER="$TARGET" exec "\$NODE" "$REPO/apps/cli/bin/spriessen.mjs" "\$@"
+SPRIESSEN_LAUNCHER="${TARGET}" exec "\$NODE" "${REPO}/apps/cli/bin/spriessen.mjs" "\$@"
 EOF
-chmod 755 "$TARGET"
+chmod 755 "${TARGET}"
 
 echo
-echo "Installed: $TARGET"
-case ":$PATH:" in
-*":$PREFIX:"*) ;;
-*) echo "Add it to your PATH first:  export PATH=\"$PREFIX:\$PATH\"  (in ~/.zshrc or ~/.bashrc)" ;;
+echo "Installed: ${TARGET}"
+case ":${PATH}:" in
+*":${PREFIX}:"*) ;;
+*) echo "Add it to your PATH first:  export PATH=\"${PREFIX}:\$PATH\"  (in ~/.zshrc or ~/.bashrc)" ;;
 esac
 # `spriessen update` and scripts/install.sh run this too and say their own next steps.
 [ "${SPRIESSEN_NO_NEXT_STEPS:-}" = 1 ] ||

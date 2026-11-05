@@ -10,7 +10,7 @@ signals), so nothing a bot does differs by client. Code: `apps/cli`.
 One line, on any machine with git and [Vite+](https://viteplus.dev) (`vp`):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/orgrigami/ultiv/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/orgrigami/ultiv/refs/heads/main/scripts/install.sh | sh
 ```
 
 (The repository is private, so the raw URL needs access too: from a clone,
