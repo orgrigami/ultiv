@@ -1,14 +1,16 @@
 /**
  * `spriessen serve`: the whole app in one foreground process — the server
- * stack plus the built web app (apps/web/dist) on one port. It runs from the
- * server package's own folder, exactly like the server's `start` script,
- * so `var/` is the same data folder the dev server uses (and the data-folder
- * lock keeps the two from running at once); the repo's `.env` loads first
- * unless `--env-file` names another. `--no-web` serves the API only.
+ * stack plus the built web app (apps/web/dist) on one port. Data lives in
+ * the Spriessen home (`~/.spriessen/data`, core home.ts; `--data` moves it);
+ * an install that still has its old `apps/server/var/` keeps using that until
+ * `spriessen data move`, which is why serve still runs from the server's
+ * folder. Keys load from `~/.spriessen/.env`, else the checkout's `.env`
+ * (`--env-file` names another). `--no-web` serves the API only.
  */
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { dataDir, spriessenHome } from "@spriessen/core";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../args.ts";
 
 /** The server package's folder (apps/server), wherever the CLI runs from. */
@@ -24,13 +26,17 @@ export const webDistOf = (flag: string | undefined): string | undefined => {
   return existsSync(join(dist, "index.html")) ? dist : undefined;
 };
 
+/** The env file serve loads: the flag, else the home's `.env`, else the checkout's. */
+export const envFileOf = (flag: string | undefined): string | undefined => {
+  if (flag !== undefined) return resolve(flag);
+  return [join(spriessenHome(), ".env"), join(repoRoot(), ".env")].find((path) => existsSync(path));
+};
+
 /** Load the env file once, before the server reads any config. */
 export const loadEnv = (flag: string | undefined): string | undefined => {
-  const path = flag !== undefined ? resolve(flag) : join(repoRoot(), ".env");
-  if (!existsSync(path)) {
-    if (flag !== undefined) throw new Error(`no env file at ${path}`);
-    return undefined;
-  }
+  const path = envFileOf(flag);
+  if (path === undefined) return undefined;
+  if (!existsSync(path)) throw new Error(`There's no env file at ${path}`);
   process.loadEnvFile(path);
   return path;
 };
@@ -42,7 +48,9 @@ export const serveCommand = async (parsed: Parsed): Promise<void> => {
   if (!boolFlag(parsed, "no-web") && webDist === undefined) {
     console.error("serve: no web build found (run: vp -C apps/web build); serving the API only");
   }
-  process.chdir(stringFlag(parsed, "data") ?? serverDir());
+  const data = stringFlag(parsed, "data");
+  if (data !== undefined) process.env["SPRIESSEN_DATA_DIR"] = resolve(data);
+  process.chdir(serverDir());
   const port = numberFlag(parsed, "port");
   const host = stringFlag(parsed, "host");
   // Imported here: loading the server pulls in the whole mind, which the
@@ -56,7 +64,7 @@ export const serveCommand = async (parsed: Parsed): Promise<void> => {
   });
   if (envFile !== undefined) console.log(`serve: env from ${envFile}`);
   console.log(
-    `serve: data in ${process.cwd()}/var${webDist !== undefined ? "; web app included" : ""}`,
+    `serve: data in ${resolve(dataDir())}${webDist !== undefined ? "; web app included" : ""}`,
   );
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     // As the server's own entry does: once the stack has closed (links, the

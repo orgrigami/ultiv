@@ -9,7 +9,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { spriessenHome } from "@spriessen/core";
 import { numberFlag, stringFlag, type Parsed } from "../args.ts";
 import { nodeTokenPath, serverOf } from "../config.ts";
 import {
@@ -33,19 +34,20 @@ export const unitPath = (role: DaemonRole): string =>
     ? join(homedir(), "Library", "LaunchAgents", `${LAUNCHD_LABELS[role]}.plist`)
     : join(homedir(), ".config", "systemd", "user", SYSTEMD_NAMES[role]);
 
-const logFileOf = (role: DaemonRole): string =>
-  join(homedir(), "Library", "Logs", `spriessen-${role}.log`);
+const logFileOf = (role: DaemonRole): string => join(spriessenHome(), "logs", `${role}.log`);
 
 /** What the unit runs: `serve` with the chosen port/host, or `node` with its server. */
 export const unitSpecOf = (role: DaemonRole, parsed: Parsed): UnitSpec => {
   const port = numberFlag(parsed, "port");
   const host = stringFlag(parsed, "host");
+  const data = stringFlag(parsed, "data");
   const args =
     role === "server"
       ? [
           "serve",
           ...(port !== undefined ? ["--port", String(port)] : []),
           ...(host !== undefined ? ["--host", host] : []),
+          ...(data !== undefined ? ["--data", resolve(data)] : []),
         ]
       : [
           "node",

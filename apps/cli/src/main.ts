@@ -32,9 +32,10 @@ Usage:
                                     keep serve (or node) running with the OS
   spriessen node [pair|list|revoke|roots]               this machine as a paired node
   spriessen update [--check]                            pull the checkout, rebuild, restart daemons
+  spriessen data [move]                                 where everything lives; move an old var/ home
 
 Every client command takes --server <url> (default: the saved one, else
-http://127.0.0.1:8787). Config lives in ~/.config/spriessen (0600).
+http://127.0.0.1:8787). Data, keys and config live in ~/.spriessen ($SPRIESSEN_HOME).
 `;
 
 type Command = (parsed: Parsed, argv: readonly string[]) => Promise<number | void>;
@@ -52,6 +53,7 @@ const COMMANDS: Record<string, Command> = {
   serve: async (parsed) => (await import("./commands/serve.ts")).serveCommand(parsed),
   daemon: async (parsed) => (await import("./commands/daemon.ts")).daemonCommand(parsed),
   node: async (parsed, argv) => (await import("./commands/node.ts")).nodeCommand(parsed, argv),
+  data: async (parsed) => (await import("./commands/data.ts")).dataCommand(parsed),
   update: async (parsed) => (await import("./commands/update.ts")).updateCommand(parsed),
   chat: async (parsed) => openTui(parsed),
 };

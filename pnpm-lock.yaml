@@ -289,6 +289,12 @@ importers:
       '@spriessen/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@spriessen/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@spriessen/ext':
+        specifier: workspace:*
+        version: link:../../packages/ext
       '@spriessen/present':
         specifier: workspace:*
         version: link:../../packages/present

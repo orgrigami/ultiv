@@ -1,7 +1,9 @@
 /**
  * Where the CLI keeps what it remembers, all under one folder
- * (`$SPRIESSEN_CONFIG_DIR`, else `$XDG_CONFIG_HOME/spriessen`, else
- * `~/.config/spriessen`, mode 0700):
+ * (`$SPRIESSEN_CONFIG_DIR`, else `config/` in the Spriessen home —
+ * `~/.spriessen/config`, mode 0700; core home.ts). A folder from before the
+ * home (`~/.config/spriessen`) moves there on first use and leaves a
+ * symlink behind, so a daemon unit that names the old token path still works:
  *
  * - `credentials.json` (0600): the server origin and the sign-in session
  *   cookie the passcode sign-in returned — the same session a browser holds,
@@ -11,9 +13,20 @@
  * Which server: `--server`, then `SPRIESSEN_SERVER_URL`, then the saved one,
  * then `http://127.0.0.1:8787` (the default port, this machine).
  */
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { spriessenHome } from "@spriessen/core";
 
 export const DEFAULT_SERVER = "http://127.0.0.1:8787";
 
@@ -24,10 +37,29 @@ export interface Credentials {
   readonly savedAt: number;
 }
 
+/** Where the config lived before the home: `$XDG_CONFIG_HOME/spriessen` or `~/.config/spriessen`. */
+export const legacyConfigDir = (env: NodeJS.ProcessEnv = process.env): string =>
+  join(env["XDG_CONFIG_HOME"] || join(homedir(), ".config"), "spriessen");
+
+/** Move a pre-home config folder into the home once, leaving a symlink where it was. */
+const adoptLegacy = (target: string, env: NodeJS.ProcessEnv): void => {
+  const legacy = legacyConfigDir(env);
+  if (existsSync(target) || !existsSync(legacy) || lstatSync(legacy).isSymbolicLink()) return;
+  mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+  renameSync(legacy, target);
+  symlinkSync(target, legacy);
+};
+
 export const configDir = (env: NodeJS.ProcessEnv = process.env): string => {
   if (env["SPRIESSEN_CONFIG_DIR"]) return env["SPRIESSEN_CONFIG_DIR"];
-  const base = env["XDG_CONFIG_HOME"] || join(homedir(), ".config");
-  return join(base, "spriessen");
+  const dir = join(spriessenHome(env), "config");
+  try {
+    adoptLegacy(dir, env);
+  } catch {
+    // A move that fails (another filesystem, permissions) leaves the old folder in use.
+    if (!existsSync(dir) && existsSync(legacyConfigDir(env))) return legacyConfigDir(env);
+  }
+  return dir;
 };
 
 const ensureDir = (dir: string): string => {
