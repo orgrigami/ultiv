@@ -44,6 +44,15 @@ the install line again does the same. Neither merges, rebases or touches your
 edits: with uncommitted changes, local commits, a detached HEAD or no
 upstream they say why and change nothing.
 
+What restarts: each installed daemon (`server`, `node`) restarts onto the
+new code. Anything you started by hand (a foreground `spriessen serve`, a
+`spriessen node`, an open terminal UI, the dev server in tmux) keeps running
+the old code until you restart it; `node --watch` reloads the dev server on
+its own unless dependencies changed. The two differ only at the edges: the
+install line also clones and creates `.env` when they are missing and
+follows `SPRIESSEN_BRANCH` (main); `update` follows the branch's upstream
+and has `--check`.
+
 **From an existing checkout:** `sh scripts/install-cli.sh` builds it and puts
 the launcher in `~/.local/bin` (`--prefix`, `--uninstall`); the launcher runs
 with the Node `vp node` resolves, never the first `node` on PATH. An install

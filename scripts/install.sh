@@ -6,7 +6,7 @@
 # Everything lands in ~/.spriessen ($SPRIESSEN_HOME): the source in
 # sources/, your data in data/, your keys in .env, the CLI's sign-in in
 # config/. Only the `spriessen` command goes elsewhere (~/.local/bin).
-# Running it again updates the source (fast-forward only) and reinstalls.
+# Running it again is `spriessen update`: fast-forward, rebuild, restart daemons.
 #
 # Needs git and Vite+ (vp). Settings: SPRIESSEN_HOME, SPRIESSEN_REPO (the git
 # URL to clone), SPRIESSEN_BRANCH (default main), SPRIESSEN_BIN (default
@@ -38,6 +38,7 @@ main() {
 	else
 		SPRIESSEN_HOME="$HOME_DIR" SPRIESSEN_NO_NEXT_STEPS=1 sh "$SOURCE/scripts/install-cli.sh" --prefix "$BIN"
 	fi
+	restart_daemons
 
 	cat <<EOF
 
@@ -75,6 +76,23 @@ fetch_source() {
 		git clone --quiet --branch "$BRANCH" "$REPO" "$SOURCE" ||
 			fail "Couldn't clone $REPO (a private repository needs your git access, e.g. SPRIESSEN_REPO=git@github.com:orgrigami/ultiv.git)."
 	fi
+}
+
+# A rerun is an update: installed daemons restart onto the new code, as
+# `spriessen update` does.
+restart_daemons() {
+	for role in server node; do
+		case "$(uname -s)" in
+		Darwin) unit="$HOME/Library/LaunchAgents/id.spriessen.$role.plist" ;;
+		*) [ "$role" = server ] && unit="$HOME/.config/systemd/user/spriessen.service" ||
+			unit="$HOME/.config/systemd/user/spriessen-node.service" ;;
+		esac
+		if [ -e "$unit" ]; then
+			echo "Restarting the $role daemon…"
+			"$BIN/spriessen" daemon restart "$role" >/dev/null ||
+				echo "Couldn't restart it; run: spriessen daemon restart $role" >&2
+		fi
+	done
 }
 
 # The keys file, once: the example's settings, with a fresh vault key so
