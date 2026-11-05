@@ -7,36 +7,61 @@ signals), so nothing a bot does differs by client. Code: `apps/cli`.
 
 ## Installing
 
-From a checkout of the repo, with [Vite+](https://viteplus.dev) (`vp`) installed:
+One line, on any machine with git and [Vite+](https://viteplus.dev) (`vp`):
 
 ```sh
-sh scripts/install-cli.sh             # into ~/.local/bin (--prefix <dir> for elsewhere)
-spriessen login                       # once per server
-spriessen                             # the terminal UI
+curl -fsSL https://raw.githubusercontent.com/orgrigami/ultiv/main/scripts/install.sh | sh
 ```
 
-The script syncs dependencies, builds the web app and the CLI, and writes a
-small `spriessen` launcher that runs with the repo's own Node (the one `vp
-node` resolves), never whatever `node` is first on PATH. Re-run it after a
-pull to update by hand; `--uninstall` removes the launcher (your sign-in in
-`~/.config/spriessen` stays).
+(The repository is private, so the raw URL needs access too: from a clone,
+`sh scripts/install.sh` does the same, and `SPRIESSEN_REPO=git@github.com:orgrigami/ultiv.git`
+clones over SSH.) Then:
 
-**Updating:** `spriessen update` fetches, fast-forwards the checkout, re-runs
-the installer and restarts any installed daemon; `spriessen update --check`
-only lists what is new. It never merges, rebases or touches your edits: with
-uncommitted changes, local commits, a detached HEAD or no upstream it says
-why and changes nothing.
+```sh
+$EDITOR ~/.spriessen/.env      # a model provider key, e.g. KENARI_API_KEY=…
+spriessen daemon install       # the server + web app on :8787, kept running
+spriessen login                # the first time, this sets your passcode
+spriessen                      # the terminal UI (or open http://127.0.0.1:8787)
+```
+
+Everything lives in **`~/.spriessen`** (`SPRIESSEN_HOME` moves it):
+
+| Path       | Holds                                                                              |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `sources/` | the code (a git checkout)                                                          |
+| `data/`    | everything the server keeps: chats, bots, memory, vault, files, sign-in, audit log |
+| `.env`     | your keys (0600; created with a fresh `VAULT_KEY` — back it up with `data/`)       |
+| `config/`  | the CLI's sign-in and node token (0600)                                            |
+| `logs/`    | daemon logs on macOS (Linux uses journald)                                         |
+
+Only the `spriessen` command lives elsewhere (`~/.local/bin`, `SPRIESSEN_BIN`),
+and the service files where systemd/launchd require them. `spriessen data`
+prints every location. Backing up is copying `~/.spriessen` minus `sources/`.
+
+**Updating:** `spriessen update` fetches, fast-forwards the source, rebuilds
+and restarts any installed daemon; `--check` only lists what is new. Running
+the install line again does the same. Neither merges, rebases or touches your
+edits: with uncommitted changes, local commits, a detached HEAD or no
+upstream they say why and change nothing.
+
+**From an existing checkout:** `sh scripts/install-cli.sh` builds it and puts
+the launcher in `~/.local/bin` (`--prefix`, `--uninstall`); the launcher runs
+with the Node `vp node` resolves, never the first `node` on PATH. An install
+from before the home keeps its data in `apps/server/var/` (the server warns
+once at start); stop the server and run `spriessen data move` to bring it
+into `~/.spriessen/data`. The move refuses while any server has the data
+open, never merges into existing data, and gives bots fresh microVMs (their
+names follow the folder path; the old VMs are removed). A config folder in
+`~/.config/spriessen` moves on its own and leaves a symlink.
 
 Without installing: `vp -C apps/cli build`, then `vp node
-apps/cli/bin/spriessen.mjs …`; or, unbuilt, `vp node apps/cli/src/main.ts …`
-for every command except the UI (`vpx apps/cli/src/main.ts` runs the UI
-from source).
+apps/cli/bin/spriessen.mjs …`; or `vpx apps/cli/src/main.ts` from source.
 
 ## Signing in
 
 `spriessen login [--server <url>]` asks for the server's passcode (no echo;
 piped input works for scripts) and keeps the session cookie the web's own
-sign-in returns in `~/.config/spriessen/credentials.json` (0600, folder
+sign-in returns in `~/.spriessen/config/credentials.json` (0600, folder
 0700; `SPRIESSEN_CONFIG_DIR` moves it). The passcode is never stored. On a
 fresh install, run on the host itself, login sets the first passcode. The
 session slides like a browser's (30 days). `logout` ends it on the server
@@ -93,15 +118,15 @@ waiting: approve from another terminal, the web or the phone.
 
 `spriessen serve [--port 8787] [--host 127.0.0.1] [--no-web] [--env-file f] [--data dir]`
 runs the whole app in one process: the server stack plus the built web app
-(`apps/web/dist`, `vp -C apps/web build`). It runs from the server's own
-folder, so `var/` is the same data folder the dev server uses, and the
-repo's `.env` loads first. One server per data folder: a second one is
-refused by name (two would run every resumed turn and cron job twice).
+(`apps/web/dist`, `vp -C apps/web build`). Data goes to `~/.spriessen/data`
+(`--data` elsewhere), keys load from `~/.spriessen/.env`, else the source's
+`.env`. One server per data folder: a second one is refused by name (two
+would run every resumed turn and cron job twice).
 
 `spriessen daemon install [server|node]` keeps `serve` (or `node`) running
 under the OS: a systemd `--user` unit on Linux (`loginctl enable-linger
 $USER` keeps it running after logout), a launchd agent on macOS (logs in
-`~/Library/Logs/spriessen-*.log`). `uninstall`, `start`, `stop`, `restart`,
+`~/.spriessen/logs/`). `--port`, `--host` and `--data` are written into the unit. `uninstall`, `start`, `stop`, `restart`,
 `status` and `logs` hand over to systemctl/launchctl. No secret is written
 into a unit: keys stay in `.env`, the node token in its 0600 file.
 
