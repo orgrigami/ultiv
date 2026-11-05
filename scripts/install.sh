@@ -1,7 +1,7 @@
 #!/bin/sh
 # Spriessen in one line:
 #
-#   curl -fsSL https://raw.githubusercontent.com/orgrigami/ultiv/refs/heads/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/orgrigami/ultiv/main/scripts/install.sh | sh
 #
 # Everything lands in ~/.spriessen ($SPRIESSEN_HOME): the source in
 # sources/, your data in data/, your keys in .env, the CLI's sign-in in
