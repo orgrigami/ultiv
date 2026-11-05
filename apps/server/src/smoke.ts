@@ -118,6 +118,18 @@ expect(
   mine.json.length === 1 && anonymous.status === 401,
 );
 
+// Reaction reads (bot acks): an empty list on the fresh session, and an
+// unknown session reading as the same missing-404 a foreign id would.
+const reactions = await call("GET", `/api/sessions/${created.json.id}/reactions`);
+expect(
+  "reactions read",
+  reactions.status === 200 &&
+    Array.isArray(reactions.json?.reactions) &&
+    reactions.json.reactions.length === 0,
+);
+const reactionsMissing = await call("GET", "/api/sessions/no-such-session/reactions");
+expect("reactions unknown session 404", reactionsMissing.status === 404);
+
 const upload = await fetch(`${base}/api/artifacts?name=smoke.md`, {
   method: "POST",
   body: "# ok",

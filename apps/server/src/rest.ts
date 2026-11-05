@@ -28,6 +28,7 @@ import { secretRoutes } from "./rest/secrets.ts";
 import { artifactRoutes } from "./rest/artifacts.ts";
 import { cronRoutes } from "./rest/cron.ts";
 import { mailboxRoutes } from "./rest/mailbox.ts";
+import { reactionRoutes } from "./rest/reactions.ts";
 import { memoryRoutes, profileRoutes } from "./rest/profiles.ts";
 import { memoryV2Routes } from "./rest/memory-v2.ts";
 import { needsYouRoutes } from "./rest/needs-you.ts";
@@ -261,6 +262,7 @@ async function route(args: RouteArgs): Promise<void> {
     return json(200, { ok: await mind.state.delete(profile, key) });
   }
   if (await profileRoutes(args)) return;
+  if (await reactionRoutes(args)) return;
   if (await memoryRoutes(args)) return;
   if (await memoryV2Routes(args)) return;
   if (await needsYouRoutes(args)) return;
