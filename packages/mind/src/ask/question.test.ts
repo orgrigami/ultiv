@@ -24,6 +24,7 @@ import { makeApprovals, type ApprovalsService } from "../approvals.ts";
 import { converseService } from "../converse/converse.ts";
 import { projectTranscript } from "../converse/steps.ts";
 import { ASK_USER_QUESTION, OWNER_REPLIED, questionTools, releaseQuestions } from "./question.ts";
+import { readView } from "../converse/view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -84,7 +85,7 @@ describe("ask_user_question across a restart (faux model)", () => {
     approvals.decide(id, card!.callId, true, undefined, { answer: "Sheet" });
     const reopened = await Effect.runPromise(after.open(id));
     const steps = async () =>
-      projectTranscript((await reopened!.viewState(ctx)).value?.entries ?? [], undefined, false);
+      projectTranscript((await readView(reopened!))?.entries ?? [], undefined, false);
     await until(async () => (await steps()).some((s) => s.kind === "output"));
     const text = JSON.stringify(await steps());
     expect(text).toContain("The owner chose option 2: Sheet");

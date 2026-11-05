@@ -288,6 +288,29 @@ function liveSteps(live: LiveState | undefined, out: Step[]): void {
   }
 }
 
+/**
+ * Why the newest run ended without an answer, when a restart caused it: the
+ * engine no longer re-sends a request a crash cut off, and ends a turn cut
+ * off too many times in a row (pi-durable 1.5), so the chat says so. Other
+ * reasons already show elsewhere (Stop/Redirect mark the reply interrupted,
+ * model errors are the error banner).
+ */
+const RESTART_NOTES: Partial<Record<string, string>> = {
+  interrupted:
+    "This reply stopped because the server restarted while it was being written. Send your message again to retry.",
+  restart_limit:
+    "This turn stopped after restarts cut it off several times in a row. Send your message again to retry.",
+};
+
+function failureStep(live: LiveState | undefined, out: Step[]): void {
+  const failure = live?.runFailure;
+  if (failure === undefined || live?.run !== undefined) return;
+  const text = RESTART_NOTES[failure.reason];
+  if (text === undefined) return;
+  const at = out.at(-1)?.at ?? 0;
+  out.push({ id: -900, kind: "note", at, text });
+}
+
 /** The newest agent text is streaming while the agent works. */
 function markStreaming(out: Step[], working: boolean): Step[] {
   if (!working) return out;
@@ -345,5 +368,6 @@ export function projectTranscript(
 ): Step[] {
   const out = committedSteps(entries, toolResultsOf(entries));
   liveSteps(live, out);
+  failureStep(live, out);
   return markStreaming(out, working);
 }

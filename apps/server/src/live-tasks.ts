@@ -5,8 +5,7 @@
  * the live socket. Row changes (spawn, settle, progress lines) come from the
  * tasks faculty's onUpdate. No polling.
  */
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { taskConversationKey, type MindService } from "@spriessen/mind";
+import { followView, RECENT_WINDOW, taskConversationKey, type MindService } from "@spriessen/mind";
 import { Effect } from "effect";
 
 export interface TaskWatcher {
@@ -22,11 +21,10 @@ export const watchRunningTasks = (mind: MindService, signal: () => void): TaskWa
       const conversation = await Effect.runPromise(
         mind.converse.ensure(taskConversationKey(taskId)),
       );
-      const view = await conversation.viewState(BACKGROUND_CONTEXT);
-      if (view === undefined) return;
-      const unsubscribe = view.subscribe(() => signal());
+      // Only change signals matter here, so the small window will do.
+      const view = await followView(conversation, () => signal(), RECENT_WINDOW);
       watching.set(taskId, () => {
-        unsubscribe();
+        view.stop();
         watching.delete(taskId);
       });
       // Already settled between the list read and the attach: let go.

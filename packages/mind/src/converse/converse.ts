@@ -33,8 +33,7 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { External } from "@spriessen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
-import { controlOps, type ParkedTask } from "./control.ts";
-export type { ParkedTask } from "./control.ts";
+import { controlOps } from "./control.ts";
 import { selectionOps, workspaceDefaultRefOf } from "./selection.ts";
 import { SettingsDoc } from "../profiles/docs.ts";
 import { PiRegistry } from "./pi-registry.ts";
@@ -107,10 +106,6 @@ export interface ConverseService {
    * entity calls this at boot, after every tool is installed (slice 8).
    */
   readonly resume: () => void;
-  /** Tasks the engine parked after too many restarts in a row, across all conversations. */
-  readonly parked: () => Effect.Effect<readonly ParkedTask[], External>;
-  /** Run one parked task again; "not_parked" when it is not parked (any more). */
-  readonly retryParked: (taskId: string) => Effect.Effect<"retried" | "not_parked", External>;
 
   /** Take back one queued submission before a boundary places it. */
   readonly withdraw: (

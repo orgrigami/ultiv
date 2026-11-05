@@ -29,11 +29,6 @@ export interface ApprovalRow {
 export interface NeedsYouExtra {
   readonly tidy: readonly { readonly profile: string; readonly open: number }[];
   readonly escalations: readonly unknown[];
-  readonly parked?: readonly {
-    readonly taskId: string;
-    readonly kind: string;
-    readonly profile: string;
-  }[];
 }
 
 export interface AuthStatus {

@@ -29,6 +29,7 @@ import { converseService } from "./converse.ts";
 import { redirectStep, redirectTurn } from "./redirect.ts";
 import { projectTranscript } from "./steps.ts";
 import { isStopped } from "./stop.ts";
+import { readView } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -97,7 +98,7 @@ const rig = async (first: "stream" | "tool", approvals: ApprovalsService = makeA
   });
   const chat = await Effect.runPromise(converse.ensure("redirect-test"));
   chatId = String(chat.id);
-  const view = async () => (await chat.viewState(ctx)).value;
+  const view = async () => await readView(chat);
   return { harness, converse, chat, approvals, release, toolStarted, seen, view };
 };
 

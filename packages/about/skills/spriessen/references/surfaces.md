@@ -16,8 +16,8 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
   tool receipts are both in there. Write as if it will be reread, because
   it will.
 - **Needs you**: everything waiting on your owner, with a count in the nav:
-  approval cards, your questions, failed tasks, routine escalations, memory
-  tidy proposals, and work parked after too many restarts (with Retry).
+  approval cards, your questions, failed tasks, routine escalations, and
+  memory tidy proposals.
 - **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
   (its Persona and Instructions files, with history), Memory, Routines,
   Access (approval mode, always-allowed tools, tool list, host access),

@@ -27,6 +27,7 @@ import {
 import { makeApprovals, type ApprovalsService } from "../approvals.ts";
 import { converseService } from "./converse.ts";
 import { isStopped, stopTurn } from "./stop.ts";
+import { readView } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -99,7 +100,7 @@ const steerRig = async (
   const chat = await Effect.runPromise(converse.ensure("steer-test"));
   chatId = String(chat.id);
   const inbox = async (): Promise<InboxState["items"]> =>
-    ((await chat.viewState(ctx)).value?.docs["pi.inbox"] as InboxState | undefined)?.items ?? [];
+    ((await readView(chat))?.docs["pi.inbox"] as InboxState | undefined)?.items ?? [];
   const assistantReplies = async (): Promise<number> =>
     (await Effect.runPromise(converse.entriesOf(String(chat.id), 200))).filter((entry) =>
       AssistantEntry.is(entry),

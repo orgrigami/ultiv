@@ -1,5 +1,6 @@
 import { hostNamed, method, remote } from "@earendil-works/chord";
 import { Type, type Static } from "typebox";
+import { wire } from "./chord-schema.ts";
 
 export const ThinkingLevelSchema = Type.Union([
   Type.Literal("off"),
@@ -176,83 +177,92 @@ export const SessionErrorSchema = Type.Union([Type.String(), Type.Null()]);
 /** One agent session: durable, replayable transcript plus the agent's phase. */
 export const Session = remote("ultiv.session", {
   version: 17,
-  input: Type.Object({ id: Type.String() }),
+  input: wire(Type.Object({ id: Type.String() })),
   host: hostNamed("server"),
   variants: {
     default: {
       state: {
-        transcript: TranscriptSchema,
-        phase: PhaseSchema,
-        lastError: SessionErrorSchema,
-        pending: PendingApprovalSchema,
-        usage: UsageSummarySchema,
-        model: ModelIdSchema,
-        effort: EffortSchema,
+        transcript: wire(TranscriptSchema),
+        phase: wire(PhaseSchema),
+        lastError: wire(SessionErrorSchema),
+        pending: wire(PendingApprovalSchema),
+        usage: wire(UsageSummarySchema),
+        model: wire(ModelIdSchema),
+        effort: wire(EffortSchema),
         /** This session's durable conversation id; null until the harness maps it. */
-        conversationId: Type.Union([Type.String(), Type.Null()]),
+        conversationId: wire(Type.Union([Type.String(), Type.Null()])),
         /** Messages (owner sends and wakes) waiting for the running turn, oldest first. */
-        queued: Type.Array(QueuedInputSchema),
+        queued: wire(Type.Array(QueuedInputSchema)),
       },
       methods: {
         input: method(
-          Type.Object({
-            text: Type.String(),
-            /** Artifact ids to attach; each rides into the prompt as a reference the agent can read. */
-            attachments: Type.Optional(Type.Array(Type.String())),
-            /**
-             * While the bot works: join the running turn at its next step (steer,
-             * the default), wait until the turn finishes (followUp), or stop it
-             * and answer this instead (redirect).
-             */
-            whenBusy: Type.Optional(SendModeSchema),
-          }),
+          wire(
+            Type.Object({
+              text: Type.String(),
+              /** Artifact ids to attach; each rides into the prompt as a reference the agent can read. */
+              attachments: Type.Optional(Type.Array(Type.String())),
+              /**
+               * While the bot works: join the running turn at its next step (steer,
+               * the default), wait until the turn finishes (followUp), or stop it
+               * and answer this instead (redirect).
+               */
+              whenBusy: Type.Optional(SendModeSchema),
+            }),
+          ),
         ),
         /** Take back a queued message before the turn picks it up. */
         withdraw: method(
-          Type.Object({ id: Type.String() }),
-          Type.Object({ status: WithdrawStatusSchema }),
+          wire(Type.Object({ id: Type.String() })),
+          wire(Type.Object({ status: WithdrawStatusSchema })),
         ),
         /**
          * After a failed or cut-off turn, queued messages stay queued and are
          * never sent by themselves (D3): Retry sends them, oldest first.
          */
-        retryQueued: method(Type.Object({}), Type.Object({ status: RetryQueuedStatusSchema })),
+        retryQueued: method(
+          wire(Type.Object({})),
+          wire(Type.Object({ status: RetryQueuedStatusSchema })),
+        ),
         /**
          * Stop the running turn: withdraw queued inputs, abort, go idle. With
          * `tasks`, also stop this chat's running background tasks (quietly:
          * the bot is not woken to report them).
          */
         interrupt: method(
-          Type.Object({ tasks: Type.Optional(Type.Boolean()) }),
-          Type.Object({ ok: Type.Boolean(), cancelledTasks: Type.Optional(Type.Number()) }),
+          wire(Type.Object({ tasks: Type.Optional(Type.Boolean()) })),
+          wire(Type.Object({ ok: Type.Boolean(), cancelledTasks: Type.Optional(Type.Number()) })),
         ),
         approve: method(
-          Type.Object({
-            callId: Type.String(),
-            approved: Type.Boolean(),
-            /** Also save this tool on the profile's autoApprove list (with approved). */
-            always: Type.Optional(Type.Boolean()),
-            /** With approved=false: the owner does this one themselves; the agent is told. */
-            takeover: Type.Optional(Type.Boolean()),
-            /**
-             * With approved=true on an editable card (bot_create): the input
-             * as the owner corrected it on the form, replacing the proposal.
-             */
-            input: Type.Optional(Type.Unknown()),
-          }),
-          Type.Object({
-            ok: Type.Boolean(),
-            /**
-             * The autoApprove entries "always allow" stored; empty or null
-             * means the call stays gated by its pattern — nothing was
-             * written, and the identical call will card again.
-             */
-            stored: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()])),
-          }),
+          wire(
+            Type.Object({
+              callId: Type.String(),
+              approved: Type.Boolean(),
+              /** Also save this tool on the profile's autoApprove list (with approved). */
+              always: Type.Optional(Type.Boolean()),
+              /** With approved=false: the owner does this one themselves; the agent is told. */
+              takeover: Type.Optional(Type.Boolean()),
+              /**
+               * With approved=true on an editable card (bot_create): the input
+               * as the owner corrected it on the form, replacing the proposal.
+               */
+              input: Type.Optional(Type.Unknown()),
+            }),
+          ),
+          wire(
+            Type.Object({
+              ok: Type.Boolean(),
+              /**
+               * The autoApprove entries "always allow" stored; empty or null
+               * means the call stays gated by its pattern — nothing was
+               * written, and the identical call will card again.
+               */
+              stored: Type.Optional(Type.Union([Type.Array(Type.String()), Type.Null()])),
+            }),
+          ),
         ),
         configure: method(
-          Type.Object({ model: ModelIdSchema, effort: EffortSchema }),
-          Type.Object({ ok: Type.Boolean() }),
+          wire(Type.Object({ model: ModelIdSchema, effort: EffortSchema })),
+          wire(Type.Object({ ok: Type.Boolean() })),
         ),
       },
     },

@@ -306,7 +306,8 @@ const mindLayerRaw = (
       yield* Effect.addFinalizer(() => Effect.promise(mcp.close));
       // Turns a restart cut off continue now, with every tool installed
       // (connector tools join as their servers connect). One cut off too many
-      // times in a row is parked instead and shows in Needs you.
+      // times in a row ends instead (`runFailure` reason `restart_limit`), and
+      // the chat shows it like any failed run.
       converse.resume();
       return {
         converse,

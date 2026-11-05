@@ -64,7 +64,6 @@ export const needs = async (parsed: Parsed): Promise<void> => {
     const lines = approvalLines(rows, names);
     for (const task of failed) lines.push(`task ${task.id} failed: ${task.error ?? "no reason"}`);
     if (tidy > 0) lines.push(`${tidy} memory proposal(s) to review (web: Needs you)`);
-    if ((extra.parked ?? []).length > 0) lines.push(`${extra.parked?.length} parked task(s)`);
     if (lines.length === 0) lines.push("Nothing needs you.");
     else if (rows.length > 0) lines.push("", "Answer with: spriessen approve <id> | deny <id>");
     return lines;

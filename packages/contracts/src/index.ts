@@ -225,6 +225,7 @@ export type { AuditEvent, AuditList } from "./audit.ts";
 export { ToolCatalogEntrySchema, ToolCatalogSchema } from "./tools.ts";
 export type { ToolCatalogEntry, ToolCatalog } from "./tools.ts";
 export { Ping } from "./ping.ts";
+export { wire } from "./chord-schema.ts";
 export {
   McpAuthSchema,
   McpCommandSchema,

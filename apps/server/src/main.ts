@@ -9,7 +9,7 @@ import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { WebSocketServer, type WebSocket } from "ws";
-import { Ping } from "@spriessen/contracts";
+import { Ping, wire } from "@spriessen/contracts";
 import { artifactsDir, copyArtifact, resolveInside, upgradeMcpHomes } from "@spriessen/ext";
 import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
@@ -208,7 +208,7 @@ export async function buildStack(options?: {
   const memoryTidy = startMemoryTidy({ mind, notify: tidyPush(push.notifier) });
   const host = createHost<Principal>({ name: "server", self: { kind: "server" } });
   host.serve(Ping, (_input, _principal, self) => {
-    const count = self.state("count", Type.Number(), 0);
+    const count = self.state("count", wire(Type.Number()), 0);
     return {
       variant: "default",
       count,

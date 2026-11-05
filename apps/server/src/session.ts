@@ -1,5 +1,4 @@
 import type { Ctx, Host } from "@earendil-works/chord";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Conversation, ConversationView, LiveState } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { Effect } from "effect";
@@ -15,8 +14,9 @@ import {
   TranscriptSchema,
   UsageSummarySchema,
   type ThinkingLevel,
+  wire,
 } from "@spriessen/contracts";
-import { projectTranscript, usageOf, type MindService } from "@spriessen/mind";
+import { followView, projectTranscript, usageOf, type MindService } from "@spriessen/mind";
 import { ownerOf, type Principal } from "./identity.ts";
 import { approveMethod, controlMethods, inputMethod } from "./session-methods.ts";
 import {
@@ -38,21 +38,21 @@ type SelfOf = Parameters<Parameters<Host<Principal>["serve"]>[1]>[2];
 /** The Session object's state cells, all starting empty (hydration publishes after attach). */
 function sessionCells(self: SelfOf): SessionCells {
   return {
-    transcript: self.state("transcript", TranscriptSchema, []),
-    phase: self.state("phase", PhaseSchema, "idle"),
-    lastError: self.state("lastError", SessionErrorSchema, null),
-    pending: self.state("pending", PendingApprovalSchema, null),
-    usage: self.state("usage", UsageSummarySchema, {
+    transcript: self.state("transcript", wire(TranscriptSchema), []),
+    phase: self.state("phase", wire(PhaseSchema), "idle"),
+    lastError: self.state("lastError", wire(SessionErrorSchema), null),
+    pending: self.state("pending", wire(PendingApprovalSchema), null),
+    usage: self.state("usage", wire(UsageSummarySchema), {
       input: 0,
       output: 0,
       cacheRead: 0,
       reasoning: null,
       totalTokens: 0,
     }),
-    model: self.state("model", ModelIdSchema, null),
-    effort: self.state("effort", EffortSchema, null),
-    conversationId: self.state("conversationId", SessionConversationIdSchema, null),
-    queued: self.state("queued", Type.Array(QueuedInputSchema), []),
+    model: self.state("model", wire(ModelIdSchema), null),
+    effort: self.state("effort", wire(EffortSchema), null),
+    conversationId: self.state("conversationId", wire(SessionConversationIdSchema), null),
+    queued: self.state("queued", wire(Type.Array(QueuedInputSchema)), []),
   };
 }
 
@@ -69,10 +69,16 @@ async function hydrate(
   remember: (view: ConversationView) => void,
   inFlight: InFlight,
 ): Promise<void> {
-  const view = await chat.viewState(BACKGROUND_CONTEXT);
+  // Revisions that land before `apply` exists wait in `early`; the newest wins.
+  let apply: ((value: ConversationView) => void) | undefined;
+  let early: ConversationView | undefined;
+  const view = await followView(chat, (value) => {
+    if (apply === undefined) early = value;
+    else apply(value);
+  });
   // Let the client's attach settle before the first hydration publish.
   await new Promise<void>((resolve) => setTimeout(resolve, 1_500));
-  const apply = (value: ConversationView) => {
+  apply = (value: ConversationView) => {
     remember(value);
     safeChange(cells.transcript, ctx, () =>
       projectTranscript(value.entries, liveOf(value), cells.phase.value === "working"),
@@ -88,8 +94,7 @@ async function hydrate(
     );
     if (phase !== undefined) safeChange(cells.phase, ctx, () => phase);
   };
-  const unsubscribe = view.subscribe((value) => apply(value));
-  if (view.value !== undefined) apply(view.value);
+  apply(early ?? view.value);
   // Reflect the conversation's durable model/effort selection. Both reads may
   // land after a shutdown closed the harness; a failed read is not an error.
   const selection = await Effect.runPromise(mind.converse.agentOf(chat)).catch(() => undefined);
@@ -100,7 +105,7 @@ async function hydrate(
   safeChange(cells.conversationId, ctx, () => String(chat.id));
   // Detach on abort, or the attached view outlives the object and hangs
   // graceful shutdown (node --watch restarts wait forever).
-  ctx.signal.addEventListener("abort", () => unsubscribe(), { once: true });
+  ctx.signal.addEventListener("abort", () => view.stop(), { once: true });
   const id = String(chat.id);
   while (!ctx.signal.aborted) {
     const [waiting] = mind.approvals.pendingFor(id);

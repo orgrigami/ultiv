@@ -1,12 +1,12 @@
 import { expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
 import type { MailboxEntry, TaskInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { openMind } from "../entity.ts";
 import { TasksDoc, tasksService } from "../tasks/tasks.ts";
 import { MailboxDoc, mailboxService } from "./mailbox.ts";
+import { readView } from "../converse/view.ts";
 
 // Collapse the wake-coalescing window (read when a service is built).
 process.env.MAILBOX_WAKE_DEBOUNCE_MS = "20";
@@ -36,7 +36,7 @@ const mainText = async (handle: Handle, profileId: string): Promise<string> => {
   const main = await Effect.runPromise(
     converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", profileId))),
   );
-  return JSON.stringify((await main.viewState(BACKGROUND_CONTEXT)).value?.entries ?? []);
+  return JSON.stringify((await readView(main))?.entries ?? []);
 };
 
 const occurrences = (text: string, needle: string): number => text.split(needle).length - 1;

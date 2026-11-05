@@ -6,8 +6,7 @@ import {
   taskConversationKey,
   tasksVisibleTo,
 } from "@spriessen/mind";
-import { projectTranscript } from "@spriessen/mind";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { projectTranscript, readView } from "@spriessen/mind";
 import { Effect } from "effect";
 import { canSeeTask } from "./can.ts";
 import type { RouteArgs } from "./types.ts";
@@ -145,12 +144,10 @@ export async function taskRoutes(
       }
       const chat = await Effect.runPromise(mind.converse.open(conversationId));
       if (chat !== undefined) {
-        const value = (await chat.viewState(BACKGROUND_CONTEXT)).value;
-        if (value !== undefined) {
-          steps = activitySteps(
-            projectTranscript(value.entries, liveOf(value), task.status === "running"),
-          );
-        }
+        const value = await readView(chat);
+        steps = activitySteps(
+          projectTranscript(value.entries, liveOf(value), task.status === "running"),
+        );
       }
     }
     json(200, { conversationId, waiting, steps });

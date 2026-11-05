@@ -12,7 +12,6 @@ import {
   CalendarX2Icon,
   CheckIcon,
   ChevronRightIcon,
-  RotateCcwIcon,
   ShieldQuestionIcon,
   TriangleAlertIcon,
   XIcon,
@@ -32,7 +31,6 @@ import { useOpenWork } from "@/lib/work-pane";
 
 const KIND: Record<NeedsKind, { icon: LucideIcon; label: string; tone: string }> = {
   approval: { icon: ShieldQuestionIcon, label: "Approval", tone: "text-signal" },
-  parked: { icon: RotateCcwIcon, label: "Stopped", tone: "text-warning" },
   "failed-task": { icon: TriangleAlertIcon, label: "Task failed", tone: "text-warning" },
   escalation: { icon: CalendarX2Icon, label: "Routine", tone: "text-warning" },
   tidy: { icon: BrainIcon, label: "Memory", tone: "text-muted-foreground" },
@@ -67,33 +65,6 @@ function useOpenTarget(): (item: NeedsItem) => void {
         search: { tab: target.tab },
       });
   };
-}
-
-/** Retry for a parked task: a failure stays on the button, so it can be tried again. */
-function RetryButton({ taskId, title }: { taskId: string; title: string }) {
-  const { reloadNeeds } = useApp();
-  const [state, setState] = useState<"idle" | "busy" | "failed">("idle");
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      disabled={state === "busy"}
-      aria-label={`Retry: ${title}`}
-      onClick={async () => {
-        setState("busy");
-        try {
-          await api.retryParked(taskId);
-          setState("idle");
-          await reloadNeeds();
-        } catch {
-          setState("failed");
-        }
-      }}
-    >
-      <RotateCcwIcon />
-      {state === "failed" ? "Retry failed — again" : "Retry"}
-    </Button>
-  );
 }
 
 export function NeedsList({ className }: { className?: string }) {
@@ -181,9 +152,6 @@ export function NeedsList({ className }: { className?: string }) {
                     </span>
                     <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
                   </RowButton>
-                  {item.retryTaskId !== undefined && (
-                    <RetryButton taskId={item.retryTaskId} title={item.title} />
-                  )}
                   {item.dismissable && (
                     <Button
                       variant="ghost"

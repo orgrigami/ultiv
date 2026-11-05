@@ -1,86 +1,73 @@
 /**
  * Run control of a conversation: Stop (`interrupt`), withdrawing one queued
- * message, reading the live run state, and aborting only the running turn
+ * message, reading the live run state, aborting only the running turn
  * (`abortRun`, Redirect now) — which, unlike Stop, leaves queued messages in
- * the inbox. Also the tasks the engine parked after too many restarts in a
- * row (`parked`) and running one again (`retryParked`).
+ * the inbox — and Retry for messages a failed run left queued (`retryQueued`).
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
-import type {
-  Conversation,
-  Harness,
-  InboxState,
-  LiveState,
-  SubmissionId,
-  TaskId,
+import {
+  ConversationBusy,
+  InboxDoc,
+  LiveDoc,
+  type Conversation,
+  type ConversationDocToken,
+  type Harness,
+  type JsonObject,
+  type LiveState,
+  type SubmissionId,
 } from "@earendil-works/pi-durable";
 import { External } from "@spriessen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
 
 /**
- * A pi-durable task parked by the restart limit: it was cut off (a crash or
- * restart mid-run) `settings.restartLimit` times in a row without progress,
- * so the engine stopped running it until someone retries it.
+ * One conversation document, read once (a single-document watch, let go at
+ * once): cheap enough for the deadline watcher's once-a-second poll.
  */
-export type ParkedTask = {
-  readonly taskId: string;
-  /** The registered task name (`pi.generation` for a chat turn). */
-  readonly kind: string;
-  readonly conversationId: string;
+const docOf = async <T extends JsonObject>(
+  harness: Harness,
+  token: ConversationDocToken<T>,
+  conversation: Conversation,
+): Promise<Readonly<T> | undefined> => {
+  const watch = await harness.watchDoc(token, conversation.id, BACKGROUND_CONTEXT);
+  if (watch === undefined) return undefined;
+  const value = watch.value;
+  await watch.stop();
+  return value;
 };
+
+const liveDocOf = (harness: Harness, conversation: Conversation) =>
+  docOf(harness, LiveDoc, conversation) as Promise<LiveState | undefined>;
 
 /**
- * The entry `retryQueued` writes. It carries no model content (an empty
- * `model`), so the model sees nothing new; being a queued write is what makes
- * the engine place the inbox at the next boundary.
+ * Retry (D3): a `continue` submission places the kept inbox in a new run on
+ * the context as it is; the model sees nothing extra and the transcript
+ * shows nothing. pi-durable admits it only while the conversation is idle.
  */
-export const QUEUE_RETRY_KIND = "ultiv.queue-retry";
-
-const retryQueuedOf = async (conversation: Conversation): Promise<"started" | "busy" | "empty"> => {
-  const view = await conversation.viewState(BACKGROUND_CONTEXT);
-  const docs = view.value?.docs;
-  view.dispose();
-  if ((docs?.["pi.live"] as LiveState | undefined)?.run !== undefined) return "busy";
-  const items = (docs?.["pi.inbox"] as InboxState | undefined)?.items ?? [];
+const retryQueuedOf = async (
+  harness: Harness,
+  conversation: Conversation,
+): Promise<"started" | "busy" | "empty"> => {
+  if ((await liveDocOf(harness, conversation))?.run !== undefined) return "busy";
+  const items = (await docOf(harness, InboxDoc, conversation))?.items ?? [];
   if (!items.some((item) => item.mode !== "write")) return "empty";
-  await conversation.submit(
-    { type: "write", entry: { kind: QUEUE_RETRY_KIND, data: { at: Date.now() }, model: [] } },
-    BACKGROUND_CONTEXT,
-  );
+  try {
+    await conversation.submit({ type: "continue" }, BACKGROUND_CONTEXT);
+  } catch (cause) {
+    // A run started between the read and the submit.
+    if (cause instanceof ConversationBusy) return "busy";
+    throw cause;
+  }
   return "started";
-};
-
-const parkedOf = async (harness: Harness): Promise<readonly ParkedTask[]> => {
-  const inspection = await harness.inspect(BACKGROUND_CONTEXT);
-  return inspection.tasks.flatMap(({ record, state }) =>
-    state.kind === "blocked" && state.reason === "restart_limit"
-      ? [
-          {
-            taskId: String(record.id),
-            kind: record.kind,
-            conversationId: String(record.conversationId),
-          },
-        ]
-      : [],
-  );
 };
 
 export const controlOps = (
   harness: Harness,
 ): Pick<
   ConverseService,
-  | "interrupt"
-  | "withdraw"
-  | "liveOf"
-  | "abortRun"
-  | "parked"
-  | "retryParked"
-  | "retryQueued"
-  | "resume"
+  "interrupt" | "withdraw" | "liveOf" | "abortRun" | "retryQueued" | "resume"
 > => ({
-  parked: () => asEffect("parked tasks", parkedOf(harness)),
   resume: () => {
     try {
       harness.resume();
@@ -89,20 +76,7 @@ export const controlOps = (
       console.error("harness resume failed:", cause);
     }
   },
-  retryQueued: (conversation) => asEffect("queue retry", retryQueuedOf(conversation)),
-  retryParked: (taskId) =>
-    asEffect(
-      "parked retry",
-      (async () => {
-        // Only a task that is parked right now: retryTask on anything else is a no-op or a throw.
-        const found = (await parkedOf(harness)).find((task) => task.taskId === taskId);
-        if (found === undefined) return "not_parked" as const;
-        const numeric = Number(taskId);
-        const id = (Number.isSafeInteger(numeric) ? numeric : taskId) as unknown as TaskId;
-        await harness.retryTask(id, BACKGROUND_CONTEXT);
-        return "retried" as const;
-      })(),
-    ),
+  retryQueued: (conversation) => asEffect("queue retry", retryQueuedOf(harness, conversation)),
   interrupt: (conversation) =>
     Effect.tryPromise({
       try: () => conversation.abort(BACKGROUND_CONTEXT),
@@ -117,22 +91,12 @@ export const controlOps = (
       harness.abortSubmission(id, BACKGROUND_CONTEXT, conversation.id),
     );
   },
-  liveOf: (conversation) =>
-    asEffect(
-      "live read",
-      conversation.viewState(BACKGROUND_CONTEXT).then((view) => {
-        const live = view.value?.docs["pi.live"] as LiveState | undefined;
-        view.dispose();
-        return live;
-      }),
-    ),
+  liveOf: (conversation) => asEffect("live read", liveDocOf(harness, conversation)),
   abortRun: (conversation) =>
     asEffect(
       "run abort",
       (async () => {
-        const view = await conversation.viewState(BACKGROUND_CONTEXT);
-        const run = (view.value?.docs["pi.live"] as LiveState | undefined)?.run;
-        view.dispose();
+        const run = (await liveDocOf(harness, conversation))?.run;
         if (run === undefined) return "idle" as const;
         // The run task aborts bottom-up: running tools get their abort signal
         // and an `aborted` result, the streamed partial is kept as an aborted

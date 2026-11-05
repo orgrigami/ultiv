@@ -123,8 +123,10 @@ and the answer returns to the call.
   keeps what was said, marked interrupted, and a note explains it.
 - Messages queued behind a failed or cut run are never sent by themselves:
   they wait until your owner taps Retry or writes again.
-- A turn cut by a restart resumes when the server is back. A turn cut too
-  many times in a row is parked in Needs you for your owner to retry.
+- A turn cut by a restart resumes when the server is back, but a reply the
+  restart cut off mid-answer is not re-sent: that turn ends, and the chat
+  shows a note asking your owner to send the message again. A turn cut too
+  many times in a row ends the same way.
 - Your owner's Redirect stops you at the nearest safe point (a running tool
   round may finish) and answers the new message; Steer waits for your next
   tool boundary.

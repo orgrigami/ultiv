@@ -356,9 +356,6 @@ export const api = {
     getJson<PendingApprovalRow[]>("/api/approvals"),
   /** The Needs you inputs no poll carries: tidy counts, escalations, approval chats. */
   needsYou: (): Promise<NeedsYouExtra> => getJson<NeedsYouExtra>("/api/needs-you"),
-  /** Run a parked engine task again (Needs you's Retry). */
-  retryParked: (taskId: string): Promise<{ outcome: string }> =>
-    send<{ outcome: string }>(`/api/needs-you/parked/${encodeURIComponent(taskId)}/retry`, "POST"),
   serverCheck: (): Promise<ServerCheck> => getJson<ServerCheck>("/api/server/check"),
   // Nodes: the owner's paired machines (bash `node` targets). The token
   // exists only in pairNode's response — nothing else ever returns it.

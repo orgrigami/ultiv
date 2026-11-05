@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind, type MindHandle } from "../entity.ts";
 import { TasksDoc } from "./tasks.ts";
+import { readView } from "../converse/view.ts";
 
 /** Polls until the predicate holds or the budget runs out (offline settles are async). */
 const until = async <T>(probe: () => Promise<T>, ready: (value: T) => boolean): Promise<T> => {
@@ -18,8 +18,8 @@ const until = async <T>(probe: () => Promise<T>, ready: (value: T) => boolean): 
 const transcriptOf = async (handle: MindHandle, conversationId: string): Promise<string> => {
   const chat = await Effect.runPromise(handle.mind.converse.open(conversationId));
   if (chat === undefined) throw new Error("parent conversation missing");
-  const state = await chat.viewState(BACKGROUND_CONTEXT);
-  return JSON.stringify(state.value?.entries ?? []);
+  const state = await readView(chat);
+  return JSON.stringify(state.entries ?? []);
 };
 
 describe("Tasks (offline, MemoryStorage)", () => {
@@ -94,8 +94,8 @@ describe("Tasks (offline, MemoryStorage)", () => {
     expect(resumed?.error ?? "").not.toContain("interrupted by restart");
     // The continuation note lives in the TASK's conversation; the WAKE in the parent's.
     const taskChat = await Effect.runPromise(second.mind.converse.ensure("task:stuck-task"));
-    const taskState = await taskChat.viewState(BACKGROUND_CONTEXT);
-    expect(JSON.stringify(taskState.value?.entries)).toContain("[resume]");
+    const taskState = await readView(taskChat);
+    expect(JSON.stringify(taskState.entries)).toContain("[resume]");
     const transcript = await transcriptOf(second, String(parent.id));
     expect(transcript).toContain("[task stuck-task failed]");
     await Promise.allSettled([first.close(), second.close()]);
