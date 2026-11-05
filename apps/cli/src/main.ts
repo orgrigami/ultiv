@@ -8,7 +8,10 @@
  */
 import { pathToFileURL } from "node:url";
 import { parseArgs, type Parsed } from "./args.ts";
-import { ApiError, SignInRequired } from "./client/http.ts";
+import { stringFlag } from "./args.ts";
+import { serverOf } from "./config.ts";
+import { SignInRequired } from "./client/http.ts";
+import { report } from "./errors.ts";
 
 const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version"]);
 
@@ -54,23 +57,42 @@ const COMMANDS: Record<string, Command> = {
 /** The TUI is TSX: it loads through the build (dist) or `vpx`, never plain `node` on the source. */
 const openTui = async (parsed: Parsed): Promise<number> => {
   if (!process.stdout.isTTY || !process.stdin.isTTY) {
-    console.error("the terminal UI needs a terminal; try `spriessen ask` or `--help`");
+    console.error(
+      'The terminal UI needs a terminal. Try `spriessen ask "…"` or `spriessen --help`.',
+    );
     return 1;
   }
+  // Sign-in first, before OpenTUI loads: an unreachable server rejects here
+  // and main words it (errors.ts).
+  const { apiFor } = await import("./commands/context.ts");
+  const api = apiFor(parsed);
+  const status = await api.authStatus();
+  if (api.cookie === undefined || !status.session) throw new SignInRequired();
   let tui: typeof import("./tui/run.tsx");
   try {
     tui = await import("./tui/run.tsx");
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code !== "ERR_UNKNOWN_FILE_EXTENSION") throw cause;
-    console.error("the terminal UI needs the build: vp -C apps/cli build (or run it with vpx)");
+    console.error("The terminal UI needs the build first: run `vp -C apps/cli build`.");
     return 1;
   }
-  await tui.runTui(parsed);
+  await tui.runTui({ ...api, cookie: api.cookie }, parsed);
   return 0;
 };
 
+/** Run one command line; every failure, the UI's included, ends as plain sentences (errors.ts). */
 export const main = async (argv: readonly string[]): Promise<number> => {
-  const parsed = parseArgs(argv, BOOLEANS);
+  let parsed: Parsed | undefined;
+  try {
+    parsed = parseArgs(argv, BOOLEANS);
+    return await dispatch(parsed, argv);
+  } catch (cause) {
+    report(cause, serverOf(parsed !== undefined ? stringFlag(parsed, "server") : undefined));
+    return 1;
+  }
+};
+
+const dispatch = async (parsed: Parsed, argv: readonly string[]): Promise<number> => {
   const name = parsed.positionals[0];
   if (parsed.flags.get("help") === true || name === "help") {
     console.log(HELP);
@@ -83,17 +105,12 @@ export const main = async (argv: readonly string[]): Promise<number> => {
   }
   const command = COMMANDS[name];
   if (command === undefined) {
-    console.error(`unknown command: ${name}\n\n${HELP}`);
+    console.error(
+      `There's no \`spriessen ${name}\` command. Run \`spriessen --help\` to see them.`,
+    );
     return 1;
   }
-  try {
-    return (await command(parsed, argv)) ?? 0;
-  } catch (cause) {
-    if (cause instanceof SignInRequired) console.error(cause.message);
-    else if (cause instanceof ApiError) console.error(`spriessen: ${cause.message}`);
-    else console.error(`spriessen: ${cause instanceof Error ? cause.message : String(cause)}`);
-    return 1;
-  }
+  return (await command(parsed, argv)) ?? 0;
 };
 
 const isMain =

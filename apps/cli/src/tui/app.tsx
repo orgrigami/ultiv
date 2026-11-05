@@ -17,9 +17,11 @@ import { THEME } from "./theme.ts";
 import { useChat, type Chat } from "./use-chat.ts";
 import { useCrew, type Crew } from "./use-crew.ts";
 import { useKeys, type KeyActions } from "./use-keys.ts";
+import { sentenceOf } from "../errors.ts";
 
-const messageOf = (cause: unknown): string =>
-  cause instanceof Error ? cause.message : String(cause);
+/** A failure as the one-line notice under the chat (the same words the commands print). */
+const messageOf = (cause: unknown, server: string): string =>
+  sentenceOf(cause, server).replace(/\n/g, " ");
 
 /** Which bot and which of its chats are open; the main bot's main chat to start. */
 const useBotChat = (
@@ -43,14 +45,14 @@ const useBotChat = (
     if (botId === undefined) return;
     api.mainChat(botId).then(
       (chat) => setChatId(chat.id),
-      (cause) => onError(messageOf(cause)),
+      (cause) => onError(messageOf(cause, api.server)),
     );
   }, [api, botId, onError]);
   const newChat = useCallback(() => {
     if (botId === undefined) return;
     api.createSession(botId).then(
       (made) => setChatId(made.id),
-      (cause) => onError(messageOf(cause)),
+      (cause) => onError(messageOf(cause, api.server)),
     );
   }, [api, botId, onError]);
   const openChat = useCallback((bot: string, chat: string) => {
@@ -146,7 +148,7 @@ export const App = ({
   const report: Report = (work, done) => {
     work.then(
       () => setNotice(done ?? null),
-      (cause) => setNotice(messageOf(cause)),
+      (cause) => setNotice(messageOf(cause, api.server)),
     );
   };
   const { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit } =

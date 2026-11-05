@@ -13,5 +13,12 @@ process.emitWarning = (warning, ...rest) =>
 
 const bundle = new URL("../dist/spriessen.mjs", import.meta.url);
 const entry = existsSync(bundle) ? bundle : new URL("../src/main.ts", import.meta.url);
-const { main } = await import(entry.href);
-process.exitCode = await main(process.argv.slice(2));
+try {
+  const { main } = await import(entry.href);
+  process.exitCode = await main(process.argv.slice(2));
+} catch (cause) {
+  // main words every command failure itself; this is only a broken install.
+  console.error("spriessen could not start. Rebuild it with `vp -C apps/cli build`.");
+  if (process.env.SPRIESSEN_DEBUG === "1") console.error(cause);
+  process.exitCode = 1;
+}

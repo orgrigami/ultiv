@@ -50,13 +50,16 @@ export class SignInRequired extends Error {
   }
 }
 
+/** A refused REST call: the server's own sentence, with its status and route for the debug view. */
 export class ApiError extends Error {
   readonly status: number;
   readonly path: string;
+  readonly detail: string;
   constructor(status: number, path: string, detail: string) {
-    super(`${detail} (${status} on ${path})`);
+    super(detail);
     this.status = status;
     this.path = path;
+    this.detail = detail;
   }
 }
 

@@ -30,6 +30,13 @@ sent to another.
 Which server: `--server`, then `SPRIESSEN_SERVER_URL`, then the saved one,
 then `http://127.0.0.1:8787`.
 
+## When something fails
+
+Every command, the UI included, ends a failure with a sentence and the
+command that fixes it (not signed in, the server not answering, a wrong
+passcode), never a stack trace, and exits 1. `SPRIESSEN_DEBUG=1` adds the
+full error underneath.
+
 ## The terminal UI
 
 `spriessen` (or `spriessen chat --bot <name>`) opens the chat with the main
