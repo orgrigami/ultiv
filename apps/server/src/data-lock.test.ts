@@ -47,8 +47,9 @@ describe("the data-folder lock", () => {
     }
   });
 
-  it("finds the data folder from HARNESS_DB, default var", () => {
-    expect(dataDirOf({})).toMatch(/\/var$/);
+  it("finds the data folder: HARNESS_DB's, else the home's data", () => {
+    expect(dataDirOf({ SPRIESSEN_HOME: "/h" })).toBe("/h/data");
+    expect(dataDirOf({ SPRIESSEN_DATA_DIR: "/d" })).toBe("/d");
     expect(dataDirOf({ HARNESS_DB: "/srv/data/harness.sqlite" })).toBe("/srv/data");
   });
 });

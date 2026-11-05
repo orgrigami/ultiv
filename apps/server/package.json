@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./data-lock": "./src/data-lock.ts"
   },
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env --watch src/main.ts",

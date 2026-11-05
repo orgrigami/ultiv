@@ -3,11 +3,11 @@
  * and the cookie/session constants. One module so a later change (TTL, name,
  * folder) has one place to edit.
  */
-import { join } from "node:path";
+import { dataPath } from "@spriessen/ext";
 
 export const authDir = (): string => {
   const configured = process.env.AUTH_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : join("var", "auth");
+  return configured !== undefined && configured !== "" ? configured : dataPath("auth");
 };
 
 /** The sign-in session cookie. HttpOnly, SameSite=Strict, Secure over HTTPS. */

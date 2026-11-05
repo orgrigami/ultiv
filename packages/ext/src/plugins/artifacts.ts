@@ -26,6 +26,7 @@ import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import type { ScopeHolder } from "./vault.ts";
 import { scopeDir } from "./vault.ts";
+import { dataPath } from "@spriessen/core";
 
 /** The workspace filesystem's index lives in a reserved artifact pair. */
 export const VFS_INDEX_ID = "vfs-index";
@@ -37,10 +38,10 @@ export interface ArtifactsOptions {
   readonly holder?: ScopeHolder;
 }
 
-/** The workspace directory (relative to the server's cwd, like HARNESS_DB). */
+/** The workspace directory: `ARTIFACTS_DIR`, else `artifacts/` in the data folder (core home.ts). */
 export const artifactsDir = (): string => {
   const configured = process.env.ARTIFACTS_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/artifacts";
+  return configured !== undefined && configured !== "" ? configured : dataPath("artifacts");
 };
 
 const MAX_ID_CHARS = 64;

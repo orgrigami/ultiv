@@ -76,6 +76,7 @@ import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
 import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 import type { MindService } from "./entity-api.ts";
+import { dataPath } from "@spriessen/core";
 export type { MindDescription, MindService } from "./entity-api.ts";
 
 export class Mind extends Context.Service<Mind, MindService>()("spriessen/mind/Mind") {}
@@ -456,7 +457,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
 const searchDbPathOf = (options: MindOptions): string => {
   const configured = process.env.SEARCH_DB?.trim();
   if (configured !== undefined && configured !== "") return configured;
-  return options.storage !== undefined ? ":memory:" : "var/search.sqlite";
+  return options.storage !== undefined ? ":memory:" : dataPath("search.sqlite");
 };
 
 export interface MindHandle {

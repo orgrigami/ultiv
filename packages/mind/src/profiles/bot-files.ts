@@ -16,6 +16,7 @@ import {
   type SaveMeta,
   type Version,
 } from "../versions/store.ts";
+import { dataPath } from "@spriessen/core";
 
 export const BOT_FILES = ["persona", "instructions"] as const;
 export type BotFile = (typeof BOT_FILES)[number];
@@ -31,7 +32,7 @@ export const BOT_FILE_LIMITS: Readonly<Record<BotFile, number>> = {
 /** The folder root (relative to the server's cwd, like ARTIFACTS_DIR). */
 export const botFilesDir = (): string => {
   const configured = process.env.BOT_FILES_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/bot-files";
+  return configured !== undefined && configured !== "" ? configured : dataPath("bot-files");
 };
 
 const SEGMENT = /^[A-Za-z0-9._-]{1,64}$/;

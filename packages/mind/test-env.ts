@@ -13,4 +13,7 @@ export const offlineCatalogEnv: Record<string, string> = {
   MODELS_DEV_CACHE: "var/test-catalog-absent/models-dev.json",
   MODELS_OVERLAY: "var/test-catalog-absent/models.local.json",
   BOT_FILES_DIR: join(tmpdir(), "spriessen-test-bot-files"),
+  // Never the owner's ~/.spriessen: every default data path lands in scratch.
+  SPRIESSEN_HOME: join(tmpdir(), "spriessen-test-home"),
+  SPRIESSEN_DATA_DIR: join(tmpdir(), "spriessen-test-home", "data"),
 };

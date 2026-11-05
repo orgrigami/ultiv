@@ -18,6 +18,7 @@ import {
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TSchema } from "typebox";
 import { findIn, LEDGER_SEED_LINES, makeLedger, parseLines, readLastLines } from "./tail.ts";
+import { dataPath } from "@spriessen/core";
 
 export interface AuditService {
   /** Append one event; never throws. */
@@ -113,7 +114,9 @@ export const makeAudit = (path: string): AuditService => {
   };
 };
 
-export const auditLogPath = Config.String("AUDIT_LOG").pipe(Config.withDefault("var/audit.jsonl"));
+export const auditLogPath = Config.String("AUDIT_LOG").pipe(
+  Config.withDefault(dataPath("audit.jsonl")),
+);
 
 export const auditLayer: Layer.Layer<Audit, ConfigError> = Layer.effect(
   Audit,

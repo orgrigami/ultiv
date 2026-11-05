@@ -12,11 +12,12 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { randomUUID } from "node:crypto";
 import { InvalidInput, NotFound, resolveInside, tryResolveInside } from "@spriessen/core";
 import type { HomeRef, VaultContact, VaultItemCreate, VaultItemInfo } from "@spriessen/contracts";
+import { dataPath } from "@spriessen/core";
 
 /** The vault root (relative to the server's cwd, like HARNESS_DB). */
 export const vaultDir = (): string => {
   const configured = process.env.VAULT_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/vault";
+  return configured !== undefined && configured !== "" ? configured : dataPath("vault");
 };
 
 /** True when VAULT_KEY is present — the store can seal and open. */

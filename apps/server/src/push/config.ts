@@ -3,6 +3,7 @@
  * once into .env by `vpr @spriessen/server#push:keys` and never logged. Without
  * them push is simply off: the routes report `configured: false`.
  */
+import { dataPath } from "@spriessen/ext";
 export interface VapidConfig {
   readonly publicKey: string;
   readonly privateKey: string;
@@ -24,5 +25,5 @@ export const vapidConfig = (env: NodeJS.ProcessEnv = process.env): VapidConfig |
 /** Where subscriptions live (one JSON file, owner-keyed, mode 0600). */
 export const pushDir = (env: NodeJS.ProcessEnv = process.env): string => {
   const configured = env.PUSH_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/push";
+  return configured !== undefined && configured !== "" ? configured : dataPath("push");
 };

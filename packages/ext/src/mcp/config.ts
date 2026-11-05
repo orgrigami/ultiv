@@ -19,6 +19,7 @@ import {
 import { join } from "node:path";
 import { InvalidInput, resolveInside } from "@spriessen/core";
 import type { HomeRef, McpServerInput } from "@spriessen/contracts";
+import { dataPath } from "@spriessen/core";
 
 /** One saved server: the owner's input plus identity, first-use state and home. */
 export type McpServerRecord = McpServerInput & {
@@ -58,7 +59,7 @@ export const homeRefOfRecord = (record: Pick<McpServerRecord, "home">): HomeRef 
 
 export const mcpDir = (): string => {
   const configured = process.env.MCP_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/mcp";
+  return configured !== undefined && configured !== "" ? configured : dataPath("mcp");
 };
 
 const SAFE_SEGMENT = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;

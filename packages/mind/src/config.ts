@@ -7,6 +7,7 @@
  */
 import { Config } from "effect";
 import { ENV_PREFIX, LEGACY_ENV_PREFIX, warnLegacyEnv } from "@spriessen/core";
+import { dataPath } from "@spriessen/core";
 
 /** Single grep-able fallbacks (SPRIESSEN_MODEL is the source of truth for the default model). */
 export const DEFAULT_MODEL_FALLBACK = "kenari/deepseek-v4-1-flash";
@@ -14,7 +15,8 @@ export const JEV_FALLBACK_MODEL = "jev-latest";
 export const TYPESAFE_DEFAULT_BASE_URL = "https://api.typesafe.ai";
 export const MODELS_DEV_DEFAULT_URL = "https://models.dev/api.json";
 export const KENARI_MODELS_DEFAULT_URL = "https://kenari.id/v1/models";
-export const HARNESS_DB_DEFAULT = "var/harness.sqlite";
+/** Resolved when the mind loads (core home.ts: ~/.spriessen/data, or an old `var/` still in use). */
+export const HARNESS_DB_DEFAULT = dataPath("harness.sqlite");
 
 /**
  * A product key: `SPRIESSEN_<name>`, else the deprecated `ULTIV_<name>`
@@ -41,20 +43,20 @@ export const modelsDevUrl = Config.String("MODELS_DEV_URL").pipe(
   Config.withDefault(MODELS_DEV_DEFAULT_URL),
 );
 export const modelsDevCache = Config.String("MODELS_DEV_CACHE").pipe(
-  Config.withDefault("var/models-dev.json"),
+  Config.withDefault(dataPath("models-dev.json")),
 );
 export const modelsDevTtlHours = Config.Number("MODELS_DEV_TTL_HOURS").pipe(Config.withDefault(24));
 /** Kenari's own listing; the gateway runs ahead of models.dev. `off` disables. */
 export const kenariModelsUrl = Config.option(Config.String("KENARI_MODELS_URL"));
 export const kenariModelsCache = Config.String("KENARI_MODELS_CACHE").pipe(
-  Config.withDefault("var/kenari-models.json"),
+  Config.withDefault(dataPath("kenari-models.json")),
 );
 export const kenariModelsTtlHours = Config.Number("KENARI_MODELS_TTL_HOURS").pipe(
   Config.withDefault(6),
 );
 /** The owner's additions in models.dev format: extra models, extra providers, endpoint overrides. */
 export const modelsOverlay = Config.String("MODELS_OVERLAY").pipe(
-  Config.withDefault("var/models.local.json"),
+  Config.withDefault(dataPath("models.local.json")),
 );
 export const modelMaxConcurrency = Config.Number("MODEL_MAX_CONCURRENCY").pipe(
   Config.withDefault(4),

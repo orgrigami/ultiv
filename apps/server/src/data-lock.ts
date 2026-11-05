@@ -9,6 +9,7 @@
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { dataDir } from "@spriessen/ext";
 
 export interface DataLock {
   readonly path: string;
@@ -34,9 +35,9 @@ const holderOf = (path: string): number | undefined => {
   }
 };
 
-/** The data folder the server writes into: where HARNESS_DB lives (default `var`). */
+/** The data folder the server writes into: where HARNESS_DB lives (default: core's dataDir). */
 export const dataDirOf = (env: NodeJS.ProcessEnv = process.env): string =>
-  resolve(dirname(env["HARNESS_DB"] || "var/harness.sqlite"));
+  resolve(env["HARNESS_DB"] ? dirname(env["HARNESS_DB"]) : dataDir(env));
 
 const tryTake = (path: string): boolean => {
   try {

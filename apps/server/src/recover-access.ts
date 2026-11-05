@@ -14,6 +14,7 @@ import { pathToFileURL } from "node:url";
 import { makeAudit } from "@spriessen/mind";
 import { authEvent } from "./auth/routes.ts";
 import { AuthStore } from "./auth/store.ts";
+import { dataPath } from "@spriessen/ext";
 
 /** Reset the passcode (generated when not given) and drop all sessions. */
 export const recoverAccess = (options?: { readonly passcode?: string }): string => {
@@ -28,7 +29,7 @@ export const recoverAccess = (options?: { readonly passcode?: string }): string 
     const audit = makeAudit(
       process.env.AUDIT_LOG?.trim() !== "" && process.env.AUDIT_LOG !== undefined
         ? process.env.AUDIT_LOG
-        : "var/audit.jsonl",
+        : dataPath("audit.jsonl"),
     );
     audit.record(authEvent(Date.now(), "recovery", true));
   } catch {

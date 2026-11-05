@@ -24,6 +24,7 @@ import {
 } from "./guard.ts";
 import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
 import { appendVersion, historyOf, type Version, type VersionAuthor } from "../versions/store.ts";
+import { dataPath } from "@spriessen/core";
 
 /** A skill that ships with the app: parsed once, merged into every listing. */
 export interface BuiltinSkill {
@@ -49,7 +50,7 @@ const emptyIndex = (): ProfileIndex => ({ skills: {}, builtins: {} });
 /** The store root (relative to the server's cwd, like ARTIFACTS_DIR). */
 export const skillsDir = (): string => {
   const configured = process.env.SKILLS_DIR?.trim();
-  return configured !== undefined && configured !== "" ? configured : "var/skills";
+  return configured !== undefined && configured !== "" ? configured : dataPath("skills");
 };
 
 const scopeDir = (root: string, owner: string, profile: string): string => {
