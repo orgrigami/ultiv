@@ -183,7 +183,8 @@ Before a change goes in, I run `vp check`, the seven typechecks, `vp test`, the 
 
 ## More docs
 
-- `AGENTS.md`: developer guide (layout, `vp` rules, the checks above, conventions, pitfalls)
+- `AGENTS.md`: developer guide (`vp` rules, the checks above, conventions, pitfalls)
+- `docs/ARCHITECTURE.md`: where everything lives and the contract each feature keeps
 - `docs/ROUTINES.md`: how cron, webhooks and sensors stay durable and get delivered
 - `docs/MEMORY.md`: how memory works (tiers, recall, guard, tidy)
 - `docs/SKILLS.md`: how skills are stored, loaded, installed and improved
