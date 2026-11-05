@@ -76,4 +76,6 @@ case ":$PATH:" in
 *":$PREFIX:"*) ;;
 *) echo "Add it to your PATH first:  export PATH=\"$PREFIX:\$PATH\"  (in ~/.zshrc or ~/.bashrc)" ;;
 esac
-echo "Next: spriessen login, then just spriessen. Keep a server running with: spriessen daemon install"
+# `spriessen update` runs this script too; first-install advice is noise there.
+[ "${SPRIESSEN_UPDATING:-}" = 1 ] ||
+	echo "Next: spriessen login, then just spriessen. Keep a server running with: spriessen daemon install"

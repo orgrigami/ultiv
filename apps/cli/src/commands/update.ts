@@ -128,10 +128,8 @@ export const updateCommand = async (parsed: Parsed): Promise<number> => {
   const install = spawnSync(
     "sh",
     [join(repo, "scripts", "install-cli.sh"), "--prefix", launcherDir()],
-    {
-      cwd: repo,
-      stdio: "inherit",
-    },
+    // SPRIESSEN_UPDATING: the script skips its first-install advice.
+    { cwd: repo, stdio: "inherit", env: { ...process.env, SPRIESSEN_UPDATING: "1" } },
   );
   if (install.status !== 0) {
     console.error(
