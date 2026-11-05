@@ -61,6 +61,7 @@ cat >"$TARGET" <<EOF
 #!/bin/sh
 # The spriessen command, installed from $REPO by scripts/install-cli.sh.
 NODE="$NODE"
+${SPRIESSEN_HOME:+export SPRIESSEN_HOME="\${SPRIESSEN_HOME:-$SPRIESSEN_HOME}"}
 if [ ! -x "\$NODE" ]; then
 	# vp moved to another Node build since the install: ask it again.
 	NODE=\$(cd "$REPO" && "$VP" node -e 'process.stdout.write(process.execPath)') || exit 1
@@ -76,6 +77,6 @@ case ":$PATH:" in
 *":$PREFIX:"*) ;;
 *) echo "Add it to your PATH first:  export PATH=\"$PREFIX:\$PATH\"  (in ~/.zshrc or ~/.bashrc)" ;;
 esac
-# `spriessen update` runs this script too; first-install advice is noise there.
-[ "${SPRIESSEN_UPDATING:-}" = 1 ] ||
+# `spriessen update` and scripts/install.sh run this too and say their own next steps.
+[ "${SPRIESSEN_NO_NEXT_STEPS:-}" = 1 ] ||
 	echo "Next: spriessen login, then just spriessen. Keep a server running with: spriessen daemon install"
