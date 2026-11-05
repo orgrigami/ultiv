@@ -58,9 +58,7 @@ const capacityProblem = (
  * The caller's VM size once `vmSettingsProblem` passed (both fields are
  * whole numbers in range, so the cast only restores that knowledge).
  */
-const readVm = (
-  input: { cpus?: number; memoryMiB?: number } | undefined,
-): VmSettings | undefined =>
+const readVm = (input: { cpus?: number; memoryMiB?: number } | undefined): VmSettings | undefined =>
   input === undefined
     ? undefined
     : ({ cpus: input.cpus, memoryMiB: input.memoryMiB } as VmSettings);

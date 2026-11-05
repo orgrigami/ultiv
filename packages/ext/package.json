@@ -18,7 +18,7 @@
     "@spriessen/core": "workspace:*",
     "@vscode/tree-sitter-wasm": "0.3.1",
     "effect": "catalog:",
-    "microsandbox": "^0.7.11",
+    "microsandbox": "^0.7.13",
     "pele": "catalog:",
     "typebox": "catalog:",
     "web-tree-sitter": "0.27.1"

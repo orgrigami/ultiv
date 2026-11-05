@@ -210,10 +210,7 @@ const beyondVm = (input: unknown): boolean => {
 };
 
 /** The "Always allow" menu item's label and explanation for one card. */
-export const alwaysAllowText = (
-  name: string,
-  input?: unknown,
-): { title: string; detail: string } =>
+export const alwaysAllowText = (name: string, input?: unknown): { title: string; detail: string } =>
   name === "bash" && beyondVm(input)
     ? {
         title:
