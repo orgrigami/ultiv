@@ -256,3 +256,20 @@ composer, its target menu, Cancel, the raised owner card and the server's
 routes. The timeline updates live (the mind's `mailbox.listen` → the
 `mailbox` signal), a speaker's follow-up within 5 minutes continues under
 one head, dividers fall per day, and delivery problems read as sentences.
+
+## React-for-ack wave: DONE (2026-11-06)
+
+**Bots react instead of replying** when the owner's message needs no prose:
+a `react` mind tool attaches one emoji from a fixed 12-name ack vocabulary
+(ack, seen, done, working, declined, clarify, caveat, blocked, noted,
+recurs, shipped, agreed) to the owner's message. Reactions live in the
+`ultiv.reactions` mind doc family keyed per conversation; the owner's web
+reads them through `GET /api/sessions/:id/reactions` (owner-scoped, foreign
+sessions read as 404) and polls every 5 s, merging by transcript entry id.
+The chip renders as a small emoji badge on the bubble it acks with the
+reaction name as the tooltip; the react tool call is hidden in the
+presentation lens, so a reaction-only turn shows just the chip. One
+reaction per message per bot, replaced on re-react; no owner react button
+and no delete or edit in this wave (a bot re-reacts to replace its own).
+The tool rides the always-on registry path: every bot has it, allowlisted
+or not.

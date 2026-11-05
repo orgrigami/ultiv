@@ -5,6 +5,7 @@ import type {
   Phase,
   ProfileApprovalMode,
   QueuedInput,
+  ReactionRow,
   TaskInfo,
   TaskRow,
   ThinkingLevel,
@@ -160,6 +161,7 @@ export function SessionView({
   taskApprovals = [],
   onTaskDecide,
   jevNotices,
+  reactions,
 }: {
   bot?: ChatBot | undefined;
   /** The chat's session id; uploads scope into its profile's workspace. */
@@ -205,6 +207,8 @@ export function SessionView({
   ) => Promise<DecideOutcome | void>;
   /** Jev's gate decisions by tool call id, shown under the calls. */
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined;
+  /** The bot's reactions by transcript entry id: chips on the bubbles they ack. */
+  reactions?: ReadonlyMap<number, ReactionRow> | undefined;
 }) {
   const busy = phase === "working";
   const staged = useStagedAttachments();
@@ -269,6 +273,7 @@ export function SessionView({
                 jevNotices={jevNotices}
                 onOpenMemory={hasBot ? openMemory : undefined}
                 bot={bot}
+                reactions={reactions}
               />
               {pending !== null ? (
                 <li>

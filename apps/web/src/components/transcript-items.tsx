@@ -11,7 +11,14 @@ import { parseSystem } from "@/lib/system-text";
 import { SystemCard } from "@/components/system/system-card";
 import { ToolGroup } from "@/components/tool-trace";
 import { latestPlans } from "@/lib/chat-tool-views";
-import type { TaskInfo, ToolStep, TranscriptEntry } from "@spriessen/contracts";
+import {
+  REACTION_EMOJI,
+  type ReactionRow,
+  type TaskInfo,
+  type ToolStep,
+  type TranscriptEntry,
+} from "@spriessen/contracts";
+import { Badge } from "@/components/ui/badge";
 import { CircleSlashIcon } from "lucide-react";
 import { ThinkingTrace } from "@/components/thinking-trace";
 import type { JevNotice } from "@/lib/jev-text";
@@ -106,6 +113,22 @@ function groupTranscript(transcript: TranscriptEntry[]): Group[] {
   return groups;
 }
 
+/**
+ * A bot's ack on the owner's message: the fixed vocabulary emoji as a small
+ * badge on the bubble, the reaction name as the tooltip. The react tool call
+ * renders nothing in the trace, so a reaction-only turn shows just this chip.
+ */
+function ReactionChip({ reaction }: { reaction: ReactionRow }) {
+  const emoji = REACTION_EMOJI[reaction.emoji];
+  return (
+    <span className="mt-1 flex">
+      <Badge variant="secondary" title={`${emoji} ${reaction.emoji}`}>
+        <span aria-hidden>{emoji}</span>
+      </Badge>
+    </span>
+  );
+}
+
 const isOwnerInput = (group: Group | undefined): boolean =>
   group !== undefined && !("tools" in group) && group.entry.kind === "input";
 
@@ -134,6 +157,7 @@ export function TranscriptItems({
   jevNotices,
   onOpenMemory,
   bot,
+  reactions,
 }: {
   transcript: TranscriptEntry[];
   busy?: boolean;
@@ -145,6 +169,8 @@ export function TranscriptItems({
   onOpenMemory?: ((query: string) => void) | undefined;
   /** The chat's bot: its face and name head each of its turns. */
   bot?: { id?: string | undefined; name: string } | undefined;
+  /** The bot's reactions by transcript entry id: chips on the bubbles they ack. */
+  reactions?: ReadonlyMap<number, ReactionRow> | undefined;
 }) {
   const groups = groupTranscript(latestPlans(transcript));
   // The newest bot turn's face thinks while the bot works.
@@ -179,7 +205,14 @@ export function TranscriptItems({
         return [
           divider,
           head,
-          renderGroup(group, busy && index === groups.length - 1, tasks, jevNotices, onOpenMemory),
+          renderGroup(
+            group,
+            busy && index === groups.length - 1,
+            tasks,
+            jevNotices,
+            onOpenMemory,
+            reactions,
+          ),
         ];
       })}
     </>
@@ -208,6 +241,7 @@ function renderGroup(
   tasks: readonly TaskInfo[],
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined,
   onOpenMemory?: ((query: string) => void) | undefined,
+  reactions?: ReadonlyMap<number, ReactionRow> | undefined,
 ) {
   const system = "tools" in group ? undefined : systemItem(group.entry, group.key, tasks);
   if (system !== undefined) return system;
@@ -223,6 +257,12 @@ function renderGroup(
       {group.entry.attachments !== undefined && group.entry.attachments.length > 0 && (
         <AttachmentChips attachments={group.entry.attachments} />
       )}
+      {reactions === undefined
+        ? null
+        : (() => {
+            const reaction = reactions.get(group.entry.id);
+            return reaction === undefined ? null : <ReactionChip reaction={reaction} />;
+          })()}
     </li>
   ) : group.entry.kind === "output" ? (
     <li

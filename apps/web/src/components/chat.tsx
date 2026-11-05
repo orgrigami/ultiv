@@ -10,6 +10,7 @@ import { StopDialog } from "@/components/stop-dialog";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { useSession } from "@/lib/use-session";
+import { useReactions } from "@/lib/use-reactions";
 import { useTasks } from "@/lib/use-tasks";
 import { useJevNotices } from "@/lib/use-jev-notices";
 import { useState } from "react";
@@ -31,6 +32,7 @@ export function Chat({
   onBack?: (() => void) | undefined;
 }) {
   const session = useSession(sessionId);
+  const reactions = useReactions(sessionId);
   const chatTasks = useTasks(session.conversationId);
   const jevNotices = useJevNotices(session.conversationId, session.transcript);
   const { refreshAll } = useApp();
@@ -111,6 +113,7 @@ export function Chat({
         onConfigure={session.configure}
         onApprovalMode={changeApprovalMode}
         onInterrupt={requestStop}
+        reactions={reactions}
       />
       <StopDialog
         open={askStop}
