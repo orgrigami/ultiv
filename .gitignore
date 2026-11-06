@@ -19,3 +19,6 @@ var-db-backup*/
 apps/web/.impeccable/review/
 apps/web/.impeccable/build/
 apps/web/.impeccable/mocks/
+
+# agent worktrees (other branches checked out in place)
+.claude/worktrees/
