@@ -78,7 +78,7 @@ One message, under 200 words:
 
 - How to open it: `spriessen` (the terminal UI) or `spriessen open` (the web
   app). On a phone, the web app installs from the browser's share menu.
-- Where to look: **Needs you** lists everything that waits on them.
+- Where to look: **Now** shows everything that waits on them (Needs you, at the top), then what their bots are doing.
 - Three habits: start a routine that acts on the world as a trial (Routines,
   Try now and Go live); give a webhook an allow list when strangers can post
   to its source; let routines answer "nothing to report" instead of pinging.

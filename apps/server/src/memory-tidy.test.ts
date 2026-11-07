@@ -83,7 +83,7 @@ describe("the tidy push", () => {
   it("opens Needs you, where the proposals wait per bot", async () => {
     const sent: { url: string; tag: string }[] = [];
     await tidyPush({ notify: async (_owner, push) => void sent.push(push) })("owner", "x");
-    expect(sent).toEqual([expect.objectContaining({ url: "/needs", tag: "memory-tidy" })]);
+    expect(sent).toEqual([expect.objectContaining({ url: "/now", tag: "memory-tidy" })]);
   });
 });
 

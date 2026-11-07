@@ -1,11 +1,11 @@
 /**
- * The app nav: one model at every width, Chat · Past chats · Needs you ·
- * Crew · Settings. From sm: up it is a sidebar: the wordmark with its
- * connection state, New chat, the five destinations, the crew roster under
- * Crew (switching bots is one click) and Recents, the newest chats, so an old
- * chat is one click away. On phones it is a bottom tab bar with the same
- * five. Both mark the current section with aria-current and show the Needs
- * you count.
+ * The app nav: one model at every width, Now · Chats · Crew · Settings.
+ * From sm: up it is a sidebar: the wordmark with its connection state, New
+ * chat, Find, the four destinations, the crew roster under Crew (switching
+ * bots is one click) and Recents, the newest chats, so an old chat is one
+ * click away. On phones it is a bottom tab bar with the same four plus Find,
+ * so search is never keyboard-only. Both mark the current section with
+ * aria-current and carry the Needs you count on Now.
  */
 import { BrandLockup } from "@/components/brand-mark";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import { RowLink } from "@/components/ui/row-link";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   BellDotIcon,
-  HistoryIcon,
   MessageCircleIcon,
   SearchIcon,
   SettingsIcon,
@@ -64,22 +63,22 @@ export function useActiveBotId(): string | undefined {
 }
 
 const ICONS: Record<Section, LucideIcon> = {
-  chat: MessageCircleIcon,
-  history: HistoryIcon,
-  needs: BellDotIcon,
+  now: BellDotIcon,
+  chats: MessageCircleIcon,
   crew: UsersIcon,
   settings: SettingsIcon,
 };
 
-/** Where each section's link goes; Chat returns to the bot last chatted with. */
+/** Where each section's link goes; Chats returns to the bot last chatted with. */
 function linkOf(
   section: Section,
   lastBot: string | undefined,
 ): {
-  to: "/" | "/history" | "/needs" | "/crew" | "/settings";
+  to: "/" | "/now" | "/crew" | "/settings";
   search: Record<string, string>;
 } {
-  if (section === "chat") return { to: "/", search: lastBot !== undefined ? { bot: lastBot } : {} };
+  if (section === "chats")
+    return { to: "/", search: lastBot !== undefined ? { bot: lastBot } : {} };
   return { to: `/${section}`, search: {} };
 }
 
@@ -125,7 +124,7 @@ function RailLink({ section, current }: { section: Section; current: boolean }) 
   const { lastBot, needsCount } = useApp();
   const Icon = ICONS[section];
   const target = linkOf(section, lastBot);
-  const count = section === "needs" ? needsCount : 0;
+  const count = section === "now" ? needsCount : 0;
   return (
     <RowLink
       to={target.to}
@@ -238,13 +237,12 @@ export function SideNav() {
             <kbd className="readout">{modKey()}K</kbd>
           </RowButton>
         )}
-        <RailLink section="chat" current={section === "chat"} />
-        <RailLink section="history" current={section === "history"} />
-        <RailLink section="needs" current={section === "needs"} />
+        <RailLink section="now" current={section === "now"} />
+        <RailLink section="chats" current={section === "chats"} />
         <RailLink section="crew" current={section === "crew"} />
         <CrewList
           variant="rail"
-          activeId={section === "chat" ? botId : undefined}
+          activeId={section === "chats" ? botId : undefined}
           className="mt-0.5 ml-3 border-l pl-2"
           onPick={(id) => void navigate({ to: "/", search: id === mainId ? {} : { bot: id } })}
         />
@@ -257,12 +255,15 @@ export function SideNav() {
   );
 }
 
-/** One phone tab: icon over label, with the Needs you count on the icon. */
+const TAB =
+  "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs whitespace-nowrap outline-none focus-visible:ring-3";
+
+/** One phone tab: icon over label, with the Needs you count on Now's icon. */
 function TabLink({ section, current }: { section: Section; current: boolean }) {
   const { lastBot, needsCount } = useApp();
   const Icon = ICONS[section];
   const target = linkOf(section, lastBot);
-  const count = section === "needs" ? needsCount : 0;
+  const count = section === "now" ? needsCount : 0;
   return (
     <Link
       to={target.to}
@@ -271,10 +272,7 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
       aria-label={
         count > 0 ? `${SECTION_LABEL[section]}, ${count} waiting` : SECTION_LABEL[section]
       }
-      className={cn(
-        "focus-visible:ring-ring/50 press flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl text-xs whitespace-nowrap outline-none focus-visible:ring-3",
-        current ? "text-foreground font-medium" : "text-muted-foreground",
-      )}
+      className={cn(TAB, current ? "text-foreground font-medium" : "text-muted-foreground")}
     >
       <span className="relative">
         <Icon className="size-6 shrink-0" />
@@ -282,6 +280,23 @@ function TabLink({ section, current }: { section: Section; current: boolean }) {
       </span>
       {SECTION_LABEL[section]}
     </Link>
+  );
+}
+
+/** Find on phones: the quick switcher, which has no key to open it there. */
+function FindTab() {
+  const quick = useQuickSwitch();
+  if (quick === null) return null;
+  return (
+    <button
+      type="button"
+      onClick={quick.openSwitcher}
+      aria-label="Find a chat, bot or page"
+      className={cn(TAB, "text-muted-foreground")}
+    >
+      <SearchIcon className="size-6 shrink-0" />
+      Find
+    </button>
   );
 }
 
@@ -295,6 +310,7 @@ export function TabBar() {
       {SECTIONS.map((entry) => (
         <TabLink key={entry} section={entry} current={section === entry} />
       ))}
+      <FindTab />
     </nav>
   );
 }

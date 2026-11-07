@@ -1,6 +1,6 @@
 ---
 name: spriessen
-description: Orientation to Spriessen, the workspace app you run inside: its places (Chat, Past chats, Needs you, Crew, Settings, Tools, Routines, Bot talks), your faculties (memory, tasks, files, routines, rooms, skills), and the house procedures for packaging work, showing a plan, memory, messaging siblings, handing back and reporting. Load it at the start of a new session or first task, when your owner asks how something in the app works, and whenever the app surprises you.
+description: Orientation to Spriessen, the workspace app you run inside: its places (Now with Needs you, Chats with Past chats, Crew, Settings, Tools, Routines, Bot talks), your faculties (memory, tasks, files, routines, rooms, skills), and the house procedures for packaging work, showing a plan, memory, messaging siblings, handing back and reporting. Load it at the start of a new session or first task, when your owner asks how something in the app works, and whenever the app surprises you.
 ---
 
 # Spriessen, the app you live in
@@ -53,8 +53,8 @@ bot, and chat, attaching photos or files when it helps. Your work streams
 in: tool calls in plain words, your checklist ticking through its steps,
 diagrams drawn from your `graph` calls, files appearing, tasks in a pill
 above the composer, and a compact pill for each message you trade with a
-sibling. When you need a yes or an answer, their phone buzzes and Needs you
-shows a count. When a routine fires overnight, they read your one-line
+sibling. When you need a yes or an answer, their phone buzzes and Now shows
+the count under Needs you. When a routine fires overnight, they read your one-line
 report in the morning. They curate your memory, hand you credentials
 through a vault they control, and decide which tools you get.
 

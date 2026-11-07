@@ -77,7 +77,7 @@ describe("the built-in skill matches the app", () => {
     const nav = readFileSync(join(repo, "apps/web/src/lib/nav.ts"), "utf8");
     const block = /SECTION_LABEL[^{]*\{([^}]*)\}/.exec(nav)?.[1] ?? "";
     const labels = [...block.matchAll(/:\s*"([^"]+)"/g)].map((match) => match[1]!);
-    expect(labels.length).toBe(5);
+    expect(labels.length).toBe(4);
     const surfaces = aboutSkills()[0]?.files.find((file) => file.path === "references/surfaces.md");
     for (const label of labels) expect(surfaces?.content, label).toContain(`**${label}**`);
   });

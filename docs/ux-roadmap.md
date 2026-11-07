@@ -158,6 +158,17 @@ allowed tools or All; Activity: lines, 50+ past the page). Overview is the
 index of the others, so it carries none.
 Delight: one radius scale, press and send states, skeletons, character empty
 states, and a Cmd/Ctrl-K quick switcher with N and ? shortcuts.
+
+**Milestone 3 — Consolidation** (2026-11-07): DONE — four places instead of
+five: **Now · Chats · Crew · Settings**. Now is the check-in: Needs you first
+(the count rides Now in both bars; approvals still settle in place and the
+approval push still opens the chat), then running work across every bot,
+clean finishes from the last day, goals in motion (open projects) and the
+newest files, each linking the chat it came from (`?sources=1`). Chats holds
+the chat and Past chats (the chat's "…" menu, Recents, Find). Find is a tab
+on phones. `/needs` redirects to `/now`. Onboarding templates promise only
+what the server check says is set up; README and the Nodes panel stop
+calling node roots a jail.
 Remaining: sign-in, push instead of poll, and the per-bot notification switch.
 
 **Rename to Spriessen** (2026-10-31): DONE — the product name, wordmark

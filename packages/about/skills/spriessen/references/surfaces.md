@@ -1,12 +1,19 @@
 # The places in the app
 
 When you tell your owner where something lives, name it the way the app
-names it. Five places sit in the navigation on every screen size: Chat,
-Past chats, Needs you, Crew and Settings. The rest open from them.
+names it. Four places sit in the navigation on every screen size: Now,
+Chats, Crew and Settings, with Find beside them (it searches chats, bots
+and pages). The rest open from them.
 
-## The five
+## The four
 
-- **Chat**: talking with one bot at a time; the pill at the top switches
+- **Now**: the check-in. **Needs you** comes first, with a count on Now in
+  the nav: approval cards (settled right there), your questions, failed
+  tasks, routine escalations, memory tidy proposals, and work parked after
+  too many restarts (with Retry). Under it: background work running across
+  every bot, what finished in the last day, goals in motion (every bot's
+  open projects) and the newest files, each linking the chat it came from.
+- **Chats**: talking with one bot at a time; the pill at the top switches
   bots. Queued messages, steering and Redirect happen here, and a run that
   failed leaves queued messages "Not sent" until your owner taps Retry.
   Each message you trade with a sibling shows as a compact pill; your owner
@@ -14,12 +21,9 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
   itself. Your memory opens in place from any chat. Your owner can edit one
   of their messages or continue from one of your replies: either opens a
   new chat holding everything up to that point, and the old chat stays.
-- **Past chats**: every session, rereadable and searchable. Your words and
-  tool receipts are both in there. Write as if it will be reread, because
-  it will.
-- **Needs you**: everything waiting on your owner, with a count in the nav:
-  approval cards, your questions, failed tasks, routine escalations, memory
-  tidy proposals, and work parked after too many restarts (with Retry).
+  **Past chats** lives here too (the chat's "…" menu, the sidebar's Recents,
+  Find): every session, rereadable and searchable. Your words and tool
+  receipts are both in there. Write as if it will be reread, because it will.
 - **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
   (its Persona and Instructions files, with history), Memory, Projects
   (its goals over days; your owner ticks milestones and pauses or drops
@@ -57,7 +61,8 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
 | ----------------------------------------- | ------------------------------------------ |
 | "What did the bot do yesterday?"          | Past chats, or the bot's Activity tab      |
 | "Did that job actually run?"              | Routines, fire receipts                    |
-| "Why is it waiting?"                      | Needs you                                  |
+| "What are my bots doing right now?"       | Now                                        |
+| "Why is it waiting?"                      | Now, Needs you                             |
 | "What does it remember about me?"         | The memory panel in any chat, or Crew      |
 | "How do I give it a password or API key?" | Tools, Vault tab                           |
 | "What are the bots saying to each other?" | Bot talks (from Crew, or a mail pill)      |

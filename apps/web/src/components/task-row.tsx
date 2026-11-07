@@ -14,10 +14,13 @@ export function TaskRow({
   task,
   now,
   onChanged,
+  botName,
 }: {
   task: TaskInfo;
   now: number;
   onChanged: () => void;
+  /** Named where tasks of several bots share a list (the Now page). */
+  botName?: string | undefined;
 }) {
   // Settled rows just say how it ended; the result is in the chat.
   const latest = task.status === "running" ? taskLatest(task) : undefined;
@@ -32,6 +35,7 @@ export function TaskRow({
       >
         <span className="truncate text-sm font-medium">{taskTitle(task)}</span>
         <span className="text-muted-foreground truncate text-xs">
+          {botName !== undefined && botName !== "" && `${botName} · `}
           {taskStatusWord(task.status)} · {taskElapsed(task, now)}
           {latest !== undefined && ` · ${latest}`}
         </span>

@@ -14,6 +14,7 @@ import { Route as BotsRouteImport } from './routes/bots'
 import { Route as ConnectorsRouteImport } from './routes/connectors'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as NeedsRouteImport } from './routes/needs'
+import { Route as NowRouteImport } from './routes/now'
 import { Route as RoomsRouteImport } from './routes/rooms'
 import { Route as RoutinesRouteImport } from './routes/routines'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -49,6 +50,11 @@ const HistoryRoute = HistoryRouteImport.update({
 const NeedsRoute = NeedsRouteImport.update({
   id: '/needs',
   path: '/needs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NowRoute = NowRouteImport.update({
+  id: '/now',
+  path: '/now',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RoomsRoute = RoomsRouteImport.update({
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
   '/needs': typeof NeedsRoute
+  '/now': typeof NowRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/settings': typeof SettingsRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
   '/needs': typeof NeedsRoute
+  '/now': typeof NowRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/settings': typeof SettingsRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/connectors': typeof ConnectorsRoute
   '/history': typeof HistoryRoute
   '/needs': typeof NeedsRoute
+  '/now': typeof NowRoute
   '/rooms': typeof RoomsRoute
   '/routines': typeof RoutinesRoute
   '/settings': typeof SettingsRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/connectors'
     | '/history'
     | '/needs'
+    | '/now'
     | '/rooms'
     | '/routines'
     | '/settings'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/connectors'
     | '/history'
     | '/needs'
+    | '/now'
     | '/rooms'
     | '/routines'
     | '/settings'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/connectors'
     | '/history'
     | '/needs'
+    | '/now'
     | '/rooms'
     | '/routines'
     | '/settings'
@@ -225,6 +237,7 @@ export interface RootRouteChildren {
   ConnectorsRoute: typeof ConnectorsRoute
   HistoryRoute: typeof HistoryRoute
   NeedsRoute: typeof NeedsRoute
+  NowRoute: typeof NowRoute
   RoomsRoute: typeof RoomsRoute
   RoutinesRoute: typeof RoutinesRoute
   SettingsRoute: typeof SettingsRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/needs'
       fullPath: '/needs'
       preLoaderRoute: typeof NeedsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/now': {
+      id: '/now'
+      path: '/now'
+      fullPath: '/now'
+      preLoaderRoute: typeof NowRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rooms': {
@@ -361,6 +381,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectorsRoute: ConnectorsRoute,
   HistoryRoute: HistoryRoute,
   NeedsRoute: NeedsRoute,
+  NowRoute: NowRoute,
   RoomsRoute: RoomsRoute,
   RoutinesRoute: RoutinesRoute,
   SettingsRoute: SettingsRoute,

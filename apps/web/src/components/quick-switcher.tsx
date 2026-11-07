@@ -73,11 +73,11 @@ const SCREENS: readonly {
     keywords: ["history", "recent"],
   },
   {
-    id: "needs",
-    title: "Needs you",
-    to: "/needs",
+    id: "now",
+    title: "Now",
+    to: "/now",
     icon: BellDotIcon,
-    keywords: ["approvals", "inbox"],
+    keywords: ["needs you", "approvals", "inbox", "running", "tasks", "files", "goals"],
   },
   { id: "crew", title: "Crew", to: "/crew", icon: UsersIcon, keywords: ["bots"] },
   {

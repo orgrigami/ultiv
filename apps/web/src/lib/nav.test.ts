@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vite-plus/test";
 import { isRedirect } from "@tanstack/react-router";
 import { Route as BotsRoute } from "../routes/bots.tsx";
+import { Route as NeedsRoute } from "../routes/needs.tsx";
 import { MOVED, SECTIONS, SECTION_LABEL, badgeText, sectionOf } from "./nav.ts";
 
 describe("sectionOf", () => {
-  it("maps home and chat routes to Chat", () => {
-    expect(sectionOf("/")).toBe("chat");
-    expect(sectionOf("/c/abc")).toBe("chat");
+  it("is four places: Now, Chats, Crew, Settings", () => {
+    expect(SECTIONS).toEqual(["now", "chats", "crew", "settings"]);
+    expect(SECTIONS.map((section) => SECTION_LABEL[section])).toEqual([
+      "Now",
+      "Chats",
+      "Crew",
+      "Settings",
+    ]);
   });
-  it("gives Past chats its own place in the nav", () => {
-    expect(sectionOf("/history")).toBe("history");
-    expect(SECTIONS).toEqual(["chat", "history", "needs", "crew", "settings"]);
-    expect(SECTION_LABEL.history).toBe("Past chats");
+  it("keeps the chat, every chat and Past chats under Chats", () => {
+    expect(sectionOf("/")).toBe("chats");
+    expect(sectionOf("/c/abc")).toBe("chats");
+    expect(sectionOf("/history")).toBe("chats");
   });
   it("keeps the old bot and routine pages under Crew", () => {
     expect(sectionOf("/crew")).toBe("crew");
@@ -25,8 +31,9 @@ describe("sectionOf", () => {
     expect(sectionOf("/tools")).toBe("settings");
     expect(sectionOf("/vault")).toBe("settings");
   });
-  it("knows Needs you and nothing else", () => {
-    expect(sectionOf("/needs")).toBe("needs");
+  it("folds Needs you into Now, and knows nothing else", () => {
+    expect(sectionOf("/now")).toBe("now");
+    expect(sectionOf("/needs")).toBe("now");
     expect(sectionOf("/nowhere")).toBeNull();
   });
 });
@@ -39,19 +46,24 @@ describe("badgeText", () => {
   });
 });
 
+const redirectOf = (beforeLoad: unknown): { to: string; replace?: boolean } => {
+  let thrown: unknown;
+  try {
+    (beforeLoad as () => void)();
+  } catch (error) {
+    thrown = error;
+  }
+  expect(isRedirect(thrown)).toBe(true);
+  return (thrown as { options: { to: string; replace?: boolean } }).options;
+};
+
 describe("moved pages", () => {
   it("sends the old Bots page to Crew, replacing the history entry", () => {
     expect(MOVED["/bots"]).toBe("/crew");
-    const beforeLoad = BotsRoute.options.beforeLoad as () => void;
-    let thrown: unknown;
-    try {
-      beforeLoad();
-    } catch (error) {
-      thrown = error;
-    }
-    expect(isRedirect(thrown)).toBe(true);
-    const options = (thrown as { options: { to: string; replace?: boolean } }).options;
-    expect(options.to).toBe("/crew");
-    expect(options.replace).toBe(true);
+    expect(redirectOf(BotsRoute.options.beforeLoad)).toMatchObject({ to: "/crew", replace: true });
+  });
+  it("sends Needs you (old pushes and bookmarks) to Now", () => {
+    expect(MOVED["/needs"]).toBe("/now");
+    expect(redirectOf(NeedsRoute.options.beforeLoad)).toMatchObject({ to: "/now", replace: true });
   });
 });

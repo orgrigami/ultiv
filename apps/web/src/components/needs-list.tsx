@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApprovalCard } from "@/components/approval-card";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { formatWhen } from "@/lib/format";
@@ -96,7 +97,14 @@ function RetryButton({ taskId, title }: { taskId: string; title: string }) {
   );
 }
 
-export function NeedsList({ className }: { className?: string }) {
+export function NeedsList({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  /** One quiet line when empty (the Now page, where more sections follow). */
+  compact?: boolean;
+}) {
   const { needs, dismissNeed, reloadApprovals, sessions } = useApp();
   const open = useOpenTarget();
   const [settled, setSettled] = useState<readonly Settled[]>([]);
@@ -116,6 +124,8 @@ export function NeedsList({ className }: { className?: string }) {
   const settledIds = new Set(settled.map((row) => row.id));
   const rows = needs.filter((item) => !settledIds.has(item.id));
 
+  if (rows.length === 0 && settled.length === 0 && compact)
+    return <EmptyState className={cn(className)}>Nothing is waiting on you.</EmptyState>;
   if (rows.length === 0 && settled.length === 0)
     return (
       <CharacterEmpty title="All clear" className={cn("py-10", className)}>

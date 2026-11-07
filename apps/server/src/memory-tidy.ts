@@ -50,7 +50,7 @@ export const tidyPush =
       .notify(owner, {
         title: text,
         body: "Review them in Needs you.",
-        url: "/needs",
+        url: "/now",
         tag: "memory-tidy",
       })
       .then(() => undefined);

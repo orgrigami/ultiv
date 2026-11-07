@@ -2,11 +2,13 @@
  * The slim chat bar: a round back button (or New chat on a bot's main
  * chat), the bot as a centred avatar+name pill that switches bots at every
  * width with the approval-mode chip beside it, and a round "…" that opens
- * the session details (model, effort, spend, connection). Past chats has its
- * own tab, so nothing used daily hides in the popover.
+ * the session details (model, effort, spend, connection) under a Past chats
+ * link — the way to every older chat on a phone, where the sidebar's Recents
+ * don't show (Find lists them too).
  */
 import { Popover } from "@base-ui/react/popover";
-import { ChevronLeftIcon, EllipsisIcon, SquarePenIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronLeftIcon, EllipsisIcon, HistoryIcon, SquarePenIcon } from "lucide-react";
 import type {
   ModelInfo,
   ProfileApprovalMode,
@@ -25,6 +27,7 @@ import {
   SheetHeading,
   sheetPopup,
   sheetPositioner,
+  sheetRow,
   usePhoneSheet,
 } from "@/components/ui/menu-sheet";
 import { useApp } from "@/lib/app-state";
@@ -197,6 +200,9 @@ export function ChatHeader({
           <PopoverSheetBackdrop />
           <Popover.Positioner side="bottom" align="end" sideOffset={8} {...sheetPositioner}>
             <Popover.Popup className={cn(sheetPopup, "w-80 gap-3 p-4")}>
+              <Link to="/history" className={cn(sheetRow, "-mx-2")}>
+                <HistoryIcon className="size-4" /> Past chats
+              </Link>
               <Popover.Title render={<SheetHeading className="px-0">Chat details</SheetHeading>} />
               <SessionDetails
                 link={link}
