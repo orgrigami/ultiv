@@ -4,6 +4,7 @@ import type { SystemMessage } from "@/lib/system-text";
 import { taskTitle } from "@/lib/task-text";
 import { BotCard, NackCard } from "./bot-card";
 import { EventLine } from "./event-line";
+import { JobCard } from "./job-card";
 import { TaskCard } from "./task-card";
 import { WebhookCard } from "./webhook-card";
 
@@ -43,5 +44,7 @@ export function SystemCard({
       return <NackCard message={message} at={at} />;
     case "quiet":
       return <EventLine kind="quiet" text={message.text} at={at} />;
+    case "job":
+      return <JobCard message={message} at={at} />;
   }
 }

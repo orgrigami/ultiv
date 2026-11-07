@@ -72,12 +72,9 @@ import { auditedMailbox } from "./org/reach.ts";
 import { skillsService, type SkillsService } from "./skills/service.ts";
 import { Generate, generateLayer } from "./generate/generate.ts";
 import { Decide, decideLayer } from "./decide/decide.ts";
-import { wireEvals } from "./evals/wire.ts";
-import { trialsService } from "./routines/trial.ts";
-import { catalogKnows } from "./tasks/background.ts";
-import { wireProjects } from "./projects/wire.ts";
 import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
-import { lanesExtension } from "./providers/lanes.ts";
+import { wireLateFaculties } from "./entity-late.ts";
+import { bashJobHost } from "./act/bash-jobs.ts";
 import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 import type { MindService } from "./entity-api.ts";
@@ -313,25 +310,8 @@ const mindLayerRaw = (
       // Turns a restart cut off continue now, with every tool installed
       // (connector tools join as their servers connect). One cut off too many
       // times in a row is parked instead and shows in Needs you.
-      const projects = wireProjects(piRegistry, { converse, profiles, audit });
-      const { evals, guard: dryRun } = yield* Effect.promise(() =>
-        wireEvals(piRegistry, { converse, profiles, decide, models }),
-      );
-      const trials = trialsService({
-        converse,
-        profiles,
-        guard: dryRun,
-        knownModel: catalogKnows(models),
-      });
-      // Model lanes: the owner's chats first; tasks and test replays are
-      // background work that always leaves the owner a slot (providers/gate.ts).
-      piRegistry.install(
-        lanesExtension(models.lanes, async (conversationId) =>
-          profiles.scopeOf(conversationId)?.kind === "task" ||
-          (await evals.isReplay(conversationId))
-            ? "background"
-            : "owner",
-        ),
+      const { projects, evals, trials } = yield* Effect.promise(() =>
+        wireLateFaculties(piRegistry, { converse, profiles, decide, models, audit }),
       );
       converse.resume();
       return {
@@ -436,6 +416,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         artifactsPlugin({ holder }),
         bashPlugin({
           holder,
+          jobs: bashJobHost(() => wiring.converseRef.current),
           ...(wiring.nodeExec !== undefined
             ? { nodes: nodeShellFacadeOf(wiring.converseRef, wiring.nodeExec) }
             : {}),

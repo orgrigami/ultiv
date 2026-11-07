@@ -42,5 +42,14 @@ export function systemLine(message: SystemMessage): string | null {
       return `${message.who} couldn't take the message: ${message.reason}`;
     case "quiet":
       return withText("You (relayed)", message.text);
+    case "job":
+      if (message.outcome === "lost")
+        return withText("Background job lost in a restart", message.title);
+      return withText(
+        message.exitCode === 0
+          ? "Background job finished"
+          : `Background job failed (exit ${message.exitCode ?? "?"})`,
+        message.title,
+      );
   }
 }

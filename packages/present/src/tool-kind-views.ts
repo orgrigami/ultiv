@@ -335,10 +335,11 @@ export const bashWhere = (input: unknown): string => {
 export const bashView = (step: ToolStep): ToolView => {
   const script = scriptOf(step.input);
   const where = bashWhere(step.input);
+  const background = recordOf(step.input).background === true;
   return {
     family: "code",
-    done: `Ran a script ${where}`,
-    live: `Running a script ${where}…`,
+    done: background ? `Started a background job ${where}` : `Ran a script ${where}`,
+    live: background ? `Starting a background job ${where}…` : `Running a script ${where}…`,
     detail: clip(flatOf(script), 44),
     structured: { t: "term", command: script, output: outputBesidesError(step) ?? "" },
   };

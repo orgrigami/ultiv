@@ -19,4 +19,16 @@ describe("systemLine", () => {
   it("a routine task with nothing to report reads as a quiet check-in", () => {
     expect(line("[task t1 finished]\n\n[nothing to report]")).toBe("Checked in: nothing to report");
   });
+
+  it("a background shell job reads as finished, failed or lost, with its script", () => {
+    expect(line("[job 1a2b finished] exit 0: make test\n\nall green")).toBe(
+      "Background job finished: make test",
+    );
+    expect(line("[job 1a2b finished] exit 2: make test\n\nboom")).toBe(
+      "Background job failed (exit 2): make test",
+    );
+    expect(line("[job 1a2b lost] npm run build\n\nThe server restarted")).toBe(
+      "Background job lost in a restart: npm run build",
+    );
+  });
 });

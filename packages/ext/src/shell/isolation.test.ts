@@ -25,8 +25,8 @@ const propertyNames = (tool: ReturnType<typeof toolOf>): string[] =>
 const bashPluginTool = (name: "bash"): string[] => propertyNames(toolOf(bashPlugin(), name));
 
 describe("no tool parameter opens another home's VM", () => {
-  it("bash takes exactly a script, an optional target and an optional node name — no vm, home or department argument", () => {
-    expect(bashPluginTool("bash")).toEqual(["script", "target", "node"]);
+  it("bash takes exactly a script, an optional target, an optional node name and a background yes/no — no vm, home or department argument", () => {
+    expect(bashPluginTool("bash")).toEqual(["script", "target", "node", "background"]);
   });
 });
 

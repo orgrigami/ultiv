@@ -98,7 +98,9 @@ describe("bash's target never names another home's VM (phase 6 merge)", () => {
     const union = ((properties?.target as { anyOf?: { const?: string }[] })?.anyOf ?? []).map(
       (arm) => arm.const,
     );
-    expect(Object.keys(properties ?? {})).toEqual(["script", "target", "node"]);
+    // `background` is a yes/no (a background job), never a place.
+    expect(Object.keys(properties ?? {})).toEqual(["script", "target", "node", "background"]);
+    expect((properties?.background as { type?: string })?.type).toBe("boolean");
     expect(union).toEqual(["vm", "host", "node"]);
   });
 

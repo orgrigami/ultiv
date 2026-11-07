@@ -35,6 +35,16 @@ export type SystemMessage =
     }
   | { kind: "nack"; who: string; reason: string; detail: string; envelopeId: string | null }
   | { kind: "quiet"; text: string }
+  | {
+      kind: "job";
+      jobId: string;
+      /** finished: the background shell job ended; lost: a restart cut it off. */
+      outcome: "finished" | "lost";
+      exitCode: number | null;
+      /** The script's first line. */
+      title: string;
+      body: string;
+    }
   | { kind: "hidden" };
 
 /** The bot-only footers the mailbox appends to a delivered message. */
@@ -160,12 +170,27 @@ function parseMail(text: string): SystemMessage | null {
   };
 }
 
+/** "[job 1a2b finished] exit 0: make test\n\n<output>" or "[job 1a2b lost] make test\n\n…". */
+function parseJob(text: string): SystemMessage | null {
+  const head = /^\[job (\S+) (finished|lost)\](?: exit (-?\d+):)? ?([^\n]*)/.exec(text);
+  if (head === null) return null;
+  return {
+    kind: "job",
+    jobId: head[1] ?? "",
+    outcome: head[2] === "lost" ? "lost" : "finished",
+    exitCode: head[3] === undefined ? null : Number(head[3]),
+    title: (head[4] ?? "").trim(),
+    body: text.slice(head[0].length).trim(),
+  };
+}
+
 export function parseSystem(text: string): SystemMessage | null {
   if (text.startsWith("[resume]") || text.startsWith("[onboarding]")) return { kind: "hidden" };
   if (text.startsWith("[owner] ")) return { kind: "quiet", text: text.slice(8).trim() };
   if (text.startsWith("[task ")) return parseTask(text);
   if (text.startsWith("[webhook ")) return parseWebhook(text);
   if (text.startsWith("[sensor ")) return parseSensor(text);
+  if (text.startsWith("[job ")) return parseJob(text);
   const cron = /^\[cron (\S+)\]\s*/.exec(text);
   if (cron !== null)
     return { kind: "cron", jobId: cron[1] ?? "", text: text.slice(cron[0].length).trim() };

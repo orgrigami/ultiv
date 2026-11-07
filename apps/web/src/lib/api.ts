@@ -1,4 +1,5 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
+import { routinesApi } from "./api-routines.ts";
 import type {
   ProjectInfo,
   ProjectOwnerPatch,
@@ -9,7 +10,6 @@ import type {
   AuditEvent,
   CredentialBinding,
   CredentialBindingInput,
-  CronJobInfo,
   HistorySearch,
   McpConnectReply,
   McpServerInfo,
@@ -20,8 +20,6 @@ import type {
   ProfileInfo,
   ProfilePolicies,
   RoomInfo,
-  RoutineEvent,
-  SensorInfo,
   SessionInfo,
   SettingsModel,
   SkillDetail,
@@ -30,7 +28,6 @@ import type {
   TaskRow,
   ToolCatalogEntry,
   VaultItemInfo,
-  WebhookInfo,
 } from "@spriessen/contracts";
 import type { NodeInfo, NodePairResponse } from "@spriessen/contracts";
 import type { NeedsYouExtra } from "./needs-you.ts";
@@ -405,34 +402,7 @@ export const api = {
   removeTask: (id: string): Promise<boolean> => drop(`/api/tasks/${encodeURIComponent(id)}`),
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),
-  // Routines: schedules, webhooks, sensors and their shared receipt log.
-  cron: (): Promise<CronJobInfo[]> => getJson<CronJobInfo[]>("/api/cron"),
-  removeCron: (id: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(`/api/cron/${encodeURIComponent(id)}`, "DELETE"),
-  /** Pause/resume a schedule, or turn its trial mode on or off ("Go live"). */
-  patchCron: (id: string, patch: { enabled?: boolean; trial?: boolean }): Promise<CronJobInfo> =>
-    send<CronJobInfo>(`/api/cron/${encodeURIComponent(id)}`, "PATCH", patch),
-  /** Run one trial now; the result lands on the job (the `routines` signal). */
-  tryCron: (id: string): Promise<{ started: boolean }> =>
-    send<{ started: boolean }>(`/api/cron/${encodeURIComponent(id)}/try`, "POST"),
-  webhooks: (): Promise<WebhookInfo[]> => getJson<WebhookInfo[]>("/api/webhooks"),
-  createWebhook: (input: {
-    sessionId: string;
-    name?: string;
-    schema?: Record<string, unknown> | null;
-  }): Promise<WebhookInfo> => send<WebhookInfo>("/api/webhooks", "POST", input),
-  removeWebhook: (id: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(`/api/webhooks/${encodeURIComponent(id)}`, "DELETE"),
-  /** New token for a webhook; the response is the only place it appears. */
-  rotateWebhookToken: (id: string): Promise<WebhookInfo> =>
-    send<WebhookInfo>(`/api/webhooks/${encodeURIComponent(id)}/token`, "POST"),
-  testWebhook: (id: string, payload: unknown): Promise<{ accepted: boolean; detail?: string }> =>
-    send(`/api/webhooks/${encodeURIComponent(id)}/test`, "POST", { payload }),
-  sensors: (): Promise<SensorInfo[]> => getJson<SensorInfo[]>("/api/sensors"),
-  removeSensor: (id: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(`/api/sensors/${encodeURIComponent(id)}`, "DELETE"),
-  routineEvents: (limit?: number): Promise<RoutineEvent[]> =>
-    getJson<RoutineEvent[]>(`/api/routines/events?limit=${limit ?? 30}`),
+  ...routinesApi,
   /**
    * One bot's audit tail (read-only; its Crew profile Activity tab). The
    * server filters by profile after taking the tail, so read the widest

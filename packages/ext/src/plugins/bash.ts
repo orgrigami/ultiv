@@ -27,11 +27,10 @@
  * structured, owner-actionable error. The backend arrives with the node
  * transport; until a node is paired every node call answers that error.
  */
-import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { BASH_TARGETS, bashNodeNameOf, bashTargetOf, type BashTarget } from "@spriessen/contracts";
-import { Type } from "typebox";
+import { BASH_TARGETS, bashNodeNameOf, bashTargetOf } from "@spriessen/contracts";
+import { Type, type Static } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
@@ -51,16 +50,38 @@ import {
   type NodeShellTransport,
 } from "../shell/node-backend.ts";
 
-import { HOME, homeWorldOf, load, openSession, reconcile } from "./bash-session.ts";
+import { HOME, homeWorldOf, load, openSession } from "./bash-session.ts";
+import {
+  EXEC_TIMEOUT_MS,
+  HOST_TIMEOUT_MS,
+  NODE_TIMEOUT_MS,
+  execFailure,
+  markerCwd,
+  nodeUnpaired,
+  present,
+  runCallError,
+  runOnHost,
+  signalOf,
+  syncOnce,
+  wrapScript,
+  type HostSession,
+  type NodeSession,
+} from "./bash-run.ts";
+import {
+  JOB_TIMEOUT_MS,
+  JobBoard,
+  MAX_JOBS_PER_CONVERSATION,
+  jobFinishedText,
+  jobStartedReply,
+  jobsUnavailable,
+  newJob,
+  reloadWhileJob,
+  tooManyJobs,
+  type BashJobHost,
+} from "./bash-jobs.ts";
 import type { ResolvedWorld, SandboxSession } from "./bash-session.ts";
 export { botFolderName, homeWorldOf } from "./bash-session.ts";
 export type { HomeWorld } from "./bash-session.ts";
-
-const MAX_OUTPUT_CHARS = 20_000;
-const EXEC_TIMEOUT_MS = 180_000;
-const HOST_TIMEOUT_MS = 120_000;
-const NODE_TIMEOUT_MS = 120_000;
-const CWD_MARKER = "__SPRIESSEN_CWD__";
 
 export interface BashOptions {
   /** Workspace root; default ARTIFACTS_DIR. */
@@ -83,85 +104,12 @@ export interface BashOptions {
    * it every node call answers the owner-actionable "no node" error.
    */
   readonly nodes?: NodeShellTransport;
+  /**
+   * Background jobs (bash-jobs.ts): the mind records them and wakes the
+   * conversation with each result. Without it `background: true` is refused.
+   */
+  readonly jobs?: BashJobHost;
 }
-
-/** Appends an exit-code-preserving exec-boundary marker that reports $PWD. */
-const wrapScript = (script: string): string =>
-  `${script}\n__spriessen_rc=$?; echo "${CWD_MARKER}$PWD" 1>&2; exit $__spriessen_rc`;
-
-const truncate = (text: string): string => {
-  if (text.length <= MAX_OUTPUT_CHARS) return text;
-  return `${text.slice(0, MAX_OUTPUT_CHARS)}\n… [truncated ${text.length - MAX_OUTPUT_CHARS} chars]`;
-};
-
-/** The where-it-ran line every result carries, per target. */
-const whereText = (target: BashTarget, node: string | null): string =>
-  target === "vm"
-    ? "(ran in the home VM)"
-    : target === "host"
-      ? "(ran on the host)"
-      : `(ran on node ${node ?? "?"})`;
-
-const present = (
-  result: ShellExecResult,
-  target: BashTarget,
-  node: string | null = null,
-  nodeId?: string,
-) => {
-  const stderr = truncate(
-    result.stderr
-      .split("\n")
-      .filter((line) => !line.startsWith(CWD_MARKER))
-      .join("\n")
-      .replace(/^\n/, ""),
-  );
-  const stdout = truncate(result.stdout);
-  const parts = [
-    ...(stdout === "" ? [] : [stdout]),
-    ...(stderr === "" ? [] : [`[stderr] ${stderr}`]),
-  ];
-  return {
-    output: [
-      {
-        type: "text" as const,
-        text:
-          parts.length === 0
-            ? `(exit ${result.exitCode}, no output) ${whereText(target, node)}`
-            : `${parts.join("\n")}\n${whereText(target, node)}`,
-      },
-    ],
-    structuredOutput: {
-      stdout,
-      stderr,
-      exitCode: result.exitCode,
-      target,
-      ...(node !== null ? { node } : {}),
-      ...(nodeId !== undefined ? { nodeId } : {}),
-    },
-  };
-};
-
-/** Pulls the marker's PWD out of stderr; undefined when absent. */
-const markerCwd = (stderr: string): string | undefined => {
-  const marker = stderr
-    .split("\n")
-    .reverse()
-    .find((line) => line.startsWith(CWD_MARKER));
-  return marker !== undefined && marker.slice(CWD_MARKER.length).startsWith("/")
-    ? marker.slice(CWD_MARKER.length)
-    : undefined;
-};
-
-/** The asking turn's abort signal (chord's Context; tests pass none). */
-const signalOf = (context: unknown): AbortSignal | undefined => {
-  const signal = (context as { readonly abortSignal?: unknown } | undefined)?.abortSignal;
-  return signal instanceof AbortSignal ? signal : undefined;
-};
-
-const execFailure = (what: string, cause: unknown) => ({
-  output: [{ type: "text" as const, text: `${what} failed: ${String(cause)}` }],
-  isError: true as const,
-});
 
 // ---- mode 1: the durable workspace in a microVM -------------------------
 
@@ -189,7 +137,27 @@ const BashParams = Type.Object({
         "exactly one paired node; naming it is required once there is more than one.",
     }),
   ),
+  background: Type.Optional(
+    Type.Boolean({
+      description:
+        "Run it as a background job (up to 30 min, at most 3 at once): the call answers at " +
+        "once with a job id and you are woken with the result. Use it for builds, test runs, " +
+        "downloads, anything over a minute; keep quick commands in the foreground.",
+    }),
+  ),
 });
+
+type BashArgs = Static<typeof BashParams>;
+type ToolReply = Awaited<ReturnType<Tool["execute"]>>;
+
+/** A reply's text and exit code, for a finished job's wake. */
+const outcomeOf = (reply: ToolReply): { text: string; exitCode: number } => {
+  const code = (reply.structuredOutput as { exitCode?: unknown } | undefined)?.exitCode;
+  return {
+    text: (reply.output ?? []).map((part) => (part.type === "text" ? part.text : "")).join("\n"),
+    exitCode: typeof code === "number" ? code : reply.isError === true ? 1 : 0,
+  };
+};
 
 const sandboxTool = (
   dirOf: (conversationId: string) => string,
@@ -200,7 +168,9 @@ const sandboxTool = (
   hostSessions?: Map<string, HostSession>,
   nodes?: NodeShellTransport,
   nodeSessions?: Map<string, NodeSession>,
+  jobs?: BashJobHost,
 ): Tool => {
+  const board = new JobBoard();
   // The home world is resolved on EVERY call: a cached session keeps its
   // backend only while the world it was built for (VM name, allowlist,
   // size, mounts, user) is still the current one — a stale session would
@@ -220,6 +190,127 @@ const sandboxTool = (
     creating.catch(() => sessions.delete(dir));
     sessions.set(dir, creating);
     return creating;
+  };
+
+  /** One call, foreground or as a background job (bash-jobs.ts). */
+  const runCall = async (
+    args: BashArgs,
+    conversationId: string,
+    run: { readonly signal: AbortSignal | undefined; readonly background: boolean },
+  ): Promise<ToolReply> => {
+    const target = bashTargetOf(args);
+    if (target === "invalid") {
+      return execFailure("bash", 'unknown target: use "vm" (default), "host" or "node"');
+    }
+    if (target === "node") {
+      if (nodes === undefined || nodeSessions === undefined) return nodeUnpaired();
+      const scope = holder?.get()?.scopeOf(conversationId);
+      if (scope === undefined)
+        return execFailure("bash", "this conversation has no profile scope for a node call");
+      let node: NodeShellNode;
+      try {
+        const resolved = await nodes.resolve(scope.owner, bashNodeNameOf(args));
+        if (resolved === undefined) return nodeUnpaired();
+        node = resolved;
+      } catch (cause) {
+        return execFailure("bash", cause);
+      }
+      let session = nodeSessions.get(conversationId);
+      if (session === undefined || session.nodeId !== node.id) {
+        // The default cwd is the node's first allowed root; a paired node
+        // always has one (the registry refuses empty root lists).
+        session = { nodeId: node.id, name: node.name, cwd: node.roots[0] ?? "/" };
+        nodeSessions.set(conversationId, session);
+      }
+      const result = await nodeShellBackend(nodes, node.id, run.signal).exec(
+        wrapScript(args.script),
+        session.cwd,
+        run.background ? JOB_TIMEOUT_MS : NODE_TIMEOUT_MS,
+      );
+      const cwd = markerCwd(result.stderr);
+      if (cwd !== undefined && !run.background) session.cwd = cwd;
+      return present(result, "node", node.name, node.id);
+    }
+    if (target === "host") {
+      if (hostSessions === undefined) return execFailure("bash", "host shell not wired");
+      let session = hostSessions.get(conversationId);
+      if (session === undefined) {
+        session = { cwd: homedir() };
+        hostSessions.set(conversationId, session);
+      }
+      const result = await runOnHost(
+        args.script,
+        session.cwd,
+        run.background ? JOB_TIMEOUT_MS : HOST_TIMEOUT_MS,
+      );
+      const cwd = markerCwd(result.stderr);
+      if (cwd !== undefined && !run.background) session.cwd = cwd;
+      return present(result, "host");
+    }
+    const dir = dirOf(conversationId);
+    let session: SandboxSession;
+    try {
+      session = await open(dir, conversationId);
+      if (session.epoch !== workspaceEpoch(dir) || session.backend.needsPrepare?.() === true) {
+        // A reload wipes the workspace root: never under a running job.
+        if (board.inDir(dir) > (run.background ? 1 : 0)) return reloadWhileJob();
+        await load(session, dir, conversationId);
+      }
+    } catch (cause) {
+      sessions.delete(dir);
+      return execFailure("bash", cause);
+    }
+    let result: ShellExecResult;
+    try {
+      result = await session.backend.exec(
+        wrapScript(args.script),
+        session.cwd,
+        run.background ? JOB_TIMEOUT_MS : EXEC_TIMEOUT_MS,
+      );
+    } catch (cause) {
+      return execFailure("bash", cause);
+    }
+    if (result.sharedWrites !== undefined && result.sharedWrites.length > 0) {
+      try {
+        onSharedWrite?.(conversationId, result.sharedWrites);
+      } catch {
+        // Auditing never fails the call.
+      }
+    }
+    result = { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+    const cwd = markerCwd(result.stderr);
+    if (cwd !== undefined && !run.background) session.cwd = cwd;
+    try {
+      await syncOnce(session);
+    } catch (cause) {
+      // Nothing was deleted. A lost workspace re-prepares at the next call.
+      if (cause instanceof WorkspaceLostError) session.epoch = -1;
+      result = {
+        ...result,
+        stderr: `${result.stderr}\n[sync] warning: workspace sync to artifacts failed: ${String(cause)}`,
+      };
+    }
+    return present(result, "vm");
+  };
+
+  /** Start a background job: answer now, wake the conversation with the result later. */
+  const startJob = (args: BashArgs, conversationId: string): ToolReply => {
+    const target = bashTargetOf(args);
+    if (jobs === undefined) return jobsUnavailable();
+    if (target === "invalid") return runCallError();
+    if (board.count(conversationId) >= MAX_JOBS_PER_CONVERSATION) return tooManyJobs();
+    const job = newJob(conversationId, target, args.script);
+    const dir = target === "vm" ? dirOf(conversationId) : null;
+    board.add(job, dir);
+    jobs.started(job);
+    void runCall(args, conversationId, { signal: undefined, background: true })
+      .then(outcomeOf)
+      .catch((cause: unknown) => ({ text: `failed: ${String(cause)}`, exitCode: 1 }))
+      .then(({ text, exitCode }) => {
+        board.remove(job, dir);
+        jobs.finished(job, jobFinishedText(job, text, exitCode));
+      });
+    return jobStartedReply(job);
   };
 
   return defineTool({
@@ -256,148 +347,15 @@ const sandboxTool = (
       target: TARGET_SCHEMA,
       node: Type.Optional(Type.String()),
       nodeId: Type.Optional(Type.String()),
+      job: Type.Optional(Type.String()),
     }),
     execute: async (args, api, context) => {
       const conversationId = String(api.conversationId);
-      const target = bashTargetOf(args);
-      if (target === "invalid") {
-        return execFailure("bash", 'unknown target: use "vm" (default), "host" or "node"');
-      }
-      if (target === "node") {
-        if (nodes === undefined || nodeSessions === undefined) return nodeUnpaired();
-        const scope = holder?.get()?.scopeOf(conversationId);
-        if (scope === undefined)
-          return execFailure("bash", "this conversation has no profile scope for a node call");
-        let node: NodeShellNode;
-        try {
-          const resolved = await nodes.resolve(scope.owner, bashNodeNameOf(args));
-          if (resolved === undefined) return nodeUnpaired();
-          node = resolved;
-        } catch (cause) {
-          return execFailure("bash", cause);
-        }
-        let session = nodeSessions.get(conversationId);
-        if (session === undefined || session.nodeId !== node.id) {
-          // The default cwd is the node's first allowed root; a paired node
-          // always has one (the registry refuses empty root lists).
-          session = { nodeId: node.id, name: node.name, cwd: node.roots[0] ?? "/" };
-          nodeSessions.set(conversationId, session);
-        }
-        const result = await nodeShellBackend(nodes, node.id, signalOf(context)).exec(
-          wrapScript(args.script),
-          session.cwd,
-          NODE_TIMEOUT_MS,
-        );
-        const cwd = markerCwd(result.stderr);
-        if (cwd !== undefined) session.cwd = cwd;
-        return present(result, "node", node.name, node.id);
-      }
-      if (target === "host") {
-        if (hostSessions === undefined) return execFailure("bash", "host shell not wired");
-        let session = hostSessions.get(conversationId);
-        if (session === undefined) {
-          session = { cwd: homedir() };
-          hostSessions.set(conversationId, session);
-        }
-        const result = await runOnHost(args.script, session.cwd, HOST_TIMEOUT_MS);
-        const cwd = markerCwd(result.stderr);
-        if (cwd !== undefined) session.cwd = cwd;
-        return present(result, "host");
-      }
-      const dir = dirOf(conversationId);
-      let session: SandboxSession;
-      try {
-        session = await open(dir, conversationId);
-        if (session.epoch !== workspaceEpoch(dir) || session.backend.needsPrepare?.() === true) {
-          await load(session, dir, conversationId);
-        }
-      } catch (cause) {
-        sessions.delete(dir);
-        return execFailure("bash", cause);
-      }
-      let result: ShellExecResult;
-      try {
-        result = await session.backend.exec(wrapScript(args.script), session.cwd, EXEC_TIMEOUT_MS);
-      } catch (cause) {
-        return execFailure("bash", cause);
-      }
-      if (result.sharedWrites !== undefined && result.sharedWrites.length > 0) {
-        try {
-          onSharedWrite?.(conversationId, result.sharedWrites);
-        } catch {
-          // Auditing never fails the call.
-        }
-      }
-      result = { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
-      const cwd = markerCwd(result.stderr);
-      if (cwd !== undefined) session.cwd = cwd;
-      try {
-        await reconcile(session);
-      } catch (cause) {
-        // Nothing was deleted. A lost workspace re-prepares at the next call.
-        if (cause instanceof WorkspaceLostError) session.epoch = -1;
-        result = {
-          ...result,
-          stderr: `${result.stderr}\n[sync] warning: workspace sync to artifacts failed: ${String(cause)}`,
-        };
-      }
-      return present(result, "vm");
+      if (args.background === true) return startJob(args, conversationId);
+      return runCall(args, conversationId, { signal: signalOf(context), background: false });
     },
   });
 };
-
-// ---- the privileged host shell (the `host` target) -----------------------
-
-interface HostSession {
-  cwd: string;
-}
-
-/** One conversation's node working state: the node it is on and its cwd there. */
-interface NodeSession {
-  nodeId: string;
-  name: string;
-  cwd: string;
-}
-
-/**
- * The structured, owner-actionable error for every unresolvable node call:
- * no pairing, an unknown or ambiguous name, or a revoked row — the fix is
- * the owner's (pair in Settings → Nodes, or name a paired node).
- */
-const nodeUnpaired = () => ({
-  output: [
-    {
-      type: "text" as const,
-      text:
-        'no node is paired for target "node": ask your owner to pair one in Settings → Nodes ' +
-        "(pairing mints a token their node agent dials in with); once more than one is paired, " +
-        'name the node with the "node" field; a name that matches no single paired node ' +
-        "answers this same error",
-    },
-  ],
-  isError: true as const,
-});
-
-const runOnHost = (script: string, cwd: string, timeoutMs: number): Promise<ShellExecResult> =>
-  new Promise((resolve) => {
-    execFile(
-      "/bin/bash",
-      ["-c", wrapScript(script)],
-      { cwd, timeout: timeoutMs, maxBuffer: 8_000_000, killSignal: "SIGKILL" },
-      (error, stdout, stderr) => {
-        let exitCode = 0;
-        if (error !== null) {
-          const code = (error as NodeJS.ErrnoException).code;
-          exitCode = typeof code === "number" ? code : error.killed === true ? 124 : 1;
-        }
-        resolve({
-          stdout,
-          stderr,
-          exitCode,
-        });
-      },
-    );
-  });
 
 /** The bash plugin: one shell, three targets — the home VM, the host, a paired node. */
 export const bashPlugin = (options: BashOptions = {}): Plugin => {
@@ -460,6 +418,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
           hostSessions,
           options.nodes,
           nodeSessions,
+          options.jobs,
         ),
       ),
     ],
