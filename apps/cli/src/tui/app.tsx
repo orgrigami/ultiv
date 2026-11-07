@@ -1,78 +1,38 @@
 /**
  * The terminal UI: the chat with the current bot (the web's `/`), Needs you
- * (tab), the bot picker (ctrl-k) and, on terminals ≥ 100 columns, the crew
- * roster beside the chat. State lives here; the views are dumb; every key is
- * in use-keys.ts.
+ * (tab), the pickers for bots (ctrl-k), this bot's chats (ctrl-o) and
+ * models (/model), the help panel (/help) and, on terminals ≥ 100 columns,
+ * the crew roster beside the chat. State lives here; the views are dumb;
+ * every key is in use-keys.ts, every slash command in use-slash.ts.
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { useRenderer, useTerminalDimensions } from "@opentui/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import type { ProfileInfo } from "@spriessen/contracts";
 import type { Api } from "../client/http.ts";
 import type { Live } from "../client/live.ts";
+import { sentenceOf } from "../errors.ts";
 import { ChatPane } from "./chat-pane.tsx";
-import { BotPicker, Header, KeyLine, Roster } from "./chrome.tsx";
+import { Header, KeyLine, Roster } from "./chrome.tsx";
+import { HelpOverlay } from "./help-overlay.tsx";
 import { NeedsView } from "./needs.tsx";
+import { BotPicker, ChatPicker, ModelPicker } from "./pickers.tsx";
+import { completeSlash, messageOf as slashText, parseSlash, type Slash } from "./slash.ts";
 import { THEME } from "./theme.ts";
+import { useBotChat, type BotChat, type Wanted } from "./use-bot-chat.ts";
 import { useChat, type Chat } from "./use-chat.ts";
 import { useCrew, type Crew } from "./use-crew.ts";
 import { useKeys, type KeyActions } from "./use-keys.ts";
-import { messageOf as slashText, parseSlash, type Slash } from "./slash.ts";
-import { useSlash } from "./use-slash.ts";
-import { sentenceOf } from "../errors.ts";
-
-/** A failure as the one-line notice under the chat (the same words the commands print). */
-const messageOf = (cause: unknown, server: string): string =>
-  sentenceOf(cause, server).replace(/\n/g, " ");
-
-/** Which bot and which of its chats are open; the main bot's main chat to start. */
-const useBotChat = (
-  api: Api,
-  crew: Crew,
-  wanted: string | undefined,
-  onError: (text: string) => void,
-) => {
-  const [botId, setBotId] = useState<string | undefined>(undefined);
-  const [chatId, setChatId] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    if (botId !== undefined || crew.bots.length === 0) return;
-    const needle = wanted?.toLocaleLowerCase("en");
-    const pick =
-      crew.bots.find((bot) => bot.id === wanted || bot.name.toLocaleLowerCase("en") === needle) ??
-      crew.bots.find((bot) => bot.id === crew.mainId) ??
-      crew.bots[0];
-    if (pick !== undefined) setBotId(pick.id);
-  }, [crew.bots, crew.mainId, botId, wanted]);
-  useEffect(() => {
-    if (botId === undefined) return;
-    api.mainChat(botId).then(
-      (chat) => setChatId(chat.id),
-      (cause) => onError(messageOf(cause, api.server)),
-    );
-  }, [api, botId, onError]);
-  const newChat = useCallback(() => {
-    if (botId === undefined) return;
-    api.createSession(botId).then(
-      (made) => setChatId(made.id),
-      (cause) => onError(messageOf(cause, api.server)),
-    );
-  }, [api, botId, onError]);
-  const openChat = useCallback((bot: string, chat: string) => {
-    setBotId(bot);
-    setChatId(chat);
-  }, []);
-  return { botId, chatId, setBotId, newChat, openChat };
-};
+import { useSlash, type Overlay } from "./use-slash.ts";
 
 const CHAT_KEYS = [
   "enter send",
-  "/help commands",
-  "esc stop",
+  "/help keys & commands",
   "tab Needs you",
   "ctrl-k bots",
-  "ctrl-n new chat",
-  "pgup/pgdn scroll",
+  "ctrl-o chats",
+  "esc stop",
   "ctrl-c quit",
+  "ctrl-n new chat",
 ];
 const NEEDS_KEYS = [
   "↑/↓ choose",
@@ -127,86 +87,92 @@ const useComposer = (chat: Chat, report: Report, onSlash: (slash: Slash) => void
     setRedirect(false);
     report(chat.send(slashText(text), working ? (redirect ? "redirect" : "steer") : undefined));
   };
-  return { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit };
+  const complete = (): boolean => {
+    const done = completeSlash(draft);
+    if (done === undefined || done === draft) return done !== undefined;
+    setDraft(done);
+    return true;
+  };
+  return { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit, complete };
 };
 
-export const App = ({
-  api,
-  live,
-  wanted,
-}: {
-  api: Api;
-  live: Live;
-  wanted?: string | undefined;
-}) => {
+/** The notice line and the one way every action reports into it. */
+const useNotice = (server: string) => {
+  const [notice, setNotice] = useState<string | null>(null);
+  const fail = useCallback(
+    (cause: unknown) => setNotice(sentenceOf(cause, server).replace(/\n/g, " ")),
+    [server],
+  );
+  const report: Report = (work, done) => {
+    work.then(() => setNotice(done ?? null), fail);
+  };
+  return { notice, setNotice, fail, report };
+};
+
+export const App = ({ api, live, wanted }: { api: Api; live: Live; wanted: Wanted }) => {
   const renderer = useRenderer();
   const crew = useCrew(api, live);
-  const [notice, setNotice] = useState<string | null>(null);
-  const { botId, chatId, setBotId, newChat, openChat } = useBotChat(api, crew, wanted, setNotice);
-  const chat = useChat(api.server, api.cookie ?? "", chatId);
+  const { notice, setNotice, fail, report } = useNotice(api.server);
+  const botChat = useBotChat(api, crew, wanted, fail);
+  const chat = useChat(api.server, api.cookie ?? "", botChat.chatId);
   const [view, setView] = useState<"chat" | "needs">("chat");
-  const [picking, setPicking] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [selected, setSelected] = useState(0);
   const scrollRef = useRef<ScrollBoxRenderable>(null);
-  const pendingId = chat.snapshot.pending?.callId;
-  const working = chat.snapshot.phase === "working";
-  const report: Report = (work, done) => {
-    work.then(
-      () => setNotice(done ?? null),
-      (cause) => setNotice(messageOf(cause, api.server)),
-    );
-  };
   // The composer hands slash commands to the runner, which needs the draft.
   const slashRef = useRef<(slash: Slash) => void>(() => undefined);
-  const { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit } =
-    useComposer(chat, report, (slash) => slashRef.current(slash));
+  const composer = useComposer(chat, report, (slash) => slashRef.current(slash));
   slashRef.current = useSlash({
     api,
     chat,
     crew,
-    botId,
-    chatId,
-    setBotId,
-    newChat,
-    openChat,
-    setDraft,
+    ...botChat,
+    setDraft: composer.setDraft,
     notice: setNotice,
     report,
+    openOverlay: setOverlay,
+    copy: (text) => renderer.copyToClipboardOSC52(text),
   });
+  const openChat = (bot: string, id: string): void => {
+    botChat.openChat(bot, id);
+    setView("chat");
+  };
   useKeys({
     view,
-    picking,
-    cardFocused,
-    hasCard: pendingId !== undefined,
-    working,
+    overlay: overlay !== null,
+    cardFocused: composer.cardFocused,
+    hasCard: chat.snapshot.pending !== null,
+    working: chat.snapshot.phase === "working",
     quit: () => renderer.destroy(),
     toggleView: () => setView((current) => (current === "chat" ? "needs" : "chat")),
-    openPicker: () => setPicking(true),
-    closePicker: () => setPicking(false),
-    newChat,
+    openPicker: () => setOverlay("bots"),
+    openChats: () => setOverlay(botChat.botId !== undefined ? "chats" : null),
+    closeOverlay: () => setOverlay(null),
+    newChat: botChat.newChat,
     scroll: (pages) => scrollRef.current?.scrollBy(pages * Math.max(5, renderer.height - 8)),
     stop: () => report(chat.stop(), "Stopped."),
-    focusCard: setCardFocused,
+    focusCard: composer.setCardFocused,
     decide: (approved, always) =>
       report(chat.decide(approved, always), approved ? "Approved." : "Denied."),
-    toggleRedirect: () => setRedirect((on) => !on),
+    toggleRedirect: () => composer.setRedirect((on) => !on),
     retryQueued: () => report(chat.retryQueued()),
-    ...needsKeys(api, crew, selected, setSelected, report, (bot, id) => {
-      openChat(bot, id);
-      setView("chat");
-    }),
+    complete: composer.complete,
+    ...needsKeys(api, crew, selected, setSelected, report, openChat),
   });
+  const botName = crew.bots.find((candidate) => candidate.id === botChat.botId)?.name ?? "…";
   const pane =
-    view === "chat" ? (
+    crew.loaded && crew.bots.length === 0 ? (
+      <NoBots />
+    ) : view === "chat" ? (
       <ChatPane
         snapshot={chat.snapshot}
-        bot={crew.bots.find((candidate) => candidate.id === botId)?.name ?? "…"}
-        draft={draft}
-        setDraft={setDraft}
-        submit={submit}
-        typing={!picking && !cardFocused}
-        cardFocused={cardFocused}
-        redirect={redirect}
+        bot={botName}
+        draft={composer.draft}
+        setDraft={composer.setDraft}
+        submit={composer.submit}
+        typing={overlay === null && !composer.cardFocused}
+        cardFocused={composer.cardFocused}
+        redirect={composer.redirect}
         notice={notice ?? crew.error}
         scrollRef={scrollRef}
       />
@@ -219,44 +185,122 @@ export const App = ({
         notice={notice}
       />
     );
-  const pick = (picked: ProfileInfo): void => {
-    setPicking(false);
-    setView("chat");
-    setBotId(picked.id);
-  };
-  return (
-    <Screen
+  const floating = (
+    <Floating
+      overlay={overlay}
+      api={api}
       crew={crew}
-      botId={botId}
+      botChat={botChat}
       chat={chat}
-      view={view}
-      pane={pane}
-      picking={picking}
-      onPick={pick}
+      close={() => setOverlay(null)}
+      openChat={openChat}
+      report={report}
+      fail={fail}
     />
+  );
+  return (
+    <Screen crew={crew} botId={botChat.botId} chat={chat} view={view} pane={pane}>
+      {floating}
+    </Screen>
   );
 };
 
-/** The frame: header, roster (≥ 100 columns), the pane, the key line, the picker on top. */
+/** Whatever floats over the chat: one picker or the help panel. */
+const Floating = ({
+  overlay,
+  api,
+  crew,
+  botChat,
+  chat,
+  close,
+  openChat,
+  report,
+  fail,
+}: {
+  overlay: Overlay | null;
+  api: Api;
+  crew: Crew;
+  botChat: BotChat;
+  chat: Chat;
+  close: () => void;
+  openChat: (bot: string, chat: string) => void;
+  report: Report;
+  fail: (cause: unknown) => void;
+}) => {
+  switch (overlay) {
+    case null:
+      return null;
+    case "help":
+      return <HelpOverlay />;
+    case "bots":
+      return (
+        <BotPicker
+          bots={crew.bots}
+          current={botChat.botId}
+          mainId={crew.mainId}
+          onPick={(bot) => {
+            close();
+            botChat.setBotId(bot.id);
+          }}
+        />
+      );
+    case "chats":
+      return botChat.botId === undefined ? null : (
+        <ChatPicker
+          api={api}
+          botId={botChat.botId}
+          current={botChat.chatId}
+          onError={fail}
+          onPick={(picked) => {
+            close();
+            openChat(picked.profile, picked.id);
+          }}
+        />
+      );
+    case "models":
+      return (
+        <ModelPicker
+          api={api}
+          current={chat.snapshot.model}
+          onError={fail}
+          onPick={(model) => {
+            close();
+            report(chat.configure(model), `This chat now runs on ${model.id}.`);
+          }}
+        />
+      );
+  }
+};
+
+/** A fresh install: say how to make the first bot instead of waiting forever. */
+const NoBots = () => (
+  <box flexGrow={1} flexDirection="column" paddingLeft={2} paddingTop={1}>
+    <text fg={THEME.ink}>There are no bots yet.</text>
+    <text fg={THEME.muted}>Create the first one in another terminal, and it opens here:</text>
+    <text fg={THEME.live}> spriessen bots new Wren --description "my right hand"</text>
+    <text fg={THEME.muted}>or in the web app. ctrl-c quits.</text>
+  </box>
+);
+
+/** The frame: header, roster (≥ 100 columns), the pane, the key line, anything floating on top. */
 const Screen = ({
   crew,
   botId,
   chat,
   view,
   pane,
-  picking,
-  onPick,
+  children,
 }: {
   crew: Crew;
   botId: string | undefined;
   chat: Chat;
   view: "chat" | "needs";
   pane: ReactNode;
-  picking: boolean;
-  onPick: (bot: ProfileInfo) => void;
+  children: ReactNode;
 }) => {
   const { width } = useTerminalDimensions();
   const name = crew.bots.find((bot) => bot.id === botId)?.name ?? "…";
+  const waiting = new Set(crew.approvals.map((row) => row.profile));
   return (
     <box flexDirection="column" flexGrow={1} backgroundColor={THEME.ground}>
       <Header
@@ -265,13 +309,18 @@ const Screen = ({
         link={chat.link}
         needs={crew.approvals.length + crew.failed.length}
         view={view}
+        model={chat.snapshot.model}
+        usage={chat.snapshot.usage}
+        wide={width >= 90}
       />
       <box flexDirection="row" flexGrow={1}>
-        {width >= 100 ? <Roster bots={crew.bots} current={botId} mainId={crew.mainId} /> : null}
+        {width >= 100 ? (
+          <Roster bots={crew.bots} current={botId} mainId={crew.mainId} waiting={waiting} />
+        ) : null}
         {pane}
       </box>
-      <KeyLine hints={view === "needs" ? NEEDS_KEYS : CHAT_KEYS} />
-      {picking ? <BotPicker bots={crew.bots} current={botId} onPick={onPick} /> : null}
+      <KeyLine hints={view === "needs" ? NEEDS_KEYS : CHAT_KEYS} width={width} />
+      {children}
     </box>
   );
 };

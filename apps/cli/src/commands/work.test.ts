@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { EvalCase, EvalRun } from "@spriessen/contracts";
-import { askText } from "./line.ts";
+import { askText } from "./ask.ts";
 import { resultLines } from "./work.ts";
 
 describe("line commands", () => {

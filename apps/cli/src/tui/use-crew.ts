@@ -14,6 +14,8 @@ export interface Crew {
   readonly approvals: readonly ApprovalRow[];
   readonly failed: readonly TaskRow[];
   readonly error: string | null;
+  /** The first load answered (an empty crew is then really empty). */
+  readonly loaded: boolean;
   readonly refresh: () => void;
 }
 
@@ -25,6 +27,7 @@ export const useCrew = (api: Api, live: Live): Crew => {
   const [approvals, setApprovals] = useState<readonly ApprovalRow[]>([]);
   const [failed, setFailed] = useState<readonly TaskRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((n) => n + 1), []);
 
@@ -38,6 +41,7 @@ export const useCrew = (api: Api, live: Live): Crew => {
         setApprovals(waiting);
         setFailed(tasks.filter((task) => task.status === "failed"));
         setError(null);
+        setLoaded(true);
       })
       .catch((cause: unknown) => {
         if (active) setError(cause instanceof Error ? cause.message : String(cause));
@@ -55,5 +59,5 @@ export const useCrew = (api: Api, live: Live): Crew => {
     [live, refresh],
   );
 
-  return { bots, mainId, approvals, failed, error, refresh };
+  return { bots, mainId, approvals, failed, error, loaded, refresh };
 };

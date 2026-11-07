@@ -1,102 +1,28 @@
 /**
  * The `spriessen` command. With no arguments in a terminal it opens the TUI;
- * every other form is a command. Client commands talk to a server over the
- * same REST + chord surface the web uses; `serve`, `daemon` and `node` run
- * the server or this machine's node agent. Plain TS (erasable syntax only):
- * Node runs it directly; the TUI (TSX) loads on demand through the build or
- * `vpx`.
+ * every other form is a command from the table (table.ts), which also
+ * drives the help, the flag check and completion. A command that finds you
+ * signed out, in a terminal, asks for the passcode right there and goes on
+ * (scripts and `--json` get the sentence instead). Plain TS (erasable syntax
+ * only): Node runs it directly; the TUI (TSX) loads on demand through the
+ * build or `vpx`.
  */
 import { pathToFileURL } from "node:url";
-import { parseArgs, type Parsed } from "./args.ts";
-import { stringFlag } from "./args.ts";
+import { parseArgs, stringFlag, type Parsed } from "./args.ts";
 import { serverOf } from "./config.ts";
 import { SignInRequired } from "./client/http.ts";
 import { report } from "./errors.ts";
+import { commandHelp, flagProblem, overview, unknownCommand } from "./help.ts";
+import { ALL_BOOLEANS, commandNamed, type CommandSpec } from "./table.ts";
 
-const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version", "check", "all"]);
-
-export const HELP = `spriessen — your crew from the terminal
-
-Usage:
-  spriessen                         open the terminal UI (chat, Needs you, crew)
-  spriessen chat [--bot <name>]     open the terminal UI on one bot's chat
-  spriessen ask "…" [--bot <name>] [--chat <id>] [--timeout <s>]
-                                    send one message, print the reply (- or a pipe: read stdin)
-  spriessen bots | chats [--bot <name>] | needs        lists (--json for scripts)
-  spriessen approve <id> [--always] | deny <id>         answer a waiting card
-  spriessen tasks [--bot <name>] [--all]                background work, running first
-  spriessen projects [--bot <name>]                     goals the bots work on over days
-  spriessen tests [run] [--bot <name>] [--model <id>]   saved tests; run exits 1 if any fail
-  spriessen models                                      the models --model accepts
-
-  spriessen login | logout | status                     sign in with the passcode
-  spriessen serve [--port <n>] [--host <h>] [--no-web] [--env-file <f>]
-                                    run the whole app (server + web) here
-  spriessen daemon <install|uninstall|start|stop|restart|status|logs> [server|node]
-                                    keep serve (or node) running with the OS
-  spriessen node [pair|list|revoke|roots]               this machine as a paired node
-  spriessen update [--check]                            pull the checkout, rebuild, restart daemons
-  spriessen data [move]                                 where everything lives; move an old var/ home
-
-Every client command takes --server <url> (default: the saved one, else
-http://127.0.0.1:8787). Data, keys and config live in ~/.spriessen ($SPRIESSEN_HOME).
-`;
-
-type Command = (parsed: Parsed, argv: readonly string[]) => Promise<number | void>;
-
-const COMMANDS: Record<string, Command> = {
-  login: async (parsed) => (await import("./commands/auth.ts")).login(parsed),
-  logout: async (parsed) => (await import("./commands/auth.ts")).logout(parsed),
-  status: async (parsed) => (await import("./commands/auth.ts")).status(parsed),
-  bots: async (parsed) => (await import("./commands/line.ts")).bots(parsed),
-  chats: async (parsed) => (await import("./commands/line.ts")).chats(parsed),
-  needs: async (parsed) => (await import("./commands/line.ts")).needs(parsed),
-  ask: async (parsed) => (await import("./commands/line.ts")).ask(parsed),
-  tasks: async (parsed) => (await import("./commands/work.ts")).tasks(parsed),
-  projects: async (parsed) => (await import("./commands/work.ts")).projects(parsed),
-  models: async (parsed) => (await import("./commands/work.ts")).models(parsed),
-  tests: async (parsed) => (await import("./commands/work.ts")).tests(parsed),
-  approve: async (parsed) => (await import("./commands/line.ts")).decide(parsed, true),
-  deny: async (parsed) => (await import("./commands/line.ts")).decide(parsed, false),
-  serve: async (parsed) => (await import("./commands/serve.ts")).serveCommand(parsed),
-  daemon: async (parsed) => (await import("./commands/daemon.ts")).daemonCommand(parsed),
-  node: async (parsed, argv) => (await import("./commands/node.ts")).nodeCommand(parsed, argv),
-  data: async (parsed) => (await import("./commands/data.ts")).dataCommand(parsed),
-  update: async (parsed) => (await import("./commands/update.ts")).updateCommand(parsed),
-  chat: async (parsed) => openTui(parsed),
-};
-
-/** The TUI is TSX: it loads through the build (dist) or `vpx`, never plain `node` on the source. */
-const openTui = async (parsed: Parsed): Promise<number> => {
-  if (!process.stdout.isTTY || !process.stdin.isTTY) {
-    console.error(
-      'The terminal UI needs a terminal. Try `spriessen ask "…"` or `spriessen --help`.',
-    );
-    return 1;
-  }
-  // Sign-in first, before OpenTUI loads: an unreachable server rejects here
-  // and main words it (errors.ts).
-  const { apiFor } = await import("./commands/context.ts");
-  const api = apiFor(parsed);
-  const status = await api.authStatus();
-  if (api.cookie === undefined || !status.session) throw new SignInRequired();
-  let tui: typeof import("./tui/run.tsx");
-  try {
-    tui = await import("./tui/run.tsx");
-  } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code !== "ERR_UNKNOWN_FILE_EXTENSION") throw cause;
-    console.error("The terminal UI needs the build first: run `vp -C apps/cli build`.");
-    return 1;
-  }
-  await tui.runTui({ ...api, cookie: api.cookie }, parsed);
-  return 0;
-};
+/** Kept for the tests and anything that printed it before the table. */
+export const HELP = overview();
 
 /** Run one command line; every failure, the UI's included, ends as plain sentences (errors.ts). */
 export const main = async (argv: readonly string[]): Promise<number> => {
   let parsed: Parsed | undefined;
   try {
-    parsed = parseArgs(argv, BOOLEANS);
+    parsed = parseArgs(argv, ALL_BOOLEANS);
     return await dispatch(parsed, argv);
   } catch (cause) {
     report(cause, serverOf(parsed !== undefined ? stringFlag(parsed, "server") : undefined));
@@ -105,24 +31,56 @@ export const main = async (argv: readonly string[]): Promise<number> => {
 };
 
 const dispatch = async (parsed: Parsed, argv: readonly string[]): Promise<number> => {
-  const name = parsed.positionals[0];
-  if (parsed.flags.get("help") === true || name === "help") {
-    console.log(HELP);
+  const [first, second] = parsed.positionals;
+  if (parsed.flags.get("version") === true && first === undefined) {
+    return run(commandNamed("version") as CommandSpec, parsed, argv);
+  }
+  if (first === "help" || (first === undefined && parsed.flags.get("help") === true)) {
+    const spec = second !== undefined ? commandNamed(second) : undefined;
+    if (second !== undefined && spec === undefined) {
+      console.error(unknownCommand(second));
+      return 1;
+    }
+    console.log(spec !== undefined ? commandHelp(spec) : overview());
     return 0;
   }
-  if (name === undefined) {
-    if (process.stdout.isTTY) return openTui(parsed);
-    console.log(HELP);
+  if (first === undefined) {
+    if (process.stdout.isTTY) return run(commandNamed("chat") as CommandSpec, parsed, argv);
+    console.log(overview());
     return 0;
   }
-  const command = COMMANDS[name];
-  if (command === undefined) {
-    console.error(
-      `There's no \`spriessen ${name}\` command. Run \`spriessen --help\` to see them.`,
-    );
+  const spec = commandNamed(first);
+  if (spec === undefined) {
+    console.error(unknownCommand(first));
     return 1;
   }
-  return (await command(parsed, argv)) ?? 0;
+  if (parsed.flags.get("help") === true) {
+    console.log(commandHelp(spec));
+    return 0;
+  }
+  const problem = flagProblem(spec, parsed);
+  if (problem !== null) {
+    console.error(problem);
+    return 1;
+  }
+  return run(spec, parsed, argv);
+};
+
+/** In a terminal, with a person at it: a missing sign-in can be fixed in place. */
+const canAsk = (parsed: Parsed): boolean =>
+  process.stdin.isTTY === true &&
+  process.stderr.isTTY === true &&
+  parsed.flags.get("json") !== true;
+
+const run = async (spec: CommandSpec, parsed: Parsed, argv: readonly string[]): Promise<number> => {
+  try {
+    return (await spec.run(parsed, argv)) ?? 0;
+  } catch (cause) {
+    if (!(cause instanceof SignInRequired) || spec.client !== true || !canAsk(parsed)) throw cause;
+    const { signInHere } = await import("./commands/auth.ts");
+    await signInHere(serverOf(stringFlag(parsed, "server")), "You're not signed in yet.");
+    return (await spec.run(parsed, argv)) ?? 0;
+  }
 };
 
 const isMain =

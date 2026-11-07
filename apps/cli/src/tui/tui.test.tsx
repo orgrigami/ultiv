@@ -162,14 +162,16 @@ const key = (name: string, extra: Partial<KeyEvent> = {}): KeyEvent =>
 
 const actions = (over: Partial<KeyActions> = {}): KeyActions => ({
   view: "chat",
-  picking: false,
+  overlay: false,
   cardFocused: false,
   hasCard: false,
   working: false,
   quit: vi.fn(),
   toggleView: vi.fn(),
   openPicker: vi.fn(),
-  closePicker: vi.fn(),
+  openChats: vi.fn(),
+  closeOverlay: vi.fn(),
+  complete: vi.fn(() => false),
   newChat: vi.fn(),
   scroll: vi.fn(),
   stop: vi.fn(),
@@ -211,10 +213,26 @@ describe("dispatchKey", () => {
     expect(working.stop).toHaveBeenCalled();
   });
 
-  it("ctrl-c always quits, even with the picker open", () => {
-    const act = actions({ picking: true });
+  it("ctrl-c always quits, even with the picker open; esc closes it; the rest is the picker's", () => {
+    const act = actions({ overlay: true });
+    expect(dispatchKey(key("down"), act)).toBe(false);
+    expect(dispatchKey(key("a"), act)).toBe(false);
+    dispatchKey(key("escape"), act);
+    expect(act.closeOverlay).toHaveBeenCalled();
     dispatchKey(key("c", { ctrl: true }), act);
     expect(act.quit).toHaveBeenCalled();
+  });
+
+  it("tab completes a half-typed /command before it switches to Needs you", () => {
+    const completing = actions({ complete: vi.fn(() => true) });
+    dispatchKey(key("tab"), completing);
+    expect(completing.toggleView).not.toHaveBeenCalled();
+    const plain = actions();
+    dispatchKey(key("tab"), plain);
+    expect(plain.toggleView).toHaveBeenCalled();
+    const chats = actions();
+    dispatchKey(key("o", { ctrl: true }), chats);
+    expect(chats.openChats).toHaveBeenCalled();
   });
 
   it("Needs you: arrows choose, letters decide, enter opens", () => {

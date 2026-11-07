@@ -61,7 +61,16 @@ describe("main", () => {
     vi.spyOn(console, "error").mockImplementation((...args) => void lines.push(args.join(" ")));
     expect(await main(["frobnicate"])).toBe(1);
     expect(lines).toEqual([
-      "There's no `spriessen frobnicate` command. Run `spriessen --help` to see them.",
+      "There's no `spriessen frobnicate` command.\nRun `spriessen --help` to see them all.",
     ]);
+  });
+
+  it("a typo gets a guess, and a flag the command doesn't read is refused before anything runs", async () => {
+    const lines: string[] = [];
+    vi.spyOn(console, "error").mockImplementation((...args) => void lines.push(args.join(" ")));
+    expect(await main(["chast"])).toBe(1);
+    expect(lines[0]).toMatch(/Did you mean `spriessen chats?`\?/);
+    expect(await main(["ask", "hi", "--bto", "Wren"])).toBe(1);
+    expect(lines[1]).toContain("has no --bto flag. Did you mean --bot?");
   });
 });

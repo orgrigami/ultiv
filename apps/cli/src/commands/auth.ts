@@ -9,6 +9,7 @@
 import { stringFlag, type Parsed } from "../args.ts";
 import { createApi } from "../client/http.ts";
 import { forgetCredentials, readCredentials, saveCredentials, serverOf } from "../config.ts";
+import { when } from "../render/out.ts";
 import { apiFor } from "./context.ts";
 
 /** Read one line without echo (a TTY), or the first line of piped input. */
@@ -46,23 +47,35 @@ export const promptHidden = async (question: string): Promise<string> => {
   });
 };
 
-export const login = async (parsed: Parsed): Promise<void> => {
-  const server = serverOf(stringFlag(parsed, "server"));
+/**
+ * Ask for the passcode here and save the session (the first passcode on a
+ * fresh install run on the host). `lead` is said first, when a command
+ * found you signed out.
+ */
+export const signInHere = async (server: string, lead?: string): Promise<void> => {
   const api = createApi(server, undefined);
   const status = await api.authStatus();
+  if (lead !== undefined) process.stderr.write(`${lead}\n`);
   let cookie: string;
   if (!status.passcodeSet) {
     if (!status.bootstrap) {
-      throw new Error("this server has no passcode yet; set it on the host itself first");
+      throw new Error(
+        "this server has no passcode yet; run `spriessen login` on the server's own machine first",
+      );
     }
-    const passcode = await promptHidden("Choose a passcode for this server (8+ characters): ");
+    process.stderr.write(`${server} is new: choose the passcode that will guard it.\n`);
+    const passcode = await promptHidden("New passcode (8+ characters): ");
     cookie = await api.setPasscode(passcode);
   } else {
     const passcode = await promptHidden(`Passcode for ${server}: `);
     cookie = await api.signIn(passcode);
   }
   saveCredentials({ server, cookie, savedAt: Date.now() });
-  console.log(`Signed in to ${server}.`);
+  process.stderr.write(`Signed in to ${server}.\n`);
+};
+
+export const login = async (parsed: Parsed): Promise<void> => {
+  await signInHere(serverOf(stringFlag(parsed, "server")));
 };
 
 export const logout = async (parsed: Parsed): Promise<void> => {
@@ -79,12 +92,12 @@ export const status = async (parsed: Parsed): Promise<void> => {
     const state = await api.authStatus();
     line =
       api.cookie !== undefined && state.session
-        ? `Signed in to ${api.server}.`
+        ? `Signed in to ${api.server}.${saved !== undefined ? ` (since ${when(saved.savedAt)})` : ""}`
         : state.passcodeSet
           ? `Not signed in to ${api.server}. Run: spriessen login`
           : `${api.server} has no passcode yet. Run on the host: spriessen login`;
   } catch {
-    line = `Cannot reach ${api.server}.${saved === undefined ? "" : ` (saved: ${saved.server})`}`;
+    line = `Can't reach ${api.server}.${saved !== undefined && saved.server !== api.server ? ` (saved: ${saved.server})` : ""} Start it with: spriessen serve`;
   }
   console.log(line);
 };

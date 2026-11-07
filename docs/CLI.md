@@ -21,8 +21,18 @@ clones over SSH.) Then:
 $EDITOR ~/.spriessen/.env      # a model provider key, e.g. KENARI_API_KEY=…
 spriessen daemon install       # the server + web app on :8787, kept running
 spriessen login                # the first time, this sets your passcode
-spriessen                      # the terminal UI (or open http://127.0.0.1:8787)
+spriessen doctor               # checks each step and says what to fix
+spriessen models default kenari/deepseek-v4-1-flash   # what new chats start on
+spriessen bots new Wren --description "my right hand" # the first bot is the main bot
+spriessen                      # the terminal UI (or: spriessen open, for the web app)
 ```
+
+`spriessen doctor` walks that path in order (the server answers, a
+passcode is set, you're signed in, a provider key is set, a workspace
+default model exists, there is a bot, the daemon is installed) and prints
+the command that fixes each problem; it exits 1 while something is wrong.
+Optional extras (Jev, web search, push, email) are listed as what they
+would turn on, never as failures.
 
 Everything lives in **`~/.spriessen`** (`SPRIESSEN_HOME` moves it):
 
@@ -80,64 +90,138 @@ sent to another.
 Which server: `--server`, then `SPRIESSEN_SERVER_URL`, then the saved one,
 then `http://127.0.0.1:8787`.
 
+You rarely need `login` by hand: any command that finds you signed out, in
+a terminal, asks for the passcode right there and carries on. Scripts (no
+terminal, or `--json`) get the sentence and exit 1 instead.
+
+## Commands, help and naming things
+
+Every command lives in one table (`apps/cli/src/table.ts`): `spriessen
+--help` lists them by what they are for (Talk, See, Decide, Set up, Host),
+`spriessen help <command>` (or `<command> --help`) shows its flags and
+examples, and `spriessen completion bash|zsh|fish` prints shell
+completion from the same table. A mistyped command or flag is refused
+before anything runs, with the nearest real one ("Did you mean `spriessen
+chats`?", "has no --bto flag. Did you mean --bot?").
+
+Naming is the same everywhere, the TUI's `/bot` included: a bot is its
+id, its name in any case, or the start of its name when only one bot
+starts that way (`--bot wi` → Willow; `--bot w` with Wren and Willow says
+both). Chats, tasks and cards are their id or the start of it, at least
+4 characters; lists print the short form (8 characters, or 13 for a main
+chat's `main-…` id).
+
+Line output gets a little colour on a terminal, never into a pipe;
+`NO_COLOR` turns it off, `FORCE_COLOR=1` on.
+
 ## When something fails
 
 Every command, the UI included, ends a failure with a sentence and the
 command that fixes it (not signed in, the server not answering, a wrong
-passcode), never a stack trace, and exits 1. `SPRIESSEN_DEBUG=1` adds the
-full error underneath.
+passcode, a bot or chat that doesn't exist and which ones do), never a
+stack trace, and exits 1. `SPRIESSEN_DEBUG=1` adds the full error
+underneath.
 
 ## The terminal UI
 
-`spriessen` (or `spriessen chat --bot <name>`) opens the chat with the main
-bot, or the one you name. One screen, the web's places:
+`spriessen` (or `spriessen chat --bot <name>`, or `chat --chat <id>` for one
+chat) opens the chat with the main bot, or the one you name. One screen,
+the web's places:
 
 | Key         | Does                                                               |
 | ----------- | ------------------------------------------------------------------ |
 | enter       | send (while the bot works: steer the running turn)                 |
 | ctrl-r      | arm the next send as a redirect (stop and answer this)             |
-| esc         | answer the waiting card, else stop the reply                       |
+| esc         | answer the waiting card, else stop the reply; closes a panel       |
 | a / d / A   | on a card: approve / deny / always allow (where the web offers it) |
 | i           | leave the card, back to typing                                     |
 | ctrl-t      | send messages a failed run left queued (never sent by themselves)  |
-| tab         | Needs you ↔ chat (↑/↓ choose, a/d/A decide, enter open its chat)   |
+| tab         | complete a half-typed /command, else Needs you ↔ chat              |
 | ctrl-k      | pick a bot                                                         |
+| ctrl-o      | pick one of this bot's chats (newest first)                        |
 | ctrl-n      | a new chat with this bot                                           |
 | pgup / pgdn | scroll                                                             |
 | ctrl-c      | quit (the terminal is always restored)                             |
 
-Type a slash command into the composer for what the web puts on buttons:
+Type a slash command into the composer for what the web puts on buttons.
+A half-typed one shows what it could be under the composer; tab completes
+it; `/help` opens a panel with every key and command.
 
 | Command        | Does                                                                     |
 | -------------- | ------------------------------------------------------------------------ |
+| `/help`        | the keys and commands panel (esc closes it)                              |
+| `/new`         | a new chat with this bot                                                 |
+| `/chats`       | the chat picker (ctrl-o)                                                 |
+| `/bot [name]`  | switch bots (the start of a name is enough; bare: the picker)            |
+| `/model [id]`  | this chat's model (bare: pick from the list; the effort carries over)    |
 | `/edit [text]` | edit your last message in a new chat (bare `/edit` puts it in the draft) |
 | `/branch`      | continue from the bot's last reply in a new chat                         |
+| `/copy`        | the last reply to your clipboard (OSC 52, so over SSH too)               |
+| `/retry`       | send what a failed run left queued (ctrl-t)                              |
+| `/stop`        | stop the reply                                                           |
 | `/test`        | save your last message as a test (`spriessen tests run` replays it)      |
-| `/bot <name>`  | switch bots (a name prefix is enough)                                    |
-| `/new` `/stop` | a new chat; stop the reply                                               |
-| `/help`        | list them; `//text` sends "/text" as a message                           |
+| `/open`        | this chat in the web app                                                 |
 
-The old chat never changes when you branch or edit. Tool calls read in the
-web's words (`@spriessen/present`); task results, routine wake-ups, webhooks
-and bot mail read as one dim line each (the web's cards, in words), never as
-something you typed; a bot's reaction shows as "Wren reacted 👍 Got it".
-Thinking stays out of the default view; a card takes the keyboard when it
-arrives, unless you are mid-sentence. Wide terminals (≥ 100 columns) show the crew beside
-the chat. Lists refresh on the server's live signals, never by polling.
+`//text` sends "/text" as a message. The old chat never changes when you
+branch or edit. Tool calls read in the web's words (`@spriessen/present`);
+task results, routine wake-ups, webhooks and bot mail read as one dim line
+each (the web's cards, in words), never as something you typed; a bot's
+reaction shows as "Wren reacted 👍 Got it". Thinking stays out of the
+default view; a card takes the keyboard when it arrives, unless you are
+mid-sentence. The header shows the chat's model and the tokens it has used
+(≥ 90 columns); wide terminals (≥ 100 columns) show the crew beside the
+chat, with a red dot on a bot whose card is waiting. The key line shows
+what fits; /help has the rest. With no bots yet the screen says how to
+make the first one. Lists refresh on the server's live signals, never by
+polling.
 
 ## Line commands
 
 ```sh
-spriessen ask "summarise yesterday's chats" --bot Wren   # prints the reply; exit 1 if the turn failed
-git diff | spriessen ask - --bot Wren                    # - (or any pipe) reads the message from stdin
-spriessen bots | chats [--bot Wren] | needs              # --json for scripts
-spriessen approve <id> [--always] | deny <id>            # ids from `needs`
-spriessen tasks [--bot Wren] [--all]                     # background work, running first, with its model
+spriessen ask "summarise yesterday's chats" --bot Wren   # streams the reply; exit 1 if the turn failed
+git diff | spriessen ask - --bot Wren --new              # - (or any pipe) reads stdin; --new: a fresh chat
+spriessen ask "…" --chat 4b9b                            # continue a chat by (the start of) its id
+
+spriessen bots | bots new <name> [--description …] [--persona …] [--model id] [--quiet] | bots main <name>
+spriessen chats [--bot Wren] | chats show [<id>] [--last 3] | chats new [--bot Wren]
+spriessen search "invoice last week" [--bot Wren] [--since 2026-11-01] [--who owner|bot]
+spriessen memory [--bot Wren] [--find "words"] [--all]   # core lines, then facts by importance
+spriessen routines [--bot Wren]                          # schedules, last run, last error
+spriessen tasks [--bot Wren] [--all] | tasks show <id> | tasks stop <id>
 spriessen projects [--bot Wren]                          # goals over days, with the next milestone
-spriessen models                                         # what --model accepts (* = workspace default)
-spriessen tests [--bot Wren]                             # saved tests (/test in the TUI)
-spriessen tests run [--bot Wren] [--model kenari/x]      # replay them; exit 1 if any fail
+spriessen models | models default [<id>]                 # * = the workspace default new chats start on
+spriessen tests [--bot Wren] | tests run [--bot Wren] [--model kenari/x]
+
+spriessen needs                                          # cards, failed tasks, reviews, parked work
+spriessen approve <id> [--always] | deny <id>            # ids (or their start) from `needs`
+spriessen approve --all [--yes]                          # shows them, asks, then approves
+
+spriessen open [<chat id>]                               # the web app in your browser (URL printed too)
+spriessen completion zsh                                 # eval "$(spriessen completion zsh)" in ~/.zshrc
+spriessen version
 ```
+
+Every list takes `--json` for scripts.
+
+`ask` waits for the turn to settle (`--timeout` seconds, default 600). In
+a terminal it plays the turn out live: each tool call as it runs (a "…"
+line rewritten with ✓ or ✗ when it ends) and the reply as it is written.
+Into a pipe only the reply's words reach stdout (`spriessen ask … >
+notes.md` keeps just the text); `--json` prints the entries. If a card
+stops it, `ask` prints it on stderr with the command that answers it and
+keeps waiting: approve from another terminal, the web or the phone. ctrl-c
+leaves the bot working and says which chat the reply will land in. A chat
+with no model says how to set the workspace default.
+
+`approve --all` shows the cards it is about to approve and asks first
+(`--yes` in a script). Cards that are asked every time on purpose (a
+credential's or connector's first use, connector changes, secure inputs)
+and scripts reaching past the bot's VM (`host`, `node`) stay waiting for a
+look of their own.
+
+`models default <id>` is the same setting as the web's Settings: new chats
+start on it at once, and chats that have no model at all (made before any
+default existed) take it too. A chat with a model of its own keeps it.
 
 `tests run` replays each saved test on the bot's current setup (or
 `--model`), with every tool blocked, and prints each result as it lands: the
@@ -145,9 +229,8 @@ checks that failed and Jev's score. It exits 1 when any test fails, so a
 script can gate a model or prompt change on it (`--timeout` seconds, default
 1800; the run keeps going on the server past it).
 
-`ask` waits for the turn to settle (`--timeout` seconds, default 600). If a
-card stops it, `ask` prints it with the command that answers it and keeps
-waiting: approve from another terminal, the web or the phone.
+Reading is the command line's job; changing memory, routines and bots'
+settings stays in the web app, where each change is reviewed.
 
 ## Hosting: serve and daemon
 

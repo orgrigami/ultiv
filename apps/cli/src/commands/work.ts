@@ -1,36 +1,36 @@
 /**
  * What the bots are working on, and their tests, from the command line:
- * `tasks` (background work), `projects` (goals over days), `models` (what
+ * `tasks` (background work; `show` one in full, `stop` one), `projects`
+ * (goals over days), `models` (what
  * `--model` accepts) and `tests` / `tests run`. `tests run` waits for the
  * run and exits 1 when any test fails, so a script or CI can gate a model
  * or prompt change on it. Plain lines on stdout, `--json` for machines.
  */
-import type { EvalCase, EvalRun, ProfileInfo } from "@spriessen/contracts";
+import type { EvalCase, EvalRun, TaskRow } from "@spriessen/contracts";
 import { boolFlag, numberFlag, stringFlag, type Parsed } from "../args.ts";
 import type { Api } from "../client/http.ts";
-import { apiFor, pickBot } from "./context.ts";
-
-const print = (parsed: Parsed, value: unknown, lines: () => string[]): void => {
-  if (boolFlag(parsed, "json")) console.log(JSON.stringify(value, null, 2));
-  else for (const line of lines()) console.log(line);
-};
-
-const day = (at: number): string => new Date(at).toISOString().slice(0, 16).replace("T", " ");
-
-/** The bot `--bot` names, or undefined for every bot. */
-const botOf = async (api: Api, parsed: Parsed): Promise<ProfileInfo | undefined> => {
-  const name = stringFlag(parsed, "bot");
-  return name === undefined ? undefined : pickBot(api, name);
-};
-
-const namesOf = async (api: Api): Promise<Map<string, string>> =>
-  new Map((await api.profiles()).map((bot) => [bot.id, bot.name]));
+import { ago, clip, paintFor, print, shortId, when } from "../render/out.ts";
+import { apiFor, botFilter, findTask, namesOf } from "./context.ts";
 
 const MARK: Record<string, string> = { running: "…", done: "✓", failed: "✗", cancelled: "-" };
 
-export const tasks = async (parsed: Parsed): Promise<void> => {
+const markOf = (status: string): string => {
+  const paint = paintFor();
+  const mark = MARK[status] ?? "?";
+  return status === "failed"
+    ? paint.red(mark)
+    : status === "running"
+      ? paint.amber(mark)
+      : status === "done"
+        ? paint.green(mark)
+        : paint.dim(mark);
+};
+
+const titleOf = (task: TaskRow): string => task.title ?? clip(task.prompt, 40);
+
+const listTasks = async (parsed: Parsed): Promise<void> => {
   const api = apiFor(parsed);
-  const [rows, names, bot] = await Promise.all([api.tasks(), namesOf(api), botOf(api, parsed)]);
+  const [rows, names, bot] = await Promise.all([api.tasks(), namesOf(api), botFilter(api, parsed)]);
   const shown = rows
     .filter((task) => bot === undefined || task.bot?.profileId === bot.id)
     .sort(
@@ -39,21 +39,94 @@ export const tasks = async (parsed: Parsed): Promise<void> => {
         b.createdAt - a.createdAt,
     )
     .slice(0, boolFlag(parsed, "all") ? undefined : 20);
+  const paint = paintFor();
   print(parsed, shown, () =>
     shown.length === 0
       ? ["No background tasks."]
-      : shown.map((task) => {
-          const who = names.get(task.bot?.profileId ?? "") ?? "";
-          const model = task.model !== undefined ? ` · ${task.model}` : "";
-          const title = task.title ?? task.prompt.replace(/\s+/g, " ").slice(0, 40);
-          return `${MARK[task.status] ?? "?"} ${title.padEnd(40)} ${who}${model} · ${day(task.createdAt)}`;
-        }),
+      : [
+          ...shown.map((task) => {
+            const who = names.get(task.bot?.profileId ?? "") ?? "";
+            const model = task.model !== undefined ? ` · ${task.model}` : "";
+            const doing =
+              task.status === "running" && task.lastStep !== undefined
+                ? paint.dim(` — ${clip(task.lastStep, 40)}`)
+                : "";
+            return `${markOf(task.status)} ${paint.dim(shortId(task.id))}  ${clip(titleOf(task), 40).padEnd(40)} ${paint.dim(`${who}${model} · ${ago(task.createdAt)}`)}${doing}`;
+          }),
+          "",
+          paint.dim("Read one: spriessen tasks show <id> · stop one: spriessen tasks stop <id>"),
+        ],
+  );
+};
+
+/** One task in full: what it was asked, where it stands, what it said. */
+export const taskLines = (task: TaskRow, bot: string): string[] => {
+  const paint = paintFor();
+  const lines = [
+    `${markOf(task.status)} ${paint.bold(titleOf(task))}`,
+    paint.dim(
+      `${bot}'s task ${shortId(task.id)} · ${task.status} · started ${when(task.createdAt)}` +
+        (task.finishedAt !== null ? ` · ended ${when(task.finishedAt)}` : "") +
+        (task.model !== undefined ? ` · ${task.model}` : ""),
+    ),
+    "",
+    paint.dim("Asked:"),
+    ...task.prompt.split("\n").map((line) => `  ${line}`),
+  ];
+  for (const update of task.updates ?? [])
+    lines.push(paint.dim(`  · ${when(update.at)} ${update.text}`));
+  if (task.status === "running" && task.lastStep !== undefined) {
+    lines.push("", paint.amber(`Now: ${task.lastStep}`));
+  }
+  if (task.waitingApproval !== undefined) {
+    lines.push(
+      "",
+      paint.amber(`Waiting for you: spriessen approve ${shortId(task.waitingApproval.callId)}`),
+    );
+  }
+  if (task.error !== null) lines.push("", paint.red(task.error));
+  if (task.result !== null) {
+    lines.push("", paint.dim("Result:"), ...task.result.split("\n").map((line) => `  ${line}`));
+  }
+  return lines;
+};
+
+const showTask = async (parsed: Parsed, wanted: string): Promise<void> => {
+  const api = apiFor(parsed);
+  const [task, names] = await Promise.all([findTask(api, wanted), namesOf(api)]);
+  print(parsed, task, () => taskLines(task, names.get(task.bot?.profileId ?? "") ?? "A bot"));
+};
+
+const stopTask = async (parsed: Parsed, wanted: string): Promise<number> => {
+  const api = apiFor(parsed);
+  const task = await findTask(api, wanted);
+  if (task.status !== "running") {
+    console.log(`That task already ${task.status === "done" ? "finished" : task.status}.`);
+    return 0;
+  }
+  const { cancelled } = await api.cancelTask(task.id);
+  console.log(
+    cancelled ? `Stopped "${titleOf(task)}". Its bot is told once.` : "It had already ended.",
+  );
+  return 0;
+};
+
+export const tasksCommand = async (parsed: Parsed): Promise<number | void> => {
+  const [, sub, id] = parsed.positionals;
+  if (sub === undefined) return listTasks(parsed);
+  if ((sub === "show" || sub === "stop") && id === undefined) {
+    throw new Error(`usage: spriessen tasks ${sub} <id>  (ids from \`spriessen tasks\`)`);
+  }
+  if (sub === "show") return showTask(parsed, id as string);
+  if (sub === "stop") return stopTask(parsed, id as string);
+  throw new Error(
+    `\`spriessen tasks ${sub}\` isn't a thing; try: tasks, tasks show <id>, tasks stop <id>`,
   );
 };
 
 export const projects = async (parsed: Parsed): Promise<void> => {
   const api = apiFor(parsed);
-  const [bot, names] = await Promise.all([botOf(api, parsed), namesOf(api)]);
+  const [bot, names] = await Promise.all([botFilter(api, parsed), namesOf(api)]);
   const rows = await api.projects(bot?.id);
   print(parsed, rows, () =>
     rows.length === 0
@@ -69,14 +142,57 @@ export const projects = async (parsed: Parsed): Promise<void> => {
   );
 };
 
+/** `models default <id>`: the model every chat without its own starts on. */
+const setDefault = async (parsed: Parsed): Promise<void> => {
+  const api = apiFor(parsed);
+  const wanted = parsed.positionals[2];
+  const current = (await api.models()).workspaceDefault;
+  if (wanted === undefined) {
+    console.log(
+      current === null
+        ? "No workspace default yet, so chats without a model of their own can't answer.\nSet one: spriessen models default <id>"
+        : `${current.ref}${current.source === "env" ? " (from SPRIESSEN_MODEL)" : ""}`,
+    );
+    return;
+  }
+  const { models: list } = await api.models();
+  const model = list.find((candidate) => candidate.id === wanted);
+  if (model === undefined) throw new Error(`${wanted} isn't a model here (see: spriessen models)`);
+  await api.setDefaultModel(model.id, model.defaultEffort);
+  console.log(`New chats now start on ${model.id}.`);
+};
+
 export const models = async (parsed: Parsed): Promise<void> => {
+  if (parsed.positionals[1] === "default") return setDefault(parsed);
+  if (parsed.positionals[1] !== undefined) {
+    throw new Error("try: spriessen models, or spriessen models default [<id>]");
+  }
   const payload = await apiFor(parsed).models();
   const fallback = payload.workspaceDefault?.ref;
+  const paint = paintFor();
+  const providers = [...new Set(payload.models.map((model) => model.providerName))];
   print(parsed, payload, () =>
-    payload.models.map(
-      (model) =>
-        `${model.id === fallback ? "*" : " "} ${model.id.padEnd(44)} ${model.efforts.length > 0 ? `efforts: ${model.efforts.join(", ")}` : ""}`,
-    ),
+    payload.models.length === 0
+      ? ["No models yet: set a provider key in ~/.spriessen/.env (see: spriessen doctor)."]
+      : [
+          ...providers.flatMap((provider) => [
+            paint.bold(provider),
+            ...payload.models
+              .filter((model) => model.providerName === provider)
+              .map((model) => {
+                const star = model.id === fallback ? paint.amber("*") : " ";
+                const efforts =
+                  model.efforts.length > 0 ? paint.dim(`efforts: ${model.efforts.join(", ")}`) : "";
+                const image = model.input.includes("image") ? paint.dim(" · images") : "";
+                return `${star} ${model.id.padEnd(44)} ${efforts}${image}`;
+              }),
+            "",
+          ]),
+          payload.workspaceDefault === null
+            ? paint.amber("No workspace default yet: spriessen models default <id>")
+            : paint.dim("* the workspace default (change it: spriessen models default <id>)"),
+          paint.dim("For one chat: /model <id> in the chat, or --model where a command takes it"),
+        ],
   );
 };
 
@@ -114,7 +230,7 @@ const waitFor = async (api: Api, started: EvalRun, timeoutMs: number): Promise<E
 
 export const tests = async (parsed: Parsed): Promise<number> => {
   const api = apiFor(parsed);
-  const bot = await botOf(api, parsed);
+  const bot = await botFilter(api, parsed);
   const cases = await api.evals(bot?.id);
   if (parsed.positionals[1] !== "run") {
     print(parsed, cases, () =>

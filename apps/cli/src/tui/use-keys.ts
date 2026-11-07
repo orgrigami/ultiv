@@ -1,27 +1,39 @@
 /**
- * Every key the TUI answers, in one place (the footer shows the same list):
- *
- *   ctrl-c quit · tab chat ↔ Needs you · ctrl-k pick a bot · ctrl-n new chat
- *   pgup/pgdn scroll · esc stop the reply (or answer a waiting card)
- *   ctrl-r send the next message as a redirect · ctrl-t send what is queued
- *   card: a approve · d deny · A always allow · i back to typing
- *   Needs you: ↑/↓ choose · a/d/A decide · enter open its chat
- *
- * Bare letters only act while a card holds the keyboard, never while typing.
+ * Every key the TUI answers, in one place. KEY_HELP is the list /help
+ * shows; the footer shows the most useful few. Bare letters only act while
+ * a card holds the keyboard (or in Needs you), never while typing. While a
+ * picker or the help panel is open it owns the keyboard: esc closes it.
  */
 import type { KeyEvent } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 
+export const KEY_HELP: readonly (readonly [string, string])[] = [
+  ["enter", "send (while the bot works: steer the running turn)"],
+  ["ctrl-r", "arm the next send as a redirect (stop and answer this)"],
+  ["esc", "answer the waiting card, else stop the reply"],
+  ["a / d / A", "on a card: approve / deny / always allow"],
+  ["i", "leave the card, back to typing"],
+  ["ctrl-t", "send messages a failed run left queued"],
+  ["tab", "complete a /command, else Needs you ↔ chat"],
+  ["ctrl-k", "pick a bot"],
+  ["ctrl-o", "pick one of this bot's chats"],
+  ["ctrl-n", "a new chat with this bot"],
+  ["pgup / pgdn", "scroll the chat"],
+  ["ctrl-c", "quit"],
+];
+
 export interface KeyActions {
   readonly view: "chat" | "needs";
-  readonly picking: boolean;
+  /** A picker or the help panel is open. */
+  readonly overlay: boolean;
   readonly cardFocused: boolean;
   readonly hasCard: boolean;
   readonly working: boolean;
   quit(): void;
   toggleView(): void;
   openPicker(): void;
-  closePicker(): void;
+  openChats(): void;
+  closeOverlay(): void;
   newChat(): void;
   scroll(pages: number): void;
   stop(): void;
@@ -29,6 +41,8 @@ export interface KeyActions {
   decide(approved: boolean, always?: boolean): void;
   toggleRedirect(): void;
   retryQueued(): void;
+  /** Tab on a half-typed /command: completes it and answers true. */
+  complete(): boolean;
   needsMove(delta: number): void;
   needsDecide(approved: boolean, always?: boolean): void;
   needsOpen(): void;
@@ -41,23 +55,29 @@ const decision = (key: KeyEvent): { approved: boolean; always?: boolean } | unde
   return undefined;
 };
 
+const needsKey = (key: KeyEvent, act: KeyActions): boolean => {
+  if (key.name === "up") return (act.needsMove(-1), true);
+  if (key.name === "down") return (act.needsMove(1), true);
+  if (key.name === "return") return (act.needsOpen(), true);
+  const choice = decision(key);
+  if (choice !== undefined) return (act.needsDecide(choice.approved, choice.always), true);
+  return false;
+};
+
 /** The pure dispatch (tested without a terminal); answers whether the key was used. */
 export const dispatchKey = (key: KeyEvent, act: KeyActions): boolean => {
   if (key.ctrl && key.name === "c") return (act.quit(), true);
-  if (act.picking) return key.name === "escape" ? (act.closePicker(), true) : false;
-  if (key.name === "tab") return (act.toggleView(), true);
+  if (act.overlay) return key.name === "escape" ? (act.closeOverlay(), true) : false;
+  if (key.name === "tab") {
+    if (act.view === "chat" && !act.cardFocused && act.complete()) return true;
+    return (act.toggleView(), true);
+  }
   if (key.ctrl && key.name === "k") return (act.openPicker(), true);
+  if (key.ctrl && key.name === "o") return (act.openChats(), true);
   if (key.ctrl && key.name === "n") return (act.newChat(), true);
   if (key.name === "pageup") return (act.scroll(-1), true);
   if (key.name === "pagedown") return (act.scroll(1), true);
-  if (act.view === "needs") {
-    if (key.name === "up") return (act.needsMove(-1), true);
-    if (key.name === "down") return (act.needsMove(1), true);
-    if (key.name === "return") return (act.needsOpen(), true);
-    const choice = decision(key);
-    if (choice !== undefined) return (act.needsDecide(choice.approved, choice.always), true);
-    return false;
-  }
+  if (act.view === "needs") return needsKey(key, act);
   if (act.cardFocused) {
     if (key.name === "i" || key.name === "escape") return (act.focusCard(false), true);
     const choice = decision(key);

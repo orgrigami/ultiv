@@ -16,6 +16,7 @@ import {
 } from "@earendil-works/chord";
 import {
   Session,
+  type ThinkingLevel,
   type PendingApproval,
   type Phase,
   type QueuedInput,
@@ -89,6 +90,7 @@ export interface SessionSnapshot {
   readonly pending: PendingApproval;
   readonly usage: UsageSummary | null;
   readonly model: string | null;
+  readonly effort: ThinkingLevel | null;
   readonly conversationId: string | null;
   readonly queued: readonly QueuedInput[];
 }
@@ -101,6 +103,7 @@ export const EMPTY_SNAPSHOT: SessionSnapshot = {
   pending: null,
   usage: null,
   model: null,
+  effort: null,
   conversationId: null,
   queued: [],
 };
@@ -140,6 +143,7 @@ export const watchSession = (
     ref.pending.subscribe((pending) => set({ pending })),
     ref.usage.subscribe((usage) => set({ usage })),
     ref.model.subscribe((model) => set({ model })),
+    ref.effort.subscribe((effort) => set({ effort })),
   ];
   return () => {
     for (const unsub of unsubs) unsub();

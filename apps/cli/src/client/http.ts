@@ -6,15 +6,21 @@
  * answer "run spriessen login" the same way.
  */
 import type {
+  CoreLine,
+  CronJobInfo,
   EvalCase,
   EvalRun,
   EvalRunRequest,
+  HistorySearch,
+  MemoryFact,
   ModelsPayload,
   NodeInfo,
   NodePairResponse,
+  ProfileCreate,
   ProfileInfo,
   ProjectInfo,
   SessionInfo,
+  SettingsModel,
   TaskRow,
 } from "@spriessen/contracts";
 
@@ -39,6 +45,39 @@ export interface NeedsYouExtra {
     readonly kind: string;
     readonly profile: string;
   }[];
+}
+
+/** GET /api/memory/v2?profile=: the parts the terminal shows. */
+export interface MemoryStore {
+  readonly facts: readonly MemoryFact[];
+  readonly core: { readonly owner: readonly CoreLine[]; readonly profile: readonly CoreLine[] };
+  readonly openCount: number;
+}
+
+/** GET /api/server/check: names and switches only, never a value. */
+export interface ServerCheck {
+  readonly keys: readonly {
+    readonly names: readonly string[];
+    readonly set: boolean;
+    readonly enables: string;
+    readonly group: "models" | "features";
+  }[];
+  readonly models: {
+    readonly providers: readonly string[];
+    readonly count: number;
+    readonly default: string;
+  };
+  readonly microvm: { readonly available: boolean; readonly detail: string };
+  readonly listen: { readonly port: number; readonly scope: "all" | "loopback" | "specific" };
+}
+
+export interface HistoryQuery {
+  readonly q: string;
+  readonly bot?: string;
+  readonly since?: string;
+  readonly until?: string;
+  readonly who?: string;
+  readonly limit?: number;
 }
 
 export interface AuthStatus {
@@ -78,6 +117,8 @@ export interface Api {
   setPasscode(passcode: string): Promise<string>;
   signOut(): Promise<void>;
   profiles(): Promise<ProfileInfo[]>;
+  createProfile(input: ProfileCreate): Promise<ProfileInfo>;
+  setMain(profileId: string): Promise<{ ok: boolean }>;
   main(): Promise<{ profileId: string | null }>;
   mainChat(profileId: string): Promise<SessionInfo>;
   sessions(profile?: string): Promise<SessionInfo[]>;
@@ -89,12 +130,19 @@ export interface Api {
     always?: boolean,
   ): Promise<{ ok: boolean; stored: number | null }>;
   tasks(): Promise<TaskRow[]>;
+  cancelTask(taskId: string): Promise<{ cancelled: boolean }>;
+  historySearch(query: HistoryQuery): Promise<HistorySearch>;
+  memory(profileId: string): Promise<MemoryStore>;
+  routines(profileId?: string): Promise<CronJobInfo[]>;
+  serverCheck(): Promise<ServerCheck>;
   needsYou(): Promise<NeedsYouExtra>;
   nodes(): Promise<NodeInfo[]>;
   pairNode(name: string, roots: readonly string[]): Promise<NodePairResponse>;
   revokeNode(id: string): Promise<{ ok: boolean }>;
   setNodeRoots(id: string, roots: readonly string[]): Promise<NodeInfo>;
   models(): Promise<ModelsPayload>;
+  /** Set (or with null, clear) the workspace default model new chats start on. */
+  setDefaultModel(ref: string | null, effort?: string): Promise<SettingsModel>;
   /** Branch a chat: edit one of your messages (and send it), or continue from a reply. */
   branch(
     sessionId: string,
@@ -156,6 +204,8 @@ export const createApi = (server: string, cookie: string | undefined): Api => {
       await call("POST", "/api/auth/sign-out", {});
     },
     profiles: () => call("GET", "/api/profiles"),
+    createProfile: (input) => call("POST", "/api/profiles", input),
+    setMain: (profileId) => call("POST", `/api/profiles/${id(profileId)}/main`, {}),
     main: () => call("GET", "/api/main"),
     mainChat: (profileId) => call("GET", `/api/profiles/${id(profileId)}/main`),
     sessions: (profile) =>
@@ -168,12 +218,26 @@ export const createApi = (server: string, cookie: string | undefined): Api => {
         ...(always === true ? { always: true } : {}),
       }),
     tasks: () => call("GET", "/api/tasks"),
+    cancelTask: (taskId) => call("POST", `/api/tasks/${id(taskId)}/cancel`, {}),
+    historySearch: (query) => {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined) params.set(key, String(value));
+      }
+      return call("GET", `/api/history/search?${params.toString()}`);
+    },
+    memory: (profileId) => call("GET", `/api/memory/v2?profile=${id(profileId)}`),
+    routines: (profileId) =>
+      call("GET", profileId === undefined ? "/api/cron" : `/api/cron?profile=${id(profileId)}`),
+    serverCheck: () => call("GET", "/api/server/check"),
     needsYou: () => call("GET", "/api/needs-you"),
     nodes: () => call("GET", "/api/nodes"),
     pairNode: (name, roots) => call("POST", "/api/nodes", { name, roots }),
     revokeNode: (nodeId) => call("POST", `/api/nodes/${id(nodeId)}/revoke`, {}),
     setNodeRoots: (nodeId, roots) => call("PUT", `/api/nodes/${id(nodeId)}/roots`, { roots }),
     models: () => call("GET", "/api/models"),
+    setDefaultModel: (ref, effort = "") =>
+      call("PUT", "/api/settings/model", ref === null ? { ref: null } : { ref, effort }),
     branch: (sessionId, body) => call("POST", `/api/sessions/${id(sessionId)}/branch`, body),
     projects: (bot) =>
       call("GET", bot === undefined ? "/api/projects" : `/api/projects?bot=${id(bot)}`),

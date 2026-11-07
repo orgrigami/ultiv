@@ -5,7 +5,7 @@
  * them and reject otherwise; the view words the failure.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SendMode } from "@spriessen/contracts";
+import type { ModelInfo, SendMode } from "@spriessen/contracts";
 import { reconnectDelay } from "../client/backoff.ts";
 import {
   connectLink,
@@ -24,6 +24,8 @@ export interface Chat {
   readonly stop: () => Promise<void>;
   readonly decide: (approved: boolean, always?: boolean) => Promise<void>;
   readonly retryQueued: () => Promise<void>;
+  /** Move this chat to a model (keeping the effort when the model offers it). */
+  readonly configure: (model: ModelInfo) => Promise<void>;
 }
 
 export const useChat = (server: string, cookie: string, chatId: string | undefined): Chat => {
@@ -110,5 +112,17 @@ export const useChat = (server: string, cookie: string, chatId: string | undefin
     await linked().retryQueued({});
   }, [linked]);
 
-  return { link, snapshot, send, stop, decide, retryQueued };
+  const configure = useCallback(
+    async (model: ModelInfo) => {
+      const effort =
+        snapshot.effort !== null && model.efforts.includes(snapshot.effort)
+          ? snapshot.effort
+          : model.defaultEffort;
+      const result = await linked().configure({ model: model.id, effort });
+      if (!result.ok) throw new Error(`the chat didn't take ${model.id}`);
+    },
+    [linked, snapshot.effort],
+  );
+
+  return { link, snapshot, send, stop, decide, retryQueued, configure };
 };
