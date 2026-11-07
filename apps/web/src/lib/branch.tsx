@@ -2,9 +2,8 @@
  * Message actions that act on the chat itself. "Edit" on one of the owner's
  * messages sends the edited text in a NEW chat that holds everything before
  * it; "Branch" on a bot reply continues from that reply in a new chat (the
- * open chat never changes); "Save as test" keeps an owner message as a
- * behaviour test. The chat provides the actions; anywhere else the
- * transcript renders (no provider) shows none of the buttons.
+ * open chat never changes). The chat provides the actions; anywhere else the
+ * transcript renders (no provider) shows neither button.
  */
 import { createContext, useCallback, useContext, useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -16,8 +15,6 @@ export type BranchActions = {
   readonly edit: (at: number, text: string) => Promise<void>;
   /** Continue from the bot reply `at` in a new chat; opens it. */
   readonly branch: (at: number) => Promise<void>;
-  /** Save the owner's message `at` as a behaviour test (Crew › Tests). */
-  readonly saveTest: (at: number) => Promise<void>;
 };
 
 const BranchContext = createContext<BranchActions | null>(null);
@@ -47,11 +44,5 @@ export function useBranchActions(sessionId: string): BranchActions {
     async (at: number) => open((await api.branchSession(sessionId, { at, mode: "from" })).id),
     [open, sessionId],
   );
-  const saveTest = useCallback(
-    async (at: number) => {
-      await api.evalSave({ sessionId, at });
-    },
-    [sessionId],
-  );
-  return useMemo(() => ({ edit, branch, saveTest }), [edit, branch, saveTest]);
+  return useMemo(() => ({ edit, branch }), [edit, branch]);
 }

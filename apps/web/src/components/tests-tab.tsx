@@ -100,8 +100,8 @@ export function TestsTab({ bot }: { bot: ProfileInfo }) {
   if (cases.length === 0)
     return (
       <CharacterEmpty bot={bot} title="No tests yet">
-        In a chat with {bot.name}, use "Save as a test" on one of your messages. A run replays it on{" "}
-        {bot.name}'s current setup, with tools blocked, and grades the reply.
+        In the terminal app, type /test after one of your messages to {bot.name}. A run replays it
+        on {bot.name}'s current setup, with tools blocked, and grades the reply.
       </CharacterEmpty>
     );
   const start = async (): Promise<void> => {

@@ -3,7 +3,6 @@ import type {
   ProjectInfo,
   ProjectOwnerPatch,
   EvalCase,
-  EvalCaseCreate,
   EvalExpect,
   EvalRun,
   EvalRunRequest,
@@ -164,7 +163,6 @@ export const api = {
     getJson<EvalCase[]>(
       bot !== undefined ? `/api/evals?bot=${encodeURIComponent(bot)}` : "/api/evals",
     ),
-  evalSave: (body: EvalCaseCreate): Promise<EvalCase> => send<EvalCase>("/api/evals", "POST", body),
   evalUpdate: (id: string, patch: { title?: string; expect?: EvalExpect }): Promise<EvalCase> =>
     send<EvalCase>(`/api/evals/${encodeURIComponent(id)}`, "PATCH", patch),
   evalRemove: (id: string): Promise<{ ok: boolean }> =>

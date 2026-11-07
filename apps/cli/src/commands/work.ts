@@ -119,9 +119,7 @@ export const tests = async (parsed: Parsed): Promise<number> => {
   if (parsed.positionals[1] !== "run") {
     print(parsed, cases, () =>
       cases.length === 0
-        ? [
-            'No tests yet. In a chat, type /test after your message (or "Save as a test" on the web).',
-          ]
+        ? ["No tests yet. In the chat (spriessen), type /test after one of your messages."]
         : cases.map((item) => `${item.id.slice(0, 8)}  ${item.title}`),
     );
     return 0;

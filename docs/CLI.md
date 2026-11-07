@@ -135,7 +135,7 @@ spriessen approve <id> [--always] | deny <id>            # ids from `needs`
 spriessen tasks [--bot Wren] [--all]                     # background work, running first, with its model
 spriessen projects [--bot Wren]                          # goals over days, with the next milestone
 spriessen models                                         # what --model accepts (* = workspace default)
-spriessen tests [--bot Wren]                             # saved tests (/test in the TUI, or the web)
+spriessen tests [--bot Wren]                             # saved tests (/test in the TUI)
 spriessen tests run [--bot Wren] [--model kenari/x]      # replay them; exit 1 if any fail
 ```
 
