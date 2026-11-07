@@ -279,8 +279,12 @@ export const api = {
       `/api/memory/v2/facts/${encodeURIComponent(id)}/restore?profile=${encodeURIComponent(profile ?? "owner")}`,
       "POST",
     ),
+  /** A bot's files, newest first, each with the chat it came from. */
   artifacts: (profile: string): Promise<ArtifactRow[]> =>
-    getJson<ArtifactRow[]>(`/api/artifacts?profile=${encodeURIComponent(profile)}`),
+    getJson<ArtifactRow[]>(`/api/artifacts?profile=${encodeURIComponent(profile)}&sources=1`),
+  /** The newest files across every bot, with their chats (the Now page). */
+  recentArtifacts: (limit: number): Promise<ArtifactRow[]> =>
+    getJson<ArtifactRow[]>(`/api/artifacts?limit=${limit}&sources=1`),
   artifactMeta: (id: string): Promise<ArtifactRow> =>
     getJson<ArtifactRow>(`/api/artifacts/${encodeURIComponent(id)}/meta`),
   artifactUrl: (id: string, download?: boolean): string =>

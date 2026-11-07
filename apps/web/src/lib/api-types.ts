@@ -5,7 +5,7 @@
  * secure-input replies. api.ts re-exports them.
  */
 
-import type { RoomInfo, WaitingApproval } from "@spriessen/contracts";
+import type { ArtifactSource, RoomInfo, WaitingApproval } from "@spriessen/contracts";
 
 export interface SecretStored {
   ok: boolean;
@@ -81,6 +81,8 @@ export interface ArtifactRow {
   conversationId: string | null;
   owner: string | null;
   profile: string | null;
+  /** The chat it came from (`?sources=1` lists and every /meta); null = none maps. */
+  source?: ArtifactSource | null;
 }
 
 /** One row of GET /api/tasks/:id/activity — progress, waiting gate, conversation. */

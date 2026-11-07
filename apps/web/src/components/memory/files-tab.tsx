@@ -1,9 +1,10 @@
 /**
- * Files tab: the artifacts the bot made (downloads) and the "already handled"
- * key-value state it uses to not redo work.
+ * Files tab: the artifacts the bot made (downloads), each linking the chat it
+ * came from, and the "already handled" key-value state it uses to not redo work.
  */
 import { Trash2Icon } from "lucide-react";
 import { FileCard } from "@/components/file-card";
+import { FileSource } from "@/components/file-source";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,12 @@ export function FilesTab({ data, profileId, name, reload }: TabProps) {
         {data.artifacts.length === 0 ? (
           <EmptyState>{t.filesEmpty}</EmptyState>
         ) : (
-          data.artifacts.map((artifact) => <FileCard key={artifact.id} file={artifact} />)
+          data.artifacts.map((artifact) => (
+            <div key={artifact.id} className="flex flex-col">
+              <FileCard file={artifact} />
+              <FileSource source={artifact.source} className="ml-2" />
+            </div>
+          ))
         )}
       </div>
       <SectionHeader title="Already handled" className="mt-2" />

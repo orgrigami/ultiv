@@ -17,6 +17,7 @@ import {
   searchArtifacts,
   writeArtifactBytes,
 } from "@spriessen/ext";
+import { artifactSources } from "./artifact-source.ts";
 import { ownsProfile, ownsSession } from "./owner-scope.ts";
 import { can } from "./can.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
@@ -83,8 +84,33 @@ const serveMeta = async (args: RouteArgs, id: string): Promise<boolean> => {
     args.json(404, { error: "unknown artifact" });
     return true;
   }
-  args.json(200, found.info);
+  const resolve = await artifactSources(
+    args,
+    found.info.profile !== null ? [found.info.profile] : [],
+  );
+  args.json(200, { ...found.info, source: await resolve(found.info.conversationId) });
   return true;
+};
+
+/** `?limit=` (1–200) keeps the newest; `?sources=1` names each file's chat. */
+const listed = async (
+  args: RouteArgs,
+  items: readonly ReturnType<typeof searchArtifacts>[number][],
+  profile: string | undefined,
+): Promise<unknown[]> => {
+  const limit = Number(queryOr(args, "limit") ?? "");
+  const newest = [...items].sort((a, b) => b.createdAt - a.createdAt);
+  const kept =
+    Number.isInteger(limit) && limit > 0 ? newest.slice(0, Math.min(limit, 200)) : newest;
+  if (queryOr(args, "sources") !== "1") return kept;
+  const profiles =
+    profile !== undefined
+      ? [profile]
+      : (await args.mind.profiles.list(args.owner)).map((row) => row.id);
+  const resolve = await artifactSources(args, profiles);
+  return Promise.all(
+    kept.map(async (item) => ({ ...item, source: await resolve(item.conversationId) })),
+  );
 };
 
 const serveRaw = async (args: RouteArgs, id: string): Promise<boolean> => {
@@ -139,10 +165,7 @@ export async function artifactRoutes(
       .flatMap((dir) => searchArtifacts(dir, filter))
       .filter((item) => ownedBy(item, args.owner));
     const deduped = new Map(items.map((item) => [item.id, item]));
-    json(
-      200,
-      [...deduped.values()].sort((a, b) => b.createdAt - a.createdAt),
-    );
+    json(200, await listed(args, [...deduped.values()], profile));
     return true;
   }
   if (path === "/api/artifacts" && method === "POST") {

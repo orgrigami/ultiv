@@ -9,6 +9,7 @@ import { ChevronLeftIcon, XIcon } from "lucide-react";
 import { useEffect, type ElementType } from "react";
 import { MemoryContent } from "@/components/memory/memory-panel";
 import { FilePreviewBody, fileSubtitle } from "@/components/file-preview";
+import { FileSourceById } from "@/components/file-source";
 import { NeedsList } from "@/components/needs-list";
 import { RoomTimeline } from "@/components/room-timeline";
 import { TaskWork } from "@/components/task-activity";
@@ -47,8 +48,13 @@ function Body({ item }: { item: WorkItem }) {
       return <TaskWork task={fresh} />;
     }
     case "file":
-      // The preview owns its toolbar and its one scroll area.
-      return <FilePreviewBody key={item.file.id} file={item.file} />;
+      // The preview owns its toolbar and its one scroll area; its chat sits above it.
+      return (
+        <>
+          <FileSourceById id={item.file.id} className="mx-4 shrink-0" />
+          <FilePreviewBody key={item.file.id} file={item.file} />
+        </>
+      );
     case "memory":
       return (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]">

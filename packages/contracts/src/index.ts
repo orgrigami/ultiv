@@ -198,8 +198,8 @@ export type {
   TaskUpdate,
   WaitingApproval,
 } from "./tasks.ts";
-export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";
-export type { ArtifactInfo, ArtifactList } from "./artifacts.ts";
+export { ArtifactInfoSchema, ArtifactListSchema, ArtifactSourceSchema } from "./artifacts.ts";
+export type { ArtifactInfo, ArtifactList, ArtifactSource } from "./artifacts.ts";
 export {
   MAX_WEBHOOK_THREADS,
   WebhookInfoSchema,
