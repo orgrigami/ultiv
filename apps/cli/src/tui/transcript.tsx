@@ -7,15 +7,9 @@
  * while new lines arrive; PageUp/PageDown scroll it (app.tsx).
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
-import {
-  REACTION_EMOJI,
-  REACTION_LABEL,
-  REACTIONS_TOOL,
-  reactionDetailsOf,
-  type TranscriptEntry,
-} from "@spriessen/contracts";
+import type { TranscriptEntry } from "@spriessen/contracts";
 import type { Ref } from "react";
-import { toolLine } from "../render/words.ts";
+import { machineryLine, reactionLine, toolLine } from "../render/words.ts";
 import { THEME } from "./theme.ts";
 
 const time = (at: number): string => new Date(at).toTimeString().slice(0, 5);
@@ -42,26 +36,20 @@ const ToolRow = ({ entry }: { entry: Extract<TranscriptEntry, { kind: "tool" }> 
   );
 };
 
-/** A bot's reaction on the owner's message (the web draws it as a chip on the bubble). */
-const Reaction = ({
-  entry,
-  bot,
-}: {
-  entry: Extract<TranscriptEntry, { kind: "tool" }>;
-  bot: string;
-}) => {
-  const details = reactionDetailsOf(entry.step.details);
-  if (details === undefined) return null;
-  return (
-    <box paddingLeft={1}>
-      <text fg={THEME.faint}>
-        {bot} reacted {REACTION_EMOJI[details.reaction]} {REACTION_LABEL[details.reaction]}
-      </text>
-    </box>
-  );
-};
+/** A dim one-line note: machinery (a task's result, a routine) or a reaction. */
+const Quiet = ({ text }: { text: string }) => (
+  <box paddingLeft={1}>
+    <text fg={THEME.faint}>· {text}</text>
+  </box>
+);
 
 export const Entry = ({ entry, bot }: { entry: TranscriptEntry; bot: string }) => {
+  // Machinery placed as a message (a task's result, a routine's wake, bot
+  // mail) is not something you typed: one dim line, like the web's cards.
+  const machinery = machineryLine(entry);
+  if (machinery !== undefined) return machinery === null ? null : <Quiet text={machinery} />;
+  const reaction = reactionLine(entry, bot);
+  if (reaction !== null) return <Quiet text={reaction} />;
   switch (entry.kind) {
     case "input":
       return (
@@ -93,11 +81,7 @@ export const Entry = ({ entry, bot }: { entry: TranscriptEntry; bot: string }) =
         </box>
       );
     case "tool":
-      return entry.step.name === REACTIONS_TOOL && entry.step.status === "done" ? (
-        <Reaction entry={entry} bot={bot} />
-      ) : (
-        <ToolRow entry={entry} />
-      );
+      return <ToolRow entry={entry} />;
     case "thinking":
       return null;
   }

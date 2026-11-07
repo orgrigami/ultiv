@@ -6,9 +6,14 @@
  * answer "run spriessen login" the same way.
  */
 import type {
+  EvalCase,
+  EvalRun,
+  EvalRunRequest,
+  ModelsPayload,
   NodeInfo,
   NodePairResponse,
   ProfileInfo,
+  ProjectInfo,
   SessionInfo,
   TaskRow,
 } from "@spriessen/contracts";
@@ -89,6 +94,17 @@ export interface Api {
   pairNode(name: string, roots: readonly string[]): Promise<NodePairResponse>;
   revokeNode(id: string): Promise<{ ok: boolean }>;
   setNodeRoots(id: string, roots: readonly string[]): Promise<NodeInfo>;
+  models(): Promise<ModelsPayload>;
+  /** Branch a chat: edit one of your messages (and send it), or continue from a reply. */
+  branch(
+    sessionId: string,
+    body: { at: number; mode: "edit"; text: string } | { at: number; mode: "from" },
+  ): Promise<SessionInfo>;
+  projects(bot?: string): Promise<ProjectInfo[]>;
+  evals(bot?: string): Promise<EvalCase[]>;
+  saveEval(sessionId: string, at: number): Promise<EvalCase>;
+  startEvals(request: EvalRunRequest): Promise<EvalRun>;
+  evalRun(runId: string): Promise<EvalRun>;
 }
 
 const errorText = async (response: Response): Promise<string> => {
@@ -157,5 +173,13 @@ export const createApi = (server: string, cookie: string | undefined): Api => {
     pairNode: (name, roots) => call("POST", "/api/nodes", { name, roots }),
     revokeNode: (nodeId) => call("POST", `/api/nodes/${id(nodeId)}/revoke`, {}),
     setNodeRoots: (nodeId, roots) => call("PUT", `/api/nodes/${id(nodeId)}/roots`, { roots }),
+    models: () => call("GET", "/api/models"),
+    branch: (sessionId, body) => call("POST", `/api/sessions/${id(sessionId)}/branch`, body),
+    projects: (bot) =>
+      call("GET", bot === undefined ? "/api/projects" : `/api/projects?bot=${id(bot)}`),
+    evals: (bot) => call("GET", bot === undefined ? "/api/evals" : `/api/evals?bot=${id(bot)}`),
+    saveEval: (sessionId, at) => call("POST", "/api/evals", { sessionId, at }),
+    startEvals: (request) => call("POST", "/api/evals/run", request),
+    evalRun: (runId) => call("GET", `/api/evals/runs/${id(runId)}`),
   };
 };

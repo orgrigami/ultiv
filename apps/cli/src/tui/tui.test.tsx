@@ -67,6 +67,50 @@ describe("the TUI views", () => {
     expect(frame).toContain("Message Wren");
   });
 
+  it("draws machinery as one dim line and a reaction as a line, not as your message", async () => {
+    const frame = await frameOf(
+      <ChatPane
+        snapshot={{
+          ...EMPTY_SNAPSHOT,
+          loaded: true,
+          transcript: [
+            { id: 1, kind: "input", at: 0, text: "[cron daily] check the feeds" },
+            { id: 2, kind: "input", at: 1, text: "[task t1 finished]\n\nThree new posts." },
+            { id: 3, kind: "input", at: 2, text: "thanks" },
+            {
+              id: 4,
+              kind: "tool",
+              at: 3,
+              step: {
+                callId: "r1",
+                name: "react",
+                status: "done",
+                input: { reaction: "ok" },
+                output: "",
+                durationMs: 1,
+                details: { target: 3, reaction: "ok" },
+              },
+            },
+          ],
+        }}
+        bot="Wren"
+        draft=""
+        setDraft={() => undefined}
+        submit={() => undefined}
+        typing
+        cardFocused={false}
+        redirect={false}
+        notice={null}
+        scrollRef={{ current: null }}
+      />,
+      100,
+    );
+    expect(frame).toContain("· Routine ran: check the feeds");
+    expect(frame).toContain("· Task finished: Three new posts.");
+    expect(frame).toContain("· Wren reacted 👍 Got it");
+    expect(frame.match(/you ·/g) ?? []).toHaveLength(1);
+  });
+
   it("offers always-allow on an ordinary card and never on a floor", async () => {
     const plain = await frameOf(
       <ApprovalCard

@@ -101,10 +101,30 @@ const settledAfter = (snapshot: SessionSnapshot, text: string, since: number) =>
   return answered || snapshot.lastError !== null || snapshot.phase === "error" ? after : undefined;
 };
 
+/** All of stdin, as text (`ask -`, or `ask` with something piped in). */
+const readStdin = async (): Promise<string> => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk as Uint8Array));
+  return Buffer.concat(chunks).toString("utf8");
+};
+
+/** The message `ask` sends: its words, or stdin for `-` or a pipe. */
+export const askText = async (
+  typed: string,
+  stdinIsTerminal: boolean,
+  read: () => Promise<string> = readStdin,
+): Promise<string> =>
+  typed === "-" || (typed === "" && !stdinIsTerminal) ? (await read()).trim() : typed;
+
 export const ask = async (parsed: Parsed): Promise<number> => {
-  const text = parsed.positionals.slice(1).join(" ").trim();
+  const text = await askText(
+    parsed.positionals.slice(1).join(" ").trim(),
+    process.stdin.isTTY === true,
+  );
   if (text === "")
-    throw new Error('usage: spriessen ask "what to say" [--bot <name>] [--chat <id>]');
+    throw new Error(
+      'usage: spriessen ask "what to say" [--bot <name>] [--chat <id>] (or pipe it in: … | spriessen ask -)',
+    );
   const api = apiFor(parsed);
   const bot = await pickBot(api, stringFlag(parsed, "bot"));
   const chatId = await pickChat(api, bot, stringFlag(parsed, "chat"));

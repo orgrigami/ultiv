@@ -13,7 +13,7 @@ import { serverOf } from "./config.ts";
 import { SignInRequired } from "./client/http.ts";
 import { report } from "./errors.ts";
 
-const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version", "check"]);
+const BOOLEANS = new Set(["help", "json", "always", "no-web", "force", "version", "check", "all"]);
 
 export const HELP = `spriessen — your crew from the terminal
 
@@ -21,9 +21,13 @@ Usage:
   spriessen                         open the terminal UI (chat, Needs you, crew)
   spriessen chat [--bot <name>]     open the terminal UI on one bot's chat
   spriessen ask "…" [--bot <name>] [--chat <id>] [--timeout <s>]
-                                    send one message, print the reply
+                                    send one message, print the reply (- or a pipe: read stdin)
   spriessen bots | chats [--bot <name>] | needs        lists (--json for scripts)
   spriessen approve <id> [--always] | deny <id>         answer a waiting card
+  spriessen tasks [--bot <name>] [--all]                background work, running first
+  spriessen projects [--bot <name>]                     goals the bots work on over days
+  spriessen tests [run] [--bot <name>] [--model <id>]   saved tests; run exits 1 if any fail
+  spriessen models                                      the models --model accepts
 
   spriessen login | logout | status                     sign in with the passcode
   spriessen serve [--port <n>] [--host <h>] [--no-web] [--env-file <f>]
@@ -48,6 +52,10 @@ const COMMANDS: Record<string, Command> = {
   chats: async (parsed) => (await import("./commands/line.ts")).chats(parsed),
   needs: async (parsed) => (await import("./commands/line.ts")).needs(parsed),
   ask: async (parsed) => (await import("./commands/line.ts")).ask(parsed),
+  tasks: async (parsed) => (await import("./commands/work.ts")).tasks(parsed),
+  projects: async (parsed) => (await import("./commands/work.ts")).projects(parsed),
+  models: async (parsed) => (await import("./commands/work.ts")).models(parsed),
+  tests: async (parsed) => (await import("./commands/work.ts")).tests(parsed),
   approve: async (parsed) => (await import("./commands/line.ts")).decide(parsed, true),
   deny: async (parsed) => (await import("./commands/line.ts")).decide(parsed, false),
   serve: async (parsed) => (await import("./commands/serve.ts")).serveCommand(parsed),

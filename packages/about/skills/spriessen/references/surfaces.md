@@ -68,7 +68,10 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
 The **spriessen command** is the app in a terminal: the same chats, cards
 and Needs you, plus serve (run the whole app), daemon (keep it running with
 the OS) and node (pair a machine so you can run scripts there with bash's
-node target, every call behind your owner's approval).
+node target, every call behind your owner's approval). In its chat your
+owner types /edit, /branch and /test for the web's message buttons, and
+`spriessen tests run` replays the saved tests from a script (it exits 1
+when any fails).
 
 ## The moving parts
 

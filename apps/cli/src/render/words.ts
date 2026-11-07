@@ -13,6 +13,36 @@ import {
   hintOf,
 } from "@spriessen/present/approval-text";
 import { errorTextOf, presentationOf } from "@spriessen/present/tool-text";
+import { systemLine } from "@spriessen/present/system-line";
+import { parseSystem } from "@spriessen/present/system-text";
+import {
+  REACTION_EMOJI,
+  REACTION_LABEL,
+  REACTIONS_TOOL,
+  reactionDetailsOf,
+} from "@spriessen/contracts";
+
+/**
+ * A machinery input or note (a task's result, a routine's wake, bot mail…)
+ * as one line of owner words; null when it is hidden; undefined when the
+ * entry is not machinery at all (a message you typed, a plain note).
+ */
+export const machineryLine = (entry: TranscriptEntry): string | null | undefined => {
+  if (entry.kind !== "input" && entry.kind !== "note") return undefined;
+  const message = parseSystem(entry.text);
+  return message === null ? undefined : systemLine(message);
+};
+
+/** A bot's reaction on your message, as a line; null when the entry is not one. */
+export const reactionLine = (entry: TranscriptEntry, bot: string): string | null => {
+  if (entry.kind !== "tool" || entry.step.name !== REACTIONS_TOOL || entry.step.status !== "done") {
+    return null;
+  }
+  const details = reactionDetailsOf(entry.step.details);
+  return details === undefined
+    ? null
+    : `${bot} reacted ${REACTION_EMOJI[details.reaction]} ${REACTION_LABEL[details.reaction]}`;
+};
 
 export interface ToolLine {
   readonly status: ToolStep["status"];
@@ -64,6 +94,10 @@ const time = (at: number): string => new Date(at).toTimeString().slice(0, 5);
 
 /** A transcript entry as plain text lines (line mode); empty for hidden entries. */
 export const entryLines = (entry: TranscriptEntry, bot: string): string[] => {
+  const machinery = machineryLine(entry);
+  if (machinery !== undefined) return machinery === null ? [] : [`· ${machinery}`];
+  const reaction = reactionLine(entry, bot);
+  if (reaction !== null) return [`· ${reaction}`];
   switch (entry.kind) {
     case "input":
       return [`you ${time(entry.at)}`, ...entry.text.split("\n").map((line) => `  ${line}`)];

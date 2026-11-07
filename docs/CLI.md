@@ -106,18 +106,44 @@ bot, or the one you name. One screen, the web's places:
 | pgup / pgdn | scroll                                                             |
 | ctrl-c      | quit (the terminal is always restored)                             |
 
-Tool calls read in the web's words (`@spriessen/present`); thinking stays
-out of the default view; a card takes the keyboard when it arrives, unless
-you are mid-sentence. Wide terminals (≥ 100 columns) show the crew beside
+Type a slash command into the composer for what the web puts on buttons:
+
+| Command        | Does                                                                     |
+| -------------- | ------------------------------------------------------------------------ |
+| `/edit [text]` | edit your last message in a new chat (bare `/edit` puts it in the draft) |
+| `/branch`      | continue from the bot's last reply in a new chat                         |
+| `/test`        | save your last message as a test (`spriessen tests run` replays it)      |
+| `/bot <name>`  | switch bots (a name prefix is enough)                                    |
+| `/new` `/stop` | a new chat; stop the reply                                               |
+| `/help`        | list them; `//text` sends "/text" as a message                           |
+
+The old chat never changes when you branch or edit. Tool calls read in the
+web's words (`@spriessen/present`); task results, routine wake-ups, webhooks
+and bot mail read as one dim line each (the web's cards, in words), never as
+something you typed; a bot's reaction shows as "Wren reacted 👍 Got it".
+Thinking stays out of the default view; a card takes the keyboard when it
+arrives, unless you are mid-sentence. Wide terminals (≥ 100 columns) show the crew beside
 the chat. Lists refresh on the server's live signals, never by polling.
 
 ## Line commands
 
 ```sh
 spriessen ask "summarise yesterday's chats" --bot Wren   # prints the reply; exit 1 if the turn failed
+git diff | spriessen ask - --bot Wren                    # - (or any pipe) reads the message from stdin
 spriessen bots | chats [--bot Wren] | needs              # --json for scripts
 spriessen approve <id> [--always] | deny <id>            # ids from `needs`
+spriessen tasks [--bot Wren] [--all]                     # background work, running first, with its model
+spriessen projects [--bot Wren]                          # goals over days, with the next milestone
+spriessen models                                         # what --model accepts (* = workspace default)
+spriessen tests [--bot Wren]                             # saved tests (/test in the TUI, or the web)
+spriessen tests run [--bot Wren] [--model kenari/x]      # replay them; exit 1 if any fail
 ```
+
+`tests run` replays each saved test on the bot's current setup (or
+`--model`), with every tool blocked, and prints each result as it lands: the
+checks that failed and Jev's score. It exits 1 when any test fails, so a
+script can gate a model or prompt change on it (`--timeout` seconds, default
+1800; the run keeps going on the server past it).
 
 `ask` waits for the turn to settle (`--timeout` seconds, default 600). If a
 card stops it, `ask` prints it with the command that answers it and keeps

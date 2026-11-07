@@ -17,6 +17,8 @@ import { THEME } from "./theme.ts";
 import { useChat, type Chat } from "./use-chat.ts";
 import { useCrew, type Crew } from "./use-crew.ts";
 import { useKeys, type KeyActions } from "./use-keys.ts";
+import { messageOf as slashText, parseSlash, type Slash } from "./slash.ts";
+import { useSlash } from "./use-slash.ts";
 import { sentenceOf } from "../errors.ts";
 
 /** A failure as the one-line notice under the chat (the same words the commands print). */
@@ -64,6 +66,7 @@ const useBotChat = (
 
 const CHAT_KEYS = [
   "enter send",
+  "/help commands",
   "esc stop",
   "tab Needs you",
   "ctrl-k bots",
@@ -108,7 +111,7 @@ const needsKeys = (
 });
 
 /** The composer: the draft, the armed redirect, and whether a card holds the keyboard. */
-const useComposer = (chat: Chat, report: Report) => {
+const useComposer = (chat: Chat, report: Report, onSlash: (slash: Slash) => void) => {
   const [draft, setDraft] = useState("");
   const [redirect, setRedirect] = useState(false);
   const [cardFocused, setCardFocused] = useState(false);
@@ -117,10 +120,12 @@ const useComposer = (chat: Chat, report: Report) => {
   useEffect(() => setCardFocused(pendingId !== undefined && draft === ""), [pendingId]);
   const submit = (text: string): void => {
     if (text.trim() === "") return;
-    const working = chat.snapshot.phase === "working";
+    const slash = parseSlash(text);
     setDraft("");
+    if (slash !== null) return onSlash(slash);
+    const working = chat.snapshot.phase === "working";
     setRedirect(false);
-    report(chat.send(text.trim(), working ? (redirect ? "redirect" : "steer") : undefined));
+    report(chat.send(slashText(text), working ? (redirect ? "redirect" : "steer") : undefined));
   };
   return { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit };
 };
@@ -151,8 +156,23 @@ export const App = ({
       (cause) => setNotice(messageOf(cause, api.server)),
     );
   };
+  // The composer hands slash commands to the runner, which needs the draft.
+  const slashRef = useRef<(slash: Slash) => void>(() => undefined);
   const { draft, setDraft, redirect, setRedirect, cardFocused, setCardFocused, submit } =
-    useComposer(chat, report);
+    useComposer(chat, report, (slash) => slashRef.current(slash));
+  slashRef.current = useSlash({
+    api,
+    chat,
+    crew,
+    botId,
+    chatId,
+    setBotId,
+    newChat,
+    openChat,
+    setDraft,
+    notice: setNotice,
+    report,
+  });
   useKeys({
     view,
     picking,
