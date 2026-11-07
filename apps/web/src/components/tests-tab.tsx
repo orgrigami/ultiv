@@ -100,8 +100,9 @@ export function TestsTab({ bot }: { bot: ProfileInfo }) {
   if (cases.length === 0)
     return (
       <CharacterEmpty bot={bot} title="No tests yet">
-        In the terminal app, type /test after one of your messages to {bot.name}. A run replays it
-        on {bot.name}'s current setup, with tools blocked, and grades the reply.
+        In a chat with {bot.name}, tap the flask under one of your messages (or type /test after it
+        in the terminal app). A run replays it on {bot.name}'s current setup, with tools blocked,
+        and grades the reply.
       </CharacterEmpty>
     );
   const start = async (): Promise<void> => {

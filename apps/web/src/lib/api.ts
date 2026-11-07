@@ -162,6 +162,9 @@ export const api = {
     getJson<EvalCase[]>(
       bot !== undefined ? `/api/evals?bot=${encodeURIComponent(bot)}` : "/api/evals",
     ),
+  /** Save one of the owner's messages (transcript id `at`) as a behaviour test. */
+  evalCapture: (sessionId: string, at: number): Promise<EvalCase> =>
+    send<EvalCase>("/api/evals", "POST", { sessionId, at }),
   evalUpdate: (id: string, patch: { title?: string; expect?: EvalExpect }): Promise<EvalCase> =>
     send<EvalCase>(`/api/evals/${encodeURIComponent(id)}`, "PATCH", patch),
   evalRemove: (id: string): Promise<{ ok: boolean }> =>

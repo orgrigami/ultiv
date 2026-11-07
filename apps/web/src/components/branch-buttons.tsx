@@ -6,11 +6,13 @@
  * and always on touch screens.
  */
 import { useState } from "react";
-import { GitBranchIcon, PencilIcon } from "lucide-react";
+import { FlaskConicalIcon, GitBranchIcon, PencilIcon } from "lucide-react";
+import { toast } from "sonner";
 import type { AttachmentRef } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useBranch } from "@/lib/branch";
+import { notifyError } from "@/lib/notify";
 
 const REVEAL =
   "opacity-0 group-hover/msg:opacity-100 group-focus-within/msg:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100";
@@ -102,7 +104,39 @@ function EditMessage({ at, text, onDone }: { at: number; text: string; onDone: (
   );
 }
 
-/** "Edit" under an owner message; the message becomes the editor while open. */
+/** "Save as a test": the message and the bot's answer become a case on its Tests tab. */
+function SaveAsTest({ at }: { at: number }) {
+  const branch = useBranch();
+  const [busy, setBusy] = useState(false);
+  if (branch === null) return null;
+  return (
+    <Button
+      type="button"
+      variant="quiet"
+      size="icon-sm"
+      aria-label="Save this message as a test"
+      title="Save as a test (replayed later to catch a change that made the answer worse)"
+      className={REVEAL}
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        branch
+          .saveTest(at)
+          .then(() =>
+            toast.success("Saved as a test", {
+              description: "Run it from the bot's Tests tab in Crew.",
+            }),
+          )
+          .catch((cause: unknown) => notifyError("Couldn't save the test", cause))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <FlaskConicalIcon />
+    </Button>
+  );
+}
+
+/** "Edit" and "Save as a test" under an owner message; Edit turns it into the editor. */
 export function EditableOwnerText({
   at,
   text,
@@ -122,19 +156,22 @@ export function EditableOwnerText({
   return (
     <>
       {children}
-      {editable && (
+      {branch !== null && (
         <span className="-me-2 -mb-1.5 flex justify-end">
-          <Button
-            type="button"
-            variant="quiet"
-            size="icon-sm"
-            aria-label="Edit this message in a new chat"
-            title="Edit (sends in a new chat)"
-            className={REVEAL}
-            onClick={() => setEditing(true)}
-          >
-            <PencilIcon />
-          </Button>
+          <SaveAsTest at={at} />
+          {editable && (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon-sm"
+              aria-label="Edit this message in a new chat"
+              title="Edit (sends in a new chat)"
+              className={REVEAL}
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon />
+            </Button>
+          )}
         </span>
       )}
     </>
