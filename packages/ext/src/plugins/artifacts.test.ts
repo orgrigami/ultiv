@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -31,6 +31,14 @@ afterEach(() => {
 });
 
 describe("Artifact store", () => {
+  it("lists only real sidecars, never other JSON beside the files", () => {
+    const dir = tempDir();
+    const file = writeArtifact(dir, { name: "notes.md", content: "x", conversationId: null });
+    writeFileSync(join(dir, "models.local.json"), JSON.stringify({ local: { name: "Local" } }));
+    writeFileSync(join(dir, "other.json"), JSON.stringify({ ...file, id: "not-other" }));
+    expect(listArtifacts(dir).map((info) => info.id)).toEqual([file.id]);
+  });
+
   it("writes, lists newest-first and reads back", async () => {
     const dir = tempDir();
     const first = writeArtifact(dir, {

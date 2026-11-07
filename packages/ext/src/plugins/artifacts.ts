@@ -254,7 +254,11 @@ export const listArtifacts = (dir: string): readonly ArtifactInfo[] => {
       try {
         const sidecar = tryResolveInside(dir, file);
         if (sidecar === undefined) return [];
-        return [normalize(JSON.parse(readFileSync(sidecar, "utf8")) as ArtifactInfo)];
+        const info = JSON.parse(readFileSync(sidecar, "utf8")) as Partial<ArtifactInfo>;
+        // Only a real sidecar: `<id>.json` holding that id and a name. Other
+        // JSON beside the files (configs, caches) is never a file.
+        if (info.id !== file.slice(0, -".json".length) || typeof info.name !== "string") return [];
+        return [normalize(info as ArtifactInfo)];
       } catch {
         return [];
       }

@@ -42,7 +42,9 @@ export function VmFields({
           typeof vm === "string" ? "text-destructive text-xs" : "text-muted-foreground text-xs"
         }
       >
-        {typeof vm === "string" ? vm : "Shared by its bots once VMs start (Phase 4)."}
+        {typeof vm === "string"
+          ? vm
+          : "One VM, shared by every bot in this home. A new size applies when the VM next starts."}
       </span>
     </fieldset>
   );

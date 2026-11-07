@@ -8,7 +8,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { ChevronLeftIcon, FolderIcon, UserRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { TeamSummary } from "@spriessen/contracts";
+import { DEFAULT_TEAM_SHARED_CAP_BYTES, type TeamSummary } from "@spriessen/contracts";
 import { TeamBots } from "@/components/team/team-bots";
 import { TeamMemory } from "@/components/team/team-memory";
 import { TeamRemove } from "@/components/team/team-remove";
@@ -57,7 +57,13 @@ function useSummary(id: string, epoch: unknown): TeamSummary | null {
   return summary;
 }
 
-function People() {
+/** A folder cap in the unit the owner set it in: "1 GiB", "512 MiB". */
+const capText = (bytes: number): string => {
+  const gib = bytes / 1_073_741_824;
+  return gib >= 1 ? `${Number(gib.toFixed(1))} GiB` : `${Math.round(bytes / 1_048_576)} MiB`;
+};
+
+function People({ capBytes }: { capBytes: number }) {
   return (
     <ListCard>
       <div className="flex min-h-11 items-center gap-3 px-3 py-2.5">
@@ -70,7 +76,9 @@ function People() {
         <span className="text-ui flex-1">
           Shared folder
           <span className="text-meta text-muted-foreground block">
-            Comes with team VMs (Phase 4). Until then each bot keeps its own files.
+            /home/shared in this team's VM: every bot here reads and writes it, up to{" "}
+            {capText(capBytes)} (past that it turns read-only until files are removed). Org bots see
+            it as /home/team-shared/&lt;team id&gt;.
           </span>
         </span>
       </div>
@@ -110,7 +118,7 @@ function TeamPage() {
       <SectionHeader title="Settings" className="mt-2" />
       <TeamSettings team={team} orgHostAccess={view.org?.hostAccess === true} />
       <SectionHeader title="People and files" className="mt-2" />
-      <People />
+      <People capBytes={team.sharedCapBytes ?? DEFAULT_TEAM_SHARED_CAP_BYTES} />
       <SectionHeader title="Shared memory" className="mt-2" />
       <TeamMemory teamId={team.id} />
       <SectionHeader title="Templates" className="mt-2" />

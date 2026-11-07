@@ -13,10 +13,11 @@ import { useApp } from "@/lib/app-state";
 import { cn } from "@/lib/utils";
 
 /** The words of the link: the chat, and the task when one wrote it. */
-export const sourceText = (source: ArtifactSource): string =>
-  source.task !== undefined
-    ? `From task "${source.task.title}" in ${source.title}`
-    : `From ${source.title}`;
+export const sourceText = (source: ArtifactSource): string => {
+  // A main chat's title is its bot's name; say which chat it is instead.
+  const chat = source.main ? "the main chat" : source.title;
+  return source.task !== undefined ? `From task "${source.task.title}" in ${chat}` : `From ${chat}`;
+};
 
 export function FileSource({
   source,
