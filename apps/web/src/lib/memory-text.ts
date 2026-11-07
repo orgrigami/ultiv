@@ -67,9 +67,6 @@ export const ENTITY_TYPES: Record<string, string> = {
 };
 export const aliasesLabel = "Also known as";
 export const factsAboutLabel = "Facts about";
-export const mergeWithLabel = "Merge with…";
-export const mergeNote =
-  "Merging needs the entity-merge detector — it isn't wired to the API yet, so this stays disabled.";
 export const mergedNote = (target: string): string => `Merged into ${target}.`;
 export const entityAria = (name: string): string => `Open ${name}`;
 export const summaryLabel = "Summary";
@@ -77,8 +74,8 @@ export const summaryLabel = "Summary";
 export const coreEditAria = (text: string): string => `Edit core line: ${text.slice(0, 40)}`;
 export const coreEditTextLabel = "Core line text";
 export const coreSavingLabel = "Saving…";
-export const reorderNote = "Order is the server's — drag-to-reorder isn't in the API yet.";
-export const pinNote = "Pin is set when a line is added; toggling isn't in the API yet.";
+export const orderNote =
+  "Lines keep the order they were added in. Pin a line when you add it; to change a pin, remove the line and add it again.";
 export const pinOnAddLabel = "Pin";
 export const addPlaceholder = (name: string): string => `Something ${name} should always know…`;
 export const addLabel = (name: string): string => `Something ${name} should always know`;

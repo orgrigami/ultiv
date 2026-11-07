@@ -1,12 +1,11 @@
 /**
  * People & things tab: the resolved entities (own + owner stores) with their
- * card sheet — type, aliases as chips, the facts that mention them. Merging
- * has no API route yet, so "Merge with…" renders disabled with a note rather
- * than a dead button.
+ * card sheet — type, aliases as chips, the facts that mention them. There is
+ * no owner merge for entities, so the sheet shows no merge button (a
+ * disabled one only advertised a feature that does not exist).
  */
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { RowButton } from "@/components/ui/row-button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { MemoryData } from "@/components/memory/memory-panel";
@@ -119,14 +118,6 @@ function EntitySheet({ entity, about }: { entity: MemoryV2Entity; about: MemoryV
             ))}
           </ul>
         )}
-      </div>
-      <div>
-        <Button variant="outline" size="sm" disabled aria-describedby="merge-note">
-          {t.mergeWithLabel}
-        </Button>
-        <p id="merge-note" className="text-muted-foreground mt-1 text-xs">
-          {t.mergeNote}
-        </p>
       </div>
     </div>
   );

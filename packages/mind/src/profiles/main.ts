@@ -53,7 +53,11 @@ export const onboardProfile = async (
         conversation,
         `[onboarding] You are ${profile.name}, a new bot in this workspace, created by the ` +
           `owner just now.${description}${persona}\n\nIntroduce yourself in one or two lines ` +
-          `(who you are, what you are for), then stand by. Use no tools for this.`,
+          `(who you are, what you are for). Then offer ONE concrete first thing you could ` +
+          `do for the owner right now, as a short question, using only tools you actually ` +
+          `have in this workspace; if something your role needs is missing (web search, ` +
+          `saved logins, other bots), say so plainly instead of promising it. Use no tools ` +
+          `for this.`,
       ),
     );
     void run(converse.settle(conversation, submission)).catch(() => undefined);

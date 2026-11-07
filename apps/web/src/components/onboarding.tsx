@@ -2,57 +2,23 @@
  * First-run onboarding: pick a template and the bot exists with a sensible
  * identity, seeded to introduce itself in its own chat — which the home screen
  * opens straight into. Custom identity stays available below the templates.
+ * Each template's promises follow the server check (lib/onboarding-templates.ts):
+ * what isn't set up here says so, with the key that turns it on.
  */
-import { CheckIcon, SproutIcon } from "lucide-react";
-import { useState } from "react";
+import { CheckIcon, CircleDashedIcon, SproutIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import { catalogSummary } from "@/components/model-options";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-
-interface Template {
-  key: string;
-  name: string;
-  description: string;
-  persona: string;
-  bullets: string[];
-}
-
-const TEMPLATES: Template[] = [
-  {
-    key: "assistant",
-    name: "Assistant",
-    description: "Everyday questions, drafts, and small tasks",
-    persona:
-      "You are a concise, proactive assistant. When a request is ambiguous you ask one clarifying question, then act. You keep answers short unless depth is asked for, and you say so plainly when you are unsure.",
-    bullets: [
-      "Chats, plans, and drafts",
-      "Sees vault names and masked hints only; looks up contacts, can't use logins yet",
-      "Remembers what matters across chats",
-    ],
-  },
-  {
-    key: "researcher",
-    name: "Researcher",
-    description: "Web deep dives that end in a written-up source list",
-    persona:
-      "You are a meticulous researcher. You search before you claim, name where each fact came from, and separate findings from inference. You finish with a structured summary and save long write-ups as artifacts.",
-    bullets: ["Searches the live web", "Reads and cites sources", "Saves findings as artifacts"],
-  },
-  {
-    key: "projects",
-    name: "Projects",
-    description: "Keeps shared projects moving: plans, steps, status",
-    persona:
-      "You are a project coordinator. You break work into small next steps, track what is done versus what is blocked, and surface blockers early. You write statuses anyone can skim in ten seconds.",
-    bullets: [
-      "Breaks work into next steps",
-      "Reports status on request",
-      "Coordinates with your other bots",
-    ],
-  },
-];
+import {
+  readinessOf,
+  templatesFor,
+  type Bullet,
+  type Readiness,
+  type Template,
+} from "@/lib/onboarding-templates";
 
 export function OnboardingHome({
   models,
@@ -66,6 +32,17 @@ export function OnboardingHome({
 }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.serverCheck().then(
+      (check) => live && setReadiness(readinessOf(check)),
+      () => undefined, // Unknown readiness keeps the bullets neutral.
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const spawn = async (template: Template): Promise<void> => {
     setBusyKey(template.key);
@@ -97,7 +74,7 @@ export function OnboardingHome({
           name, personality or model any time.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
-          {TEMPLATES.map((template) => (
+          {templatesFor(readiness).map((template) => (
             <div key={template.key} className="flex flex-col gap-2 rounded-lg border p-3">
               <div className="flex min-w-0 items-center justify-between gap-2">
                 <p className="truncate text-sm font-semibold">{template.name}</p>
@@ -113,10 +90,7 @@ export function OnboardingHome({
               <p className="text-muted-foreground text-xs">{template.description}</p>
               <ul className="mt-1 flex flex-col gap-1">
                 {template.bullets.map((bullet) => (
-                  <li key={bullet} className="flex items-start gap-1.5 text-xs">
-                    <CheckIcon className="text-muted-foreground mt-0.5 size-3 shrink-0" />
-                    <span>{bullet}</span>
-                  </li>
+                  <BulletLine key={bullet.text} bullet={bullet} />
                 ))}
               </ul>
             </div>
@@ -134,5 +108,20 @@ export function OnboardingHome({
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+function BulletLine({ bullet }: { bullet: Bullet }) {
+  const Icon = bullet.ready ? CheckIcon : CircleDashedIcon;
+  return (
+    <li
+      className={`flex items-start gap-1.5 text-xs ${bullet.ready ? "" : "text-muted-foreground"}`}
+    >
+      <Icon className="text-muted-foreground mt-0.5 size-3 shrink-0" />
+      <span>
+        {bullet.text}
+        {bullet.need !== undefined && <span className="block">Turn on: {bullet.need}</span>}
+      </span>
+    </li>
   );
 }

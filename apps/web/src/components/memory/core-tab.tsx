@@ -37,9 +37,7 @@ export function CoreTab({ data, profileId, name, reload }: TabProps) {
   return (
     <>
       <p className="text-muted-foreground text-xs">{t.coreIntro}</p>
-      <p className="text-muted-foreground text-xs">
-        {t.reorderNote} {t.pinNote}
-      </p>
+      <p className="text-muted-foreground text-xs">{t.orderNote}</p>
       {empty && <EmptyState>{t.coreEmpty(name)}</EmptyState>}
       {data.core.owner.length > 0 && (
         <CoreSection
