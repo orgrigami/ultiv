@@ -3,9 +3,34 @@
  * stored setting ("db") supersedes the SPRIESSEN_MODEL environment ("env");
  * both unset = null, and there is no default. PUT stores {ref, effort} (or
  * null / {ref: null} to clear, which hands the default back to the env);
- * the ref must be in the live catalog. Owner-scoped like every route.
+ * the ref must be in the live catalog. Owner-scoped like every route. A new
+ * default reaches new chats at once, and the owner's chats that have NO
+ * model (made before any default existed, which fail every turn) take it
+ * too; a chat with a model of its own keeps it.
  */
+import { Effect } from "effect";
 import { errorOf, type RouteArgs } from "./types.ts";
+
+/** Give the owner's model-less chats the (new) workspace default; best effort per chat. */
+export const adoptDefault = async (args: RouteArgs): Promise<number> => {
+  const { mind } = args;
+  let adopted = 0;
+  for (const row of await mind.profiles.listSessions(args.owner)) {
+    try {
+      const key = await mind.profiles.keyOfRow(row);
+      const conversationId = await Effect.runPromise(mind.converse.conversationIdOf(key));
+      if (conversationId === undefined) continue;
+      const chat = await Effect.runPromise(mind.converse.open(conversationId));
+      if (chat === undefined) continue;
+      if ((await Effect.runPromise(mind.converse.agentOf(chat))).model !== null) continue;
+      await Effect.runPromise(mind.converse.configure(chat, { model: null }));
+      adopted += 1;
+    } catch {
+      // One stale chat never blocks the rest.
+    }
+  }
+  return adopted;
+};
 
 const defaultOf = async (args: RouteArgs): Promise<unknown> => {
   const stored = await args.mind.profiles.workspaceDefaultModel();
@@ -44,6 +69,7 @@ export async function settingsRoutes(args: RouteArgs): Promise<boolean> {
         return true;
       }
       await args.mind.profiles.setWorkspaceDefaultModel({ ref, effort });
+      await adoptDefault(args);
       args.json(200, await defaultOf(args));
       return true;
     } catch (cause) {

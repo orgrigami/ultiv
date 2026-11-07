@@ -118,6 +118,8 @@ export const settingsModelOps = (
           draft.defaultModel = next;
         }),
       );
+      // New chats start on it at once, not only after the next restart.
+      converse.useWorkspaceDefault(next?.ref ?? null);
     },
   };
 };

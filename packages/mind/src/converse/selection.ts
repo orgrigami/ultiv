@@ -43,11 +43,15 @@ export const selectionOps = (
    * The workspace default new conversations start with. `model: null` ("the
    * workspace default", e.g. a bot saved with no model) applies it instead of
    * clearing the model: a conversation without one fails every turn with
-   * `no_model`, the engine has no fallback of its own.
+   * `no_model`, the engine has no fallback of its own. Read on every
+   * configure: the owner can set the default while the server runs.
    */
-  workspaceDefault?: AgentChange["model"],
+  workspaceDefault: () => AgentChange["model"] = () => undefined,
 ): Pick<ConverseService, "agentOf" | "configure"> => {
-  const defaultRef = workspaceDefault != null ? modelRefOf({ model: workspaceDefault }) : null;
+  const defaultRef = (): string | null => {
+    const model = workspaceDefault();
+    return model != null ? modelRefOf({ model }) : null;
+  };
   /** An effort the model does not support (e.g. carried over from another model) snaps to its default. */
   const effortFor = <E extends string | null | undefined>(
     model: string | null | undefined,
@@ -69,7 +73,7 @@ export const selectionOps = (
       // Effort must be one the TARGET model supports: an effort carried over
       // from another model (e.g. `off` on an always-reasoning model) degrades
       // it. Snap out-of-list efforts to the model's own default.
-      const model = selection.model === null ? defaultRef : selection.model;
+      const model = selection.model === null ? defaultRef() : selection.model;
       const effort = model !== undefined ? effortFor(model, selection.effort) : selection.effort;
       const change: AgentChange = {
         ...(model !== undefined ? { model: model === null ? null : parseRef(model) } : {}),

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
+import { Effect } from "effect";
 import { openMind } from "@spriessen/mind";
 import type { RouteArgs } from "./types.ts";
 import { settingsRoutes } from "./settings.ts";
@@ -92,6 +93,40 @@ describe("GET/PUT /api/settings/model", () => {
     });
     expect(await settingsRoutes(clear.args)).toBe(true);
     expect(clear.body()).toEqual({ defaultModel: null });
+    await handle.close();
+  });
+
+  it("a new default reaches model-less chats and new chats at once; a chat's own model stays", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { mind } = handle;
+    const modelOf = async (sessionId: string) => {
+      const [row] = (await mind.profiles.listSessions("harry")).filter((r) => r.id === sessionId);
+      const key = await mind.profiles.keyOfRow(row!);
+      const chat = await Effect.runPromise(mind.converse.ensure(key));
+      return (await Effect.runPromise(mind.converse.agentOf(chat))).model;
+    };
+    const bot = await mind.profiles.create("harry", { name: "Wren", onboard: false });
+    // Made while no default exists: no model, every turn would fail no_model.
+    const before = await mind.profiles.ensureMain("harry", bot.id);
+    expect(await modelOf(before.id)).toBeNull();
+    const pinned = await mind.profiles.createSession("harry", bot.id, null);
+    const pinnedKey = await mind.profiles.keyOfRow(pinned);
+    const pinnedChat = await Effect.runPromise(mind.converse.ensure(pinnedKey));
+    await Effect.runPromise(
+      mind.converse.configure(pinnedChat, { model: "smoke-local/other" as never }),
+    );
+
+    const put = routeArgs(mind, {
+      path: "/api/settings/model",
+      method: "PUT",
+      body: { ref: "smoke-local/tiny", effort: "" },
+    });
+    expect(await settingsRoutes(put.args)).toBe(true);
+    expect(put.status()).toBe(200);
+    expect(await modelOf(before.id)).toBe("smoke-local/tiny");
+    expect(await modelOf(pinned.id)).toBe("smoke-local/other");
+    const after = await mind.profiles.createSession("harry", bot.id, null);
+    expect(await modelOf(after.id)).toBe("smoke-local/tiny");
     await handle.close();
   });
 

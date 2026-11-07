@@ -143,6 +143,12 @@ export interface ConverseService {
     /** When a turn is in flight: steer it at the next boundary, queue as follow-up, or reject. */
     whenBusy?: "steer" | "followUp" | "reject",
   ) => Effect.Effect<TurnResult, External>;
+  /**
+   * Point new conversations (and `model: null` selections) at another
+   * workspace default, live; null = no stored default (SPRIESSEN_MODEL, if
+   * set, applies again).
+   */
+  readonly useWorkspaceDefault: (ref: string | null) => void;
   /** The conversation's current model/effort selection. */
   readonly agentOf: (conversation: Conversation) => Effect.Effect<AgentSelection, External>;
   /**
@@ -310,104 +316,115 @@ export const converseService = (
   agent: AgentChange,
   /** The catalog lookup selection reads efforts from; none in engine tests. */
   findModel: (ref: string) => ModelSpec | undefined = () => undefined,
-): ConverseService => ({
-  root: () => asEffect("root conversation", harness.root(BACKGROUND_CONTEXT, { agent })),
-  ensure: (key, agentOverride) => ensureConversation(harness, key, agent, agentOverride),
-  open: (id) =>
-    asEffect("conversation open", harness.conversation(conversationIdFrom(id), BACKGROUND_CONTEXT)),
-  ...controlOps(harness),
-  ...forkOps(harness),
-  conversationIdOf: (key) =>
-    Effect.map(
-      asEffect("session map read", harness.snapshot(SessionMapDoc, key, BACKGROUND_CONTEXT)),
-      (known) => known?.conversationId as unknown as string | undefined,
-    ),
-  entriesOf: (conversationId, limit) =>
-    Effect.flatMap(
+): ConverseService => {
+  // The workspace default can change while the server runs (Settings, `spriessen models default`).
+  let base = agent;
+  return {
+    root: () => asEffect("root conversation", harness.root(BACKGROUND_CONTEXT, { agent: base })),
+    ensure: (key, agentOverride) => ensureConversation(harness, key, base, agentOverride),
+    useWorkspaceDefault: (ref) => {
+      const { model: _previous, ...rest } = base;
+      base = ref === null ? rest : { ...rest, model: parseRef(ref) };
+    },
+    open: (id) =>
       asEffect(
         "conversation open",
-        harness.conversation(conversationIdFrom(conversationId), BACKGROUND_CONTEXT),
+        harness.conversation(conversationIdFrom(id), BACKGROUND_CONTEXT),
       ),
-      (conversation) =>
-        conversation === undefined
-          ? Effect.succeed([] as readonly EntryRecord[])
-          : Effect.map(
-              asEffect(
-                "entries scan",
-                conversation.entries({}, limit, undefined, BACKGROUND_CONTEXT),
-              ),
-              (page) => page.items,
-            ),
-    ),
-  entriesAfter: (conversationId, afterEntryId, limit) =>
-    Effect.flatMap(
-      asEffect(
-        "conversation open",
-        harness.conversation(conversationIdFrom(conversationId), BACKGROUND_CONTEXT),
+    ...controlOps(harness),
+    ...forkOps(harness),
+    conversationIdOf: (key) =>
+      Effect.map(
+        asEffect("session map read", harness.snapshot(SessionMapDoc, key, BACKGROUND_CONTEXT)),
+        (known) => known?.conversationId as unknown as string | undefined,
       ),
-      (conversation) =>
-        conversation === undefined
-          ? Effect.succeed([] as readonly EntryRecord[])
-          : Effect.map(
-              asEffect(
-                "entries scan",
-                conversation.entries(
-                  { minEntryId: (afterEntryId + 1) as unknown as EntryId, order: "ascending" },
-                  limit,
-                  undefined,
-                  BACKGROUND_CONTEXT,
+    entriesOf: (conversationId, limit) =>
+      Effect.flatMap(
+        asEffect(
+          "conversation open",
+          harness.conversation(conversationIdFrom(conversationId), BACKGROUND_CONTEXT),
+        ),
+        (conversation) =>
+          conversation === undefined
+            ? Effect.succeed([] as readonly EntryRecord[])
+            : Effect.map(
+                asEffect(
+                  "entries scan",
+                  conversation.entries({}, limit, undefined, BACKGROUND_CONTEXT),
                 ),
+                (page) => page.items,
               ),
-              (page) => page.items,
-            ),
-    ),
-  submit: (conversation, content, whenBusy, requestId, entry) =>
-    submitOf(conversation, content, whenBusy, requestId, entry),
-  settle: (conversation, submission) => settleOf(conversation, submission),
-  write: (conversation, kind, data) =>
-    Effect.asVoid(
-      asEffect(
-        "write",
-        conversation.submit({ type: "write", entry: { kind, data } }, BACKGROUND_CONTEXT),
       ),
-    ),
-  note: (conversation, kind, data, text) =>
-    Effect.asVoid(
-      asEffect(
-        "note",
-        conversation.submit(
-          {
-            type: "write",
-            entry: {
-              kind,
-              data,
-              model: [{ role: "user", content: [{ type: "text", text }], timestamp: Date.now() }],
-            },
-          },
-          BACKGROUND_CONTEXT,
+    entriesAfter: (conversationId, afterEntryId, limit) =>
+      Effect.flatMap(
+        asEffect(
+          "conversation open",
+          harness.conversation(conversationIdFrom(conversationId), BACKGROUND_CONTEXT),
+        ),
+        (conversation) =>
+          conversation === undefined
+            ? Effect.succeed([] as readonly EntryRecord[])
+            : Effect.map(
+                asEffect(
+                  "entries scan",
+                  conversation.entries(
+                    { minEntryId: (afterEntryId + 1) as unknown as EntryId, order: "ascending" },
+                    limit,
+                    undefined,
+                    BACKGROUND_CONTEXT,
+                  ),
+                ),
+                (page) => page.items,
+              ),
+      ),
+    submit: (conversation, content, whenBusy, requestId, entry) =>
+      submitOf(conversation, content, whenBusy, requestId, entry),
+    settle: (conversation, submission) => settleOf(conversation, submission),
+    write: (conversation, kind, data) =>
+      Effect.asVoid(
+        asEffect(
+          "write",
+          conversation.submit({ type: "write", entry: { kind, data } }, BACKGROUND_CONTEXT),
         ),
       ),
-    ),
-  turn: (conversation, content, whenBusy) =>
-    Effect.flatMap(submitOf(conversation, content, whenBusy), (submission) =>
-      settleOf(conversation, submission),
-    ),
-  ...selectionOps(findModel, agent.model),
-  docs: {
-    // The token is family-parametric; the harness call is typed once at this boundary.
-    snapshot: <T extends JsonObject>(doc: SessionDocToken<T>) =>
-      asEffect(
-        "doc read",
-        harness.snapshot(doc as SessionDocToken<JsonObject>, BACKGROUND_CONTEXT),
-      ) as Effect.Effect<T | undefined, External>,
-    snapshotKeyed: <T extends JsonObject>(doc: SessionDocFamilyToken<T, T>, key: string) =>
-      asEffect(
-        "doc read",
-        harness.snapshot(doc as never, key, BACKGROUND_CONTEXT),
-      ) as Effect.Effect<T | undefined, External>,
-    commit: (change) => asEffect("doc commit", harness.commit(change, BACKGROUND_CONTEXT)),
-  },
-});
+    note: (conversation, kind, data, text) =>
+      Effect.asVoid(
+        asEffect(
+          "note",
+          conversation.submit(
+            {
+              type: "write",
+              entry: {
+                kind,
+                data,
+                model: [{ role: "user", content: [{ type: "text", text }], timestamp: Date.now() }],
+              },
+            },
+            BACKGROUND_CONTEXT,
+          ),
+        ),
+      ),
+    turn: (conversation, content, whenBusy) =>
+      Effect.flatMap(submitOf(conversation, content, whenBusy), (submission) =>
+        settleOf(conversation, submission),
+      ),
+    ...selectionOps(findModel, () => base.model),
+    docs: {
+      // The token is family-parametric; the harness call is typed once at this boundary.
+      snapshot: <T extends JsonObject>(doc: SessionDocToken<T>) =>
+        asEffect(
+          "doc read",
+          harness.snapshot(doc as SessionDocToken<JsonObject>, BACKGROUND_CONTEXT),
+        ) as Effect.Effect<T | undefined, External>,
+      snapshotKeyed: <T extends JsonObject>(doc: SessionDocFamilyToken<T, T>, key: string) =>
+        asEffect(
+          "doc read",
+          harness.snapshot(doc as never, key, BACKGROUND_CONTEXT),
+        ) as Effect.Effect<T | undefined, External>,
+      commit: (change) => asEffect("doc commit", harness.commit(change, BACKGROUND_CONTEXT)),
+    },
+  };
+};
 
 const openSqlite: Effect.Effect<Storage, External | ConfigError> = Effect.gen(function* () {
   const path = yield* harnessDb;
@@ -464,6 +481,17 @@ export const converseLayer = (
       // The workspace default: the stored setting outranks SPRIESSEN_MODEL;
       // both unset = none (new conversations fail no_model until one exists).
       const ref = workspaceDefaultRefOf(stored?.defaultModel, catalog.preferredRef());
-      return converseService(harness, ref !== null ? { model: parseRef(ref) } : {}, catalog.find);
+      const service = converseService(
+        harness,
+        ref !== null ? { model: parseRef(ref) } : {},
+        catalog.find,
+      );
+      return {
+        ...service,
+        useWorkspaceDefault: (next: string | null) =>
+          service.useWorkspaceDefault(
+            workspaceDefaultRefOf(next !== null ? { ref: next } : null, catalog.preferredRef()),
+          ),
+      };
     }),
   );
