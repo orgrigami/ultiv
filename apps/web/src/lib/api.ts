@@ -146,6 +146,12 @@ export const api = {
         ? `/api/sessions?profile=${encodeURIComponent(profile)}`
         : "/api/sessions",
     ),
+  /** Branch a chat at a message: edit one of yours, or continue from a bot reply. */
+  branchSession: (
+    sessionId: string,
+    body: { at: number; mode: "edit"; text: string } | { at: number; mode: "from" },
+  ): Promise<SessionInfo> =>
+    send<SessionInfo>(`/api/sessions/${encodeURIComponent(sessionId)}/branch`, "POST", body),
   profiles: (): Promise<ProfileInfo[]> => getJson<ProfileInfo[]>("/api/profiles"),
   rooms: (bot?: string): Promise<RoomInfo[]> =>
     getJson<RoomInfo[]>(

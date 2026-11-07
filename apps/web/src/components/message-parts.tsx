@@ -88,12 +88,15 @@ export function MessageActions({
   label = "Copy message",
   status,
   detail,
+  extra,
 }: {
   /** What copy puts on the clipboard; empty hides the copy button. */
   text: string;
   label?: string;
   status?: React.ReactNode;
   detail?: React.ReactNode;
+  /** More actions after copy (e.g. continue from here in a new chat). */
+  extra?: React.ReactNode;
 }) {
   return (
     <div
@@ -104,6 +107,7 @@ export function MessageActions({
         <span className="ps-1.5">{status}</span>
       )}
       {text !== "" && <CopyMessage text={text} label={label} />}
+      {extra}
       {detail !== undefined && detail !== null && detail !== false && (
         <p className="w-full ps-1.5 pb-1 break-words">{detail}</p>
       )}

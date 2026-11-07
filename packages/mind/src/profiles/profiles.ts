@@ -17,6 +17,7 @@ import { conversationIndex } from "./conversation-index.ts";
 import { mainOps, settingsModelOps } from "./main.ts";
 import { lifecycleOps, rowOps } from "./rows.ts";
 import { keyOps, sessionOps } from "./sessions.ts";
+import { branchOps } from "./branch.ts";
 import type { ProfilesContext, ProfilesService } from "./types.ts";
 
 export {
@@ -84,6 +85,7 @@ export const profilesService = (deps: {
     ...settingsModelOps(ctx),
     ...sessionOps(ctx),
     ...keyOps(ctx),
+    ...branchOps(ctx),
     scopeOf: (conversationId) => index.scopes.get(String(conversationId)),
     profileOf: (conversationId) => index.profiles.get(String(conversationId)),
     agentFor,

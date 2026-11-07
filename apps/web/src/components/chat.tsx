@@ -12,6 +12,7 @@ import { useApp } from "@/lib/app-state";
 import { useSession } from "@/lib/use-session";
 import { useTasks } from "@/lib/use-tasks";
 import { useJevNotices } from "@/lib/use-jev-notices";
+import { BranchProvider, useBranchActions } from "@/lib/branch";
 import { useState } from "react";
 import type { ModelInfo, ProfileApprovalMode, ProfileInfo, TaskRow } from "@spriessen/contracts";
 import type { TaskApproval } from "@/components/session-view";
@@ -35,6 +36,7 @@ export function Chat({
   const jevNotices = useJevNotices(session.conversationId, session.transcript);
   const { refreshAll } = useApp();
   const [askStop, setAskStop] = useState(false);
+  const branchActions = useBranchActions(sessionId);
   // Stop asks first only when this chat has background tasks running.
   const requestStop = async (): Promise<void> => {
     if (chatTasks.running.length === 0) await session.interrupt();
@@ -82,45 +84,47 @@ export function Chat({
     return { stored: result.stored };
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <SessionView
-        sessionId={sessionId}
-        tasks={<TasksPill chatTasks={chatTasks} />}
-        taskInfo={chatTasks.tasks}
-        taskApprovals={taskApprovals}
-        onTaskDecide={taskDecide}
-        jevNotices={jevNotices}
-        bot={bot}
-        onBack={onBack}
-        link={session.link}
-        loaded={session.loaded}
-        transcript={session.transcript}
-        phase={session.phase}
-        lastError={session.lastError}
-        pending={session.pending}
-        usage={session.usage}
-        model={session.model}
-        effort={session.effort}
-        models={models}
-        approvalMode={bot?.policies?.approvalMode ?? "manual"}
-        queued={session.queued}
-        onInput={session.input}
-        onWithdraw={session.withdraw}
-        onRetryQueued={session.retryQueued}
-        onDecide={session.decide}
-        onConfigure={session.configure}
-        onApprovalMode={changeApprovalMode}
-        onInterrupt={requestStop}
-      />
-      <StopDialog
-        open={askStop}
-        running={chatTasks.running.length}
-        onOpenChange={setAskStop}
-        onStop={async (tasks) => {
-          await session.interrupt(tasks);
-          if (tasks) await chatTasks.refresh();
-        }}
-      />
-    </div>
+    <BranchProvider value={branchActions}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <SessionView
+          sessionId={sessionId}
+          tasks={<TasksPill chatTasks={chatTasks} />}
+          taskInfo={chatTasks.tasks}
+          taskApprovals={taskApprovals}
+          onTaskDecide={taskDecide}
+          jevNotices={jevNotices}
+          bot={bot}
+          onBack={onBack}
+          link={session.link}
+          loaded={session.loaded}
+          transcript={session.transcript}
+          phase={session.phase}
+          lastError={session.lastError}
+          pending={session.pending}
+          usage={session.usage}
+          model={session.model}
+          effort={session.effort}
+          models={models}
+          approvalMode={bot?.policies?.approvalMode ?? "manual"}
+          queued={session.queued}
+          onInput={session.input}
+          onWithdraw={session.withdraw}
+          onRetryQueued={session.retryQueued}
+          onDecide={session.decide}
+          onConfigure={session.configure}
+          onApprovalMode={changeApprovalMode}
+          onInterrupt={requestStop}
+        />
+        <StopDialog
+          open={askStop}
+          running={chatTasks.running.length}
+          onOpenChange={setAskStop}
+          onStop={async (tasks) => {
+            await session.interrupt(tasks);
+            if (tasks) await chatTasks.refresh();
+          }}
+        />
+      </div>
+    </BranchProvider>
   );
 }

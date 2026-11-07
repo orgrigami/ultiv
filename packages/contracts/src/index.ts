@@ -33,6 +33,7 @@ export type {
   WithdrawStatus,
 } from "./session.ts";
 export {
+  MAX_EDIT_CHARS,
   ModelCatalogStatusSchema,
   ModelListSchema,
   ModelsPayloadSchema,

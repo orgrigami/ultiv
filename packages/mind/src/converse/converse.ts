@@ -34,6 +34,7 @@ import { External } from "@spriessen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
 import { controlOps, type ParkedTask } from "./control.ts";
+import { forkOps } from "./fork.ts";
 export type { ParkedTask } from "./control.ts";
 import { selectionOps, workspaceDefaultRefOf } from "./selection.ts";
 import { SettingsDoc } from "../profiles/docs.ts";
@@ -169,6 +170,15 @@ export interface ConverseService {
     afterEntryId: number,
     limit: number,
   ) => Effect.Effect<readonly EntryRecord[], External>;
+  /**
+   * Fork a conversation after entry `at` (inclusive) into a new one mapped
+   * under `key` (fork.ts): branching a chat, replaying it for evals.
+   */
+  readonly forkInto: (
+    sourceConversationId: string,
+    at: number,
+    key: string,
+  ) => Effect.Effect<Conversation, External>;
   /** App-level durable documents ride the same harness storage. */
   readonly docs: {
     readonly snapshot: <T extends JsonObject>(
@@ -287,7 +297,7 @@ function textOf(content: unknown): string {
 }
 
 /** Conversation ids are numeric today; accept any string form losslessly. */
-const conversationIdFrom = (id: string): ConversationId => {
+export const conversationIdFrom = (id: string): ConversationId => {
   const numeric = Number(id);
   return (Number.isSafeInteger(numeric) && numeric >= 0
     ? numeric
@@ -306,6 +316,7 @@ export const converseService = (
   open: (id) =>
     asEffect("conversation open", harness.conversation(conversationIdFrom(id), BACKGROUND_CONTEXT)),
   ...controlOps(harness),
+  ...forkOps(harness),
   conversationIdOf: (key) =>
     Effect.map(
       asEffect("session map read", harness.snapshot(SessionMapDoc, key, BACKGROUND_CONTEXT)),

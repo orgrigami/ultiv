@@ -44,6 +44,16 @@ export interface ProfilesService {
     title: string | null,
   ) => Promise<SessionInfo>;
   readonly listSessions: (owner: string, profileId?: string) => Promise<SessionInfo[]>;
+  /**
+   * Branch a chat at a transcript id (branch.ts): "edit" forks before one of
+   * the owner's messages, "from" after a bot reply. Returns the new chat.
+   */
+  readonly branchSession: (
+    owner: string,
+    sessionId: string,
+    at: number,
+    mode: "edit" | "from",
+  ) => Promise<SessionInfo>;
   readonly removeSession: (owner: string, id: string) => Promise<boolean>;
   readonly touchSession: (
     owner: string,

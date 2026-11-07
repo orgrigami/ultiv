@@ -28,6 +28,7 @@ import { ChatProse, isFoldable } from "@/components/chat-prose";
 import { MessageActions, TurnHead } from "@/components/message-parts";
 import { Trace } from "@/components/ui/trace";
 import { reactionsOf, withoutReactions } from "@/lib/reactions";
+import { BranchFromHere, EditableOwnerText } from "@/components/branch-buttons";
 
 // The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
@@ -49,10 +50,13 @@ const DIVIDER_GAP_MS = 10 * 60_000;
  * changes re-renders while streaming.
  */
 const Output = memo(function Output({
+  at,
   text,
   streaming,
   interrupted,
 }: {
+  /** The reply's transcript id: where "continue from here" branches. */
+  at: number;
   text: string;
   streaming: boolean;
   interrupted: boolean;
@@ -65,6 +69,7 @@ const Output = memo(function Output({
       {!streaming && (
         <MessageActions
           text={text}
+          extra={empty ? null : <BranchFromHere at={at} />}
           status={
             interrupted && (
               <span className="flex items-center gap-1">
@@ -255,12 +260,22 @@ function renderGroup(
       </Trace>
     </li>
   ) : group.entry.kind === "input" ? (
-    <li key={group.key} className={roleStyles.user} title={formatFull(group.entry.at)}>
-      {group.entry.text}
-      {group.entry.attachments !== undefined && group.entry.attachments.length > 0 && (
-        <AttachmentChips attachments={group.entry.attachments} />
-      )}
-      <ReactionChip reaction={reactions?.get(group.entry.id)} />
+    <li
+      key={group.key}
+      className={`group/msg ${roleStyles.user}`}
+      title={formatFull(group.entry.at)}
+    >
+      <EditableOwnerText
+        at={group.entry.id}
+        text={group.entry.text}
+        attachments={group.entry.attachments}
+      >
+        {group.entry.text}
+        {group.entry.attachments !== undefined && group.entry.attachments.length > 0 && (
+          <AttachmentChips attachments={group.entry.attachments} />
+        )}
+        <ReactionChip reaction={reactions?.get(group.entry.id)} />
+      </EditableOwnerText>
     </li>
   ) : group.entry.kind === "output" ? (
     <li
@@ -269,6 +284,7 @@ function renderGroup(
       title={formatFull(group.entry.at)}
     >
       <Output
+        at={group.entry.id}
         text={group.entry.text}
         streaming={group.entry.streaming}
         interrupted={group.entry.interrupted === true}

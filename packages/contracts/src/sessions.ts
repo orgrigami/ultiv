@@ -25,9 +25,18 @@ export const SessionInfoSchema = Type.Object({
   title: Type.String(),
   createdAt: Type.Number(),
   lastMessageAt: Type.Number(),
+  /**
+   * A chat branched off another one: the source session and the transcript
+   * id of the message it branched at (an edited owner message, or the bot
+   * reply it continues from).
+   */
+  branchOf: Type.Optional(Type.Object({ sessionId: Type.String(), at: Type.Number() })),
 });
 
 export type SessionInfo = Static<typeof SessionInfoSchema>;
+
+/** The longest edited message a branch accepts (POST /api/sessions/:id/branch). */
+export const MAX_EDIT_CHARS = 20_000;
 
 export const SessionListSchema = Type.Array(SessionInfoSchema);
 
