@@ -152,7 +152,7 @@ one wake carrying every payload, each with its own receipt.
   held by the evals dry-run guard, so every tool call is blocked before it
   runs: nothing is written, sent, spent or put up for approval, no chat is
   woken, no push goes out. The reply and each call it tried (input kept
-  JSON-safe, ≤1500 chars) land on the job as `trials` (newest last, at most
+  JSON-safe, ≤600 chars; at most 12 calls, a 2000-char reply) land on the job as `trials` (newest last, at most
   `TRIALS_KEPT` 3). A schedule in **trial mode** (`trial: true`, recurring
   only: a one-shot's single fire is the real one) runs every fire this way
   and receipts it `trial`; `schedule_set` takes `trial`, the owner's Routines

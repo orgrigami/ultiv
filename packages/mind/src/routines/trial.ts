@@ -44,9 +44,9 @@ export interface TrialsService {
 }
 
 /** A trial's reply and each kept input stay small: they live on the job row. */
-const REPLY_CHARS = 4_000;
-const INPUT_CHARS = 1_500;
-const MAX_ACTIONS = 20;
+const REPLY_CHARS = 2_000;
+const INPUT_CHARS = 600;
+const MAX_ACTIONS = 12;
 /** Entries one trial turn can span. */
 const SCAN = 500;
 

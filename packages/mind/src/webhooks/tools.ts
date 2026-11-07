@@ -52,7 +52,10 @@ const createTool = (webhooks: WebhooksService, profiles: ProfilesService): Tool 
       "Schema; every " +
       "payload is validated against it BEFORE the ack, and mismatches are counted and " +
       "retained for you to inspect. The bearer token is issued only to your OWNER, in " +
-      "the app; you never see it. Rejection counters are how you debug auth failures.",
+      "the app; you never see it. Rejection counters are how you debug auth failures. " +
+      "With a thread key, each outside thread gets its own chat: work that thread there, and " +
+      "answer in the thread itself (through its service's API with a credential your owner " +
+      "bound) only when someone there must act or can use the result.",
     parameters: Type.Object({
       name: Type.Optional(
         Type.String({ description: "A label for this webhook (shown to the owner)." }),
