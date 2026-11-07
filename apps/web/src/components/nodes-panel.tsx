@@ -2,7 +2,8 @@
  * The Nodes panel (Settings): the owner's paired machines — bash's `node`
  * targets. Pairing is an owner act: the dialog shows the one-time token once
  * (the server never shows it again), the list carries status, last-seen and
- * the allowed roots, and revoke kills the pairing. A bot can run scripts on
+ * the roots (where scripts START — not a jail: a script runs as the owner's
+ * account and can reach anything it can), and revoke kills the pairing. A bot can run scripts on
  * a node only after it is paired here and the bot's host access is on.
  */
 import { useCallback, useEffect, useState } from "react";
@@ -23,7 +24,7 @@ const relative = (at: number | null): string =>
   at === null ? "never seen" : `${Math.max(1, Math.round((Date.now() - at) / 60_000))} min ago`;
 
 const rootsText = (roots: readonly string[]): string =>
-  roots.length === 0 ? "no roots" : roots.join(", ");
+  roots.length === 0 ? "no starting folder" : `starts in ${roots.join(", ")}`;
 
 export function NodesPanel() {
   const [nodes, setNodes] = useState<NodeInfo[] | null>(null);
@@ -60,7 +61,9 @@ export function NodesPanel() {
       />
       <p className="text-muted-foreground text-xs">
         Your other machines, so a bot with host access can run scripts there (bash target
-        &quot;node&quot;). The pairing token is shown once, here.
+        &quot;node&quot;). Scripts run as your account on that machine and can reach anything it
+        can; every one asks you first unless you saved that exact script. The pairing token is shown
+        once, here.
       </p>
       {nodes === null ? (
         <SkeletonRows label="Loading nodes" rows={1} />
@@ -186,7 +189,11 @@ function PairDialog({
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          Allowed roots (one absolute path per line)
+          Starting folders (one absolute path per line)
+          <span className="text-muted-foreground text-xs">
+            Scripts start in one of these. They are not a fence: a script can still go anywhere your
+            account can.
+          </span>
           <Textarea
             mono
             rows={3}

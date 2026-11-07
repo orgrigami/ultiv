@@ -12,7 +12,7 @@ A fresh install starts with no bots. The first one you create becomes your main 
 
 With a coding agent, the easy way: ask it to "read SETUP.md and set up Spriessen with me". It asks one short question at a time, never asks for a key in the chat, and shows the whole plan before it changes anything.
 
-You need [Vite+](https://viteplus.dev/) (`vp`), which brings Node 24 and pnpm with it. It's the only toolchain this repo uses.
+You need [Vite+](https://viteplus.dev/) (`vp`), which brings Node 26 and pnpm with it. It's the only toolchain this repo uses. Node 26 is the one supported line: `.node-version` pins it for `vp`, every manifest's `engines` asks for it, installing on another Node fails, and the server, the CLI and the node agent refuse to start on an older one (`spriessen doctor` checks both ends).
 
 ```sh
 curl -fsSL https://vite.plus | bash     # once, installs vp
@@ -121,7 +121,7 @@ One tool, `bash`, with an optional `target`: `"vm"` (the default), `"host"`, or 
 | -------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `vm` (default) | a microsandbox microVM per home: the org's bots share one VM, each department's bots theirs | Linux in the VM: coreutils, pipes, python3, pip. Network is off unless you allowlist hosts for the home (Settings → Organization, or the department page) or open it fully per home; shared folders mount as configured | asks per call (can be auto-approved)                                                                                              |
 | `host`         | **your computer, directly**                                                                 | your whole real filesystem                                                                                                                                                                                              | asks per call, **except in fully automatic mode, where it just runs**; only bots with the host-access switch on can use it at all |
-| `node`         | a machine you paired (Settings → Nodes), where its agent dials in                           | the node's real filesystem, confined to the roots you registered for it                                                                                                                                                 | same rules as `host`, plus the node must be paired and connected; "Always allow" saves the exact script for that exact node only  |
+| `node`         | a machine you paired (Settings → Nodes), where its agent dials in                           | the node's real filesystem as your account: scripts START in a root you registered, but can `cd` anywhere that account can reach — roots are a starting point, not a jail                                               | same rules as `host`, plus the node must be paired and connected; "Always allow" saves the exact script for that exact node only  |
 
 Both beyond-VM targets keep the working directory between calls (a node's default directory is its first allowed root). Anything a `vm` script writes under `/home` becomes an artifact: it shows up in `artifact_list`, the web UI serves it, and it survives restarts. Deletions sync too. The file store is the source of truth. Each call copies it into the VM and copies changes back out, so if the VM crashes you don't lose anything that was already synced — and a sync only deletes a file after a verified listing, so a failed read or a VM that was recreated re-prepares instead of wiping the store. A `node` script works on the node's real files — there is no artifact sync, what it writes is already where it belongs.
 
@@ -131,7 +131,7 @@ The microVM needs an Apple Silicon Mac, or Linux with KVM. Without virtualizatio
 
 Use the `host` and `node` targets only when a task really needs a machine beyond the sandbox. A bot can use either only when you've turned host access on — the switch sits at org, department and bot level in Crew, and with it off the calls are refused outright; even fully automatic mode can't run them. In manual and Jev mode they ask every time: Jev never decides them. A beyond-VM card offers "Always allow this exact command on this computer", which saves a rule for that exact script only, character for character — and on a node, for that exact node; any other script, even one that differs by a space, still asks. The rule shows in the bot's Access tab, where you can remove it. Fully automatic mode runs them without asking, so only use that mode for a bot you'd trust with a shell on your computers.
 
-Pairing a node: Settings → Nodes mints a pairing token shown once; run the agent (`apps/agent`) on that machine with the token and it dials in, ready for `target: "node"` scripts confined to the roots you registered. Revoke kills its connection and its token at once.
+Pairing a node: Settings → Nodes mints a pairing token shown once; run the agent (`apps/agent`) on that machine with the token and it dials in, ready for `target: "node"` scripts. A script starts in one of the roots you registered for the node, then runs as your account there: it can read and change anything that account can, so the approval card is the real gate (see `docs/SECURITY.md`, "Paired nodes"). Revoke kills its connection and its token at once.
 
 ## Approval modes
 
@@ -157,7 +157,7 @@ In every mode, these always come to you as a card: a credential's first use on a
 ## Layout
 
 ```
-apps/server         Node 24 server: REST, chord replication, triggers (cron/webhooks/sensors). Thin layer over the mind.
+apps/server         Node 26 server: REST, chord replication, triggers (cron/webhooks/sensors). Thin layer over the mind.
 apps/web            React 19 + TanStack Router + shadcn (Base UI) + Tailwind 4 client
 packages/core       tagged errors and the bridge between promises and Effect
 packages/ext        tools, plugins, registry, vault, credential broker, shells
@@ -175,14 +175,14 @@ Use `vp` for everything, not `npm`, `pnpm`, `node`, `tsc` or `vitest` directly:
 ```sh
 vp install                                  # dependencies
 vp check --fix                              # format and lint
-vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all seven have to pass)
+vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all ten have to pass)
 vp test                                     # unit tests (offline: no models.dev, no providers)
 SPRIESSEN_REAL_VM=1 vp test --run packages/ext/src/shell/real-vm.test.ts   # opt-in: the isolation suite on real VMs (boots throwaway microVMs, ~15 s)
 vp -C apps/web build                        # production web build
 vp run smoke                                # starts the whole stack offline on a random port and hits the REST API
 ```
 
-Before a change goes in, I run `vp check`, the seven typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
+Before a change goes in, I run `vp check`, the ten typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
 
 ## More docs
 
