@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import type { AuditEvent, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
 import { ApprovalModeChoice } from "@/components/approval-mode-control";
 import { HostAccessSwitch } from "@/components/org-admin";
+import { EffectiveAccess } from "@/components/effective-access";
 import { EditBotDialog } from "@/components/bot-dialog";
 import { APPROVAL_MODE_HELP, AutoApproveField } from "@/components/bot-fields";
 import { BotHomeField } from "@/components/department/bot-home";
@@ -255,6 +256,7 @@ export function AccessTab({ bot }: { bot: ProfileInfo }) {
   };
   return (
     <div className="flex flex-col gap-4">
+      <EffectiveAccess bot={bot} />
       <SectionHeader title="Who approves its steps" />
       {error !== null && <ErrorState message={error} />}
       <ApprovalModeChoice
