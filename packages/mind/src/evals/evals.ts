@@ -41,6 +41,8 @@ export interface EvalsService {
   readonly onChange: (fn: () => void) => () => void;
   /** Mark runs a restart cut as failed (boot). */
   readonly recover: () => Promise<void>;
+  /** True for a test replay's conversation (its model requests are background work). */
+  readonly isReplay: (conversationId: string) => Promise<boolean>;
 }
 
 export type EvalsDeps = CaptureDeps &
@@ -186,5 +188,6 @@ export const evalsService = (deps: EvalsDeps): EvalsService => {
         })),
       );
     },
+    isReplay: (conversationId) => deps.guard.isReplay(conversationId),
   };
 };

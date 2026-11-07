@@ -40,6 +40,7 @@ import {
 } from "./catalog-cache.ts";
 import { applyKenari, parseKenariListing } from "./kenari.ts";
 import { gateModels } from "./gate.ts";
+import { modelLanes, type ModelLanes } from "./lanes.ts";
 import { bySpecOrder, compactionFor, normalizeRef, specOf, type ModelSpec } from "./refs.ts";
 import { providerOf, type EnvLookup, type WireOptions } from "./wire.ts";
 import { embeddingEndpointOf, type EmbeddingEndpoint } from "./embedding-endpoint.ts";
@@ -63,6 +64,8 @@ export interface CatalogStatus {
 export interface ModelCatalogService {
   /** The pi-ai collection every faculty calls through (gated). */
   readonly models: Models;
+  /** Which requests are the owner's and which are background work (the gate's lanes). */
+  readonly lanes: ModelLanes;
   /** Selectable models of the configured providers, in picker order. */
   readonly list: () => readonly ModelSpec[];
   /** One model by ref (legacy bare ids resolve too). */
@@ -156,7 +159,8 @@ export const createCatalog = async (
 ): Promise<ModelCatalogService & { readonly close: () => void }> => {
   const now = options.now ?? Date.now;
   const raw = createModels();
-  const models = gateModels(raw, options.concurrency);
+  const lanes = modelLanes();
+  const models = gateModels(raw, options.concurrency, lanes);
   let entry: CachedCatalog | undefined = await readCache(options.cachePath);
   let source: CatalogStatus["source"] = entry !== undefined ? "cache" : "none";
   let error: string | null = null;
@@ -254,6 +258,7 @@ export const createCatalog = async (
 
   return {
     models,
+    lanes,
     list: () => installed.specs,
     find: (ref) => installed.byRef.get(normalizeRef(ref)),
     defaultRef: () => defaultRefOf(installed, options.preferred),

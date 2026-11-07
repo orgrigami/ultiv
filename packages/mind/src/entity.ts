@@ -75,6 +75,7 @@ import { Decide, decideLayer } from "./decide/decide.ts";
 import { wireEvals } from "./evals/wire.ts";
 import { wireProjects } from "./projects/wire.ts";
 import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
+import { lanesExtension } from "./providers/lanes.ts";
 import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
 import type { MindService } from "./entity-api.ts";
@@ -313,6 +314,16 @@ const mindLayerRaw = (
       const projects = wireProjects(piRegistry, { converse, profiles, audit });
       const evals = yield* Effect.promise(() =>
         wireEvals(piRegistry, { converse, profiles, decide, models }),
+      );
+      // Model lanes: the owner's chats first; tasks and test replays are
+      // background work that always leaves the owner a slot (providers/gate.ts).
+      piRegistry.install(
+        lanesExtension(models.lanes, async (conversationId) =>
+          profiles.scopeOf(conversationId)?.kind === "task" ||
+          (await evals.isReplay(conversationId))
+            ? "background"
+            : "owner",
+        ),
       );
       converse.resume();
       return {

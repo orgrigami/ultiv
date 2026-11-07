@@ -132,3 +132,48 @@ describe("gateModels (stream contract)", () => {
     expect(meter.peak).toBe(1);
   });
 });
+
+describe("Gate lanes (the owner first)", () => {
+  it("keeps one slot for the owner while background work crowds in", async () => {
+    const gate = new Gate(3);
+    await gate.acquire("background");
+    await gate.acquire("background");
+    let third = false;
+    void gate.acquire("background").then(() => {
+      third = true;
+    });
+    await sleep(1);
+    expect(third).toBe(false);
+    await gate.acquire("owner");
+    expect(gate.active).toBe(3);
+  });
+
+  it("admits a waiting owner request before waiting background ones", async () => {
+    const gate = new Gate(1);
+    await gate.acquire("owner");
+    const order: string[] = [];
+    void gate.acquire("background").then(() => order.push("background"));
+    void gate.acquire("owner").then(() => order.push("owner"));
+    gate.release("owner");
+    await sleep(1);
+    expect(order).toEqual(["owner"]);
+    gate.release("owner");
+    await sleep(1);
+    expect(order).toEqual(["owner", "background"]);
+  });
+
+  it("never exceeds the limit in total", async () => {
+    const gate = new Gate(2);
+    let active = 0;
+    let peak = 0;
+    const work = (lane: "owner" | "background"): Promise<void> =>
+      gate.hold(async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await sleep(5);
+        active -= 1;
+      }, lane);
+    await Promise.all([work("background"), work("owner"), work("background"), work("owner")]);
+    expect(peak).toBe(2);
+  });
+});

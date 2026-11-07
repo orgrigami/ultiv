@@ -15,6 +15,7 @@
  * the original instance: pi-ai's class keeps private state, so receivers
  * must not change.
  */
+import type { Lane, ModelLanes } from "./lanes.ts";
 import type {
   AssistantMessageEventStream,
   Api,
@@ -23,48 +24,77 @@ import type {
   Models,
 } from "@earendil-works/pi-ai";
 
-/** A promise-land counting semaphore (FIFO). */
+/**
+ * A promise-land counting semaphore with two lanes. The owner's chats come
+ * first: a waiting owner request is admitted before any waiting background
+ * one, and background work (tasks, test replays) may hold at most
+ * `limit - 1` slots, so one slot is always left for the owner while a task
+ * crowd runs. The total never exceeds `limit`. With a limit of 1 there is no
+ * slot to keep; the owner still goes first.
+ */
 export class Gate {
   private activeCount = 0;
+  private backgroundCount = 0;
   private readonly limit: number;
-  private readonly waiters: (() => void)[] = [];
+  private readonly waiters: Record<Lane, (() => void)[]> = { owner: [], background: [] };
 
   constructor(limit: number) {
     this.limit = limit;
   }
 
   get queued(): number {
-    return this.waiters.length;
+    return this.waiters.owner.length + this.waiters.background.length;
   }
 
   get active(): number {
     return this.activeCount;
   }
 
-  async acquire(): Promise<void> {
-    if (this.activeCount < this.limit) {
-      this.activeCount += 1;
+  /** Background work may take a slot: under its own cap and no owner waiting. */
+  private backgroundFits(): boolean {
+    const cap = this.limit > 1 ? this.limit - 1 : this.limit;
+    return (
+      this.activeCount < this.limit && this.backgroundCount < cap && this.waiters.owner.length === 0
+    );
+  }
+
+  private take(lane: Lane): void {
+    this.activeCount += 1;
+    if (lane === "background") this.backgroundCount += 1;
+  }
+
+  async acquire(lane: Lane = "owner"): Promise<void> {
+    const fits = lane === "owner" ? this.activeCount < this.limit : this.backgroundFits();
+    if (fits) {
+      this.take(lane);
       return;
     }
     return new Promise<void>((resolve) => {
-      this.waiters.push(() => {
-        this.activeCount += 1;
+      this.waiters[lane].push(() => {
+        this.take(lane);
         resolve();
       });
     });
   }
 
-  release(): void {
+  release(lane: Lane = "owner"): void {
     this.activeCount -= 1;
-    this.waiters.shift()?.();
+    if (lane === "background") this.backgroundCount -= 1;
+    if (this.waiters.owner.length > 0 && this.activeCount < this.limit) {
+      this.waiters.owner.shift()?.();
+      return;
+    }
+    if (this.waiters.background.length > 0 && this.backgroundFits()) {
+      this.waiters.background.shift()?.();
+    }
   }
 
-  async hold<T>(run: () => Promise<T>): Promise<T> {
-    await this.acquire();
+  async hold<T>(run: () => Promise<T>, lane: Lane = "owner"): Promise<T> {
+    await this.acquire(lane);
     try {
       return await run();
     } finally {
-      this.release();
+      this.release(lane);
     }
   }
 }
@@ -78,7 +108,7 @@ type AnyStream = (
 type Consumable = AsyncIterable<unknown> & { readonly result: () => Promise<unknown> };
 
 /** Bind every own + prototype function of `models` to it, then gate the streams. */
-export const gateModels = (models: Models, limit: number): Models => {
+export const gateModels = (models: Models, limit: number, lanes?: ModelLanes): Models => {
   const gate = new Gate(limit);
   const bound: Record<string, unknown> = {};
   for (const source of [models, Object.getPrototypeOf(models) as object]) {
@@ -91,21 +121,21 @@ export const gateModels = (models: Models, limit: number): Models => {
   }
   // Forward every property to the original (bound to it: private fields);
   // the slot wraps `result` and each full iteration.
-  const consume = (events: Consumable): AssistantMessageEventStream =>
+  const consume = (events: Consumable, lane: Lane): AssistantMessageEventStream =>
     new Proxy(events, {
       get(target, prop) {
         if (prop === Symbol.asyncIterator) {
           return () =>
             (async function* () {
-              await gate.acquire();
+              await gate.acquire(lane);
               try {
                 yield* target;
               } finally {
-                gate.release();
+                gate.release(lane);
               }
             })();
         }
-        if (prop === "result") return () => gate.hold(() => target.result());
+        if (prop === "result") return () => gate.hold(() => target.result(), lane);
         const value = Reflect.get(target, prop, target) as unknown;
         return typeof value === "function"
           ? (value as (...args: unknown[]) => unknown).bind(target)
@@ -117,7 +147,10 @@ export const gateModels = (models: Models, limit: number): Models => {
   const gated =
     (original: AnyStream): AnyStream =>
     (model, context, options) =>
-      consume(original(model, context, options) as unknown as Consumable);
+      consume(
+        original(model, context, options) as unknown as Consumable,
+        lanes?.laneOf(options) ?? "owner",
+      );
   bound.stream = gated(streamOriginal);
   bound.streamSimple = gated(streamSimpleOriginal);
   // Instance shadow: internal `this.stream*` calls (complete/completeSimple)
