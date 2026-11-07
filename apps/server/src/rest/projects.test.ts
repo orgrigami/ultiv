@@ -59,4 +59,27 @@ describe("/api/projects", () => {
     expect((await call(mind, "harry", "DELETE", `/api/projects/${id}`)).status).toBe(200);
     await handle.close();
   });
+
+  it("lists the routines linked to each project, for their owner only", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { mind } = handle;
+    const bot = await mind.profiles.create("harry", { name: "Planner", onboard: false });
+    const started = await mind.projects.start("harry", bot.id, { title: "Move" });
+    if (!started.ok) throw new Error(started.error);
+    const main = await mind.profiles.ensureMain("harry", bot.id);
+    await mind.schedules.create({
+      sessionId: main.id,
+      schedule: "0 9 * * 1",
+      prompt: "Check the movers' quote",
+      projectId: started.project.id,
+    });
+    await mind.schedules.create({ sessionId: main.id, schedule: "0 8 * * *", prompt: "Unlinked" });
+    const rows = (await call(mind, "harry", "GET", "/api/projects")).body as {
+      work: { routines: { prompt: string }[]; tasks: unknown[] };
+    }[];
+    expect(rows[0]?.work.routines.map((job) => job.prompt)).toEqual(["Check the movers' quote"]);
+    expect(rows[0]?.work.tasks).toEqual([]);
+    expect((await call(mind, "mallory", "GET", "/api/projects")).body).toEqual([]);
+    await handle.close();
+  });
 });

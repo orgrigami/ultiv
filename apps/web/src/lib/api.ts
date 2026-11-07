@@ -38,6 +38,7 @@ import type {
   MemoryV2Line,
   MemoryV2State,
   PendingApprovalRow,
+  ProjectRow,
   PushConfig,
   RoomDetail,
   SecretStored,
@@ -53,6 +54,7 @@ export type {
   MemoryV2Proposal,
   MemoryV2State,
   PendingApprovalRow,
+  ProjectRow,
   PushConfig,
   RoomDetail,
   RoomLine,
@@ -168,8 +170,8 @@ export const api = {
     send<EvalRun>("/api/evals/run", "POST", body),
   evalRuns: (): Promise<EvalRun[]> => getJson<EvalRun[]>("/api/evals/runs"),
   /** A bot's long-running projects (its `project` tool), steered by the owner. */
-  projects: (bot?: string): Promise<ProjectInfo[]> =>
-    getJson<ProjectInfo[]>(
+  projects: (bot?: string): Promise<ProjectRow[]> =>
+    getJson<ProjectRow[]>(
       bot !== undefined ? `/api/projects?bot=${encodeURIComponent(bot)}` : "/api/projects",
     ),
   projectUpdate: (id: string, patch: ProjectOwnerPatch): Promise<ProjectInfo> =>

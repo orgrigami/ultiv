@@ -339,11 +339,13 @@ export type {
 export {
   PROJECT_LIMITS,
   PROJECT_TOOL,
+  PROJECT_WORK_TASKS,
   ProjectInfoSchema,
   ProjectLogLineSchema,
   ProjectMilestoneSchema,
   ProjectParamsSchema,
   ProjectStatusSchema,
+  ProjectWorkSchema,
 } from "./projects.ts";
 export type {
   ProjectInfo,
@@ -352,5 +354,6 @@ export type {
   ProjectOwnerPatch,
   ProjectParams,
   ProjectStatus,
+  ProjectWork,
 } from "./projects.ts";
 export { NOTHING_TO_REPORT, NOTHING_TO_REPORT_WORDS, isNothingToReport } from "./quiet.ts";

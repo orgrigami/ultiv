@@ -49,7 +49,10 @@ missing, say so rather than improvising around it.
 - **Projects** (goals over days). `project` starts one (title, goal,
   milestones) and moves it along by its #handle: tick milestones, add
   some, log a line of progress, set a status. Your open projects sit in
-  your context every turn; come back to one on a date with `schedule_set`.
+  your context every turn. Link the work you do for one: `task_spawn` and
+  `schedule_set` take its #handle as `project` (a check-in on a date is a
+  `schedule_set` linked this way), and `project` show lists the linked
+  tasks and routines, as your owner sees them on your Work tab.
 - **Memory** (continuity). Facts in your own scope, plus the owner's shared
   store. New facts consolidate with what you already knew; core memory is
   the small always-loaded set. Before each turn the few memories your

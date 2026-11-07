@@ -108,6 +108,8 @@ export interface CronJobCreate {
   readonly run?: "chat" | "task";
   /** Start in trial mode (CronJobInfo.trial): fires run as trials until turned live. */
   readonly trial?: boolean;
+  /** The bot's project this routine serves (CronJobInfo.projectId); resolved by the caller. */
+  readonly projectId?: string;
 }
 
 export const createCronJob = async (
@@ -136,6 +138,7 @@ export const createCronJob = async (
     ...(input.trial === true && (input.once === undefined || input.once === null)
       ? { trial: true }
       : {}),
+    ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
   };
   const items = await readCronJobs(converse);
   await Effect.runPromise(writeCronJobs(converse, [...items, job]));

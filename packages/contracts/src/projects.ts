@@ -57,6 +57,37 @@ export const ProjectInfoSchema = Type.Object({
 });
 export type ProjectInfo = Static<typeof ProjectInfoSchema>;
 
+/**
+ * The work linked to a project: tasks spawned for it and routines set for
+ * it (both carry `projectId`). A projection on GET /api/projects rows and in
+ * the `project` tool's `show`; never stored on the project itself.
+ */
+export const ProjectWorkSchema = Type.Object({
+  tasks: Type.Array(
+    Type.Object({
+      id: Type.String(),
+      title: Type.String(),
+      status: Type.String(),
+      createdAt: Type.Number(),
+      finishedAt: Type.Union([Type.Number(), Type.Null()]),
+    }),
+  ),
+  routines: Type.Array(
+    Type.Object({
+      id: Type.String(),
+      schedule: Type.String(),
+      once: Type.Union([Type.Number(), Type.Null()]),
+      prompt: Type.String(),
+      enabled: Type.Boolean(),
+      trial: Type.Boolean(),
+    }),
+  ),
+});
+export type ProjectWork = Static<typeof ProjectWorkSchema>;
+
+/** Linked tasks shown per project (newest first). */
+export const PROJECT_WORK_TASKS = 10;
+
 /** The `project` tool's parameters: one action per call. */
 export const ProjectParamsSchema = Type.Object({
   action: Type.Union(

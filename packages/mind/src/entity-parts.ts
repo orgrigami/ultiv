@@ -50,6 +50,7 @@ import { kvService, type KvService } from "./state/kv.ts";
 import { stateTools } from "./state/tools.ts";
 import { sensorsService, type SensorsService } from "./sensors/sensors.ts";
 import { sensorTools } from "./sensors/tools.ts";
+import { projectRefOf } from "./projects/links.ts";
 import type { GenerateService } from "./generate/generate.ts";
 import type { DecideService } from "./decide/decide.ts";
 
@@ -95,6 +96,7 @@ export const installFaculties = (
 ): void => {
   const { act, tasks, profiles, rooms, mailbox, memory, schedules, receipts } = f;
   const { webhooks, state, sensors, history } = f;
+  const projectRef = projectRefOf(f.converse);
   piRegistry.install(act.extension());
   piRegistry.install(codemodeExtension());
   piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.departmentInstructions));
@@ -119,6 +121,7 @@ export const installFaculties = (
     defineExtension({
       name: "ultius.mind.tasks",
       tools: taskTools(tasks, profiles, {
+        projectRef,
         ...(f.knownModel !== undefined ? { knownModel: f.knownModel } : {}),
         outsideTurn: async (conversationId) =>
           turnIsOutside(
@@ -163,7 +166,7 @@ export const installFaculties = (
   piRegistry.install(
     defineExtension({
       name: "ultius.mind.schedules",
-      tools: scheduleTools(schedules, profiles),
+      tools: scheduleTools(schedules, profiles, projectRef),
     }),
   );
   piRegistry.install(

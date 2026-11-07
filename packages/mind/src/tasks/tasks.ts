@@ -69,6 +69,8 @@ export interface TasksService {
     readonly report?: "wake" | "note";
     /** A JSON Schema the result must match (structured.ts); checked by the caller. */
     readonly resultSchema?: Json;
+    /** The bot's project the task works toward (projects/links.ts); resolved by the caller. */
+    readonly projectId?: string;
   }) => Effect.Effect<TaskInfo, External>;
   readonly get: (id: string) => Effect.Effect<TaskInfo | undefined, External>;
   readonly list: () => Effect.Effect<TaskList, External>;
@@ -365,6 +367,7 @@ const spawnTask =
           : {}),
         ...(input.report === "note" ? { report: "note" as const } : {}),
         ...(input.resultSchema !== undefined ? { resultSchema: input.resultSchema } : {}),
+        ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
       };
       yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
         writeTasks(rt.converse, [...tasks, task]),

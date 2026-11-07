@@ -1,13 +1,17 @@
 /**
  * Projects (`mind.projects`), read and steered by the owner:
- *   GET    /api/projects[?bot=]   the owner's projects, newest change first
+ *   GET    /api/projects[?bot=]   the owner's projects, newest change first, each with
+ *                                 `work`: the tasks and routines linked to it
  *   PATCH  /api/projects/:id      { status?, done?, undone?, note? } — logged as the owner's
  *   DELETE /api/projects/:id
  * Bots start and update projects through their `project` tool. Another
  * owner's project answers exactly like a missing one.
  */
+import { Effect } from "effect";
 import { Value } from "typebox/value";
 import { ProjectStatusSchema, type ProjectOwnerPatch } from "@spriessen/contracts";
+import { projectWork } from "@spriessen/mind";
+import { canSeeTask } from "./can.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
 const numbers = (value: unknown): boolean =>
@@ -24,7 +28,21 @@ export async function projectRoutes(args: RouteArgs): Promise<boolean> {
   const { mind, json, path } = args;
   const method = args.req.method ?? "GET";
   if (path === "/api/projects" && method === "GET") {
-    json(200, await mind.projects.list(args.owner, queryOr(args, "bot")));
+    const projects = await mind.projects.list(args.owner, queryOr(args, "bot"));
+    if (projects.length === 0) {
+      json(200, []);
+      return true;
+    }
+    // Only work the owner may see: their tasks, and routines of their own bots.
+    const tasks = (await Effect.runPromise(mind.tasks.list())).filter((task) =>
+      canSeeTask(args.owner, task),
+    );
+    const bots = new Set(projects.map((project) => project.profileId));
+    const jobs = (await mind.schedules.list()).filter((job) => bots.has(job.profile));
+    json(
+      200,
+      projects.map((project) => ({ ...project, work: projectWork(project.id, tasks, jobs) })),
+    );
     return true;
   }
   const one = /^\/api\/projects\/([^/]+)$/.exec(path);

@@ -5,7 +5,16 @@
  * secure-input replies. api.ts re-exports them.
  */
 
-import type { ArtifactSource, RoomInfo, WaitingApproval } from "@spriessen/contracts";
+import type {
+  ArtifactSource,
+  ProjectInfo,
+  ProjectWork,
+  RoomInfo,
+  WaitingApproval,
+} from "@spriessen/contracts";
+
+/** One row of GET /api/projects: the project plus the tasks and routines linked to it. */
+export type ProjectRow = ProjectInfo & { work?: ProjectWork };
 
 export interface SecretStored {
   ok: boolean;

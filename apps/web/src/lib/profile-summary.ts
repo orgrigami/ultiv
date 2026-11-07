@@ -96,8 +96,8 @@ export function cardLine(tab: string, counts: ProfileCounts, bot: ProfileFacts):
       return counts.projects === undefined
         ? "Goals it works toward over days"
         : counts.projects === 0
-          ? "No open projects"
-          : `${plural(counts.projects, "open project", "open projects")}`;
+          ? "No open goals"
+          : `${plural(counts.projects, "open goal", "open goals")}`;
     case "tests":
       return counts.tests === undefined
         ? "Saved messages replayed to catch regressions"

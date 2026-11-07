@@ -45,6 +45,8 @@ export const CronJobInfoSchema = Type.Object({
   trial: Type.Optional(Type.Boolean()),
   /** The latest trials, oldest first (at most TRIALS_KEPT). */
   trials: Type.Optional(Type.Array(RoutineTrialSchema)),
+  /** The bot's project this routine serves (schedule_set `project`); its task fires carry it too. */
+  projectId: Type.Optional(Type.String()),
 });
 
 export type CronJobInfo = Static<typeof CronJobInfoSchema>;

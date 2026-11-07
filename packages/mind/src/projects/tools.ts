@@ -12,18 +12,29 @@ import { defineTool } from "@spriessen/ext";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
+import type { ProjectWork } from "@spriessen/contracts";
+import { workText } from "./links.ts";
 import { isOpen, projectLine, projectText, resolveProject } from "./rules.ts";
 import type { ProjectsService } from "./service.ts";
+
+/** The tasks and routines linked to a project (links.ts `projectWork`). */
+export type WorkOf = (projectId: string) => Promise<ProjectWork>;
 
 export const PROJECT_DESCRIPTION =
   "Track a goal you work on over days. `start` it with a title, the goal and its milestones; " +
   "then `update` it as you go (tick milestones by number, `add` new ones, a one-line `note` " +
   "for the log, a `status`: active, paused, done, dropped). Your open projects are listed in " +
-  "your context every turn. To come back to one on a date, use schedule_set.";
+  "your context every turn. Link the work you do for one: task_spawn and schedule_set take " +
+  "its #handle as `project`, and `show` lists the linked tasks and routines.";
 
 type Scope = { owner: string; profileId: string };
 
-const act = async (projects: ProjectsService, scope: Scope, args: ProjectParams) => {
+const act = async (
+  projects: ProjectsService,
+  scope: Scope,
+  args: ProjectParams,
+  workOf: WorkOf | undefined,
+) => {
   const mine = await projects.list(scope.owner, scope.profileId);
   if (args.action === "list") {
     const shown = mine.filter((p) => p.status !== "dropped").slice(0, 10);
@@ -39,7 +50,10 @@ const act = async (projects: ProjectsService, scope: Scope, args: ProjectParams)
   }
   const found = resolveProject(mine, args.id);
   if (typeof found === "string") return textReply(found, true);
-  if (args.action === "show") return textReply(projectText(found));
+  if (args.action === "show") {
+    const work = workOf === undefined ? [] : workText(await workOf(found.id));
+    return textReply([projectText(found), ...work].join("\n"));
+  }
   const outcome = await projects.change(scope.owner, found.id, args, "bot");
   if (outcome === undefined || !outcome.ok) {
     return textReply(
@@ -53,7 +67,11 @@ const act = async (projects: ProjectsService, scope: Scope, args: ProjectParams)
   };
 };
 
-const projectTool = (projects: ProjectsService, profiles: ProfilesService) =>
+const projectTool = (
+  projects: ProjectsService,
+  profiles: ProfilesService,
+  workOf: WorkOf | undefined,
+) =>
   defineTool({
     name: PROJECT_TOOL,
     description: PROJECT_DESCRIPTION,
@@ -61,7 +79,7 @@ const projectTool = (projects: ProjectsService, profiles: ProfilesService) =>
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) return textReply("this conversation belongs to no bot", true);
-      return act(projects, scope, args);
+      return act(projects, scope, args, workOf);
     },
   });
 
@@ -69,8 +87,9 @@ export const projectTools = (
   projects: ProjectsService,
   profiles: ProfilesService,
   audit: AuditService | undefined,
+  workOf?: WorkOf,
 ): ToolRegistration[] => {
-  const tool = projectTool(projects, profiles) as unknown as ToolRegistration;
+  const tool = projectTool(projects, profiles, workOf) as unknown as ToolRegistration;
   const profileOf = (conversationId: string) => profiles.profileOf(conversationId)?.id ?? null;
   return [audit === undefined ? tool : withAudit(audit, tool, profileOf)];
 };

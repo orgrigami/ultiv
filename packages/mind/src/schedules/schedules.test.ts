@@ -4,6 +4,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "../entity.ts";
 import { isValidJobStart, isValidSchedule, schedulesService } from "./schedules.ts";
 import { scheduleTools } from "./tools.ts";
+import { projectRefOf } from "../projects/links.ts";
 
 describe("Schedules faculty (offline, MemoryStorage)", () => {
   it("validates cron expressions and future one-shots", () => {
@@ -58,6 +59,39 @@ describe("Schedules faculty (offline, MemoryStorage)", () => {
     const after = await schedules.list();
     expect(after).toHaveLength(1);
     expect(after[0]?.schedule).toBe("30 9 * * 1");
+    await handle.close();
+  });
+
+  it("links a schedule to one of the bot's open projects by handle", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { converse, profiles, schedules, projects } = handle.mind;
+    const bot = await profiles.create("harry", { name: "Edison", onboard: false });
+    const other = await profiles.create("harry", { name: "Tesla", onboard: false });
+    const mine = await projects.start("harry", bot.id, { title: "Launch" });
+    const theirs = await projects.start("harry", other.id, { title: "Theirs" });
+    if (!mine.ok || !theirs.ok) throw new Error("projects did not start");
+    const main = await profiles.ensureMain("harry", bot.id);
+    const conversation = await Effect.runPromise(
+      converse.ensure(await profiles.keyForSession("harry", main.id)),
+    );
+    const [set] = scheduleTools(schedules, profiles, projectRefOf(converse));
+    if (set === undefined) throw new Error("missing schedule tools");
+    const api = { conversationId: String(conversation.id) } as never;
+    const handleOf = (id: string) => `#${id.slice(0, 8)}`;
+    const linked = await set.execute(
+      { prompt: "check in", schedule: "0 9 * * 1", project: handleOf(mine.project.id) },
+      api,
+      {} as never,
+    );
+    expect(linked.isError).toBeUndefined();
+    const foreign = await set.execute(
+      { prompt: "x", schedule: "0 9 * * 1", project: handleOf(theirs.project.id) },
+      api,
+      {} as never,
+    );
+    expect(foreign.isError).toBe(true);
+    expect(JSON.stringify(foreign.output)).toContain("among your open projects");
+    expect((await schedules.list()).map((job) => job.projectId)).toEqual([mine.project.id]);
     await handle.close();
   });
 

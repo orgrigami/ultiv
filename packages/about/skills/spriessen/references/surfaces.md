@@ -25,9 +25,10 @@ and pages). The rest open from them.
   Find): every session, rereadable and searchable. Your words and tool
   receipts are both in there. Write as if it will be reread, because it will.
 - **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
-  (its Persona and Instructions files, with history), Memory, Projects
-  (its goals over days; your owner ticks milestones and pauses or drops
-  them there), Routines,
+  (its Persona and Instructions files, with history), Memory, Work
+  (what it is running now, its goals over days with the tasks and
+  routines linked to each, and its routines; your owner ticks milestones
+  and pauses or drops goals there), Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
   Files (its own workspace), Activity (its audit trail) and Tests (your
   messages saved as tests, replayed on its current setup with tools blocked

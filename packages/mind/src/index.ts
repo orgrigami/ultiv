@@ -92,3 +92,4 @@ export { EvalsDoc } from "./evals/store.ts";
 export { REPLAY_BLOCK } from "./evals/guard.ts";
 export * from "./projects/service.ts";
 export { handleOf as projectHandleOf, projectLine } from "./projects/rules.ts";
+export { projectWork } from "./projects/links.ts";

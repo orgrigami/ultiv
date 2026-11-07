@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import type { TaskInfo } from "@spriessen/contracts";
 import { taskTools } from "../act/task-tools.ts";
+import { projectRefOf } from "../projects/links.ts";
 import { openMind } from "../entity.ts";
 import { stepLine } from "./steps.ts";
 import { MAX_RUNNING_TASKS, TasksDoc } from "./tasks.ts";
@@ -50,6 +51,29 @@ describe("Task limits and status", () => {
     const status = JSON.stringify(await call("task_status", { id: "r0" }));
     expect(status).toContain('"steps"');
     expect(status).toContain("work r0");
+    await handle.close();
+  });
+
+  it("refuses a spawn for a project that is not the bot's own open one", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { converse, profiles, projects } = handle.mind;
+    const bot = await profiles.create("harry", { name: "Scout", onboard: false });
+    const closed = await projects.start("harry", bot.id, { title: "Old" });
+    if (!closed.ok) throw new Error(closed.error);
+    await projects.change("harry", closed.project.id, { status: "done" }, "owner");
+    const main = await Effect.runPromise(
+      converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", bot.id))),
+    );
+    const tools = taskTools(handle.mind.tasks, profiles, { projectRef: projectRefOf(converse) });
+    const spawn = tools.find((tool) => tool.name === "task_spawn")!;
+    const refused = await spawn.execute(
+      { prompt: "go", project: `#${closed.project.id.slice(0, 8)}` } as never,
+      { conversationId: main.id } as never,
+      undefined as never,
+    );
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(refused.output)).toContain("among your open projects");
+    expect(await Effect.runPromise(handle.mind.tasks.list())).toEqual([]);
     await handle.close();
   });
 

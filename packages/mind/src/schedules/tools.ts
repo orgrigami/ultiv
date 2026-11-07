@@ -10,6 +10,7 @@ import { defineTool, type Tool } from "@spriessen/ext";
 import type { CronJobInfo } from "@spriessen/contracts";
 import { isValidJobStart, nextFireTimes, type SchedulesService } from "./schedules.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
+import type { ProjectRef } from "../projects/links.ts";
 
 const scopeOfOrNone = (profiles: ProfilesService, conversationId: string) =>
   profiles.scopeOf(conversationId);
@@ -61,6 +62,13 @@ const SetParams = Type.Object({
         "next boundary (steer), waits for it to end (followUp), or is refused (reject).",
     }),
   ),
+  project: Type.Optional(
+    Type.String({
+      description:
+        "The #handle of your open project this routine serves (a check-in, a weekly step); " +
+        "the project's show then lists it.",
+    }),
+  ),
   trial: Type.Optional(
     Type.Boolean({
       description:
@@ -71,7 +79,16 @@ const SetParams = Type.Object({
   ),
 });
 
-const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =>
+const refused = (text: string) => ({
+  output: [{ type: "text" as const, text }],
+  isError: true as const,
+});
+
+const setTool = (
+  schedules: SchedulesService,
+  profiles: ProfilesService,
+  projectRef: ProjectRef | undefined,
+): Tool =>
   defineTool({
     name: "schedule_set",
     gated: true,
@@ -100,7 +117,14 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
           once !== null
             ? "refused: `once` must be a future epoch-ms timestamp."
             : `refused: invalid cron expression "${schedule}".`;
-        return { output: [{ type: "text" as const, text: reason }], isError: true as const };
+        return refused(reason);
+      }
+      let projectId: string | undefined;
+      if (args.project !== undefined && args.project.trim() !== "") {
+        if (projectRef === undefined) return refused("refused: projects are not available here");
+        const target = await projectRef(scope, args.project);
+        if (typeof target === "string") return refused(`refused: ${target}`);
+        projectId = target.id;
       }
       const main = await profiles.ensureMain(scope.owner, scope.profileId);
       const job = await schedules.create({
@@ -111,6 +135,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
         ...(args.whenBusy !== undefined ? { whenBusy: args.whenBusy } : {}),
         run: args.run ?? "task",
         ...(args.trial === true ? { trial: true } : {}),
+        ...(projectId !== undefined ? { projectId } : {}),
       });
       // Creation-time preview: the author verifies "daily 9am" in the
       // profile's timezone BEFORE trusting the schedule.
@@ -219,8 +244,9 @@ const removeTool = (schedules: SchedulesService, profiles: ProfilesService): Too
 export const scheduleTools = (
   schedules: SchedulesService,
   profiles: ProfilesService,
+  projectRef?: ProjectRef,
 ): readonly Tool[] => [
-  setTool(schedules, profiles),
+  setTool(schedules, profiles, projectRef),
   listTool(schedules, profiles),
   removeTool(schedules, profiles),
 ];

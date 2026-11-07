@@ -20,6 +20,7 @@ import type { ProfilesService } from "../profiles/profiles.ts";
 import { messageTool, notifyTool, tasksVisibleTo, textReply } from "./task-live.ts";
 import { backgroundModelFor } from "../tasks/model.ts";
 import { resultSchemaProblem } from "../tasks/structured.ts";
+import type { ProjectRef } from "../projects/links.ts";
 import type { Json } from "@spriessen/contracts";
 
 const SpawnParams = Type.Object({
@@ -45,6 +46,13 @@ const SpawnParams = Type.Object({
   ),
   effort: Type.Optional(
     Type.String({ description: "Reasoning effort for this task only, e.g. low or high." }),
+  ),
+  project: Type.Optional(
+    Type.String({
+      description:
+        "The #handle of your open project this task works toward; the project's show then " +
+        "lists it.",
+    }),
   ),
   result_schema: Type.Optional(
     Type.Object(
@@ -75,11 +83,27 @@ const REFUSE_NESTED =
  */
 export type OutsideTurn = (conversationId: string) => Promise<boolean>;
 
+/** A spawn's `project` handle → the project id, or the refusal sentence. */
+const linkOf = async (
+  profiles: ProfilesService,
+  projectRef: ProjectRef | undefined,
+  spawning: string,
+  ref: string | undefined,
+): Promise<{ projectId?: string } | string> => {
+  if (ref === undefined || ref.trim() === "") return {};
+  const scope = profiles.scopeOf(spawning);
+  if (projectRef === undefined || scope === undefined)
+    return "refused: projects are not available here";
+  const target = await projectRef(scope, ref);
+  return typeof target === "string" ? `refused: ${target}` : { projectId: target.id };
+};
+
 const spawnTool = (
   tasks: TasksService,
   profiles: ProfilesService,
   outsideTurn: OutsideTurn | undefined,
   knownModel: (ref: string) => boolean,
+  projectRef: ProjectRef | undefined,
 ): Tool =>
   defineTool({
     name: "task_spawn",
@@ -117,6 +141,8 @@ const spawnTool = (
       const schemaProblem =
         args.result_schema === undefined ? null : resultSchemaProblem(args.result_schema);
       if (schemaProblem !== null) return textReply(schemaProblem, true);
+      const link = await linkOf(profiles, projectRef, spawning, args.project);
+      if (typeof link === "string") return textReply(link, true);
       const outside = (await outsideTurn?.(spawning).catch(() => true)) ?? false;
       const task = await Effect.runPromise(
         tasks.spawn({
@@ -129,6 +155,7 @@ const spawnTool = (
           ...(choice.model !== undefined ? { model: choice.model } : {}),
           // Tool arguments arrive as parsed JSON.
           ...(args.result_schema !== undefined ? { resultSchema: args.result_schema as Json } : {}),
+          ...link,
         }),
       );
       return {
@@ -214,9 +241,17 @@ export const taskTools = (
     readonly outsideTurn?: OutsideTurn | undefined;
     /** The live catalog check for a task's model; absent (bare tests): every ref passes. */
     readonly knownModel?: (ref: string) => boolean;
+    /** Resolves `project` handles (projects/links.ts); absent: a `project` is refused. */
+    readonly projectRef?: ProjectRef;
   } = {},
 ): readonly Tool[] => [
-  spawnTool(tasks, profiles, options.outsideTurn, options.knownModel ?? (() => true)),
+  spawnTool(
+    tasks,
+    profiles,
+    options.outsideTurn,
+    options.knownModel ?? (() => true),
+    options.projectRef,
+  ),
   statusTool(tasks),
   cancelTool(tasks),
   listTool(tasks, profiles),

@@ -64,6 +64,8 @@ export const TaskInfoSchema = Type.Object({
    * task's reply never matched (the raw text stays in `result`).
    */
   structured: Type.Optional(JsonSchema),
+  /** The bot's project this task works toward (task_spawn `project`, or its routine's). */
+  projectId: Type.Optional(Type.String()),
   /** The latest step of a running task, as a plain line (list responses only, never stored). */
   lastStep: Type.Optional(Type.String()),
 });

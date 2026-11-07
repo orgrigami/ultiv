@@ -1,18 +1,23 @@
 /**
- * A bot's Projects tab (Crew › Projects): the goals it works toward over
- * days. Each card shows the goal, the milestones (tick or untick them
- * yourself), its latest log lines, and status actions: pause or resume,
- * mark done, drop, remove. Your changes are logged as yours, and the bot
- * sees them in its open-projects list on its next turn. Refreshes on the
- * `projects` live signal.
+ * A bot's Work tab (Crew › Work, `?tab=projects`): what it is doing now and
+ * what for. Running tasks first, then its goals (projects) over days: each
+ * card shows the goal, the milestones (tick or untick them yourself), the
+ * tasks and routines linked to it, its latest log lines, and status actions:
+ * pause or resume, mark done, drop, remove. Your changes are logged as
+ * yours, and the bot sees them in its open-projects list on its next turn.
+ * Its routines close the tab. Refreshes on the `projects` and `tasks` signals.
  */
 import { useState } from "react";
 import type { ProfileInfo, ProjectInfo, ProjectOwnerPatch } from "@spriessen/contracts";
+import { ProjectWorkList } from "@/components/project-work";
+import { BotRoutinesSummary, BotRunningWork } from "@/components/work-tab-parts";
+import type { ProjectRow } from "@/lib/api";
 import { CharacterEmpty } from "@/components/character-empty";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ErrorState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
@@ -65,7 +70,7 @@ function ProjectActions({
   );
 }
 
-function ProjectCard({ project }: { project: ProjectInfo }) {
+function ProjectCard({ project }: { project: ProjectRow }) {
   const [busy, setBusy] = useState(false);
   const done = project.milestones.filter((step) => step.done).length;
   const total = project.milestones.length;
@@ -127,33 +132,49 @@ function ProjectCard({ project }: { project: ProjectInfo }) {
           ))}
         </ul>
       )}
+      {project.work !== undefined && (
+        <ProjectWorkList work={project.work} botId={project.profileId} />
+      )}
       <ProjectActions project={project} change={change} />
     </li>
   );
 }
 
-export function ProjectsTab({ bot }: { bot: ProfileInfo }) {
-  const state = useLiveLoad<ProjectInfo[]>(
+function Goals({ bot }: { bot: ProfileInfo }) {
+  const state = useLiveLoad<ProjectRow[]>(
     `projects:${bot.id}`,
     () => api.projects(bot.id),
-    ["projects"],
-    "Projects may be out of date",
+    ["projects", "tasks", "routines"],
+    "Goals may be out of date",
   );
-  if (state.failed)
-    return <ErrorState message="Couldn't load the projects." onRetry={state.retry} />;
-  if (state.value === null) return <SkeletonRows label="Loading projects" />;
+  if (state.failed) return <ErrorState message="Couldn't load the goals." onRetry={state.retry} />;
+  if (state.value === null) return <SkeletonRows label="Loading goals" />;
   if (state.value.length === 0)
     return (
-      <CharacterEmpty bot={bot} title="No projects yet">
+      <CharacterEmpty bot={bot} title="No goals yet">
         Ask {bot.name} to take on something that takes days, like "plan the move by March". It keeps
-        the goal and milestones here and works through them across chats.
+        the goal and milestones here, links the tasks and routines it runs for it, and works through
+        them across chats.
       </CharacterEmpty>
     );
   return (
-    <ul aria-label="Projects" className="flex flex-col gap-3">
+    <ul aria-label="Goals" className="flex flex-col gap-3">
       {state.value.map((project) => (
         <ProjectCard key={project.id} project={project} />
       ))}
     </ul>
+  );
+}
+
+export function ProjectsTab({ bot }: { bot: ProfileInfo }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <BotRunningWork bot={bot} />
+      <section aria-label="Goals" className="flex flex-col gap-2">
+        <SectionHeader title="Goals" />
+        <Goals bot={bot} />
+      </section>
+      <BotRoutinesSummary bot={bot} />
+    </div>
   );
 }

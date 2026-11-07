@@ -46,7 +46,7 @@ export const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "instructions", label: "Instructions" },
   { id: "memory", label: "Memory" },
-  { id: "projects", label: "Projects" },
+  { id: "projects", label: "Work" },
   { id: "routines", label: "Routines" },
   { id: "access", label: "Access" },
   { id: "files", label: "Files" },

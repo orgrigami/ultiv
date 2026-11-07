@@ -36,7 +36,13 @@ export const catalogKnows =
 /** Run a routine's prompt as a background task reporting into `sessionId`'s chat. */
 export const spawnBackgroundRoutine = async (
   deps: BackgroundDeps,
-  input: { readonly sessionId: string; readonly prompt: string; readonly title: string },
+  input: {
+    readonly sessionId: string;
+    readonly prompt: string;
+    readonly title: string;
+    /** The routine's project link, carried onto its task. */
+    readonly projectId?: string | undefined;
+  },
 ): Promise<TaskInfo> => {
   const row = await deps.profiles.rowOf(input.sessionId);
   if (row === undefined) throw new NotFound({ what: `session ${input.sessionId}` });
@@ -55,6 +61,7 @@ export const spawnBackgroundRoutine = async (
       title: input.title,
       report: "note",
       ...(choice.model !== undefined ? { model: choice.model } : {}),
+      ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
     }),
   );
 };

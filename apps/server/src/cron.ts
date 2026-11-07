@@ -95,19 +95,25 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
         });
         return;
       }
+      // A routine set for a project says so, by the handle the bot knows it by.
+      const lead =
+        job.projectId !== undefined
+          ? `[cron ${job.id}] (project #${job.projectId.slice(0, 8)})`
+          : `[cron ${job.id}]`;
       if (job.run === "task") {
         // A background routine: a task on the bot's background model, its
         // result posted into the main chat as a note (no main-chat turn).
         await spawnBackgroundRoutine(mind, {
           sessionId: job.sessionId,
-          prompt: `[cron ${job.id}] ${job.prompt}`,
+          prompt: `${lead} ${job.prompt}`,
           title: `Routine: ${job.prompt}`.slice(0, 40),
+          projectId: job.projectId,
         });
       } else {
         await deliverToSession(
           mind,
           job.sessionId,
-          `[cron ${job.id}] ${job.prompt}`,
+          `${lead} ${job.prompt}`,
           job.whenBusy ?? "steer",
           "cron",
         );
