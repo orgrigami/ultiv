@@ -80,6 +80,21 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
       source: "cron",
     });
     try {
+      if (job.trial === true && (job.once === undefined || job.once === null)) {
+        // Trial mode (recurring jobs only): the run holds back every action
+        // and only records what it would have done (mind routines/trial.ts).
+        // No chat is woken.
+        const trial = await mind.trials.runCron(job);
+        if (trial.error !== null) throw new Error(trial.error);
+        await settleRoutineEvent(mind.converse, eventId, "trial");
+        await setJobOutcome(mind, job.id, {
+          lastRunAt: Date.now(),
+          lastError: null,
+          failuresReset: true,
+          fired: true,
+        });
+        return;
+      }
       if (job.run === "task") {
         // A background routine: a task on the bot's background model, its
         // result posted into the main chat as a note (no main-chat turn).

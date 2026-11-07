@@ -106,6 +106,8 @@ export interface CronJobCreate {
   readonly whenBusy?: "steer" | "followUp" | "reject";
   /** Where a fire runs (CronJobInfo.run); absent = "chat". */
   readonly run?: "chat" | "task";
+  /** Start in trial mode (CronJobInfo.trial): fires run as trials until turned live. */
+  readonly trial?: boolean;
 }
 
 export const createCronJob = async (
@@ -130,6 +132,10 @@ export const createCronJob = async (
     lastFiredAt: null,
     ...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
     ...(input.run !== undefined ? { run: input.run } : {}),
+    // Trial mode is for recurring jobs: a one-shot's single fire is the real one.
+    ...(input.trial === true && (input.once === undefined || input.once === null)
+      ? { trial: true }
+      : {}),
   };
   const items = await readCronJobs(converse);
   await Effect.runPromise(writeCronJobs(converse, [...items, job]));
@@ -141,6 +147,51 @@ export const removeCronJob = async (converse: ConverseService, id: string): Prom
   const remaining = items.filter((job) => job.id !== id);
   if (remaining.length === items.length) return false;
   await Effect.runPromise(writeCronJobs(converse, remaining));
+  return true;
+};
+
+/**
+ * Turn a job's trial mode on or off. Live drops the flag (absent = live);
+ * the trials it ran stay on the row. False when there is no such job, or
+ * when asked to make a one-shot a trial.
+ */
+export const setCronTrial = async (
+  converse: ConverseService,
+  id: string,
+  trial: boolean,
+): Promise<boolean> => {
+  const items = await readCronJobs(converse);
+  const target = items.find((job) => job.id === id);
+  if (target === undefined) return false;
+  // A one-shot cannot be a trial: its single fire is the real one.
+  if (trial && target.once !== undefined && target.once !== null) return false;
+  await Effect.runPromise(
+    writeCronJobs(
+      converse,
+      items.map((job) => {
+        if (job.id !== id) return job;
+        const { trial: _was, ...rest } = job;
+        return trial ? { ...rest, trial: true } : rest;
+      }),
+    ),
+  );
+  return true;
+};
+
+/** Pause or resume a job. False when there is no such job. */
+export const setCronEnabled = async (
+  converse: ConverseService,
+  id: string,
+  enabled: boolean,
+): Promise<boolean> => {
+  const items = await readCronJobs(converse);
+  if (!items.some((job) => job.id === id)) return false;
+  await Effect.runPromise(
+    writeCronJobs(
+      converse,
+      items.map((job) => (job.id === id ? { ...job, enabled } : job)),
+    ),
+  );
   return true;
 };
 

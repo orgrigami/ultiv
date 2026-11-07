@@ -10,7 +10,7 @@ import type { ProfilesService } from "../profiles/profiles.ts";
 import type { ModelCatalogService } from "../providers/models.ts";
 import { catalogKnows } from "../tasks/background.ts";
 import { evalsService, type EvalsService } from "./evals.ts";
-import { replayGuard, replayGuardExtension } from "./guard.ts";
+import { replayGuard, replayGuardExtension, type ReplayGuard } from "./guard.ts";
 
 export const wireEvals = async (
   registry: Registry,
@@ -20,7 +20,7 @@ export const wireEvals = async (
     readonly decide: DecideService;
     readonly models: Pick<ModelCatalogService, "list" | "find">;
   },
-): Promise<EvalsService> => {
+): Promise<{ readonly evals: EvalsService; readonly guard: ReplayGuard }> => {
   const guard = replayGuard(parts.converse);
   registry.install(replayGuardExtension(guard));
   const evals = evalsService({
@@ -31,5 +31,6 @@ export const wireEvals = async (
     knownModel: catalogKnows(parts.models),
   });
   await evals.recover().catch((cause: unknown) => console.error("eval recover failed:", cause));
-  return evals;
+  // The same dry-run guard holds routine trials (routines/trial.ts).
+  return { evals, guard };
 };

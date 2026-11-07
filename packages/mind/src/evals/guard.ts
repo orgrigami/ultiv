@@ -1,6 +1,6 @@
 /**
- * The replay guard: a conversation that replays an eval case never runs a
- * tool. Every call it makes (model-issued or nested from code mode) is
+ * The dry-run guard: a conversation that replays an eval case, or runs a
+ * routine's trial (routines/trial.ts), never runs a tool. Every call it makes (model-issued or nested from code mode) is
  * blocked before execution, so nothing is written, sent, spent or put up for
  * approval; the model reads the block and answers without the result. The
  * replay list is durable (the evals doc): a replay resumed after a restart
@@ -12,8 +12,8 @@ import type { ConverseService } from "../converse/converse.ts";
 import { changeEvals, readEvals } from "./store.ts";
 
 export const REPLAY_BLOCK =
-  "[eval replay] Tools do not run while this conversation is replayed for a test. Answer as " +
-  "well as you can without the result; say what you would have done.";
+  "[dry run] Tools do not run in this conversation: it is a test replay or a routine's " +
+  "trial. Answer as well as you can without the result; say what you would have done.";
 
 export interface ReplayGuard {
   /** Mark a conversation as a replay (durable) before its first input. */

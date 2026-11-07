@@ -73,6 +73,8 @@ import { skillsService, type SkillsService } from "./skills/service.ts";
 import { Generate, generateLayer } from "./generate/generate.ts";
 import { Decide, decideLayer } from "./decide/decide.ts";
 import { wireEvals } from "./evals/wire.ts";
+import { trialsService } from "./routines/trial.ts";
+import { catalogKnows } from "./tasks/background.ts";
 import { wireProjects } from "./projects/wire.ts";
 import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
 import { lanesExtension } from "./providers/lanes.ts";
@@ -312,9 +314,15 @@ const mindLayerRaw = (
       // (connector tools join as their servers connect). One cut off too many
       // times in a row is parked instead and shows in Needs you.
       const projects = wireProjects(piRegistry, { converse, profiles, audit });
-      const evals = yield* Effect.promise(() =>
+      const { evals, guard: dryRun } = yield* Effect.promise(() =>
         wireEvals(piRegistry, { converse, profiles, decide, models }),
       );
+      const trials = trialsService({
+        converse,
+        profiles,
+        guard: dryRun,
+        knownModel: catalogKnows(models),
+      });
       // Model lanes: the owner's chats first; tasks and test replays are
       // background work that always leaves the owner a slot (providers/gate.ts).
       piRegistry.install(
@@ -328,6 +336,7 @@ const mindLayerRaw = (
       converse.resume();
       return {
         evals,
+        trials,
         projects,
         converse,
         decide,

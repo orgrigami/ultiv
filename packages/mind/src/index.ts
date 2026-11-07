@@ -34,6 +34,7 @@ export * from "./memory/tools.ts";
 export * from "./memory/tools-lifecycle.ts";
 export * from "./schedules/schedules.ts";
 export * from "./schedules/tools.ts";
+export { trialInputOf, trialKey, type TrialsService } from "./routines/trial.ts";
 export * from "./routines/receipts.ts";
 export * from "./webhooks/webhooks.ts";
 export * from "./webhooks/tools.ts";

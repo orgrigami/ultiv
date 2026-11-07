@@ -100,6 +100,7 @@ export const FIELDS: Record<string, readonly (readonly [string, string, boolean?
     ["schedule", "Schedule", true],
     ["once", "At", true],
     ["prompt", "Prompt"],
+    ["trial", "Starts as a trial"],
   ],
   schedule_remove: [["name", "Name"]],
   sensor_set: [

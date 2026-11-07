@@ -118,7 +118,22 @@ export const routines = async (parsed: Parsed): Promise<void> => {
       ? ['No routines yet. Ask a bot to do something on a schedule ("every weekday at 8, …").']
       : jobs.flatMap((job) => {
           const mark = job.enabled ? paint.green("●") : paint.dim("○ off");
-          const how = job.run === "task" ? "in the background" : "in its chat";
+          const how =
+            (job.run === "task" ? "in the background" : "in its chat") +
+            (job.trial === true ? paint.amber(" · trial (acts on nothing until live)") : "");
+          const trial = job.trials?.at(-1);
+          const tried =
+            trial === undefined
+              ? []
+              : [
+                  paint.dim(
+                    `    last trial ${ago(trial.at)}: ` +
+                      (trial.error !== null
+                        ? `couldn't run (${clip(trial.error, 60)})`
+                        : `would have used ${trial.actions.length} tool(s)` +
+                          (trial.reply.trim() !== "" ? `, said "${clip(trial.reply, 60)}"` : "")),
+                  ),
+                ];
           const last = job.lastRunAt !== null ? `last ran ${ago(job.lastRunAt)}` : "hasn't run yet";
           return [
             `${mark} ${paint.bold(scheduleOf(job))}  ${names.get(job.profile) ?? job.profile}, ${how}`,
@@ -127,6 +142,7 @@ export const routines = async (parsed: Parsed): Promise<void> => {
               `    ${last}${job.fireCount !== undefined ? ` · ${job.fireCount} fire(s)` : ""}`,
             ),
             ...(job.lastError !== null ? [paint.red(`    last error: ${job.lastError}`)] : []),
+            ...tried,
           ];
         }),
   );

@@ -14,6 +14,7 @@ import { writeClipboard } from "@/lib/clipboard";
 import { cronToText } from "@/lib/cron-text";
 import { formatDivider, formatWhen } from "@/lib/format";
 import { notifyError } from "@/lib/notify";
+import { ScheduleControls, TrialResult } from "@/components/routine-trial";
 
 export const when = (at: number | null): string => (at === null ? "never" : formatWhen(at));
 
@@ -117,11 +118,15 @@ export function ScheduleRow({
   job,
   bot,
   onDelete,
+  onChanged,
 }: {
   job: CronJobInfo;
   bot: string;
   onDelete: () => Promise<void>;
+  /** Reload after a pause, a resume or going live. */
+  onChanged: () => Promise<void>;
 }) {
+  const lastTrial = job.trials?.at(-1);
   const recurring = job.once === undefined || job.once === null;
   return (
     <RoutineRow
@@ -136,6 +141,14 @@ export function ScheduleRow({
       <Meta>
         <span>{bot}</span>
         {!job.enabled && <Badge variant="secondary">Off</Badge>}
+        {job.trial === true && (
+          <Badge
+            variant="outline"
+            title="Each run shows what it would do. Nothing is sent or changed until you go live."
+          >
+            Trial
+          </Badge>
+        )}
         {job.run === "task" && (
           <Badge variant="outline" title="Runs as a background task; the result lands in the chat">
             Background
@@ -150,6 +163,8 @@ export function ScheduleRow({
         {runs(job.fireCount ?? 0, job.lastFiredAt ?? null)}
         {job.lastError !== null && job.lastError !== "" ? `. Last error: ${job.lastError}` : ""}
       </p>
+      {lastTrial !== undefined && <TrialResult trial={lastTrial} />}
+      <ScheduleControls job={job} onChanged={onChanged} />
       {recurring && (
         <DevDetails>
           <RawValue label="Cron:" value={job.schedule} />

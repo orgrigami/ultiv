@@ -1,4 +1,8 @@
 import { Type, type Static } from "typebox";
+import { RoutineTrialSchema } from "./routine-trial.ts";
+
+export { RoutineTrialSchema, TRIALS_KEPT } from "./routine-trial.ts";
+export type { RoutineTrial, TrialAction } from "./routine-trial.ts";
 
 /** One cron trigger: a schedule that delivers a prompt into a session. */
 export const CronJobInfoSchema = Type.Object({
@@ -34,6 +38,13 @@ export const CronJobInfoSchema = Type.Object({
    * without a main-chat turn.
    */
   run: Type.Optional(Type.Union([Type.Literal("chat"), Type.Literal("task")])),
+  /**
+   * Trial mode: every fire runs as a trial (routine-trial.ts) instead of for
+   * real, until the owner turns the routine live. Absent = live.
+   */
+  trial: Type.Optional(Type.Boolean()),
+  /** The latest trials, oldest first (at most TRIALS_KEPT). */
+  trials: Type.Optional(Type.Array(RoutineTrialSchema)),
 });
 
 export type CronJobInfo = Static<typeof CronJobInfoSchema>;

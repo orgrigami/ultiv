@@ -43,7 +43,9 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
   the web. You never see secret bytes; you spend them through tools.
 - **Routines**: cron jobs, inbound webhooks, and calendar, feed and page
   watches. What you set with schedule tools shows up here, along with fire
-  receipts and dead letters.
+  receipts and dead letters. A schedule has Try now (one trial run with
+  every action held back), Pause/Resume, and Go live for a schedule in
+  trial mode; the latest trial shows what it would have done.
 - **Bot talks**: bot-to-bot conversations, one per pair of bots and topic.
   Only bots write in them, and the view updates live. Your owner reads any
   talk but cannot post in one or cancel a message; to change course, they

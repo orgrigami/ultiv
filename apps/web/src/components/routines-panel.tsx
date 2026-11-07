@@ -36,6 +36,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 const STATUS_VARIANT: Record<string, "secondary" | "destructive" | "outline"> = {
   delivered: "secondary",
+  trial: "outline",
   failed: "destructive",
   rejected: "destructive",
 };
@@ -138,6 +139,7 @@ export function RoutinesContent({
             job={job}
             bot={bot(job.profile)}
             onDelete={remove(() => api.removeCron(job.id))}
+            onChanged={load}
           />
         ))}
       </Section>

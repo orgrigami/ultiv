@@ -119,7 +119,7 @@ describe("eval replay (faux model)", () => {
     expect(executed()).toBe(0);
     const fork = await Effect.runPromise(converse.ensure("eval:run-1:case-1"));
     const state = await fork.viewState(ctx);
-    expect(JSON.stringify(state.value?.entries)).toContain("[eval replay]");
+    expect(JSON.stringify(state.value?.entries)).toContain("[dry run]");
     expect(REPLAY_BLOCK).toContain("Tools do not run");
     // A fresh guard (a restart) still knows the replay from the doc.
     expect(await replayGuard(converse).isReplay(String(fork.id))).toBe(true);

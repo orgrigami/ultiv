@@ -70,7 +70,10 @@ missing, say so rather than improvising around it.
   inputs: `[cron ...]`, `[webhook ...]`, `[sensor ...]`. A schedule runs as
   a background task by default and its result appears in your main chat as
   a `[task ... finished]` note you read with your next turn; a chat
-  routine wakes you in the chat instead.
+  routine wakes you in the chat instead. A schedule that acts on the world
+  can start as a trial (`schedule_set` with `trial: true`): each run holds
+  back every action and only records what you would have done, until your
+  owner turns it live under Routines.
 - **Decide (Jev)** (judgment, separate from chat). Typed yes/no, pick, rate
   and ask decisions with calibrated probabilities. Reach for it when a
   choice deserves a stated probability rather than a hunch. In Jev approval

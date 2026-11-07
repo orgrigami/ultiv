@@ -25,13 +25,15 @@ export const RoutineEventSchema = Type.Object({
    * accepted = durably recorded, delivery pending (the write-ahead state —
    * a receipt stuck here after a crash is a visible incomplete pair);
    * delivered = admitted into the session conversation; failed = delivery
-   * exhausted its retries; rejected = ingress refused (auth/schema/rate/size).
+   * exhausted its retries; rejected = ingress refused (auth/schema/rate/size);
+   * trial = the fire ran as a trial (every action held back, nothing woken).
    */
   status: Type.Union([
     Type.Literal("accepted"),
     Type.Literal("delivered"),
     Type.Literal("failed"),
     Type.Literal("rejected"),
+    Type.Literal("trial"),
   ]),
   /** Rejection class or failure reason; null when nothing went wrong. */
   reason: Type.Union([Type.String(), Type.Null()]),

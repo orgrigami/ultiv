@@ -5,6 +5,7 @@
  */
 
 import type { EvalsService } from "./evals/evals.ts";
+import type { TrialsService } from "./routines/trial.ts";
 import type { ProjectsService } from "./projects/service.ts";
 import type { BindingStore, McpManager, VaultStore } from "@spriessen/ext";
 import type { ApprovalsService } from "./approvals.ts";
@@ -90,6 +91,8 @@ export interface MindService {
   readonly secrets: SecretRequestsService;
   /** Behaviour tests: chat messages saved as cases, replayed and graded. */
   readonly evals: EvalsService;
+  /** Routine trials: a schedule run with every tool held back (routines/trial.ts). */
+  readonly trials: TrialsService;
   /** Goals a bot works toward over days: milestones, a log, a status. */
   readonly projects: ProjectsService;
   readonly describe: () => MindDescription;

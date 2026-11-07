@@ -23,6 +23,7 @@ const jobSummary = (job: CronJobInfo): Record<string, unknown> => ({
   lastError: job.lastError,
   fireCount: job.fireCount ?? 0,
   lastFiredAt: job.lastFiredAt ?? null,
+  ...(job.trial === true ? { trial: true } : {}),
 });
 
 const SetParams = Type.Object({
@@ -58,6 +59,14 @@ const SetParams = Type.Object({
       description:
         "Mid-turn policy (default steer): a wake landing mid-turn joins the turn at the " +
         "next boundary (steer), waits for it to end (followUp), or is refused (reject).",
+    }),
+  ),
+  trial: Type.Optional(
+    Type.Boolean({
+      description:
+        "Start as a trial: each run holds back every action and only records what you would " +
+        "have done, until your owner turns it live under Routines. Use it for routines that " +
+        "act on the world (send, post, buy, change things).",
     }),
   ),
 });
@@ -101,6 +110,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
         ...(once !== null ? { once } : {}),
         ...(args.whenBusy !== undefined ? { whenBusy: args.whenBusy } : {}),
         run: args.run ?? "task",
+        ...(args.trial === true ? { trial: true } : {}),
       });
       // Creation-time preview: the author verifies "daily 9am" in the
       // profile's timezone BEFORE trusting the schedule.
@@ -117,7 +127,9 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
             text:
               `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`}, ${job.run === "task" ? "runs as a background task reporting into" : "delivers into"} ${main.id}` +
               (next.length > 0 ? `\nnext fires: ${rendered} (verify this is what you meant)` : "") +
-              "\nyour owner sees this under Routines",
+              (job.trial === true
+                ? "\nit starts as a trial: runs record what you would do, nothing acts until your owner turns it live under Routines"
+                : "\nyour owner sees this under Routines"),
           },
         ],
         structuredOutput: { id: job.id, next },

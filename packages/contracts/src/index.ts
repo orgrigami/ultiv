@@ -216,8 +216,8 @@ export type {
   NodeAgentInbound,
   NodeAgentOutbound,
 } from "./nodes.ts";
-export { CronJobInfoSchema, CronJobListSchema } from "./cron.ts";
-export type { CronJobInfo, CronJobList } from "./cron.ts";
+export { CronJobInfoSchema, CronJobListSchema, RoutineTrialSchema, TRIALS_KEPT } from "./cron.ts";
+export type { CronJobInfo, CronJobList, RoutineTrial, TrialAction } from "./cron.ts";
 export { RoutineEventSchema, RoutineEventListSchema } from "./routines.ts";
 export type { RoutineEvent, RoutineEventList } from "./routines.ts";
 export { SensorInfoSchema, SensorListSchema } from "./sensors.ts";
