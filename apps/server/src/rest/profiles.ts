@@ -4,7 +4,7 @@
  * doc (never chord objects — chord 1.4.0 replicated CRUD desyncs on attach).
  */
 import { Effect } from "effect";
-import { taskConversationKey } from "@spriessen/mind";
+import { accessChangeText, noticeRunningWork, taskConversationKey } from "@spriessen/mind";
 import type { ProfileCreate, ProfileInfo } from "@spriessen/contracts";
 import { auditOrgFields, orgFieldsRefusal } from "./profile-org.ts";
 import { purgeBot } from "./bot-purge.ts";
@@ -119,6 +119,15 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
         patch.departmentId !== undefined;
       if (patch.model !== undefined || toolsChanged) {
         await applyAgentPreference(args, updated, toolsChanged);
+      }
+      // Work running right now hears what changed (profiles/access-notice.ts).
+      const notice = accessChangeText(owned, updated, (bot) => mind.profiles.agentFor(bot).tools);
+      if (notice !== null) {
+        await noticeRunningWork(
+          { converse: mind.converse, profiles: mind.profiles, tasks: mind.tasks },
+          updated,
+          notice,
+        ).catch((cause: unknown) => console.error("access notice failed:", cause));
       }
       json(200, updated);
     } catch (cause) {

@@ -35,6 +35,7 @@ export type SystemMessage =
     }
   | { kind: "nack"; who: string; reason: string; detail: string; envelopeId: string | null }
   | { kind: "quiet"; text: string }
+  | { kind: "access"; text: string }
   | {
       kind: "job";
       jobId: string;
@@ -191,6 +192,8 @@ export function parseSystem(text: string): SystemMessage | null {
   if (text.startsWith("[webhook ")) return parseWebhook(text);
   if (text.startsWith("[sensor ")) return parseSensor(text);
   if (text.startsWith("[job ")) return parseJob(text);
+  if (text.startsWith("[access changed] "))
+    return { kind: "access", text: text.slice("[access changed] ".length).trim() };
   const cron = /^\[cron (\S+)\]\s*/.exec(text);
   if (cron !== null)
     return { kind: "cron", jobId: cron[1] ?? "", text: text.slice(cron[0].length).trim() };

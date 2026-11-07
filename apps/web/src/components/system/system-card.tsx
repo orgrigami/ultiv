@@ -44,6 +44,8 @@ export function SystemCard({
       return <NackCard message={message} at={at} />;
     case "quiet":
       return <EventLine kind="quiet" text={message.text} at={at} />;
+    case "access":
+      return <EventLine kind="update" text={message.text} at={at} label="Access changed" />;
     case "job":
       return <JobCard message={message} at={at} />;
   }

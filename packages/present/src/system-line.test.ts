@@ -31,4 +31,10 @@ describe("systemLine", () => {
       "Background job lost in a restart: npm run build",
     );
   });
+
+  it("an access change reads as one line", () => {
+    expect(line("[access changed] Your owner changed what you may do: tools removed: bash.")).toBe(
+      "Access changed: Your owner changed what you may do: tools removed: bash.",
+    );
+  });
 });

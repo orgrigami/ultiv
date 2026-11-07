@@ -39,6 +39,11 @@ export * from "./routines/receipts.ts";
 export * from "./webhooks/webhooks.ts";
 export * from "./webhooks/tools.ts";
 export * from "./webhooks/route.ts";
+export {
+  ACCESS_NOTICE_KIND,
+  accessChangeText,
+  noticeRunningWork,
+} from "./profiles/access-notice.ts";
 export { knownThreadChat, threadChat } from "./webhooks/threads.ts";
 export * from "./state/kv.ts";
 export * from "./state/tools.ts";
