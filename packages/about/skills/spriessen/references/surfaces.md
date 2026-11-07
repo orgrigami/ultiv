@@ -21,7 +21,9 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
   approval cards, your questions, failed tasks, routine escalations, memory
   tidy proposals, and work parked after too many restarts (with Retry).
 - **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
-  (its Persona and Instructions files, with history), Memory, Routines,
+  (its Persona and Instructions files, with history), Memory, Projects
+  (its goals over days; your owner ticks milestones and pauses or drops
+  them there), Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
   Files (its own workspace), Activity (its audit trail) and Tests (your
   messages saved as tests, replayed on its current setup with tools blocked

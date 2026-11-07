@@ -73,6 +73,7 @@ import { skillsService, type SkillsService } from "./skills/service.ts";
 import { Generate, generateLayer } from "./generate/generate.ts";
 import { Decide, decideLayer } from "./decide/decide.ts";
 import { wireEvals } from "./evals/wire.ts";
+import { wireProjects } from "./projects/wire.ts";
 import { MindModels, ModelCatalog, modelsLayer } from "./providers/models.ts";
 import { MCP_EXTENSION, startMcp, mcpOptionsWithHostSwitch, type McpRuntime } from "./mcp/index.ts";
 import { hostExcludedTools, mindHostSwitchWatch, type HostSwitchWatch } from "./org/host-switch.ts";
@@ -309,12 +310,14 @@ const mindLayerRaw = (
       // Turns a restart cut off continue now, with every tool installed
       // (connector tools join as their servers connect). One cut off too many
       // times in a row is parked instead and shows in Needs you.
+      const projects = wireProjects(piRegistry, { converse, profiles, audit });
       const evals = yield* Effect.promise(() =>
         wireEvals(piRegistry, { converse, profiles, decide, models }),
       );
       converse.resume();
       return {
         evals,
+        projects,
         converse,
         decide,
         act,

@@ -1,5 +1,7 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
 import type {
+  ProjectInfo,
+  ProjectOwnerPatch,
   EvalCase,
   EvalCaseCreate,
   EvalExpect,
@@ -170,6 +172,15 @@ export const api = {
   evalStart: (body: EvalRunRequest): Promise<EvalRun> =>
     send<EvalRun>("/api/evals/run", "POST", body),
   evalRuns: (): Promise<EvalRun[]> => getJson<EvalRun[]>("/api/evals/runs"),
+  /** A bot's long-running projects (its `project` tool), steered by the owner. */
+  projects: (bot?: string): Promise<ProjectInfo[]> =>
+    getJson<ProjectInfo[]>(
+      bot !== undefined ? `/api/projects?bot=${encodeURIComponent(bot)}` : "/api/projects",
+    ),
+  projectUpdate: (id: string, patch: ProjectOwnerPatch): Promise<ProjectInfo> =>
+    send<ProjectInfo>(`/api/projects/${encodeURIComponent(id)}`, "PATCH", patch),
+  projectRemove: (id: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(`/api/projects/${encodeURIComponent(id)}`, "DELETE"),
   profiles: (): Promise<ProfileInfo[]> => getJson<ProfileInfo[]>("/api/profiles"),
   rooms: (bot?: string): Promise<RoomInfo[]> =>
     getJson<RoomInfo[]>(

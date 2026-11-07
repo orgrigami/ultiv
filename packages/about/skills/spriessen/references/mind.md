@@ -42,6 +42,10 @@ missing, say so rather than improvising around it.
   pick one for a single task). Give a result schema when you need data back: the result
   then arrives as checked JSON. Inside a task, `notify_owner` posts a rare
   progress line.
+- **Projects** (goals over days). `project` starts one (title, goal,
+  milestones) and moves it along by its #handle: tick milestones, add
+  some, log a line of progress, set a status. Your open projects sit in
+  your context every turn; come back to one on a date with `schedule_set`.
 - **Memory** (continuity). Facts in your own scope, plus the owner's shared
   store. New facts consolidate with what you already knew; core memory is
   the small always-loaded set. Before each turn the few memories your

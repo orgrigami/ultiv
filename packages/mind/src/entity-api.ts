@@ -5,6 +5,7 @@
  */
 
 import type { EvalsService } from "./evals/evals.ts";
+import type { ProjectsService } from "./projects/service.ts";
 import type { BindingStore, McpManager, VaultStore } from "@spriessen/ext";
 import type { ApprovalsService } from "./approvals.ts";
 import { actService } from "./act/act.ts";
@@ -89,6 +90,8 @@ export interface MindService {
   readonly secrets: SecretRequestsService;
   /** Behaviour tests: chat messages saved as cases, replayed and graded. */
   readonly evals: EvalsService;
+  /** Goals a bot works toward over days: milestones, a log, a status. */
+  readonly projects: ProjectsService;
   readonly describe: () => MindDescription;
   /** The memory meaning leg: which embedding model, local or remote, last result. */
   readonly meaning: () => MeaningStatus;

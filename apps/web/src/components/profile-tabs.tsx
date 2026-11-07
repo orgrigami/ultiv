@@ -9,6 +9,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
   BrainIcon,
   CalendarClockIcon,
+  FlagIcon,
   FlaskConicalIcon,
   FolderIcon,
   HistoryIcon,
@@ -45,6 +46,7 @@ export const PROFILE_TABS = [
   { id: "overview", label: "Overview" },
   { id: "instructions", label: "Instructions" },
   { id: "memory", label: "Memory" },
+  { id: "projects", label: "Projects" },
   { id: "routines", label: "Routines" },
   { id: "access", label: "Access" },
   { id: "files", label: "Files" },
@@ -57,6 +59,7 @@ export type ProfileTab = (typeof PROFILE_TABS)[number]["id"];
 export const TAB_ICON: Partial<Record<ProfileTab, LucideIcon>> = {
   instructions: ScrollTextIcon,
   memory: BrainIcon,
+  projects: FlagIcon,
   routines: CalendarClockIcon,
   access: ShieldCheckIcon,
   files: FolderIcon,

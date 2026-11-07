@@ -23,7 +23,8 @@ export type LiveKind =
   | "vault"
   | "skills"
   | "memory"
-  | "evals";
+  | "evals"
+  | "projects";
 
 type Handler = (kind: LiveKind) => void;
 

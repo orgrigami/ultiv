@@ -322,3 +322,20 @@ export type {
   EvalRun,
   EvalRunRequest,
 } from "./evals.ts";
+export {
+  PROJECT_LIMITS,
+  PROJECT_TOOL,
+  ProjectInfoSchema,
+  ProjectLogLineSchema,
+  ProjectMilestoneSchema,
+  ProjectParamsSchema,
+  ProjectStatusSchema,
+} from "./projects.ts";
+export type {
+  ProjectInfo,
+  ProjectLogLine,
+  ProjectMilestone,
+  ProjectOwnerPatch,
+  ProjectParams,
+  ProjectStatus,
+} from "./projects.ts";

@@ -82,3 +82,5 @@ export type { MeaningStatus } from "./search/embedders.ts";
 export * from "./evals/evals.ts";
 export { EvalsDoc } from "./evals/store.ts";
 export { REPLAY_BLOCK } from "./evals/guard.ts";
+export * from "./projects/service.ts";
+export { handleOf as projectHandleOf, projectLine } from "./projects/rules.ts";

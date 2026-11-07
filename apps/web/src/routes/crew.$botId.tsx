@@ -27,6 +27,7 @@ import { useApp } from "@/lib/app-state";
 import { ACTIVITY_LIMIT, tabCount, type ProfileCounts } from "@/lib/profile-summary";
 import { Heading } from "@/components/ui/heading";
 import { TestsTab } from "@/components/tests-tab";
+import { ProjectsTab } from "@/components/projects-tab";
 import {
   AccessTab,
   ActivityTab,
@@ -72,6 +73,14 @@ function useProfileCounts(botId: string, tab: ProfileTab, epoch = 0): ProfileCou
       .auditOf(botId, ACTIVITY_LIMIT)
       .then((rows) => settle({ activity: rows.length }))
       .catch(() => settle({ activity: undefined }));
+    api
+      .projects(botId)
+      .then((rows) =>
+        settle({
+          projects: rows.filter((p) => p.status === "active" || p.status === "paused").length,
+        }),
+      )
+      .catch(() => settle({ projects: undefined }));
     api
       .evals(botId)
       .then((rows) => settle({ tests: rows.length }))
@@ -251,6 +260,7 @@ function Profile({
         )}
         {active === "activity" && <ActivityTab bot={bot} />}
         {active === "tests" && <TestsTab bot={bot} />}
+        {active === "projects" && <ProjectsTab bot={bot} />}
       </div>
     </Page>
   );

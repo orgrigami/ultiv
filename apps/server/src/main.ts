@@ -177,6 +177,8 @@ export async function buildStack(options?: {
     mind.mailbox.listen(coalesce(() => liveHub.emit("mailbox"), 250)),
     // Eval runs save each graded case as it lands; one frame per burst.
     mind.evals.onChange(coalesce(() => liveHub.emit("evals"), 250)),
+    // A bot's project tool and the owner's edits both land here.
+    mind.projects.onChange(coalesce(() => liveHub.emit("projects"), 250)),
     watchRunningTasks(mind, () => liveHub.emit("tasks")).stop,
     // What bots change through their tools never passes REST: the audit
     // record of each successful call names the slice to refresh.
