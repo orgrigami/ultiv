@@ -26,6 +26,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { ACTIVITY_LIMIT, tabCount, type ProfileCounts } from "@/lib/profile-summary";
 import { Heading } from "@/components/ui/heading";
+import { TestsTab } from "@/components/tests-tab";
 import {
   AccessTab,
   ActivityTab,
@@ -71,6 +72,10 @@ function useProfileCounts(botId: string, tab: ProfileTab, epoch = 0): ProfileCou
       .auditOf(botId, ACTIVITY_LIMIT)
       .then((rows) => settle({ activity: rows.length }))
       .catch(() => settle({ activity: undefined }));
+    api
+      .evals(botId)
+      .then((rows) => settle({ tests: rows.length }))
+      .catch(() => settle({ tests: undefined }));
     return () => {
       alive = false;
     };
@@ -245,6 +250,7 @@ function Profile({
           <MemoryContent key={bot.id} profileId={bot.id} name={bot.name} tabs={["files"]} />
         )}
         {active === "activity" && <ActivityTab bot={bot} />}
+        {active === "tests" && <TestsTab bot={bot} />}
       </div>
     </Page>
   );

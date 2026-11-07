@@ -30,6 +30,7 @@ import { cronRoutes } from "./rest/cron.ts";
 import { mailboxRoutes } from "./rest/mailbox.ts";
 import { memoryRoutes, profileRoutes } from "./rest/profiles.ts";
 import { branchRoutes } from "./rest/branch.ts";
+import { evalRoutes } from "./rest/evals.ts";
 import { memoryV2Routes } from "./rest/memory-v2.ts";
 import { needsYouRoutes } from "./rest/needs-you.ts";
 import { toolRoutes } from "./rest/tools.ts";
@@ -263,6 +264,7 @@ async function route(args: RouteArgs): Promise<void> {
   }
   if (await profileRoutes(args)) return;
   if (await branchRoutes(args)) return;
+  if (await evalRoutes(args)) return;
   if (await memoryRoutes(args)) return;
   if (await memoryV2Routes(args)) return;
   if (await needsYouRoutes(args)) return;

@@ -79,3 +79,6 @@ export * from "./versions/store.ts";
 export { ownerErrorText, scrubSecrets } from "@spriessen/core";
 export { parseWhen } from "./memory/dates.ts";
 export type { MeaningStatus } from "./search/embedders.ts";
+export * from "./evals/evals.ts";
+export { EvalsDoc } from "./evals/store.ts";
+export { REPLAY_BLOCK } from "./evals/guard.ts";

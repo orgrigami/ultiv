@@ -6,11 +6,12 @@
  * and always on touch screens.
  */
 import { useState } from "react";
-import { GitBranchIcon, PencilIcon } from "lucide-react";
+import { CheckIcon, FlaskConicalIcon, GitBranchIcon, PencilIcon } from "lucide-react";
 import type { AttachmentRef } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useBranch } from "@/lib/branch";
+import { notifyError } from "@/lib/notify";
 
 const REVEAL =
   "opacity-0 group-hover/msg:opacity-100 group-focus-within/msg:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100";
@@ -42,6 +43,36 @@ export function BranchFromHere({ at }: { at: number }) {
       }}
     >
       <GitBranchIcon />
+    </Button>
+  );
+}
+
+/** "Save as test": keeps this owner message as a behaviour test of its bot. */
+function SaveAsTest({ at }: { at: number }) {
+  const actions = useBranch();
+  const [state, setState] = useState<"idle" | "busy" | "saved">("idle");
+  if (actions === null) return null;
+  return (
+    <Button
+      type="button"
+      variant="quiet"
+      size="icon-sm"
+      aria-label={state === "saved" ? "Saved as a test" : "Save as a test"}
+      title={state === "saved" ? "Saved as a test (Crew › Tests)" : "Save as a test"}
+      className={state === "saved" ? undefined : REVEAL}
+      disabled={state !== "idle"}
+      onClick={() => {
+        setState("busy");
+        actions
+          .saveTest(at)
+          .then(() => setState("saved"))
+          .catch((cause: unknown) => {
+            setState("idle");
+            notifyError("Couldn't save the test", cause);
+          });
+      }}
+    >
+      {state === "saved" ? <CheckIcon className="text-ok" /> : <FlaskConicalIcon />}
     </Button>
   );
 }
@@ -122,19 +153,22 @@ export function EditableOwnerText({
   return (
     <>
       {children}
-      {editable && (
+      {branch !== null && (
         <span className="-me-2 -mb-1.5 flex justify-end">
-          <Button
-            type="button"
-            variant="quiet"
-            size="icon-sm"
-            aria-label="Edit this message in a new chat"
-            title="Edit (sends in a new chat)"
-            className={REVEAL}
-            onClick={() => setEditing(true)}
-          >
-            <PencilIcon />
-          </Button>
+          <SaveAsTest at={at} />
+          {editable && (
+            <Button
+              type="button"
+              variant="quiet"
+              size="icon-sm"
+              aria-label="Edit this message in a new chat"
+              title="Edit (sends in a new chat)"
+              className={REVEAL}
+              onClick={() => setEditing(true)}
+            >
+              <PencilIcon />
+            </Button>
+          )}
         </span>
       )}
     </>

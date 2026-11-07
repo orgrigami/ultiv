@@ -1,5 +1,10 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
 import type {
+  EvalCase,
+  EvalCaseCreate,
+  EvalExpect,
+  EvalRun,
+  EvalRunRequest,
   AuditEvent,
   CredentialBinding,
   CredentialBindingInput,
@@ -152,6 +157,19 @@ export const api = {
     body: { at: number; mode: "edit"; text: string } | { at: number; mode: "from" },
   ): Promise<SessionInfo> =>
     send<SessionInfo>(`/api/sessions/${encodeURIComponent(sessionId)}/branch`, "POST", body),
+  /** Behaviour tests: saved chat messages, replayed and graded. */
+  evals: (bot?: string): Promise<EvalCase[]> =>
+    getJson<EvalCase[]>(
+      bot !== undefined ? `/api/evals?bot=${encodeURIComponent(bot)}` : "/api/evals",
+    ),
+  evalSave: (body: EvalCaseCreate): Promise<EvalCase> => send<EvalCase>("/api/evals", "POST", body),
+  evalUpdate: (id: string, patch: { title?: string; expect?: EvalExpect }): Promise<EvalCase> =>
+    send<EvalCase>(`/api/evals/${encodeURIComponent(id)}`, "PATCH", patch),
+  evalRemove: (id: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(`/api/evals/${encodeURIComponent(id)}`, "DELETE"),
+  evalStart: (body: EvalRunRequest): Promise<EvalRun> =>
+    send<EvalRun>("/api/evals/run", "POST", body),
+  evalRuns: (): Promise<EvalRun[]> => getJson<EvalRun[]>("/api/evals/runs"),
   profiles: (): Promise<ProfileInfo[]> => getJson<ProfileInfo[]>("/api/profiles"),
   rooms: (bot?: string): Promise<RoomInfo[]> =>
     getJson<RoomInfo[]>(

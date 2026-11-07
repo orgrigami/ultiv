@@ -19,7 +19,8 @@ export type LiveKind =
   | "routines"
   | "vault"
   | "skills"
-  | "memory";
+  | "memory"
+  | "evals";
 
 class LiveHub {
   private clients = new Set<WebSocket>();

@@ -23,8 +23,10 @@ Past chats, Needs you, Crew and Settings. The rest open from them.
 - **Crew**: the bots. Each bot's page has tabs: Overview, Instructions
   (its Persona and Instructions files, with history), Memory, Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
-  Files (its own workspace) and Activity (its audit trail). Bot talks and
-  all routines open from here too.
+  Files (its own workspace), Activity (its audit trail) and Tests (your
+  messages saved as tests, replayed on its current setup with tools blocked
+  and graded, to catch a change that made it worse). Bot talks and all
+  routines open from here too.
 - **Settings**: this server and this device: which keys and models are
   set up, phone notifications, theme, sign-in, and the way into Tools.
 

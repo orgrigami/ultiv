@@ -4,6 +4,7 @@
  * it.
  */
 
+import type { EvalsService } from "./evals/evals.ts";
 import type { BindingStore, McpManager, VaultStore } from "@spriessen/ext";
 import type { ApprovalsService } from "./approvals.ts";
 import { actService } from "./act/act.ts";
@@ -86,6 +87,8 @@ export interface MindService {
   readonly mcp: McpManager;
   /** Secure inputs: browser-typed keys go to the vault, never the model. */
   readonly secrets: SecretRequestsService;
+  /** Behaviour tests: chat messages saved as cases, replayed and graded. */
+  readonly evals: EvalsService;
   readonly describe: () => MindDescription;
   /** The memory meaning leg: which embedding model, local or remote, last result. */
   readonly meaning: () => MeaningStatus;

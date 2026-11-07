@@ -305,3 +305,20 @@ export {
   reactionDetailsOf,
 } from "./reactions.ts";
 export type { ReactionDetails, ReactionName, ReactionParams } from "./reactions.ts";
+export {
+  EVAL_RUN_MAX_CASES,
+  EvalCaseSchema,
+  EvalCheckSchema,
+  EvalExpectSchema,
+  EvalResultSchema,
+  EvalRunSchema,
+} from "./evals.ts";
+export type {
+  EvalCase,
+  EvalCaseCreate,
+  EvalCheck,
+  EvalExpect,
+  EvalResult,
+  EvalRun,
+  EvalRunRequest,
+} from "./evals.ts";

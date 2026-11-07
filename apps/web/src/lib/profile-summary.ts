@@ -14,6 +14,8 @@ export interface ProfileCounts {
   versions?: number | undefined;
   /** Activity lines loaded (the tab shows the newest ACTIVITY_LIMIT). */
   activity?: number | undefined;
+  /** Saved behaviour tests. */
+  tests?: number | undefined;
 }
 
 /** How many activity lines the tab loads, so the count says "50+" past it. */
@@ -40,6 +42,7 @@ export function tabCount(
   if (tab === "memory") return counts.memory;
   if (tab === "routines") return counts.routines;
   if (tab === "files") return counts.files;
+  if (tab === "tests") return counts.tests;
   if (tab === "access") return bot.toolAllowlist === null ? "All" : bot.toolAllowlist.length;
   if (tab === "activity")
     return counts.activity !== undefined && counts.activity >= ACTIVITY_LIMIT
@@ -86,6 +89,12 @@ export function cardLine(tab: string, counts: ProfileCounts, bot: ProfileFacts):
         : `Persona and instructions · ${plural(counts.versions, "version", "versions")} saved`;
     case "activity":
       return "What it did, newest first";
+    case "tests":
+      return counts.tests === undefined
+        ? "Saved messages replayed to catch regressions"
+        : counts.tests === 0
+          ? "No tests yet"
+          : `${plural(counts.tests, "test", "tests")} to replay after a change`;
     default:
       return "";
   }

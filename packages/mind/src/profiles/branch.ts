@@ -24,7 +24,7 @@ export type BranchMode = "edit" | "from";
 
 const PAGE = 500;
 
-const isOwnerInput = (entry: EntryRecord): boolean =>
+export const isOwnerInput = (entry: EntryRecord): boolean =>
   entry.kind === "pi.user" || entry.kind === INPUT_ENTRY_KIND;
 
 const isReply = (entry: EntryRecord): boolean =>
@@ -40,7 +40,7 @@ const callsTools = (entry: EntryRecord): boolean =>
 
 const TOOL_RESULT_KIND = "pi.tool-result";
 
-type Located = {
+export type Located = {
   readonly target: EntryRecord;
   readonly previous: EntryRecord | undefined;
   /** The entries right after the target on the same page, oldest first. */
@@ -48,8 +48,8 @@ type Located = {
 };
 
 /** The target entry and the entry just before it (oldest-first scan). */
-const locate = async (
-  ctx: ProfilesContext,
+export const locateEntry = async (
+  ctx: Pick<ProfilesContext, "converse">,
   conversationId: string,
   entryId: number,
 ): Promise<Located | undefined> => {
@@ -105,7 +105,7 @@ export const branchOps = (ctx: ProfilesContext): Pick<ProfilesService, "branchSe
     const found =
       conversationId === undefined
         ? undefined
-        : await locate(ctx, String(conversationId), Math.floor(at / 100));
+        : await locateEntry(ctx, String(conversationId), Math.floor(at / 100));
     if (conversationId === undefined || found === undefined) {
       throw new NotFound({ what: `message ${at} in this chat` });
     }
