@@ -53,12 +53,19 @@ export function ModelFields({
   onModel,
   onEffort,
   models,
+  label = "Model",
+  emptyLabel = "Workspace default",
+  disabled = false,
 }: {
   modelId: string;
   effort: string;
   onModel: (modelId: string) => void;
   onEffort: (effort: string) => void;
   models: ModelInfo[];
+  label?: string;
+  /** The empty choice's words: what applies when no model is picked. */
+  emptyLabel?: string;
+  disabled?: boolean;
 }) {
   const efforts = useMemo(
     () => models.find((model) => model.id === modelId)?.efforts ?? [],
@@ -67,13 +74,14 @@ export function ModelFields({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
       <label className="flex flex-1 flex-col gap-1 text-sm">
-        Model
+        {label}
         <Select
           className="w-full"
           value={modelId}
+          disabled={disabled}
           onChange={(event) => onModel(event.target.value)}
         >
-          <option value="">Workspace default</option>
+          <option value="">{emptyLabel}</option>
           <ModelOptions models={models} />
         </Select>
       </label>
@@ -85,7 +93,7 @@ export function ModelFields({
         <Select
           className="w-full"
           value={effort}
-          disabled={efforts.length === 0}
+          disabled={disabled || efforts.length === 0}
           onChange={(event) => onEffort(event.target.value)}
         >
           <option value="">Model default</option>

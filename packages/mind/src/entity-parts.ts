@@ -82,6 +82,8 @@ interface Faculties {
   }) => Promise<string>;
   /** The bot's department id, for shared memory (slice 9). */
   readonly departmentOf?: (profileId: string) => Promise<string | null>;
+  /** Whether a `provider/model` ref is in the live catalog (task models). */
+  readonly knownModel?: (ref: string) => boolean;
   /** The skills faculty: built-in and self-written procedures, per profile. */
   readonly skills?: SkillsService;
 }
@@ -117,6 +119,7 @@ export const installFaculties = (
     defineExtension({
       name: "ultius.mind.tasks",
       tools: taskTools(tasks, profiles, {
+        ...(f.knownModel !== undefined ? { knownModel: f.knownModel } : {}),
         outsideTurn: async (conversationId) =>
           turnIsOutside(
             await turnContext(

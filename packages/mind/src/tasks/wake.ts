@@ -11,6 +11,9 @@ import { findTask, updateTask } from "./store.ts";
 
 const WAKE_RESULT_CHARS = 4_000;
 
+/** The entry kind a background task's report is placed as in its parent chat. */
+export const TASK_REPORT_KIND = "ultiv.task-report";
+
 /** The wake text for a settled task, rebuilt from its registry row. */
 export const wakeTextOf = (task: TaskInfo): string | undefined => {
   switch (task.status) {
@@ -44,6 +47,15 @@ export const wakeParent = async (converse: ConverseService, id: string): Promise
     if (text === undefined) return;
     const parent = await Effect.runPromise(converse.open(task.conversationId));
     if (parent === undefined) return;
+    if (task.report === "note") {
+      // A background report: the chat shows it and the bot reads it with its
+      // next turn, but no turn starts for it.
+      await Effect.runPromise(converse.note(parent, TASK_REPORT_KIND, { taskId: id }, text));
+      await Effect.runPromise(
+        updateTask(converse, id, (current) => ({ ...current, notified: true })),
+      );
+      return;
+    }
     const submission = await Effect.runPromise(
       converse.submit(parent, text, undefined, `task-wake:${id}`),
     );

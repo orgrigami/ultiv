@@ -270,6 +270,7 @@ const mindLayerRaw = (
         skills: skillsRef,
         departmentInstructions: departmentInstructionsOf(converse),
         departmentOf: departmentOfProfile(converse),
+        knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
         ...routines,

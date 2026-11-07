@@ -45,6 +45,14 @@ const SetParams = Type.Object({
         "after firing. Compute it from the `now` tool.",
     }),
   ),
+  run: Type.Optional(
+    Type.Union([Type.Literal("task"), Type.Literal("chat")], {
+      description:
+        "task (default): runs as a background task on your background model and posts its " +
+        "result into your main chat as a note. chat: wakes you in your main chat, for routines " +
+        "that need the conversation itself.",
+    }),
+  ),
   whenBusy: Type.Optional(
     Type.Union([Type.Literal("steer"), Type.Literal("followUp"), Type.Literal("reject")], {
       description:
@@ -60,7 +68,8 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
     gated: true,
     description:
       "Schedule a future wake-up for yourself: a recurring cron schedule or a one-shot time. " +
-      "When it fires, `prompt` arrives in your main chat as an input and you act on it. Use " +
+      "When it fires, `prompt` runs as a background task (default) or wakes you in your main " +
+      "chat (run: chat). Use " +
       "`now` to ground times; cron runs in your owner's time zone. Your owner approves " +
       "each schedule: first say in a sentence when it fires and what it will make you do.",
     parameters: SetParams,
@@ -91,6 +100,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
         prompt: args.prompt,
         ...(once !== null ? { once } : {}),
         ...(args.whenBusy !== undefined ? { whenBusy: args.whenBusy } : {}),
+        run: args.run ?? "task",
       });
       // Creation-time preview: the author verifies "daily 9am" in the
       // profile's timezone BEFORE trusting the schedule.
@@ -105,7 +115,7 @@ const setTool = (schedules: SchedulesService, profiles: ProfilesService): Tool =
           {
             type: "text" as const,
             text:
-              `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`}, delivers into ${main.id}` +
+              `scheduled ${job.id}: ${once !== null ? `once at ${new Date(once).toISOString()}` : `cron "${schedule}"`}, ${job.run === "task" ? "runs as a background task reporting into" : "delivers into"} ${main.id}` +
               (next.length > 0 ? `\nnext fires: ${rendered} (verify this is what you meant)` : "") +
               "\nyour owner sees this under Routines",
           },

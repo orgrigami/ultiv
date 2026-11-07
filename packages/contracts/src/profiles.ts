@@ -68,6 +68,12 @@ export const ProfilePoliciesSchema = Type.Object({
    * count). Null or absent = the default, 15 min.
    */
   turnDeadlineMin: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
+  /**
+   * The model this bot's background work runs on: tasks it spawns and
+   * routines that run as background tasks. Null or absent = the workspace's
+   * `SPRIESSEN_BACKGROUND_MODEL` when set, else the bot's own chat model.
+   */
+  backgroundModel: Type.Optional(Type.Union([ProfileModelSchema, Type.Null()])),
 });
 
 export type ProfilePolicies = Static<typeof ProfilePoliciesSchema>;

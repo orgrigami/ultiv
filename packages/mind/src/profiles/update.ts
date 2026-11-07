@@ -49,6 +49,10 @@ export const validatePatch = (
   if (patch.model !== undefined && patch.model !== null && !knownModel(patch.model.id)) {
     throw new InvalidInput({ reason: `unknown model: ${patch.model?.id}` });
   }
+  const background = patch.policies?.backgroundModel;
+  if (background !== undefined && background !== null && !knownModel(background.id)) {
+    throw new InvalidInput({ reason: `unknown background model: ${background.id}` });
+  }
   const mode = patch.policies?.approvalMode;
   if (mode !== undefined && !APPROVAL_MODES.includes(mode)) {
     throw new InvalidInput({ reason: `unknown approval mode: ${String(mode)}` });

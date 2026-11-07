@@ -18,6 +18,7 @@ import {
 } from "../tasks/tasks.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { messageTool, notifyTool, tasksVisibleTo, textReply } from "./task-live.ts";
+import { backgroundModelFor } from "../tasks/model.ts";
 
 const SpawnParams = Type.Object({
   prompt: Type.String({
@@ -33,6 +34,15 @@ const SpawnParams = Type.Object({
   ),
   sessionId: Type.Optional(
     Type.String({ description: "App session to file the task under; optional." }),
+  ),
+  model: Type.Optional(
+    Type.String({
+      description:
+        "A provider/model id for this task only. Omit it: tasks run on your background model.",
+    }),
+  ),
+  effort: Type.Optional(
+    Type.String({ description: "Reasoning effort for this task only, e.g. low or high." }),
   ),
 });
 
@@ -55,6 +65,7 @@ const spawnTool = (
   tasks: TasksService,
   profiles: ProfilesService,
   outsideTurn: OutsideTurn | undefined,
+  knownModel: (ref: string) => boolean,
 ): Tool =>
   defineTool({
     name: "task_spawn",
@@ -80,6 +91,15 @@ const spawnTool = (
         await Effect.runPromise(tasks.list()),
       ).filter((task) => task.status === "running");
       if (running.length >= MAX_RUNNING_TASKS) return textReply(runningCapMessage(running), true);
+      const choice = backgroundModelFor(
+        profiles.profileOf(spawning),
+        {
+          ...(args.model !== undefined ? { model: args.model } : {}),
+          ...(args.effort !== undefined ? { effort: args.effort } : {}),
+        },
+        knownModel,
+      );
+      if (!choice.ok) return textReply(choice.reason, true);
       const outside = (await outsideTurn?.(spawning).catch(() => true)) ?? false;
       const task = await Effect.runPromise(
         tasks.spawn({
@@ -89,6 +109,7 @@ const spawnTool = (
           prompt: args.prompt,
           ...(args.title !== undefined ? { title: args.title } : {}),
           ...(outside ? { outside: true } : {}),
+          ...(choice.model !== undefined ? { model: choice.model } : {}),
         }),
       );
       return {
@@ -168,9 +189,13 @@ const listTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
 export const taskTools = (
   tasks: TasksService,
   profiles: ProfilesService,
-  options: { readonly outsideTurn?: OutsideTurn | undefined } = {},
+  options: {
+    readonly outsideTurn?: OutsideTurn | undefined;
+    /** The live catalog check for a task's model; absent (bare tests): every ref passes. */
+    readonly knownModel?: (ref: string) => boolean;
+  } = {},
 ): readonly Tool[] => [
-  spawnTool(tasks, profiles, options.outsideTurn),
+  spawnTool(tasks, profiles, options.outsideTurn, options.knownModel ?? (() => true)),
   statusTool(tasks),
   cancelTool(tasks),
   listTool(tasks, profiles),

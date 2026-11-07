@@ -22,14 +22,17 @@ export async function cronRoutes(
       schedule?: string;
       once?: number | null;
       prompt?: string;
+      run?: string;
     }>(req);
     if (
       body.sessionId === undefined ||
       body.prompt === undefined ||
+      (body.run !== undefined && body.run !== "chat" && body.run !== "task") ||
       !isValidJobStart(body.schedule ?? "", body.once)
     ) {
       json(400, {
-        error: "sessionId, prompt and a valid schedule (cron or future `once`) are required",
+        error:
+          "sessionId, prompt and a valid schedule (cron or future `once`) are required; run is chat or task",
       });
       return true;
     }
@@ -43,6 +46,7 @@ export async function cronRoutes(
       schedule: body.schedule ?? "",
       ...(body.once !== undefined && body.once !== null ? { once: body.once } : {}),
       prompt: body.prompt,
+      ...(body.run === "chat" || body.run === "task" ? { run: body.run } : {}),
     });
     await scheduler.refresh();
     // Creation-time preview: the caller verifies the schedule means what

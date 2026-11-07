@@ -83,6 +83,17 @@ export interface ConverseService {
     kind: string,
     data: JsonObject,
   ) => Effect.Effect<void, External>;
+  /**
+   * Append an entry the model WILL see on its next request, as a user
+   * message, without starting a turn (a background task's report, read by
+   * the bot with its next turn). Joins at the next boundary when a run works.
+   */
+  readonly note: (
+    conversation: Conversation,
+    kind: string,
+    data: JsonObject,
+    text: string,
+  ) => Effect.Effect<void, External>;
   /** Stop the conversation's current turn: withdraw queued inputs, abort, wait for idle. */
   readonly interrupt: (conversation: Conversation) => Effect.Effect<void, External>;
   /** The conversation's `pi.live` doc: `run` is present exactly while a turn works. */
@@ -347,6 +358,23 @@ export const converseService = (
       asEffect(
         "write",
         conversation.submit({ type: "write", entry: { kind, data } }, BACKGROUND_CONTEXT),
+      ),
+    ),
+  note: (conversation, kind, data, text) =>
+    Effect.asVoid(
+      asEffect(
+        "note",
+        conversation.submit(
+          {
+            type: "write",
+            entry: {
+              kind,
+              data,
+              model: [{ role: "user", content: [{ type: "text", text }], timestamp: Date.now() }],
+            },
+          },
+          BACKGROUND_CONTEXT,
+        ),
       ),
     ),
   turn: (conversation, content, whenBusy) =>

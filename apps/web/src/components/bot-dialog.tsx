@@ -20,6 +20,7 @@ import {
   AutoApproveField,
   ModelFields,
 } from "@/components/bot-fields";
+import { BackgroundModelField } from "@/components/background-model-field";
 
 export interface BotForm {
   name: string;
@@ -307,6 +308,7 @@ export function EditBotDialog({
       onOpenChange={onOpenChange}
       extra={
         <>
+          <BackgroundModelField bot={bot} models={models} refresh={refresh} />
           <AutoApproveField bot={bot} refresh={refresh} />
           <AllowlistField bot={bot} refresh={refresh} />
         </>

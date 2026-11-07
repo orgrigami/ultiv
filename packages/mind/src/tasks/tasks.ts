@@ -14,6 +14,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { Context, Effect, Layer } from "effect";
 import { External, ownerErrorText, readEnv } from "@spriessen/core";
 import type { TaskInfo, TaskList } from "@spriessen/contracts";
@@ -29,6 +30,7 @@ import {
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";
 import { recentSteps } from "./steps.ts";
 import { owed, wakeParent } from "./wake.ts";
+import type { TaskModel } from "./model.ts";
 
 export { TasksDoc, taskConversationKey, titleOf } from "./store.ts";
 export { TASK_UPDATE_KIND, NOTIFY_CHARS, NOTIFY_INTERVAL_MS } from "./notify.ts";
@@ -60,6 +62,10 @@ export interface TasksService {
     readonly title?: string;
     /** The spawning turn had outside content: stored on the row (see TaskInfo.outside). */
     readonly outside?: boolean;
+    /** The model the task runs on (background-model resolution, model.ts); absent = the bot's. */
+    readonly model?: TaskModel;
+    /** How the outcome reaches the spawning chat (TaskInfo.report); default "wake". */
+    readonly report?: "wake" | "note";
   }) => Effect.Effect<TaskInfo, External>;
   readonly get: (id: string) => Effect.Effect<TaskInfo | undefined, External>;
   readonly list: () => Effect.Effect<TaskList, External>;
@@ -301,6 +307,19 @@ const cancelTask = (
     return true;
   });
 
+/** Point a task's conversation at its own model before its first turn. */
+const applyTaskModel = (
+  converse: ConverseService,
+  id: string,
+  model: TaskModel,
+): Effect.Effect<void, External> =>
+  Effect.flatMap(converse.ensure(taskConversationKey(id)), (conversation) =>
+    converse.configure(conversation, {
+      model: model.id,
+      effort: model.effort === "" ? null : (model.effort as ModelThinkingLevel),
+    }),
+  );
+
 const spawnTask =
   (rt: TaskRuntime): TasksService["spawn"] =>
   (input) =>
@@ -313,6 +332,7 @@ const spawnTask =
         try: () => bindTask(rt, id, input.conversationId, null),
         catch: (cause) => new External({ op: "task bind", cause }),
       });
+      if (input.model !== undefined) yield* applyTaskModel(rt.converse, id, input.model);
       const title = input.title?.trim().slice(0, TITLE_CHARS) ?? "";
       const task: TaskInfo = {
         id,
@@ -328,6 +348,11 @@ const spawnTask =
         ...(title !== "" ? { title } : {}),
         ...(bot !== null ? { bot } : {}),
         ...(input.outside === true ? { outside: true } : {}),
+        ...(input.model !== undefined ? { model: input.model.id } : {}),
+        ...(input.model !== undefined && input.model.effort !== ""
+          ? { effort: input.model.effort }
+          : {}),
+        ...(input.report === "note" ? { report: "note" as const } : {}),
       };
       yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
         writeTasks(rt.converse, [...tasks, task]),

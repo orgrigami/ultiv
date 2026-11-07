@@ -8,7 +8,7 @@
  */
 import { Cron } from "croner";
 import type { CronJobInfo } from "@spriessen/contracts";
-import type { MindService } from "@spriessen/mind";
+import { spawnBackgroundRoutine, type MindService } from "@spriessen/mind";
 import {
   isValidSchedule,
   listCronJobs,
@@ -80,13 +80,23 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
       source: "cron",
     });
     try {
-      await deliverToSession(
-        mind,
-        job.sessionId,
-        `[cron ${job.id}] ${job.prompt}`,
-        job.whenBusy ?? "steer",
-        "cron",
-      );
+      if (job.run === "task") {
+        // A background routine: a task on the bot's background model, its
+        // result posted into the main chat as a note (no main-chat turn).
+        await spawnBackgroundRoutine(mind, {
+          sessionId: job.sessionId,
+          prompt: `[cron ${job.id}] ${job.prompt}`,
+          title: `Routine: ${job.prompt}`.slice(0, 40),
+        });
+      } else {
+        await deliverToSession(
+          mind,
+          job.sessionId,
+          `[cron ${job.id}] ${job.prompt}`,
+          job.whenBusy ?? "steer",
+          "cron",
+        );
+      }
       await settleRoutineEvent(mind.converse, eventId, "delivered");
       // A one-shot's whole purpose is that single delivery — retire it.
       if (job.once !== undefined && job.once !== null) {

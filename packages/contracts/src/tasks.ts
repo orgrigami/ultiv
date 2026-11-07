@@ -43,6 +43,16 @@ export const TaskInfoSchema = Type.Object({
   outside: Type.Optional(Type.Boolean()),
   /** Progress updates the task posted for the owner (notify_owner), oldest first. */
   updates: Type.Optional(Type.Array(TaskUpdateSchema)),
+  /** The `provider/model` the task runs on, when it differs from its bot's chat model. */
+  model: Type.Optional(Type.String()),
+  /** The effort the task runs at; absent = the model's default. */
+  effort: Type.Optional(Type.String()),
+  /**
+   * How the outcome reaches the spawning chat: "wake" (default) starts a turn
+   * there with it; "note" posts it into the chat without waking the bot (the
+   * bot reads it with its next turn). Background routines report as notes.
+   */
+  report: Type.Optional(Type.Union([Type.Literal("wake"), Type.Literal("note")])),
   /** The latest step of a running task, as a plain line (list responses only, never stored). */
   lastStep: Type.Optional(Type.String()),
 });

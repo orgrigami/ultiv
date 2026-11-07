@@ -27,6 +27,13 @@ export const CronJobInfoSchema = Type.Object({
   whenBusy: Type.Optional(
     Type.Union([Type.Literal("steer"), Type.Literal("followUp"), Type.Literal("reject")]),
   ),
+  /**
+   * Where a fire runs: "chat" (absent on older jobs) wakes the bot in its main
+   * chat on its chat model; "task" runs the prompt as a background task on the
+   * bot's background model and posts the result into the main chat as a note,
+   * without a main-chat turn.
+   */
+  run: Type.Optional(Type.Union([Type.Literal("chat"), Type.Literal("task")])),
 });
 
 export type CronJobInfo = Static<typeof CronJobInfoSchema>;

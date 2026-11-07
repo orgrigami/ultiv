@@ -104,6 +104,8 @@ export interface CronJobCreate {
   readonly enabled?: boolean;
   /** Mid-turn policy (default steer): the wake joins the turn at the next boundary. */
   readonly whenBusy?: "steer" | "followUp" | "reject";
+  /** Where a fire runs (CronJobInfo.run); absent = "chat". */
+  readonly run?: "chat" | "task";
 }
 
 export const createCronJob = async (
@@ -127,6 +129,7 @@ export const createCronJob = async (
     fireCount: 0,
     lastFiredAt: null,
     ...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
+    ...(input.run !== undefined ? { run: input.run } : {}),
   };
   const items = await readCronJobs(converse);
   await Effect.runPromise(writeCronJobs(converse, [...items, job]));

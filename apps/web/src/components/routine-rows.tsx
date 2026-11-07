@@ -136,6 +136,11 @@ export function ScheduleRow({
       <Meta>
         <span>{bot}</span>
         {!job.enabled && <Badge variant="secondary">Off</Badge>}
+        {job.run === "task" && (
+          <Badge variant="outline" title="Runs as a background task; the result lands in the chat">
+            Background
+          </Badge>
+        )}
         {job.whenBusy !== undefined && job.whenBusy !== "steer" && (
           <Badge variant="outline">{BUSY_LABEL[job.whenBusy] ?? job.whenBusy}</Badge>
         )}
