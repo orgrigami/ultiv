@@ -197,7 +197,7 @@ export const detectOversize = (facts: readonly MemoryFact[]): readonly MemoryPro
     }));
 };
 
-/** Contradictions (mind/memory/conflicts.ts) as proposals: accept keeps the newer fact. */
+/** Contradictions (mind/memory/conflicts.ts) as proposals: the owner picks the fact that holds. */
 export const conflictProposals = (
   facts: readonly MemoryFact[],
   entities: readonly MemoryEntity[],
@@ -209,7 +209,7 @@ export const conflictProposals = (
     factIds: [older.id, newer.id],
     summary:
       `These disagree (${reason}): "${older.text.slice(0, 90)}" vs "${newer.text.slice(0, 90)}" ` +
-      "— keep the newer one?",
+      "— which one holds?",
     fingerprint: fingerprintOf("conflict", older.id, newer.id),
     status: "open" as const,
     decidedAt: null,

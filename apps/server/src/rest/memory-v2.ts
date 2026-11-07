@@ -249,15 +249,24 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
     }
     if (proposalMatch !== null && method === "POST") {
       const [, id, verdict] = proposalMatch;
+      // A conflict's accept names the fact that holds: `{ keep: <fact id> }`.
+      const body = await args
+        .readJson<{ keep?: unknown }>(args.req)
+        .catch(() => ({}) as { keep?: unknown });
       // One commit: the facts and the proposal's status change together.
       const outcome = await decideProposal(
         args.mind.converse,
         keyOf(args.owner, profile),
         id ?? "",
         verdict === "accept" ? "accept" : "reject",
+        typeof body.keep === "string" ? body.keep : undefined,
       );
       if (outcome.kind === "unknown") {
         json(404, { error: `proposal ${id} not found` });
+        return true;
+      }
+      if (outcome.kind === "invalid") {
+        json(400, { error: outcome.reason });
         return true;
       }
       if (outcome.kind === "decided") {

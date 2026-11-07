@@ -24,7 +24,7 @@ export const CLAIM_MAX = 0.85;
 const WINDOW = 500;
 
 export interface Conflict {
-  /** The older fact first: accepting the conflict keeps the newer one. */
+  /** The older fact first; the owner's accept names the one that holds. */
   readonly older: MemoryFact;
   readonly newer: MemoryFact;
   readonly score: number;

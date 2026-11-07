@@ -38,6 +38,7 @@ export function TidyTab({ data, profileId, reload }: TabProps) {
             key={proposal.id}
             proposal={proposal}
             facts={data.facts}
+            chats={data.chats}
             profileId={profileId}
             reload={reload}
           />

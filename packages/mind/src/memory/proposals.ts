@@ -14,6 +14,8 @@ import { FactsDoc, ProposalsDoc } from "./model.ts";
 
 export type ProposalOutcome =
   | { readonly kind: "unknown" }
+  /** The accept can't apply as asked (a conflict without a valid `keep`). */
+  | { readonly kind: "invalid"; readonly reason: string }
   | { readonly kind: "decided"; readonly status: MemoryProposal["status"] }
   | {
       readonly kind: "done";
@@ -27,11 +29,27 @@ type Applied = { readonly facts: MemoryFact[]; readonly skipped: string[] };
 const isCurrent = (fact: MemoryFact | undefined): fact is MemoryFact =>
   fact !== undefined && fact.status === "current";
 
-/** What accepting `proposal` does to `facts`, pure. */
+/** Why a conflict accept can't apply, or null when `keep` names one side. */
+export const keepProblem = (
+  proposal: Pick<MemoryProposal, "kind" | "factIds">,
+  keep: string | undefined,
+): string | null => {
+  if (proposal.kind !== "conflict") return null;
+  if (keep === undefined) return "choose which fact to keep (keep: <fact id>)";
+  return proposal.factIds.slice(0, 2).includes(keep)
+    ? null
+    : "keep must be one of the two facts in this conflict";
+};
+
+/**
+ * What accepting `proposal` does to `facts`, pure. A conflict needs `keep`:
+ * the side the owner chose (see `keepProblem`).
+ */
 export const applyProposal = (
   proposal: Pick<MemoryProposal, "kind" | "factIds">,
   facts: readonly MemoryFact[],
   now: number,
+  keep?: string,
 ): Applied => {
   const byId = new Map(facts.map((fact) => [fact.id, fact]));
   const changes = new Map<string, MemoryFact>();
@@ -69,12 +87,15 @@ export const applyProposal = (
       }
     }
   } else if (proposal.kind === "conflict") {
-    // [older, newer]: the newer one holds; the older one is kept as the past.
+    // [older, newer]: the owner chose which one holds. Keeping the newer
+    // retires the older as CHANGED (true once, kept as the past); keeping
+    // the older says the newer claim was WRONG (corrected, never offered).
     const [olderId, newerId] = ids;
     const older = byId.get(olderId ?? "");
     const newer = byId.get(newerId ?? "");
     if (!isCurrent(older) || !isCurrent(newer)) skipped.push(...ids);
-    else changes.set(older.id, retire(older, newer, now));
+    else if (keep === newer.id) changes.set(older.id, retire(older, newer, now, "changed"));
+    else if (keep === older.id) changes.set(newer.id, retire(newer, older, now, "corrected"));
   }
   // core-fix, entity-merge, backfill, share: record-only accepts.
   return {
@@ -83,13 +104,19 @@ export const applyProposal = (
   };
 };
 
-/** The losing side of a conflict: retired as changed, linked forward. */
-const retire = (loser: MemoryFact, winner: MemoryFact, now: number): MemoryFact => ({
+/** The losing side of a conflict, linked to the fact that holds. */
+const retire = (
+  loser: MemoryFact,
+  winner: MemoryFact,
+  now: number,
+  why: "changed" | "corrected",
+): MemoryFact => ({
   ...loser,
   status: "superseded",
-  retired: "changed",
+  retired: why,
   supersededBy: winner.id,
-  validTo: winner.validFrom ?? now,
+  // A changed fact held until the newer one began; a wrong one never held.
+  ...(why === "changed" ? { validTo: winner.validFrom ?? now } : {}),
   expiredAt: now,
 });
 
@@ -99,6 +126,7 @@ export const decideProposal = (
   key: string,
   proposalId: string,
   verdict: "accept" | "reject",
+  keep?: string,
 ): Promise<ProposalOutcome> =>
   Effect.runPromise(
     converse.docs.commit<ProposalOutcome>(async (tx) => {
@@ -109,11 +137,14 @@ export const decideProposal = (
       const now = Date.now();
       let skipped: string[] = [];
       if (verdict === "accept") {
+        const problem = keepProblem(proposal, keep);
+        if (problem !== null) return { kind: "invalid", reason: problem };
         const store = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
         const applied = applyProposal(
           { kind: proposal.kind, factIds: [...proposal.factIds] },
           store.facts,
           now,
+          keep,
         );
         store.facts = applied.facts;
         skipped = applied.skipped;

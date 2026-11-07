@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 import { openMind } from "../entity.ts";
 import { ProposalsDoc, profileKey } from "./model.ts";
-import { applyProposal, decideProposal } from "./proposals.ts";
+import { applyProposal, decideProposal, keepProblem } from "./proposals.ts";
 
 const fact = (id: string, status: MemoryFact["status"] = "current"): MemoryFact =>
   ({
@@ -20,6 +20,40 @@ const fact = (id: string, status: MemoryFact["status"] = "current"): MemoryFact 
 
 const statusOf = (facts: readonly MemoryFact[], id: string) =>
   facts.find((entry) => entry.id === id)?.status;
+
+describe("a conflict: the owner keeps one", () => {
+  const conflict = { kind: "conflict" as const, factIds: ["old", "new"] };
+
+  it("keeping the newer retires the older as changed, true until the newer began", () => {
+    const { facts } = applyProposal(conflict, [fact("old"), fact("new")], 5_000, "new");
+    expect(facts.find((entry) => entry.id === "old")).toMatchObject({
+      status: "superseded",
+      retired: "changed",
+      supersededBy: "new",
+      validTo: 1_000,
+    });
+    expect(statusOf(facts, "new")).toBe("current");
+  });
+
+  it("keeping the older marks the newer as wrong (corrected), never as the past", () => {
+    const { facts } = applyProposal(conflict, [fact("old"), fact("new")], 5_000, "old");
+    const wrong = facts.find((entry) => entry.id === "new");
+    expect(wrong).toMatchObject({
+      status: "superseded",
+      retired: "corrected",
+      supersededBy: "old",
+    });
+    expect(wrong?.validTo).toBe(null);
+    expect(statusOf(facts, "old")).toBe("current");
+  });
+
+  it("refuses an accept without a choice, or naming a fact outside the conflict", () => {
+    expect(keepProblem(conflict, undefined)).toContain("choose which fact to keep");
+    expect(keepProblem(conflict, "elsewhere")).toContain("one of the two facts");
+    expect(keepProblem(conflict, "old")).toBe(null);
+    expect(keepProblem({ kind: "archive", factIds: ["a"] }, undefined)).toBe(null);
+  });
+});
 
 describe("applyProposal (pure)", () => {
   it("archives current facts and leaves a forgotten one alone", () => {
@@ -134,6 +168,22 @@ describe("decideProposal", () => {
     expect(statusOf(facts, a.id)).toBe("archived");
     expect(statusOf(facts, b.id)).toBe("forgotten");
     expect(await mind.memory.purge("harry", bot.id)).toBe(1);
+    await handle.close();
+  });
+
+  it("a conflict accept without a valid keep changes nothing and stays open", async () => {
+    const { handle, mind, bot, key, a, b } = await seed({ kind: "conflict" });
+    expect(await decideProposal(mind.converse, key, "p1", "accept")).toMatchObject({
+      kind: "invalid",
+    });
+    expect(await decideProposal(mind.converse, key, "p1", "accept", "nope")).toMatchObject({
+      kind: "invalid",
+    });
+    const kept = await decideProposal(mind.converse, key, "p1", "accept", a.id);
+    expect(kept).toMatchObject({ kind: "done", status: "accepted" });
+    const facts = await mind.memory.readFacts("harry", bot.id);
+    expect(statusOf(facts, a.id)).toBe("current");
+    expect(facts.find((entry) => entry.id === b.id)?.retired).toBe("corrected");
     await handle.close();
   });
 

@@ -254,8 +254,13 @@ into `ultiv.routine-events`; catches up on boot after 8+ days; manual run
   MIT, reimplemented): the same functional relation of the same subject
   with another value, or facts sharing entities (overlap ≥ 0.3) whose
   claims — words minus the entity names — overlap 0.3–0.85 where neither
-  only adds detail to the other. Proposed as `[older, newer]`; accepting
-  keeps the newer and retires the older as changed (nothing forgotten).
+  only adds detail to the other. Proposed as `[older, newer]`. Recency
+  never decides: the card shows both claims with how the bot knows each
+  (basis, outside-content trust, since when, the chat it was learned in)
+  and the owner keeps one (`{ keep: <fact id> }`, required). Keeping the
+  newer retires the older as changed (true until the newer began); keeping
+  the older retires the newer as corrected (wrong, never offered as the
+  past). Nothing is forgotten.
 - **stale** (unconfirmed 6+ months, importance ≤2, not the owner's word),
   **archive** (past the soft limit: the least valuable, ten per run),
   **merge** (exact hash dups), **secret**, **core-fix**, plus deterministic

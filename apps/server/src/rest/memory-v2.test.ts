@@ -199,7 +199,7 @@ describe("DELETE /api/memory/v2/facts/:id (tombstone)", () => {
 });
 
 describe("accepting a conflict proposal", () => {
-  it("keeps the newer fact and retires the older one as changed, never forgets", async () => {
+  it("keeps the fact the owner chose; the older one retires as changed, never forgotten", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const { mind } = handle;
     const bot = await mind.profiles.create("harry", { name: "Keeper", onboard: false });
@@ -232,10 +232,19 @@ describe("accepting a conflict proposal", () => {
         ];
       }),
     );
+    // Recency never decides: an accept without the owner's choice is refused.
+    const unchosen = routeArgs(mind, {
+      path: "/api/memory/v2/proposals/p-conflict/accept",
+      method: "POST",
+      profile: bot.id,
+    });
+    await memoryV2Routes(unchosen.args);
+    expect(unchosen.status()).toBe(400);
     const accept = routeArgs(mind, {
       path: "/api/memory/v2/proposals/p-conflict/accept",
       method: "POST",
       profile: bot.id,
+      body: { keep: newer.id },
     });
     await memoryV2Routes(accept.args);
     expect(accept.status()).toBe(200);
@@ -250,6 +259,7 @@ describe("accepting a conflict proposal", () => {
       path: "/api/memory/v2/proposals/p-conflict/accept",
       method: "POST",
       profile: bot.id,
+      body: { keep: newer.id },
     });
     await memoryV2Routes(again.args);
     expect(again.status()).toBe(409);

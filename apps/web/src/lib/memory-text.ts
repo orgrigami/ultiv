@@ -140,9 +140,22 @@ export const affectedTitle = "Affected facts:";
 export const willForget =
   "Accepting forgets these facts — they become restorable tombstones, but the bot stops recalling them.";
 export const acceptLabel = "Accept";
-export const keepNewerLabel = "Keep the newer one";
+export const keepThisLabel = "Keep this one";
+export const keepingLabel = "Keeping…";
 export const conflictNote =
-  "Keeping the newer one moves the older fact into history; nothing is forgotten. If the older one was simply wrong, correct it from Facts instead.";
+  "Pick the one that holds now. Keeping the newer one keeps the older in history, as true before. Keeping the older one marks the newer as wrong. Nothing is forgotten.";
+export const newerTag = "Newer";
+export const olderTag = "Older";
+/** How the bot knows a fact, in the owner's words. */
+export const BASIS_WORDS: Record<string, string> = {
+  owner_said: "You said it",
+  observed: "The bot saw it",
+  inferred: "The bot's guess",
+  confirmed: "You confirmed it",
+};
+export const unverifiedOutside = "From outside content, unverified";
+export const fromOutside = "Taken from outside content";
+export const sinceMeta = (day: string): string => `since ${day}`;
 export const acceptingLabel = "Accepting…";
 export const rejectLabel = "Not now";
 export const rejectingLabel = "Dismissing…";

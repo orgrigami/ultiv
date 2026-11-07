@@ -230,14 +230,17 @@ export const api = {
     drop(`/api/profiles/${encodeURIComponent(id)}/memory/${encodeURIComponent(recordId)}`),
   memoryV2: (profile?: string): Promise<MemoryV2State> =>
     getJson<MemoryV2State>(`/api/memory/v2?profile=${encodeURIComponent(profile ?? "owner")}`),
+  /** `keep` names the fact that holds when accepting a conflict. */
   memoryProposalDecide: (
     id: string,
     verdict: "accept" | "reject",
     profile?: string,
-  ): Promise<{ id: string; status: string }> =>
-    send<{ id: string; status: string }>(
+    keep?: string,
+  ): Promise<{ id: string; status: string; skipped?: string[] }> =>
+    send<{ id: string; status: string; skipped?: string[] }>(
       `/api/memory/v2/proposals/${encodeURIComponent(id)}/${verdict}?profile=${encodeURIComponent(profile ?? "owner")}`,
       "POST",
+      keep !== undefined ? { keep } : undefined,
     ),
   memoryCoreAdd: (text: string, profile?: string, pinned?: boolean): Promise<MemoryV2Line> =>
     send<MemoryV2Line>(
