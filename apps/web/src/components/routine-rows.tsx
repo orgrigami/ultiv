@@ -14,7 +14,13 @@ import { writeClipboard } from "@/lib/clipboard";
 import { cronToText } from "@/lib/cron-text";
 import { formatDivider, formatWhen } from "@/lib/format";
 import { notifyError } from "@/lib/notify";
-import { ScheduleControls, TrialResult } from "@/components/routine-trial";
+import {
+  ScheduleControls,
+  TrialBadge,
+  TrialResult,
+  TrialSection,
+} from "@/components/routine-trial";
+import { api } from "@/lib/api";
 
 export const when = (at: number | null): string => (at === null ? "never" : formatWhen(at));
 
@@ -141,14 +147,7 @@ export function ScheduleRow({
       <Meta>
         <span>{bot}</span>
         {!job.enabled && <Badge variant="secondary">Off</Badge>}
-        {job.trial === true && (
-          <Badge
-            variant="outline"
-            title="Each run shows what it would do. Nothing is sent or changed until you go live."
-          >
-            Trial
-          </Badge>
-        )}
+        {job.trial === true && <TrialBadge />}
         {job.run === "task" && (
           <Badge variant="outline" title="Runs as a background task; the result lands in the chat">
             Background
@@ -188,11 +187,18 @@ export function SensorRow({
   sensor,
   bot,
   onDelete,
+  onChanged,
 }: {
   sensor: SensorInfo;
   bot: string;
   onDelete: () => Promise<void>;
+  /** Reload after a pause, a resume or going live. */
+  onChanged: () => Promise<void>;
 }) {
+  const patch = (change: { enabled?: boolean; trial?: boolean }) => async () => {
+    await api.patchSensor(sensor.id, change);
+    await onChanged();
+  };
   const failed = sensor.lastError !== null && sensor.lastError !== "";
   return (
     <RoutineRow
@@ -204,12 +210,31 @@ export function SensorRow({
       <Meta>
         <span>{bot}</span>
         {!sensor.enabled && <Badge variant="secondary">Off</Badge>}
+        {sensor.trial === true && <TrialBadge />}
         {failed && <Badge variant="destructive">Error</Badge>}
       </Meta>
       <p className="text-muted-foreground text-xs">
         {runs(sensor.fireCount, sensor.lastFiredAt)}
         {failed ? `. Last error: ${sensor.lastError}` : ""}
       </p>
+      <TrialSection
+        trial={sensor.trial}
+        trials={sensor.trials}
+        onGoLive={patch({ trial: false })}
+        extra={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              void patch({ enabled: !sensor.enabled })().catch((cause: unknown) =>
+                notifyError(sensor.enabled ? "Couldn't pause" : "Couldn't resume", cause),
+              )
+            }
+          >
+            {sensor.enabled ? "Pause" : "Resume"}
+          </Button>
+        }
+      />
       {sensor.url !== null && (
         <DevDetails>
           <RawValue label="URL:" value={sensor.url} />

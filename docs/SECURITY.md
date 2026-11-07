@@ -734,6 +734,7 @@ Scoped by this helper:
 | `DELETE /api/cron/:id`, `/api/sensors/:id`, `/api/webhooks/:id` | `{ ok: false }` for another owner's id, as for a missing one                                                       |
 | `POST /api/webhooks/:id/test`                                   | 404 `unknown webhook`, as for a missing one                                                                        |
 | `PATCH /api/cron/:id`, `POST /api/cron/:id/try`                 | 404 `unknown schedule` for another owner's id, as for a missing one                                                |
+| `PATCH /api/sensors/:id`, `PATCH /api/webhooks/:id`             | 404 `unknown watch` / `unknown webhook` for another owner's id, as for a missing one                               |
 | `GET /api/routines/events`                                      | receipts of the caller's own routines only                                                                         |
 | `GET /api/state`, `DELETE /api/state/:bot/:key`                 | the bot must be the caller's (empty list / `{ ok: false }`)                                                        |
 | `GET /api/audit`                                                | events of the caller's own bots; unattributed (`profile: null`) events are hidden                                  |

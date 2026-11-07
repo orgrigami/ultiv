@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { RoutineTrialSchema } from "./routine-trial.ts";
 
 /**
  * One sensor: a watch on an external source (calendar feeds, RSS/Atom
@@ -30,6 +31,10 @@ export const SensorInfoSchema = Type.Object({
   seen: Type.Optional(Type.Array(Type.String())),
   /** State sensors: fingerprint of the last seen body — fire on its transition. */
   lastState: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /** Trial mode (routine-trial.ts): each event runs as a trial until turned live. */
+  trial: Type.Optional(Type.Boolean()),
+  /** The latest trials, oldest first (at most TRIALS_KEPT). */
+  trials: Type.Optional(Type.Array(RoutineTrialSchema)),
 });
 
 export type SensorInfo = Static<typeof SensorInfoSchema>;

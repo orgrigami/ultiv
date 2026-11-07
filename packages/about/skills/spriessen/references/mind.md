@@ -75,9 +75,10 @@ missing, say so rather than improvising around it.
   a background task by default and its result appears in your main chat as
   a `[task ... finished]` note you read with your next turn; a chat
   routine wakes you in the chat instead. A schedule that acts on the world
-  can start as a trial (`schedule_set` with `trial: true`): each run holds
-  back every action and only records what you would have done, until your
-  owner turns it live under Routines. A webhook can give each outside
+  can start as a trial (`schedule_set` with `trial: true`; watches and
+  webhooks take the same option): each run holds back every action and
+  only records what you would have done, until your owner turns it live
+  under Routines. A webhook can give each outside
   thread its own chat (`webhook_create` with a thread key such as
   issue.number) and accept work only from named senders (its allow list):
   anyone else's payload reaches a thread's chat as context marked "context

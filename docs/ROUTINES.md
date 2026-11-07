@@ -160,6 +160,15 @@ one wake carrying every payload, each with its own receipt.
   Go live and Pause/Resume (`PATCH /api/cron/:id { trial?, enabled? }`); a
   landed trial fires the `routines` live signal. Start a routine that acts
   on the world as a trial, and let it act once its trials look right.
+- **Every routine can be a trial**, not only schedules: a watch
+  (`sensor_set` `trial`, `PATCH /api/sensors/:id { trial?, enabled? }`)
+  runs each event as a trial and still dedups it like a real fire; a
+  webhook (`webhook_create` `trial`, `PATCH /api/webhooks/:id { trial }`)
+  runs each ALLOWED payload as a trial after the ack and opens no thread
+  chat (the sender gate still applies first). Both keep `trials` the same
+  way (`mind.trials.run({ kind, id, profile, sessionId, input })`) and the
+  Routines rows show the Trial badge, the last trial and Go live (watches
+  also Pause/Resume).
 - Schedules render in the **profile's timezone**; new profiles default to
   **Asia/Jakarta (WIB)**.
 - Creation (`schedule_set` tool, `POST /api/cron`) returns the **next 3 fire

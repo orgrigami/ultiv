@@ -53,6 +53,13 @@ const setTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
           description: "calendar only: minutes before the event to wake (default 10, max 1440).",
         }),
       ),
+      trial: Type.Optional(
+        Type.Boolean({
+          description:
+            "Start as a trial: each event runs with every action held back and only records " +
+            "what you would have done, until your owner turns it live under Routines.",
+        }),
+      ),
     }),
     structuredOutputSchema: Type.Object({ id: Type.String() }),
     execute: async (args, api) => {
@@ -83,12 +90,13 @@ const setTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
           ...(kind === "rss" || kind === "watch" ? { url: args.url ?? "" } : {}),
           match: args.match ?? "",
           ...(args.leadMinutes !== undefined ? { leadMinutes: args.leadMinutes } : {}),
+          ...(args.trial === true ? { trial: true } : {}),
         });
         return {
           output: [
             {
               type: "text" as const,
-              text: `sensor ${sensor.id} watching ${sensor.kind}${sensor.url !== null && sensor.url !== "" ? ` ${sensor.url}` : ""}${sensor.match === "" ? " (everything)" : ` for "${sensor.match}"`} — fires into ${main.id}`,
+              text: `sensor ${sensor.id} watching ${sensor.kind}${sensor.url !== null && sensor.url !== "" ? ` ${sensor.url}` : ""}${sensor.match === "" ? " (everything)" : ` for "${sensor.match}"`} — fires into ${main.id}${sensor.trial === true ? " (as a trial: nothing acts until your owner turns it live)" : ""}`,
             },
           ],
           structuredOutput: { id: sensor.id },

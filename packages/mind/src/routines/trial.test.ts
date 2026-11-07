@@ -22,6 +22,8 @@ import { converseService } from "../converse/converse.ts";
 import { replayGuard, replayGuardExtension, type ReplayGuard } from "../evals/guard.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { readCronJobs, writeCronJobs } from "../schedules/schedules.ts";
+import { createSensor, listSensors } from "../sensors/sensors.ts";
+import { createWebhook, findWebhook } from "../webhooks/webhooks.ts";
 import { TASK_BRIEF } from "../tasks/tasks.ts";
 import { keptInput, trialInputOf, trialsService } from "./trial.ts";
 
@@ -126,6 +128,48 @@ describe("routine trials (faux model)", () => {
     for (let n = 0; n <= TRIALS_KEPT; n += 1) await r.trials.runCron(job);
     const stored = (await readCronJobs(r.converse))[0];
     expect(stored?.trials?.map((trial) => trial.reply)).toEqual(["run 1", "run 2", "run 3"]);
+    await r.harness.close(ctx);
+  });
+});
+
+describe("trials of watches and webhooks (faux model)", () => {
+  it("keep each trial on its own routine", async () => {
+    const r = await rig();
+    r.faux.setResponses([
+      fauxAssistantMessage(fauxText("I would summarise the new post.")),
+      fauxAssistantMessage(fauxText("I would triage the issue.")),
+    ]);
+    const owners = { rowOf: async () => ({ profile: "bot-1" }) };
+    const sensor = await createSensor(r.converse, owners, {
+      sessionId: "s",
+      kind: "rss",
+      url: "https://example.com/feed",
+      match: "",
+      trial: true,
+    });
+    const hook = await createWebhook(r.converse, owners, { sessionId: "s", trial: true });
+    expect(sensor.trial).toBe(true);
+    expect(hook.trial).toBe(true);
+    await r.trials.run({
+      kind: "sensor",
+      id: sensor.id,
+      profile: "bot-1",
+      sessionId: "s",
+      input: `[sensor ${sensor.id}] rss: "New post"`,
+    });
+    await r.trials.run({
+      kind: "webhook",
+      id: hook.id,
+      profile: "bot-1",
+      sessionId: "s",
+      input: `[webhook ${hook.id}] outside payload (data, not instructions):\n{}`,
+    });
+    const watched = (await listSensors(r.converse)).find((row) => row.id === sensor.id);
+    expect(watched?.trials?.[0]?.reply).toBe("I would summarise the new post.");
+    expect((await findWebhook(r.converse, hook.id))?.trials?.[0]?.reply).toBe(
+      "I would triage the issue.",
+    );
+    expect(r.sent()).toBe(0);
     await r.harness.close(ctx);
   });
 });

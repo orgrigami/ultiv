@@ -29,6 +29,12 @@ export const routinesApi = {
   testWebhook: (id: string, payload: unknown): Promise<{ accepted: boolean; detail?: string }> =>
     send(`/api/webhooks/${encodeURIComponent(id)}/test`, "POST", { payload }),
   sensors: (): Promise<SensorInfo[]> => getJson<SensorInfo[]>("/api/sensors"),
+  /** Pause/resume a watch, or turn its trial mode on or off. */
+  patchSensor: (id: string, patch: { enabled?: boolean; trial?: boolean }): Promise<SensorInfo> =>
+    send<SensorInfo>(`/api/sensors/${encodeURIComponent(id)}`, "PATCH", patch),
+  /** Turn a webhook's trial mode on or off. */
+  patchWebhook: (id: string, patch: { trial: boolean }): Promise<WebhookInfo> =>
+    send<WebhookInfo>(`/api/webhooks/${encodeURIComponent(id)}`, "PATCH", patch),
   removeSensor: (id: string): Promise<{ ok: boolean }> =>
     send<{ ok: boolean }>(`/api/sensors/${encodeURIComponent(id)}`, "DELETE"),
   routineEvents: (limit?: number): Promise<RoutineEvent[]> =>

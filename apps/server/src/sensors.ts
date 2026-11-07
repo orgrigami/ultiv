@@ -100,6 +100,21 @@ const fire = async (
     deliveryId: `${sensor.id}:${uid}`,
   });
   try {
+    if (sensor.trial === true) {
+      // Trial mode: the event runs with every action held back (mind
+      // routines/trial.ts); nothing is woken. Still deduped like a real fire.
+      const trial = await mind.trials.run({
+        kind: "sensor",
+        id: sensor.id,
+        profile: sensor.profile,
+        sessionId: sensor.sessionId,
+        input: text,
+      });
+      if (trial.error !== null) throw new Error(trial.error);
+      await settleRoutineEvent(mind.converse, eventId, "trial");
+      await recordSensorFire(mind.converse, sensor.id, uid);
+      return;
+    }
     await deliverToSession(mind, sensor.sessionId, text, "followUp", "sensor");
     await settleRoutineEvent(mind.converse, eventId, "delivered");
     await recordSensorFire(mind.converse, sensor.id, uid);

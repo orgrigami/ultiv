@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
+import { TrialBadge, TrialSection } from "@/components/routine-trial";
 import { issueToken, sendTest } from "@/lib/webhook-actions";
 import { BUSY_LABEL, Meta, RawValue, RoutineRow, runs, when } from "@/components/routine-rows";
 
@@ -133,6 +134,7 @@ export function WebhookRow({
       </p>
       <Meta>
         <span>{bot}</span>
+        {hook.trial === true && <TrialBadge />}
         {hook.schema !== null && <Badge variant="outline">Checks format</Badge>}
         {hook.threadKey != null && (
           <Badge variant="outline" title={`Thread id at ${hook.threadKey}`}>
@@ -155,6 +157,14 @@ export function WebhookRow({
         {runs(hook.fireCount, hook.lastFiredAt)}
         {rejected > 0 && <span className="text-destructive">. Turned away {rejected}</span>}
       </p>
+      <TrialSection
+        trial={hook.trial}
+        trials={hook.trials}
+        onGoLive={async () => {
+          await api.patchWebhook(hook.id, { trial: false });
+          await onChanged();
+        }}
+      />
       <DevDetails>
         <div className="flex flex-col gap-1">
           <RawValue label="Method:" value="POST" />

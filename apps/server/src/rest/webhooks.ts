@@ -5,6 +5,7 @@ import {
   MAX_WEBHOOK_BODY_BYTES,
   removeWebhook,
   rotateWebhookToken,
+  updateWebhook,
 } from "@spriessen/mind";
 import { handleWebhookIngress, testWebhook } from "../webhooks.ts";
 import { findOwned, ownedRecords, ownedTarget } from "./owner-scope.ts";
@@ -58,6 +59,7 @@ export async function webhookRoutes(
       threadKey?: string | null;
       threadTitle?: string | null;
       senders?: { path?: unknown; allow?: unknown } | null;
+      trial?: boolean;
     }>(req);
     if (body.sessionId === undefined || body.sessionId.trim() === "") {
       json(400, { error: "sessionId is required" });
@@ -73,6 +75,7 @@ export async function webhookRoutes(
         sessionId: target,
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.schema !== undefined ? { schema: body.schema } : {}),
+        ...(body.trial === true ? { trial: true } : {}),
         ...(typeof body.threadKey === "string" ? { threadKey: body.threadKey } : {}),
         ...(typeof body.threadTitle === "string" ? { threadTitle: body.threadTitle } : {}),
         ...(body.senders != null
@@ -90,6 +93,29 @@ export async function webhookRoutes(
     } catch (cause) {
       json(400, { error: String(cause).slice(0, 300) });
     }
+    return true;
+  }
+  // Trial mode on or off ("Go live"); another owner's webhook is a 404.
+  if (path.startsWith("/api/webhooks/") && method === "PATCH") {
+    const id = segment("/api/webhooks/");
+    const mine = await findOwned(args, await listWebhooks(mind.converse), id);
+    const body = await args.readJson<{ trial?: unknown }>(req);
+    if (mine === undefined) {
+      json(404, { error: "unknown webhook" });
+      return true;
+    }
+    if (typeof body.trial !== "boolean") {
+      json(400, { error: "send trial as true or false" });
+      return true;
+    }
+    const trial = body.trial;
+    await updateWebhook(mind.converse, id, (row) => {
+      const { trial: _was, ...rest } = row;
+      return trial ? { ...rest, trial: true } : rest;
+    });
+    // Read it back: what updateWebhook returns was built inside the commit,
+    // and draft values die with the transaction.
+    json(200, (await findOwned(args, await listWebhooks(mind.converse), id)) ?? null);
     return true;
   }
   if (path.startsWith("/api/webhooks/") && method === "DELETE") {

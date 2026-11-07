@@ -288,6 +288,8 @@ export interface WebhookCreate {
   readonly threadTitle?: string | null;
   /** Who may start work (threads.ts); others only add context to a thread's chat. */
   readonly senders?: WebhookSenders | null;
+  /** Start in trial mode (WebhookInfo.trial). */
+  readonly trial?: boolean;
 }
 
 /** A webhook as handed back at creation or rotation: the only time its token exists. */
@@ -321,6 +323,7 @@ export const createWebhook = async (
     lastRejectReason: null,
     recentRejects: [],
     ...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
+    ...(input.trial === true ? { trial: true } : {}),
     ...(input.threadKey != null ? { threadKey: input.threadKey.trim() } : {}),
     ...(input.threadTitle != null ? { threadTitle: input.threadTitle.trim() } : {}),
     ...(input.senders != null

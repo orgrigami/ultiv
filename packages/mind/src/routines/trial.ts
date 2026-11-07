@@ -1,11 +1,13 @@
 /**
- * Routine trials: a schedule's prompt run AS its bot, on the model and with
- * the input the live fire would use, in a fresh conversation the dry-run
+ * Routine trials: a routine's fire (a schedule's prompt, a watch's event, a
+ * webhook's payload) run AS its bot, on the model and with the input the
+ * live fire would use, in a fresh conversation the dry-run
  * guard holds (evals/guard.ts): every tool call is blocked before it runs,
  * so nothing is written, sent, spent or put up for approval. The owner reads
  * what the routine WOULD have done (its reply and each call it tried) before
- * letting it act. A routine in trial mode (`CronJobInfo.trial`) runs every
- * fire this way; "Try now" runs one on demand. Trial conversations are
+ * letting it act. A routine in trial mode (`trial: true` on a schedule, a
+ * watch or a webhook) runs every fire this way; "Try now" runs one of a
+ * schedule on demand. Trial conversations are
  * adopted under the bot as kind "task" (background lane at the model gate,
  * listed in no chat) and stay in storage under `trial:<routine>:<run>`.
  */
@@ -28,6 +30,8 @@ import { QUIET_ROUTINE } from "../tasks/background.ts";
 import { backgroundModelFor, type TaskModel } from "../tasks/model.ts";
 import { TASK_BRIEF } from "../tasks/tasks.ts";
 import { readCronJobs, writeCronJobs } from "../schedules/schedules.ts";
+import { updateSensor } from "../sensors/sensors.ts";
+import { updateWebhook } from "../webhooks/webhooks.ts";
 
 export type TrialDeps = {
   readonly converse: ConverseService;
@@ -36,7 +40,24 @@ export type TrialDeps = {
   readonly knownModel: (ref: string) => boolean;
 };
 
+/**
+ * Any routine a trial can run: a schedule, a watch (sensor) or a webhook,
+ * with the exact input its live fire would deliver. A webhook's and a
+ * watch's input is the wake text; a schedule's is `trialInputOf(job)`.
+ */
+export type TrialRoutine = {
+  readonly kind: "cron" | "sensor" | "webhook";
+  readonly id: string;
+  readonly profile: string;
+  readonly sessionId: string;
+  readonly input: string;
+  /** "task": the live fire runs as a background task (its model). */
+  readonly run?: "chat" | "task" | undefined;
+};
+
 export interface TrialsService {
+  /** Run one trial of any routine and keep it on the routine (newest last). */
+  readonly run: (routine: TrialRoutine) => Promise<RoutineTrial>;
   /** Run one trial of a schedule and keep it on the job (newest last). */
   readonly runCron: (job: CronJobInfo) => Promise<RoutineTrial>;
   /** Hear a trial land on a job. Returns the unsubscribe. */
@@ -75,10 +96,10 @@ export const keptInput = (input: unknown): Json => {
 /** The model the live fire runs on: the bot's chat model, or its background model for task runs. */
 const modelOf = (
   deps: TrialDeps,
-  job: CronJobInfo,
+  routine: TrialRoutine,
   profile: Parameters<ProfilesService["agentFor"]>[0],
 ): TaskModel | null => {
-  if (job.run === "task") {
+  if (routine.run === "task") {
     const choice = backgroundModelFor(profile, {}, deps.knownModel);
     if (choice.ok && choice.model !== undefined) return choice.model;
   }
@@ -90,15 +111,15 @@ const modelOf = (
 /** Run the trial turn and read back what the bot said and tried. */
 const trialTurn = async (
   deps: TrialDeps,
-  job: CronJobInfo,
+  routine: TrialRoutine,
   owner: string,
 ): Promise<Omit<RoutineTrial, "at">> => {
-  const profile = await deps.profiles.get(owner, job.profile);
+  const profile = await deps.profiles.get(owner, routine.profile);
   if (profile === undefined) return { reply: "", actions: [], error: "This bot no longer exists." };
-  const key = trialKey(job.id, randomUUID());
+  const key = trialKey(routine.id, randomUUID());
   await deps.profiles.adoptConversation(key, {
     owner,
-    profileId: job.profile,
+    profileId: routine.profile,
     kind: "task",
     participants: null,
   });
@@ -107,7 +128,7 @@ const trialTurn = async (
   // Held before the first input reaches the model.
   await deps.guard.add(conversationId);
   const agent = deps.profiles.agentFor(profile);
-  const model = modelOf(deps, job, profile);
+  const model = modelOf(deps, routine, profile);
   await run(
     deps.converse.configure(conversation, {
       model: model?.id ?? null,
@@ -115,7 +136,7 @@ const trialTurn = async (
       ...(agent.tools !== undefined ? { tools: agent.tools } : {}),
     }),
   );
-  await run(deps.converse.turn(conversation, trialInputOf(job)));
+  await run(deps.converse.turn(conversation, routine.input));
   const entries = await run(deps.converse.entriesAfter(conversationId, 0, SCAN));
   const steps = projectTranscript(entries, undefined, false);
   const reply = steps
@@ -129,21 +150,37 @@ const trialTurn = async (
   return { reply: reply.slice(0, REPLY_CHARS), actions, error: null };
 };
 
-/** Keep a trial on its job, newest last; a job removed meanwhile keeps nothing. */
+/** The latest trials with one more, newest last. */
+const kept = (trials: readonly RoutineTrial[] | undefined, trial: RoutineTrial): RoutineTrial[] =>
+  [...(trials ?? []), trial].slice(-TRIALS_KEPT);
+
+/** Keep a trial on its routine; a routine removed meanwhile keeps nothing. */
 const recordTrial = async (
   converse: ConverseService,
-  id: string,
+  routine: TrialRoutine,
   trial: RoutineTrial,
 ): Promise<void> => {
+  if (routine.kind === "sensor") {
+    await updateSensor(converse, routine.id, (row) => ({
+      ...row,
+      trials: kept(row.trials, trial),
+    }));
+    return;
+  }
+  if (routine.kind === "webhook") {
+    await updateWebhook(converse, routine.id, (row) => ({
+      ...row,
+      trials: kept(row.trials, trial),
+    }));
+    return;
+  }
   const items = await readCronJobs(converse);
-  if (!items.some((job) => job.id === id)) return;
+  if (!items.some((job) => job.id === routine.id)) return;
   await run(
     writeCronJobs(
       converse,
       items.map((job) =>
-        job.id === id
-          ? { ...job, trials: [...(job.trials ?? []), trial].slice(-TRIALS_KEPT) }
-          : job,
+        job.id === routine.id ? { ...job, trials: kept(job.trials, trial) } : job,
       ),
     ),
   );
@@ -151,31 +188,41 @@ const recordTrial = async (
 
 export const trialsService = (deps: TrialDeps): TrialsService => {
   const listeners = new Set<() => void>();
-  return {
-    runCron: async (job) => {
-      const at = Date.now();
-      const row = await deps.profiles.rowOf(job.sessionId);
-      let outcome: Omit<RoutineTrial, "at">;
+  const runOne = async (routine: TrialRoutine): Promise<RoutineTrial> => {
+    const at = Date.now();
+    const row = await deps.profiles.rowOf(routine.sessionId);
+    let outcome: Omit<RoutineTrial, "at">;
+    try {
+      outcome =
+        row === undefined
+          ? { reply: "", actions: [], error: "This routine's chat no longer exists." }
+          : await trialTurn(deps, routine, row.owner);
+    } catch (cause) {
+      console.error(`trial of routine ${routine.id} failed:`, cause);
+      outcome = { reply: "", actions: [], error: ownerErrorText(cause) };
+    }
+    const trial: RoutineTrial = { at, ...outcome };
+    await recordTrial(deps.converse, routine, trial);
+    for (const fn of listeners) {
       try {
-        outcome =
-          row === undefined
-            ? { reply: "", actions: [], error: "This routine's chat no longer exists." }
-            : await trialTurn(deps, job, row.owner);
-      } catch (cause) {
-        console.error(`trial of routine ${job.id} failed:`, cause);
-        outcome = { reply: "", actions: [], error: ownerErrorText(cause) };
+        fn();
+      } catch {
+        // A listener never fails the trial.
       }
-      const trial: RoutineTrial = { at, ...outcome };
-      await recordTrial(deps.converse, job.id, trial);
-      for (const fn of listeners) {
-        try {
-          fn();
-        } catch {
-          // A listener never fails the trial.
-        }
-      }
-      return trial;
-    },
+    }
+    return trial;
+  };
+  return {
+    run: (routine) => runOne(routine),
+    runCron: (job) =>
+      runOne({
+        kind: "cron",
+        id: job.id,
+        profile: job.profile,
+        sessionId: job.sessionId,
+        input: trialInputOf(job),
+        run: job.run,
+      }),
     onChange: (fn) => {
       listeners.add(fn);
       return () => void listeners.delete(fn);

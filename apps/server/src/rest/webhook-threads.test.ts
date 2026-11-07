@@ -118,3 +118,37 @@ describe("webhook threads", () => {
     expect(text).toContain("ultiv.webhook-context");
   });
 });
+
+describe("a webhook in trial mode", () => {
+  it("runs an allowed payload as a trial: no chat opens, the trial lands on the webhook", async () => {
+    const cookie = await signInForTest(base);
+    const sessionId = (await handle.mind.profiles.ensureMain("owner", botId)).id;
+    const created = await fetch(`${base}/api/webhooks`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ sessionId, threadKey: "issue.number", trial: true }),
+    });
+    const trialHook = (await created.json()) as { id: string; token: string; trial?: boolean };
+    expect(trialHook.trial).toBe(true);
+    const sent = await fetch(`${base}/hooks/${trialHook.id}?token=${trialHook.token}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(issue(99, "ana")),
+    });
+    expect(sent.status).toBe(200);
+    let trials: unknown[] = [];
+    // Offline the trial turn fails (no model); the failure is the trial's record.
+    for (let n = 0; n < 150 && trials.length === 0; n += 1) {
+      trials = (await findWebhook(handle.mind.converse, trialHook.id))?.trials ?? [];
+      if (trials.length === 0) await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    expect(trials).toHaveLength(1);
+    expect((await findWebhook(handle.mind.converse, trialHook.id))?.threads ?? []).toEqual([]);
+    const live = await fetch(`${base}/api/webhooks/${trialHook.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ trial: false }),
+    });
+    expect(((await live.json()) as { trial?: boolean }).trial).toBeUndefined();
+  }, 30_000);
+});

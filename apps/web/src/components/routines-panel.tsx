@@ -164,6 +164,7 @@ export function RoutinesContent({
       >
         {data.sensors.map((sensor) => (
           <SensorRow
+            onChanged={load}
             key={sensor.id}
             sensor={sensor}
             bot={bot(sensor.profile)}

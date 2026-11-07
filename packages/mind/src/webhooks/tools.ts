@@ -89,6 +89,13 @@ const createTool = (webhooks: WebhooksService, profiles: ProfilesService): Tool 
           description: 'Dotted path to the thread\'s title ("issue.title"); names its chat.',
         }),
       ),
+      trial: Type.Optional(
+        Type.Boolean({
+          description:
+            "Start as a trial: each payload runs with every action held back and only records " +
+            "what you would have done, until your owner turns it live under Routines.",
+        }),
+      ),
       allow_senders: Type.Optional(
         Type.Object(
           {
@@ -136,6 +143,7 @@ const createTool = (webhooks: WebhooksService, profiles: ProfilesService): Tool 
           ...(args.thread_key !== undefined ? { threadKey: args.thread_key } : {}),
           ...(args.thread_title !== undefined ? { threadTitle: args.thread_title } : {}),
           ...(args.allow_senders !== undefined ? { senders: args.allow_senders } : {}),
+          ...(args.trial === true ? { trial: true } : {}),
         });
         return {
           output: [

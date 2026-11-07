@@ -288,6 +288,28 @@ const routePayload = async (
     await settleRoutineEvent(mind.converse, eventId, "delivered", `context only, from ${who}`);
     return;
   }
+  if (webhook.trial === true) {
+    // Trial mode: the payload runs with every action held back (mind
+    // routines/trial.ts); no chat is opened or woken. After the ack.
+    void mind.trials
+      .run({
+        kind: "webhook",
+        id: webhook.id,
+        profile: webhook.profile,
+        sessionId: webhook.sessionId,
+        input: webhookText(webhook.id, body, false),
+      })
+      .then((trial) =>
+        settleRoutineEvent(
+          mind.converse,
+          eventId,
+          trial.error === null ? "trial" : "failed",
+          trial.error,
+        ),
+      )
+      .catch((cause: unknown) => console.error(`webhook ${webhook.id} trial failed:`, cause));
+    return;
+  }
   const sessionId =
     route.thread === null
       ? webhook.sessionId

@@ -82,6 +82,8 @@ export interface SensorCreate {
   readonly url?: string;
   readonly match: string;
   readonly leadMinutes?: number;
+  /** Start in trial mode (SensorInfo.trial). */
+  readonly trial?: boolean;
 }
 
 export const createSensor = async (
@@ -117,6 +119,7 @@ export const createSensor = async (
     lastFiredAt: null,
     seen: [],
     lastState: null,
+    ...(input.trial === true ? { trial: true } : {}),
   };
   await Effect.runPromise(
     converse.docs.commit(async (tx) => {

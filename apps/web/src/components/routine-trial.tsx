@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { isNothingToReport, type CronJobInfo, type RoutineTrial } from "@spriessen/contracts";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
@@ -70,6 +71,56 @@ export function TrialResult({ trial }: { trial: RoutineTrial }) {
 }
 
 const latestAt = (job: CronJobInfo): number => job.trials?.at(-1)?.at ?? 0;
+
+/** The badge every routine in trial mode wears. */
+export function TrialBadge() {
+  return (
+    <Badge
+      variant="outline"
+      title="Each run shows what it would do. Nothing is sent or changed until you go live."
+    >
+      Trial
+    </Badge>
+  );
+}
+
+/** A routine's latest trial, and Go live while it is in trial mode. */
+export function TrialSection({
+  trial,
+  trials,
+  onGoLive,
+  extra,
+}: {
+  trial: boolean | undefined;
+  trials: readonly RoutineTrial[] | undefined;
+  onGoLive: () => Promise<unknown>;
+  /** More controls on the same row (Pause/Resume). */
+  extra?: React.ReactNode;
+}) {
+  const last = trials?.at(-1);
+  if (trial !== true && last === undefined && extra === undefined) return null;
+  return (
+    <>
+      {last !== undefined && <TrialResult trial={last} />}
+      {(trial === true || extra !== undefined) && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {trial === true && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                void onGoLive().catch((cause: unknown) => notifyError("Couldn't go live", cause))
+              }
+            >
+              Go live
+            </Button>
+          )}
+          {extra}
+        </div>
+      )}
+    </>
+  );
+}
 
 /** Try now, Go live and Pause/Resume for one schedule. */
 export function ScheduleControls({

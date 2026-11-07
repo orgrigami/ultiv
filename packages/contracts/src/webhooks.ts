@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { RoutineTrialSchema } from "./routine-trial.ts";
 
 /** One retained rejected payload (bounded, bodies truncated) for diagnosis. */
 export const WebhookRejectSchema = Type.Object({
@@ -110,6 +111,10 @@ export const WebhookInfoSchema = Type.Object({
   senders: Type.Optional(Type.Union([WebhookSendersSchema, Type.Null()])),
   /** Each outside thread's chat, oldest first (at most MAX_WEBHOOK_THREADS). */
   threads: Type.Optional(Type.Array(WebhookThreadSchema)),
+  /** Trial mode (routine-trial.ts): each allowed payload runs as a trial until turned live. */
+  trial: Type.Optional(Type.Boolean()),
+  /** The latest trials, oldest first (at most TRIALS_KEPT). */
+  trials: Type.Optional(Type.Array(RoutineTrialSchema)),
 });
 
 export type WebhookInfo = Omit<Static<typeof WebhookInfoSchema>, "schema"> & {
