@@ -69,7 +69,7 @@ describe("bootScript (root, per boot)", () => {
     expect(script).toContain("|| echo 'spriessen-setup-warn: setfacl /home/org-shared' >&2");
   });
 
-  it("a read-only org mount (department VM) skips the store's chown/chmod", () => {
+  it("a read-only org mount (team VM) skips the store's chown/chmod", () => {
     const script = bootScript(undefined, { gid: 10_002, readOnly: true });
     expect(script).not.toContain("chown root:ultiv-org");
     expect(script).toContain("groupadd -g 10002 ultiv-org");
@@ -205,7 +205,7 @@ describe("homeWorldOf carries the bot's user to the VM backend", () => {
   it("the org-wide folder rides along with its store, gid and read-only flag (2c)", () => {
     const orgShared = { hostDir: "/h/_shared/org", gid: 10_001, readOnly: true };
     const world = homeWorldOf("/h/owner-a/bot-a", {
-      dir: "/h/_home/dept-x",
+      dir: "/h/_home/team-x",
       sharedGid: 10_002,
       orgShared,
     });

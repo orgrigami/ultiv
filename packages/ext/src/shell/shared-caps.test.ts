@@ -24,25 +24,25 @@ const scratch = mkdtempSync(join(tmpdir(), "spriessen-caps-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 describe("cappedDirsOf", () => {
-  it("org VM: org-shared and every department store, never its own on-disk /home/shared", () => {
+  it("org VM: org-shared and every team store, never its own on-disk /home/shared", () => {
     const dirs = cappedDirsOf({
       name: "v",
       sharedGid: 10_000,
       orgShared: { hostDir: "/s/org", gid: 10_001, readOnly: false },
-      deptShared: { parentDir: "/s/dept", depts: [{ id: "research", gid: 10_002 }], users: [] },
-      caps: { orgShared: 1024, dept: { research: 2048 } },
+      teamShared: { parentDir: "/s/team", teams: [{ id: "research", gid: 10_002 }], users: [] },
+      caps: { orgShared: 1024, team: { research: 2048 } },
     });
     expect(dirs.map((d) => [d.guest, d.host, d.capBytes])).toEqual([
       ["/home/org-shared", "/s/org", 1024],
-      ["/home/dept-shared/research", "/s/dept/research", 2048],
+      ["/home/team-shared/research", "/s/team/research", 2048],
     ]);
   });
 
-  it("dept VM: its own store only (org-shared is read-only there)", () => {
+  it("team VM: its own store only (org-shared is read-only there)", () => {
     const dirs = cappedDirsOf({
       name: "v",
       orgShared: { hostDir: "/s/org", gid: 10_001, readOnly: true },
-      sharedStore: "/s/dept/research",
+      sharedStore: "/s/team/research",
       caps: { orgShared: 1024, shared: 4096 },
     });
     expect(dirs.map((d) => d.guest)).toEqual(["/home/shared"]);
@@ -103,20 +103,20 @@ describe("shared-write audit rows", () => {
     expect(org).toContain(`-printf '${SHARED_WRITE_MARK}`);
   });
 
-  it("parses rows with area and department, ignoring anything else", () => {
+  it("parses rows with area and team, ignoring anything else", () => {
     const out = [
       `${SHARED_WRITE_MARK}\t12\t/home/org-shared/plan.md`,
-      `${SHARED_WRITE_MARK}\t7\t/home/dept-shared/research/notes/a.txt`,
+      `${SHARED_WRITE_MARK}\t7\t/home/team-shared/research/notes/a.txt`,
       `${SHARED_WRITE_MARK}\t5\t/home/shared/x`,
       "noise",
     ].join("\n");
     expect(sharedWritesOf(out)).toEqual([
-      { path: "/home/org-shared/plan.md", bytes: 12, area: "org-shared", departmentId: null },
+      { path: "/home/org-shared/plan.md", bytes: 12, area: "org-shared", teamId: null },
       {
-        path: "/home/dept-shared/research/notes/a.txt",
+        path: "/home/team-shared/research/notes/a.txt",
         bytes: 7,
-        area: "dept-shared",
-        departmentId: "research",
+        area: "team-shared",
+        teamId: "research",
       },
     ]);
   });
@@ -132,7 +132,7 @@ describe("shared-write audit rows", () => {
       path: "/home/org-shared/a",
       bytes: 3,
       area: "org-shared",
-      departmentId: null,
+      teamId: null,
     };
     const plugin = bashPlugin({
       root: join(scratch, "tool"),

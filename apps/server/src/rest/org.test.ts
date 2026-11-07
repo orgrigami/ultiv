@@ -1,7 +1,7 @@
 /**
- * Org routes over the real REST handler: the view, department CRUD with the
+ * Org routes over the real REST handler: the view, team CRUD with the
  * VM defaults, the home invariant at the route level, and audit rows for
- * department state changes.
+ * team state changes.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -24,7 +24,7 @@ let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
 let cookie = "";
-let dept = "";
+let team = "";
 
 const call = async (
   method: string,
@@ -50,7 +50,7 @@ const call = async (
 };
 
 beforeAll(async () => {
-  // No VM runtime in tests: department removal's VM teardown is a no-op here.
+  // No VM runtime in tests: team removal's VM teardown is a no-op here.
   handle = await openMind({
     storage: new MemoryStorage(),
     destroyHomeVm: async () => {},
@@ -83,13 +83,13 @@ describe("org routes", () => {
     const view = await call("GET", "/api/org");
     expect(view.status).toBe(200);
     expect((view.json as { org: { name: string } }).org.name).toBe("Personal");
-    expect((view.json as { departments: unknown[] }).departments).toEqual([]);
+    expect((view.json as { teams: unknown[] }).teams).toEqual([]);
   });
 
-  it("creates a department with VM defaults, or the given settings", async () => {
+  it("creates a team with VM defaults, or the given settings", async () => {
     const plain = await call("GET", "/api/org");
     void plain;
-    const made = await call("POST", "/api/org/departments", { name: "Ops" });
+    const made = await call("POST", "/api/org/teams", { name: "Ops" });
     expect(made.status).toBe(200);
     const row = made.json as {
       id: string;
@@ -98,79 +98,79 @@ describe("org routes", () => {
     };
     expect(row.vm).toEqual({ cpus: 1, memoryMiB: 512 });
     expect(row.hostAccess).toBe(false);
-    const sized = await call("POST", "/api/org/departments", {
+    const sized = await call("POST", "/api/org/teams", {
       name: "Lab",
       vm: { cpus: 4, memoryMiB: 1024 },
     });
     expect((sized.json as { vm: unknown }).vm).toEqual({ cpus: 4, memoryMiB: 1024 });
-    dept = row.id;
+    team = row.id;
   });
 
   it("refuses a malformed vm size and a duplicate name", async () => {
     expect(
-      (await call("POST", "/api/org/departments", { name: "Bad", vm: { cpus: 0, memoryMiB: 512 } }))
+      (await call("POST", "/api/org/teams", { name: "Bad", vm: { cpus: 0, memoryMiB: 512 } }))
         .status,
     ).toBe(400);
-    expect((await call("POST", "/api/org/departments", { name: "Ops" })).status).toBe(400);
+    expect((await call("POST", "/api/org/teams", { name: "Ops" })).status).toBe(400);
   });
 
   it("patches name, vm, host access and instructions", async () => {
-    const moved = await call("PATCH", `/api/org/departments/${dept}`, {
-      instructions: "Answer in the department's voice.",
+    const moved = await call("PATCH", `/api/org/teams/${team}`, {
+      instructions: "Answer in the team's voice.",
       hostAccess: true,
     });
     expect(moved.status).toBe(200);
-    expect((moved.json as { instructions: string }).instructions).toContain("department's voice");
+    expect((moved.json as { instructions: string }).instructions).toContain("team's voice");
     expect((moved.json as { hostAccess: boolean }).hostAccess).toBe(true);
   });
 
-  it("removes an empty department and refuses one that still has bots", async () => {
+  it("removes an empty team and refuses one that still has bots", async () => {
     const bot = await handle.mind.profiles.create("owner", {
-      name: "Dept bot",
+      name: "Team bot",
       onboard: false,
-      departmentId: dept,
+      teamId: team,
     });
-    expect((await call("DELETE", `/api/org/departments/${dept}`)).json).toEqual({
-      error: "the department still has bots",
+    expect((await call("DELETE", `/api/org/teams/${team}`)).json).toEqual({
+      error: "the team still has bots",
     });
-    await handle.mind.profiles.update("owner", bot.id, { departmentId: null });
-    expect((await call("DELETE", `/api/org/departments/${dept}`)).json).toEqual({ ok: true });
+    await handle.mind.profiles.update("owner", bot.id, { teamId: null });
+    expect((await call("DELETE", `/api/org/teams/${team}`)).json).toEqual({ ok: true });
   });
 
-  it("audits department state changes", async () => {
+  it("audits team state changes", async () => {
     const events = await call("GET", "/api/audit?kind=permission");
     const names = (events.json as { name: string }[]).map((event) => event.name);
-    expect(names).toContain("department-created");
-    expect(names).toContain("department-host-access");
-    expect(names).toContain("department-removed");
+    expect(names).toContain("team-created");
+    expect(names).toContain("team-host-access");
+    expect(names).toContain("team-removed");
   });
 
-  it("answers an unknown department like a missing one", async () => {
-    const missing = { status: 404, json: { error: "unknown department" } };
-    expect(await call("PATCH", "/api/org/departments/ghost", { name: "X" })).toEqual(missing);
-    expect(await call("DELETE", "/api/org/departments/ghost")).toEqual(missing);
+  it("answers an unknown team like a missing one", async () => {
+    const missing = { status: 404, json: { error: "unknown team" } };
+    expect(await call("PATCH", "/api/org/teams/ghost", { name: "X" })).toEqual(missing);
+    expect(await call("DELETE", "/api/org/teams/ghost")).toEqual(missing);
   });
 
-  it("a department admin of one department is refused in another, like a missing item", async () => {
-    const made = await call("POST", "/api/org/departments", { name: "West" });
+  it("a team admin of one team is refused in another, like a missing item", async () => {
+    const made = await call("POST", "/api/org/teams", { name: "West" });
     const x = made.json as { id: string };
-    const other = await call("POST", "/api/org/departments", { name: "East" });
+    const other = await call("POST", "/api/org/teams", { name: "East" });
     const y = other.json as { id: string };
-    // Seed roles on the REAL department ids (the account labels are
+    // Seed roles on the REAL team ids (the account labels are
     // throwaway; only the signed-in owner exists on the wire today).
-    await handle.mind.org.setMember({ accountId: "admin-x", role: "admin", departmentId: x.id });
-    await handle.mind.org.setMember({ accountId: "admin-y", role: "admin", departmentId: y.id });
-    const refusal = { status: 404, json: { error: "unknown department" } };
+    await handle.mind.org.setMember({ accountId: "admin-x", role: "admin", teamId: x.id });
+    await handle.mind.org.setMember({ accountId: "admin-y", role: "admin", teamId: y.id });
+    const refusal = { status: 404, json: { error: "unknown team" } };
     // admin-x patches East: refused with the missing-item answer.
-    const answer = await callAs("admin-x", "PATCH", `/api/org/departments/${y.id}`, { name: "X" });
+    const answer = await callAs("admin-x", "PATCH", `/api/org/teams/${y.id}`, { name: "X" });
     expect(answer).toEqual(refusal);
     // admin-x patches West (their own): allowed.
-    expect(
-      (await callAs("admin-x", "PATCH", `/api/org/departments/${x.id}`, { name: "W" })).status,
-    ).toBe(200);
+    expect((await callAs("admin-x", "PATCH", `/api/org/teams/${x.id}`, { name: "W" })).status).toBe(
+      200,
+    );
     // A plain member is refused everywhere.
-    await handle.mind.org.setMember({ accountId: "mate-x", role: "member", departmentId: x.id });
-    expect(await callAs("mate-x", "PATCH", `/api/org/departments/${x.id}`, { name: "W" })).toEqual(
+    await handle.mind.org.setMember({ accountId: "mate-x", role: "member", teamId: x.id });
+    expect(await callAs("mate-x", "PATCH", `/api/org/teams/${x.id}`, { name: "W" })).toEqual(
       refusal,
     );
   });
@@ -222,14 +222,14 @@ async function callAs(
   return { status, json: payload };
 }
 
-describe("the department summary (slice 4)", () => {
+describe("the team summary (slice 4)", () => {
   it("gives the org owner counts, bots and activity, never chat contents", async () => {
-    const made = await call("POST", "/api/org/departments", { name: "Alpha" });
+    const made = await call("POST", "/api/org/teams", { name: "Alpha" });
     const alpha = made.json as { id: string };
     const bot = await handle.mind.profiles.create("owner", {
       name: "Alpha bot",
       onboard: false,
-      departmentId: alpha.id,
+      teamId: alpha.id,
     });
     const session = await handle.mind.profiles.ensureMain("owner", bot.id);
     await handle.mind.audit.record({
@@ -243,14 +243,14 @@ describe("the department summary (slice 4)", () => {
       ok: true,
       error: null,
     });
-    const summary = await call("GET", `/api/org/departments/${alpha.id}/summary`);
+    const summary = await call("GET", `/api/org/teams/${alpha.id}/summary`);
     expect(summary.status).toBe(200);
     const body = summary.json as {
-      department: { id: string };
+      team: { id: string };
       bots: { id: string; name: string }[];
       activity: { toolCalls7d: number; lastToolCallAt: number | null; openApprovals: number };
     };
-    expect(body.department.id).toBe(alpha.id);
+    expect(body.team.id).toBe(alpha.id);
     expect(body.bots).toEqual([{ id: bot.id, name: "Alpha bot" }]);
     expect(body.activity.toolCalls7d).toBe(1);
     expect(body.activity.lastToolCallAt).not.toBeNull();
@@ -259,49 +259,45 @@ describe("the department summary (slice 4)", () => {
     expect(JSON.stringify(body)).not.toContain("messages");
   });
 
-  it("reads as a missing department for a role that may not see it", async () => {
-    const made = await call("POST", "/api/org/departments", { name: "Beta" });
+  it("reads as a missing team for a role that may not see it", async () => {
+    const made = await call("POST", "/api/org/teams", { name: "Beta" });
     const beta = made.json as { id: string };
     await handle.mind.org.setMember({
       accountId: "mate-beta",
       role: "member",
-      departmentId: beta.id,
+      teamId: beta.id,
     });
-    const refusal = { status: 404, json: { error: "unknown department" } };
-    expect(await callAs("mate-beta", "GET", `/api/org/departments/${beta.id}/summary`)).toEqual(
-      refusal,
-    );
-    expect(await callAs("mate-beta", "GET", "/api/org/departments/ghost/summary")).toEqual(refusal);
-    // A member of ANOTHER department also reads it as missing.
-    const gamma = (await call("POST", "/api/org/departments", { name: "Gamma" })).json as {
+    const refusal = { status: 404, json: { error: "unknown team" } };
+    expect(await callAs("mate-beta", "GET", `/api/org/teams/${beta.id}/summary`)).toEqual(refusal);
+    expect(await callAs("mate-beta", "GET", "/api/org/teams/ghost/summary")).toEqual(refusal);
+    // A member of ANOTHER team also reads it as missing.
+    const gamma = (await call("POST", "/api/org/teams", { name: "Gamma" })).json as {
       id: string;
     };
     await handle.mind.org.setMember({
       accountId: "mate-gamma",
       role: "member",
-      departmentId: gamma.id,
+      teamId: gamma.id,
     });
-    expect(await callAs("mate-gamma", "GET", `/api/org/departments/${beta.id}/summary`)).toEqual(
-      refusal,
-    );
+    expect(await callAs("mate-gamma", "GET", `/api/org/teams/${beta.id}/summary`)).toEqual(refusal);
   });
 });
 
 describe("reach grants (slice 5)", () => {
   it("creates, lists and revokes a grant, with audit rows", async () => {
-    const alpha = (await call("POST", "/api/org/departments", { name: "GrantA" })).json as {
+    const alpha = (await call("POST", "/api/org/teams", { name: "GrantA" })).json as {
       id: string;
     };
-    const beta = (await call("POST", "/api/org/departments", { name: "GrantB" })).json as {
+    const beta = (await call("POST", "/api/org/teams", { name: "GrantB" })).json as {
       id: string;
     };
     const made = await call("POST", "/api/org/grants", {
       resource: {
         kind: "vault-item",
         id: "item-9",
-        home: { kind: "department", departmentId: beta.id },
+        home: { kind: "team", teamId: beta.id },
       },
-      grantee: { kind: "department", departmentId: alpha.id },
+      grantee: { kind: "team", teamId: alpha.id },
     });
     expect(made.status).toBe(200);
     const grant = made.json as { id: string; action: string; revokedAt: null };
@@ -331,7 +327,7 @@ describe("reach grants (slice 5)", () => {
           resource: {
             kind: "vault-item",
             id: "x",
-            home: { kind: "department", departmentId: "ghost" },
+            home: { kind: "team", teamId: "ghost" },
           },
           grantee: { kind: "org" },
         })
@@ -340,19 +336,19 @@ describe("reach grants (slice 5)", () => {
   });
 
   it("a member cannot grant or revoke, and reads the missing-route answer", async () => {
-    const alpha = (await call("POST", "/api/org/departments", { name: "GrantC" })).json as {
+    const alpha = (await call("POST", "/api/org/teams", { name: "GrantC" })).json as {
       id: string;
     };
     await handle.mind.org.setMember({
       accountId: "mate-c",
       role: "member",
-      departmentId: alpha.id,
+      teamId: alpha.id,
     });
     const body = {
       resource: {
         kind: "vault-item",
         id: "item-1",
-        home: { kind: "department", departmentId: alpha.id },
+        home: { kind: "team", teamId: alpha.id },
       },
       grantee: { kind: "org" },
     };
@@ -367,14 +363,14 @@ describe("reach grants (slice 5)", () => {
   });
 });
 
-describe("department shared memory (slice 9)", () => {
-  it("only an admin of the department decides; a member reads as missing", async () => {
-    const made = await call("POST", "/api/org/departments", { name: "MemD" });
-    const dept = made.json as { id: string };
+describe("team shared memory (slice 9)", () => {
+  it("only an admin of the team decides; a member reads as missing", async () => {
+    const made = await call("POST", "/api/org/teams", { name: "MemD" });
+    const team = made.json as { id: string };
     const bot = await handle.mind.profiles.create("owner", {
       name: "Proposer",
       onboard: false,
-      departmentId: dept.id,
+      teamId: team.id,
     });
     const fact = await handle.mind.memory.writeV2({
       owner: "owner",
@@ -386,20 +382,18 @@ describe("department shared memory (slice 9)", () => {
     await handle.mind.memory.proposeShare({
       owner: "owner",
       profileId: bot.id,
-      departmentId: dept.id,
+      teamId: team.id,
       factId: fact.id,
       summary: "deploy window",
     });
     await handle.mind.org.setMember({
       accountId: "mate-mem",
       role: "member",
-      departmentId: dept.id,
+      teamId: team.id,
     });
     // The member's list reads as missing; so does their decide.
-    expect((await callAs("mate-mem", "GET", `/api/memory/v2?department=${dept.id}`)).status).toBe(
-      404,
-    );
-    const proposals = (await call("GET", `/api/memory/v2?department=${dept.id}`)).json as {
+    expect((await callAs("mate-mem", "GET", `/api/memory/v2?team=${team.id}`)).status).toBe(404);
+    const proposals = (await call("GET", `/api/memory/v2?team=${team.id}`)).json as {
       proposals: { id: string }[];
     };
     expect(proposals.proposals).toHaveLength(1);
@@ -413,19 +407,17 @@ describe("department shared memory (slice 9)", () => {
         )
       ).status,
     ).toBe(404);
-    // An admin of ANOTHER department also reads as missing.
-    const other = (await call("POST", "/api/org/departments", { name: "MemE" })).json as {
+    // An admin of ANOTHER team also reads as missing.
+    const other = (await call("POST", "/api/org/teams", { name: "MemE" })).json as {
       id: string;
     };
     await handle.mind.org.setMember({
       accountId: "admin-e",
       role: "admin",
-      departmentId: other.id,
+      teamId: other.id,
     });
-    expect((await callAs("admin-e", "GET", `/api/memory/v2?department=${dept.id}`)).status).toBe(
-      404,
-    );
-    // The department's admin accepts; the fact lands in the shared store.
+    expect((await callAs("admin-e", "GET", `/api/memory/v2?team=${team.id}`)).status).toBe(404);
+    // The team's admin accepts; the fact lands in the shared store.
     const accepted = await callAs(
       "admin-mem",
       "POST",
@@ -435,11 +427,11 @@ describe("department shared memory (slice 9)", () => {
     expect(accepted.status).toBe(404); // admin-mem does not exist; the owner passes below
     const byOwner = await call(
       "POST",
-      `/api/memory/v2/proposals/${proposals.proposals[0]?.id}/accept?department=${dept.id}`,
+      `/api/memory/v2/proposals/${proposals.proposals[0]?.id}/accept?team=${team.id}`,
       {},
     );
     expect(byOwner.json).toEqual({ id: proposals.proposals[0]?.id, status: "accepted" });
-    const facts = (await call("GET", `/api/memory/v2?department=${dept.id}`)).json as {
+    const facts = (await call("GET", `/api/memory/v2?team=${team.id}`)).json as {
       facts: { text: string }[];
     };
     expect(JSON.stringify(facts.facts)).toContain("deploy window");
@@ -450,16 +442,16 @@ describe("host-access flags (slice 11)", () => {
   it("new bots default off; the effective value ANDs the levels and names the blocker", async () => {
     const fresh = await handle.mind.profiles.create("owner", { name: "Flagless", onboard: false });
     expect(fresh.hostAccess).toBe(false);
-    const dept = (await call("POST", "/api/org/departments", { name: "FlagD" })).json as {
+    const team = (await call("POST", "/api/org/teams", { name: "FlagD" })).json as {
       id: string;
     };
-    expect((dept as unknown as { hostAccess: boolean }).hostAccess).toBe(false);
-    // A bot on its own: org is on (migration), department off -> blocked by
-    // the department.
+    expect((team as unknown as { hostAccess: boolean }).hostAccess).toBe(false);
+    // A bot on its own: org is on (migration), team off -> blocked by
+    // the team.
     const bot = await handle.mind.profiles.create("owner", {
       name: "Flagged",
       onboard: false,
-      departmentId: dept.id,
+      teamId: team.id,
       hostAccess: true,
     });
     const matrix = (await call("GET", "/api/org/host-access")).json as {
@@ -467,15 +459,15 @@ describe("host-access flags (slice 11)", () => {
     };
     const mine = matrix.bots.find((row) => row.profileId === bot.id);
     expect(mine?.allowed).toBe(false);
-    expect(mine?.blockedBy).toBe("department");
-    // The org owner flips the department switch: now allowed.
-    await call("PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true });
+    expect(mine?.blockedBy).toBe("team");
+    // The org owner flips the team switch: now allowed.
+    await call("PATCH", `/api/org/teams/${team.id}`, { hostAccess: true });
     const after = (await call("GET", "/api/org/host-access")).json as {
       bots: { profileId: string; allowed: boolean }[];
     };
     expect(after.bots.find((row) => row.profileId === bot.id)?.allowed).toBe(true);
     // Moving the bot to the org keeps its own flag; org AND bot -> allowed.
-    await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: null });
+    await call("PATCH", `/api/profiles/${bot.id}`, { teamId: null });
     const moved = (await call("GET", "/api/org/host-access")).json as {
       bots: { profileId: string; allowed: boolean }[];
     };
@@ -529,11 +521,11 @@ describe("host-access flags (slice 11)", () => {
     await handle.mind.approvals.decide(conversation, "call-flag", true);
   });
 
-  it("a department admin or member changing any flag reads as a missing item", async () => {
-    // An explicit small VM: this file's departments fill the configured
+  it("a team admin or member changing any flag reads as a missing item", async () => {
+    // An explicit small VM: this file's teams fill the configured
     // host budget (slice 4), so a default-sized one more would be refused.
-    const dept = (
-      await call("POST", "/api/org/departments", {
+    const team = (
+      await call("POST", "/api/org/teams", {
         name: "FlagX",
         vm: { cpus: 1, memoryMiB: 128 },
       })
@@ -543,21 +535,21 @@ describe("host-access flags (slice 11)", () => {
     await handle.mind.org.setMember({
       accountId: "admin-fx",
       role: "admin",
-      departmentId: dept.id,
+      teamId: team.id,
     });
     await handle.mind.org.setMember({
       accountId: "mate-fx",
       role: "member",
-      departmentId: dept.id,
+      teamId: team.id,
     });
-    const missing = { status: 404, json: { error: "unknown department" } };
+    const missing = { status: 404, json: { error: "unknown team" } };
     expect(
-      await callAs("admin-fx", "PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true }),
+      await callAs("admin-fx", "PATCH", `/api/org/teams/${team.id}`, { hostAccess: true }),
     ).toEqual(missing);
     expect(
-      await callAs("mate-fx", "PATCH", `/api/org/departments/${dept.id}`, { hostAccess: true }),
+      await callAs("mate-fx", "PATCH", `/api/org/teams/${team.id}`, { hostAccess: true }),
     ).toEqual(missing);
-    // And the org-level flag: same refusal for a department admin.
+    // And the org-level flag: same refusal for a team admin.
     expect(await callAs("admin-fx", "PATCH", "/api/org", { hostAccess: true })).toEqual({
       status: 404,
       json: { error: "no route: PATCH /api/org" },
@@ -567,7 +559,7 @@ describe("host-access flags (slice 11)", () => {
     const bot = await handle.mind.profiles.create("owner", {
       name: "FlagY",
       onboard: false,
-      departmentId: dept.id,
+      teamId: team.id,
     });
     const { profileRoutes } = await import("./profiles.ts");
     const attempt = async (owner: string): Promise<{ status: number; json: unknown }> => {

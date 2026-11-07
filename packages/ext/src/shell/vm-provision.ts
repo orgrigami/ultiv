@@ -14,7 +14,7 @@ import { readEnv } from "@spriessen/core";
 import type { SandboxUser } from "../plugins/vault.ts";
 import type { SharedWrite } from "./backend.ts";
 import type { CappedDir } from "./shared-caps.ts";
-import { DEPT_SHARED_DIR, deptGroupName } from "./dept-shared.ts";
+import { TEAM_SHARED_DIR, teamGroupName } from "./team-shared.ts";
 import {
   SETUP_FATAL,
   SETUP_FATAL_CODE,
@@ -137,7 +137,7 @@ export const bootScript = (
           // files written through the bot's umask 077 stay group-usable.
           `getent group ${ORG_GROUP} >/dev/null 2>&1 || groupadd -g ${orgShared.gid} ${ORG_GROUP}`,
           `mkdir -p ${ORG_SHARED_DIR}`,
-          // A department VM mounts it read-only: nothing to set (the org VM
+          // A team VM mounts it read-only: nothing to set (the org VM
           // owns the store's group and mode).
           ...(orgShared.readOnly === true
             ? []
@@ -159,7 +159,7 @@ export const botProvisionScript = (
   user: SandboxUser,
   sharedGid: number | undefined,
   orgShared?: { readonly gid: number },
-  deptGids?: readonly number[],
+  teamGids?: readonly number[],
 ): string =>
   [
     `getent group ${user.gid} >/dev/null 2>&1 || groupadd -g ${user.gid} ${user.name}`,
@@ -168,9 +168,9 @@ export const botProvisionScript = (
     ...(sharedGid === undefined ? [] : [`usermod -aG ${SHARED_GROUP} ${user.name}`]),
     // Every bot joins the org-wide folder's group, whatever its home (2c).
     ...(orgShared === undefined ? [] : [`usermod -aG ${ORG_GROUP} ${user.name}`]),
-    // An ORG bot joins every department's group on its first use of the
+    // An ORG bot joins every team's group on its first use of the
     // org VM (slice 2d).
-    ...(deptGids ?? []).map((gid) => `usermod -aG ${deptGroupName(gid)} ${user.name}`),
+    ...(teamGids ?? []).map((gid) => `usermod -aG ${teamGroupName(gid)} ${user.name}`),
     `mkdir -p ${user.home}`,
     `chown ${user.uid}:${user.gid} ${user.home}`,
     `chmod 700 ${user.home}`,
@@ -223,14 +223,14 @@ export const applyBotExec = <B>(
 export interface SharedDir {
   readonly dir: string;
   readonly gid: number;
-  /** Cross-home folders whose writes are audited (org-shared, dept-shared/<id>). */
+  /** Cross-home folders whose writes are audited (org-shared, team-shared/<id>). */
   readonly audit?: boolean;
 }
 
 /**
  * The shared folders a bot can WRITE in this VM, with their group: the
  * home's /home/shared, the org-wide folder when writable (org VM), and each
- * department store under /home/dept-shared (org VM). Read-only mounts are
+ * team store under /home/team-shared (org VM). Read-only mounts are
  * left out — nothing written there to fix.
  */
 export const writableSharedDirs = (options: SandboxBackendOptions): SharedDir[] => [
@@ -238,8 +238,8 @@ export const writableSharedDirs = (options: SandboxBackendOptions): SharedDir[] 
   ...(options.orgShared === undefined || options.orgShared.readOnly
     ? []
     : [{ dir: ORG_SHARED_DIR, gid: options.orgShared.gid, audit: true }]),
-  ...(options.deptShared?.depts ?? []).map((d) => ({
-    dir: `${DEPT_SHARED_DIR}/${d.id}`,
+  ...(options.teamShared?.teams ?? []).map((d) => ({
+    dir: `${TEAM_SHARED_DIR}/${d.id}`,
     gid: d.gid,
     audit: true,
   })),
@@ -247,8 +247,8 @@ export const writableSharedDirs = (options: SandboxBackendOptions): SharedDir[] 
 
 /**
  * The capped writable shared folders of a VM with their host stores (fix
- * 2): org-shared where it is writable, a department VM's own /home/shared
- * (its store), and the org VM's /home/dept-shared/<id>. The org VM's own
+ * 2): org-shared where it is writable, a team VM's own /home/shared
+ * (its store), and the org VM's /home/team-shared/<id>. The org VM's own
  * /home/shared lives on the VM disk (no host store) and is bounded by it.
  */
 export const cappedDirsOf = (options: SandboxBackendOptions): CappedDir[] => {
@@ -272,17 +272,17 @@ export const cappedDirsOf = (options: SandboxBackendOptions): CappedDir[] => {
       guest: SHARED_DIR,
       host: options.sharedStore,
       capBytes: caps.shared,
-      label: "department shared",
+      label: "team shared",
     });
   }
-  for (const d of options.deptShared?.depts ?? []) {
-    const cap = caps.dept?.[d.id];
-    if (cap === undefined || options.deptShared === undefined) continue;
+  for (const d of options.teamShared?.teams ?? []) {
+    const cap = caps.team?.[d.id];
+    if (cap === undefined || options.teamShared === undefined) continue;
     out.push({
-      guest: `${DEPT_SHARED_DIR}/${d.id}`,
-      host: join(options.deptShared.parentDir, d.id),
+      guest: `${TEAM_SHARED_DIR}/${d.id}`,
+      host: join(options.teamShared.parentDir, d.id),
       capBytes: cap,
-      label: `department ${d.id} shared`,
+      label: `team ${d.id} shared`,
     });
   }
   return out;
@@ -301,10 +301,10 @@ export const sharedWritesOf = (stdout: string): SharedWrite[] => {
     const path = parts.slice(2).join("\t");
     if (!Number.isFinite(bytes)) continue;
     if (path === ORG_SHARED_DIR || path.startsWith(`${ORG_SHARED_DIR}/`)) {
-      rows.push({ path, bytes, area: "org-shared", departmentId: null });
-    } else if (path.startsWith(`${DEPT_SHARED_DIR}/`)) {
-      const departmentId = path.slice(DEPT_SHARED_DIR.length + 1).split("/")[0] ?? "";
-      if (departmentId !== "") rows.push({ path, bytes, area: "dept-shared", departmentId });
+      rows.push({ path, bytes, area: "org-shared", teamId: null });
+    } else if (path.startsWith(`${TEAM_SHARED_DIR}/`)) {
+      const teamId = path.slice(TEAM_SHARED_DIR.length + 1).split("/")[0] ?? "";
+      if (teamId !== "") rows.push({ path, bytes, area: "team-shared", teamId });
     }
   }
   return rows;
@@ -452,8 +452,8 @@ export const mountsOf = (options: SandboxBackendOptions): string[] => {
     );
   }
   if (options.sharedStore !== undefined) out.push(`${SHARED_DIR}=${options.sharedStore}:rw`);
-  if (options.deptShared !== undefined) {
-    out.push(`${DEPT_SHARED_DIR}=${options.deptShared.parentDir}:rw`);
+  if (options.teamShared !== undefined) {
+    out.push(`${TEAM_SHARED_DIR}=${options.teamShared.parentDir}:rw`);
   }
   return out.sort();
 };

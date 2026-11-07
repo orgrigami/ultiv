@@ -1,5 +1,5 @@
 /**
- * The crew's collapsed department groups, remembered in this browser and
+ * The crew's collapsed team groups, remembered in this browser and
  * kept in step across every list on screen (the rail and the bot pill).
  */
 import { useCallback, useSyncExternalStore } from "react";

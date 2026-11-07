@@ -1,16 +1,16 @@
 /**
- * The Org service: reads and writes the `ultiv.org` document. Departments,
+ * The Org service: reads and writes the `ultiv.org` document. Teams,
  * members, grants and templates live here; bots stay in the profiles
- * registry and point at a department with `departmentId`. Everything goes
+ * registry and point at a team with `teamId`. Everything goes
  * through one commit helper so a change lands as one transaction.
  */
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound, Unavailable } from "@spriessen/core";
 import type {
-  DepartmentCreate,
-  DepartmentInfo,
-  DepartmentPatch,
+  TeamCreate,
+  TeamInfo,
+  TeamPatch,
   GrantInfo,
   HomeRef,
   MemberInfo,
@@ -21,21 +21,17 @@ import type {
   TemplateInfo,
 } from "@spriessen/contracts";
 import {
-  DEFAULT_DEPT_SHARED_CAP_BYTES,
+  DEFAULT_TEAM_SHARED_CAP_BYTES,
   DEFAULT_ORG_SHARED_CAP_BYTES,
   DEFAULT_VM,
 } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { botUidPeek, botUserName } from "./bot-users.ts";
-import { deptGroupReconcileScript, type DeptStore } from "@spriessen/ext";
+import { teamGroupReconcileScript, type TeamStore } from "@spriessen/ext";
 import { readProfiles } from "../profiles/docs.ts";
 import { OrgDoc, defaultVm, emptyOrgState, homeOf, normalizeOrgState } from "./model.ts";
 import { refuseBadVm, type VmSizeOptions } from "./vm-size.ts";
-export {
-  departmentInstructionsOf,
-  departmentOfProfile,
-  departmentOfProfileRow,
-} from "./department-of.ts";
+export { teamInstructionsOf, teamOfProfile, teamOfProfileRow } from "./team-of.ts";
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
   Effect.runPromise(effect) as Promise<A>;
@@ -44,8 +40,8 @@ const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
 export type OrgServiceOptions = VmSizeOptions & {
   /**
    * Tears the HOME's microVM down (best effort, bounded) — wired by the
-   * entity with the real `destroySandbox`; tests omit it. A department
-   * removal destroys the department's VM; the org VM is destroyed only
+   * entity with the real `destroySandbox`; tests omit it. A team
+   * removal destroys the team's VM; the org VM is destroyed only
    * with the org.
    */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
@@ -58,17 +54,17 @@ export type OrgServiceOptions = VmSizeOptions & {
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
   /**
    * Reconciles `/etc/group` in the RUNNING org VM against the stored
-   * departments and org bots (slice 2d) — fired on department create and
+   * teams and org bots (slice 2d) — fired on team create and
    * delete. The default runs ext's script in the named VM; tests inject a
    * recorder.
    */
-  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
+  readonly reconcileTeamGroups?: (owner: string, script: string) => Promise<void>;
   /**
-   * Deletes a department's durable shared store with its purge (slice 2d,
+   * Deletes a team's durable shared store with its purge (slice 2d,
    * F-D9 default: delete; archiving is not decided). The default rmSyncs
-   * `{ARTIFACTS_DIR}/{owner}/_dept/<id>`; tests inject a recorder.
+   * `{ARTIFACTS_DIR}/{owner}/_team/<id>`; tests inject a recorder.
    */
-  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  readonly deleteTeamStore?: (owner: string, teamId: string) => Promise<void>;
   /**
    * Fired after every committed change (slice 10): the entity's host-access
    * watch refreshes its flag snapshot on it and re-applies the bots' tool
@@ -98,7 +94,7 @@ export const commitOrg = (
 
 export interface OrgView {
   readonly org: OrgInfo | null;
-  readonly departments: readonly DepartmentInfo[];
+  readonly teams: readonly TeamInfo[];
   readonly members: readonly MemberInfo[];
   readonly grants: readonly GrantInfo[];
   readonly templates: readonly TemplateInfo[];
@@ -118,13 +114,13 @@ export interface OrgService {
     readonly netAllowlist?: readonly string[];
     readonly netOpen?: boolean;
   }) => Promise<OrgInfo>;
-  readonly createDepartment: (input: DepartmentCreate, by: string) => Promise<DepartmentInfo>;
-  readonly updateDepartment: (id: string, patch: DepartmentPatch) => Promise<DepartmentInfo>;
-  /** Refuses while the department still has bots (move or delete them first). */
-  readonly removeDepartment: (id: string) => Promise<boolean>;
+  readonly createTeam: (input: TeamCreate, by: string) => Promise<TeamInfo>;
+  readonly updateTeam: (id: string, patch: TeamPatch) => Promise<TeamInfo>;
+  /** Refuses while the team still has bots (move or delete them first). */
+  readonly removeTeam: (id: string) => Promise<boolean>;
   /** Set (or replace) one membership row; org owner and org admins manage these. */
   readonly setMember: (input: MemberPut) => Promise<MemberInfo[]>;
-  readonly removeMember: (accountId: string, departmentId: string | null) => Promise<boolean>;
+  readonly removeMember: (accountId: string, teamId: string | null) => Promise<boolean>;
   readonly addGrant: (
     resource: GrantInfo["resource"],
     grantee: HomeRef,
@@ -141,30 +137,29 @@ export interface OrgService {
    */
   readonly retireBotUser: (
     owner: string,
-    profile: Pick<ProfileInfo, "id" | "departmentId">,
+    profile: Pick<ProfileInfo, "id" | "teamId">,
   ) => Promise<boolean>;
 }
 
-/** The department a HomeRef names, or null for the org. */
-const departmentOfHome = (home: HomeRef): string | null =>
-  home.kind === "department" ? home.departmentId : null;
+/** The team a HomeRef names, or null for the org. */
+const teamOfHome = (home: HomeRef): string | null => (home.kind === "team" ? home.teamId : null);
 
 /**
- * The reconcile script for the org VM's department groups (slice 2d): the
- * stored departments and every org bot that already has a Linux user (never
+ * The reconcile script for the org VM's team groups (slice 2d): the
+ * stored teams and every org bot that already has a Linux user (never
  * allocating — a user appears at its bot's first use, never pre-created).
  */
-const deptReconcileScript = async (converse: ConverseService): Promise<string> => {
+const teamReconcileScript = async (converse: ConverseService): Promise<string> => {
   const state = await readOrgState(converse);
   const profiles = await run(readProfiles(converse));
   const users: string[] = [];
   for (const bot of profiles.filter((row) => homeOf(row).kind === "org")) {
     if ((await botUidPeek(converse)(bot.id)) !== undefined) users.push(botUserName(bot.id));
   }
-  const depts: DeptStore[] = state.departments
+  const teams: TeamStore[] = state.teams
     .filter((row) => row.sharedGid !== undefined)
     .map((row) => ({ id: row.id, gid: row.sharedGid as number }));
-  return deptGroupReconcileScript(depts, users);
+  return teamGroupReconcileScript(teams, users);
 };
 
 /** Fires the reconciliation best effort; a missing hook or VM is a no-op. */
@@ -173,17 +168,17 @@ const fireReconcile = async (
   options: OrgServiceOptions,
   owner: string | undefined,
 ): Promise<void> => {
-  if (options.reconcileDeptGroups === undefined || owner === undefined) return;
+  if (options.reconcileTeamGroups === undefined || owner === undefined) return;
   try {
-    await options.reconcileDeptGroups(owner, await deptReconcileScript(converse));
+    await options.reconcileTeamGroups(owner, await teamReconcileScript(converse));
   } catch {
-    // Reconciliation observes; it must never fail a department create.
+    // Reconciliation observes; it must never fail a team create.
   }
 };
 
-/** A department id that is not in use; `name` is unique among departments. */
-const departmentId = (name: string): string =>
-  `dept-${
+/** A team id that is not in use; `name` is unique among teams. */
+const teamId = (name: string): string =>
+  `team-${
     name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -196,16 +191,16 @@ const nextGid = (state: OrgState): number =>
   Math.max(
     10_000,
     state.org?.sharedGid ?? 0,
-    // The org-wide folder's group is a gid of its own: departments never
+    // The org-wide folder's group is a gid of its own: teams never
     // get it (slice 2c).
     state.org?.orgSharedGid ?? 0,
-    ...state.departments.map((row) => row.sharedGid ?? 0),
+    ...state.teams.map((row) => row.sharedGid ?? 0),
   ) + 1;
 
 /**
  * The slice 4 VM-size checks live in `./vm-size.ts` (`refuseBadVm`): the
  * dialog's-words bounds plus the host-capacity rule, applied to the org
- * and department create and edit paths below.
+ * and team create and edit paths below.
  */
 export const orgService = (
   converse: ConverseService,
@@ -228,7 +223,7 @@ export const orgService = (
     const state = await readOrgState(converse);
     return {
       org: state.org,
-      departments: state.departments,
+      teams: state.teams,
       members: state.members,
       grants: state.grants,
       templates: state.templates,
@@ -248,11 +243,11 @@ export const orgService = (
         hostAccess,
         sharedGid: 10_000,
         // The org-wide folder's own group, separate from /home/shared's and
-        // from every department's (slice 2c).
+        // from every team's (slice 2c).
         orgSharedGid: 10_001,
         orgSharedCapBytes: DEFAULT_ORG_SHARED_CAP_BYTES,
       };
-      const member: MemberInfo = { accountId: owner, role: "owner", departmentId: null };
+      const member: MemberInfo = { accountId: owner, role: "owner", teamId: null };
       await commit((draft) => {
         if (draft.org !== null) return;
         draft.org = org;
@@ -275,7 +270,7 @@ export const orgService = (
       refuseBadVm(
         state,
         patch.vm,
-        () => [patch.vm ?? org.vm, ...state.departments.map((row) => row.vm)],
+        () => [patch.vm ?? org.vm, ...state.teams.map((row) => row.vm)],
         options,
       );
       let updated: OrgInfo | undefined;
@@ -300,12 +295,12 @@ export const orgService = (
       if (updated === undefined) throw new NotFound({ what: "org" });
       return updated;
     },
-    createDepartment: async (input, _by) => {
+    createTeam: async (input, _by) => {
       const state = await readOrgState(converse);
       if (state.org === null)
         throw new Unavailable({ faculty: "org", why: "the org does not exist yet" });
-      if (state.departments.some((row) => row.name === input.name)) {
-        throw new InvalidInput({ reason: "a department with this name already exists" });
+      if (state.teams.some((row) => row.name === input.name)) {
+        throw new InvalidInput({ reason: "a team with this name already exists" });
       }
       const orgVm = state.org.vm;
       refuseBadVm(
@@ -313,15 +308,15 @@ export const orgService = (
         input.vm,
         () => [
           orgVm,
-          ...state.departments.map((row) => row.vm),
+          ...state.teams.map((row) => row.vm),
           // A NEW home counts against capacity at its default too: an org
-          // with many default departments fills the budget (slice 4).
+          // with many default teams fills the budget (slice 4).
           input.vm ?? DEFAULT_VM,
         ],
         options,
       );
-      const row: DepartmentInfo = {
-        id: departmentId(input.name),
+      const row: TeamInfo = {
+        id: teamId(input.name),
         name: input.name,
         createdAt: Date.now(),
         vm: input.vm ?? defaultVm(),
@@ -329,18 +324,18 @@ export const orgService = (
         instructions: input.instructions ?? "",
         netAllowlist: input.netAllowlist ?? [],
         netOpen: input.netOpen ?? false,
-        sharedCapBytes: DEFAULT_DEPT_SHARED_CAP_BYTES,
+        sharedCapBytes: DEFAULT_TEAM_SHARED_CAP_BYTES,
         sharedGid: nextGid(state),
       };
       await commit((draft) => {
-        draft.departments = [...draft.departments, row];
+        draft.teams = [...draft.teams, row];
       });
       // The org VM picks the new store up live (the parent mount shows it);
       // only /etc/group needs reconciling — no VM restart (F-D6).
       await fireReconcile(converse, options, state.org.owner);
       return row;
     },
-    updateDepartment: async (id, patch) => {
+    updateTeam: async (id, patch) => {
       if (
         patch.sharedCapBytes !== undefined &&
         (!Number.isInteger(patch.sharedCapBytes) || patch.sharedCapBytes < 1_048_576)
@@ -350,20 +345,20 @@ export const orgService = (
         });
       }
       const state = await readOrgState(converse);
-      const target = state.departments.find((row) => row.id === id);
-      if (target === undefined) throw new NotFound({ what: `department ${id}` });
+      const target = state.teams.find((row) => row.id === id);
+      if (target === undefined) throw new NotFound({ what: `team ${id}` });
       refuseBadVm(
         state,
         patch.vm,
         () => [
           ...(state.org === null ? [] : [state.org.vm]),
-          ...state.departments.map((row) => (row.id === id ? (patch.vm ?? row.vm) : row.vm)),
+          ...state.teams.map((row) => (row.id === id ? (patch.vm ?? row.vm) : row.vm)),
         ],
         options,
       );
-      let updated: DepartmentInfo | undefined;
+      let updated: TeamInfo | undefined;
       await commit((draft) => {
-        draft.departments = draft.departments.map((row) => {
+        draft.teams = draft.teams.map((row) => {
           if (row.id !== id) return row;
           updated = {
             ...row,
@@ -380,35 +375,34 @@ export const orgService = (
           return updated;
         });
       });
-      if (updated === undefined) throw new NotFound({ what: `department ${id}` });
+      if (updated === undefined) throw new NotFound({ what: `team ${id}` });
       // A plain copy: draft values die with the transaction.
       return updated;
     },
-    removeDepartment: async (id) => {
+    removeTeam: async (id) => {
       const state = await readOrgState(converse);
-      if (!state.departments.some((row) => row.id === id)) return false;
+      if (!state.teams.some((row) => row.id === id)) return false;
       const profiles = await run(readProfiles(converse));
-      if (profiles.some((profile) => profile.departmentId === id)) {
-        throw new InvalidInput({ reason: "the department still has bots" });
+      if (profiles.some((profile) => profile.teamId === id)) {
+        throw new InvalidInput({ reason: "the team still has bots" });
       }
       await commit((draft) => {
-        draft.departments = draft.departments.filter((row) => row.id !== id);
-        draft.members = draft.members.filter((member) => member.departmentId !== id);
+        draft.teams = draft.teams.filter((row) => row.id !== id);
+        draft.members = draft.members.filter((member) => member.teamId !== id);
         draft.grants = draft.grants.filter(
-          (grant) =>
-            departmentOfHome(grant.resource.home) !== id && departmentOfHome(grant.grantee) !== id,
+          (grant) => teamOfHome(grant.resource.home) !== id && teamOfHome(grant.grantee) !== id,
         );
       });
-      // The department's VM goes with it (best effort, bounded, injected —
+      // The team's VM goes with it (best effort, bounded, injected —
       // tests omit it). The org VM is destroyed only with the org. The
-      // department's durable store is deleted with the purge (F-D9
-      // default), and the org VM's /etc/group loses the department's group.
+      // team's durable store is deleted with the purge (F-D9
+      // default), and the org VM's /etc/group loses the team's group.
       const owner = state.org?.owner;
       if (options.destroyHomeVm !== undefined && owner !== undefined) {
-        await options.destroyHomeVm(owner, { kind: "department", departmentId: id });
+        await options.destroyHomeVm(owner, { kind: "team", teamId: id });
       }
-      if (options.deleteDeptStore !== undefined && owner !== undefined) {
-        await options.deleteDeptStore(owner, id).catch(() => {});
+      if (options.deleteTeamStore !== undefined && owner !== undefined) {
+        await options.deleteTeamStore(owner, id).catch(() => {});
       }
       await fireReconcile(converse, options, owner);
       return true;
@@ -416,25 +410,22 @@ export const orgService = (
     setMember: async (input) => {
       await commit((draft) => {
         const rest = draft.members.filter(
-          (member) =>
-            !(member.accountId === input.accountId && member.departmentId === input.departmentId),
+          (member) => !(member.accountId === input.accountId && member.teamId === input.teamId),
         );
         draft.members = [...rest, input];
       });
       return (await readOrgState(converse)).members;
     },
-    removeMember: async (accountId, departmentId) => {
+    removeMember: async (accountId, teamId) => {
       const before = await readOrgState(converse);
       if (
-        !before.members.some(
-          (member) => member.accountId === accountId && member.departmentId === departmentId,
-        )
+        !before.members.some((member) => member.accountId === accountId && member.teamId === teamId)
       ) {
         return false;
       }
       await commit((draft) => {
         draft.members = draft.members.filter(
-          (member) => !(member.accountId === accountId && member.departmentId === departmentId),
+          (member) => !(member.accountId === accountId && member.teamId === teamId),
         );
       });
       return true;

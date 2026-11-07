@@ -62,16 +62,16 @@ describe("the workspace-to-org migration", () => {
     const report = await migrateOrg(converse, { owner: "owner" });
     expect(report.createdOrg).toBe(true);
     expect(report.botsStamped).toBe(2);
-    expect(report.departments).toBe(0);
+    expect(report.teams).toBe(0);
     const state = await readOrgState(converse);
     expect(state.org?.name).toBe("Personal");
     expect(state.org?.owner).toBe("owner");
     expect(state.org?.hostAccess).toBe(true);
     expect(state.org?.vm).toEqual(defaultVm());
-    expect(state.departments).toEqual([]);
-    expect(state.members).toEqual([{ accountId: "owner", role: "owner", departmentId: null }]);
+    expect(state.teams).toEqual([]);
+    expect(state.members).toEqual([{ accountId: "owner", role: "owner", teamId: null }]);
     const rows = await handle.mind.profiles.list("owner");
-    expect(rows.map((row) => [row.id, row.departmentId, row.hostAccess])).toEqual([
+    expect(rows.map((row) => [row.id, row.teamId, row.hostAccess])).toEqual([
       ["bot-a", null, true],
       ["bot-b", null, true],
     ]);
@@ -120,7 +120,7 @@ describe("the workspace-to-org migration", () => {
     expect(report).toEqual({
       createdOrg: false,
       botsStamped: 0,
-      departments: 0,
+      teams: 0,
       mainRehomed: false,
     });
     expect(await readOrgState(converse)).toEqual(afterFirst);
@@ -132,46 +132,44 @@ describe("the workspace-to-org migration", () => {
     const converse = handle.mind.converse;
     await commitProfiles(converse, () => [preOrg({ id: "bot-a" })]);
     await migrateOrg(converse, { owner: "owner" });
-    const dept = await handle.mind.org.createDepartment({ name: "Dept X" }, "owner");
+    const team = await handle.mind.org.createTeam({ name: "Team X" }, "owner");
     // A bot made after the migration starts with its switch off; it becomes
     // main so bot-a may leave the org (the main bot is an org bot).
     const fresh = await handle.mind.profiles.create("owner", { name: "Wren", onboard: false });
     await handle.mind.profiles.setMain("owner", fresh.id);
-    await handle.mind.profiles.update("owner", "bot-a", { departmentId: dept.id });
+    await handle.mind.profiles.update("owner", "bot-a", { teamId: team.id });
     const report = await migrateOrg(converse, { owner: "owner" });
     expect(report.botsStamped).toBe(0);
     const rows = await handle.mind.profiles.list("owner");
-    expect(rows.map((row) => [row.id, row.departmentId, row.hostAccess])).toEqual([
-      ["bot-a", dept.id, true],
+    expect(rows.map((row) => [row.id, row.teamId, row.hostAccess])).toEqual([
+      ["bot-a", team.id, true],
       [fresh.id, null, false],
     ]);
     await handle.close();
   });
 
-  it("moves a main bot found in a department back to the org", async () => {
+  it("moves a main bot found in a team back to the org", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const converse = handle.mind.converse;
     await commitProfiles(converse, () => [preOrg({ id: "bot-a" })]);
     await handle.mind.profiles.setMain("owner", "bot-a");
     await migrateOrg(converse, { owner: "owner" });
-    const dept = await handle.mind.org.createDepartment({ name: "Dept X" }, "owner");
+    const team = await handle.mind.org.createTeam({ name: "Team X" }, "owner");
     // Written around the rule, the way an older build could have left it.
     await Effect.runPromise(
-      commitProfiles(converse, (rows) => rows.map((row) => ({ ...row, departmentId: dept.id }))),
+      commitProfiles(converse, (rows) => rows.map((row) => ({ ...row, teamId: team.id }))),
     );
     const report = await migrateOrg(converse, { owner: "owner" });
     expect(report.mainRehomed).toBe(true);
     const row = await handle.mind.profiles.get("owner", "bot-a");
-    expect(row?.departmentId).toBeNull();
+    expect(row?.teamId).toBeNull();
     await handle.close();
   });
 
   it("stamps only what is missing on a partially stamped workspace", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const converse = handle.mind.converse;
-    await commitProfiles(converse, () => [
-      preOrg({ id: "bot-s", departmentId: null, hostAccess: true }),
-    ]);
+    await commitProfiles(converse, () => [preOrg({ id: "bot-s", teamId: null, hostAccess: true })]);
     const report = await migrateOrg(converse, { owner: "owner" });
     expect(report.botsStamped).toBe(0);
     await handle.close();
@@ -179,81 +177,68 @@ describe("the workspace-to-org migration", () => {
 });
 
 describe("the one-home invariant", () => {
-  const departments = [{ id: "dept-x" }, { id: "dept-y" }];
+  const teams = [{ id: "team-x" }, { id: "team-y" }];
 
-  it("org with only bots and no departments is valid", () => {
+  it("org with only bots and no teams is valid", () => {
     expect(checkHomes([preOrg({ id: "b1" }), preOrg({ id: "b2" })], [])).toEqual([]);
   });
 
-  it("a department bot's home is its department", () => {
-    expect(homeOf({ departmentId: "dept-x" })).toEqual({
-      kind: "department",
-      departmentId: "dept-x",
+  it("a team bot's home is its team", () => {
+    expect(homeOf({ teamId: "team-x" })).toEqual({
+      kind: "team",
+      teamId: "team-x",
     });
-    expect(homeOf({ departmentId: null })).toEqual({ kind: "org" });
-    expect(checkHomes([preOrg({ id: "b1", departmentId: "dept-x" })], departments)).toEqual([]);
+    expect(homeOf({ teamId: null })).toEqual({ kind: "org" });
+    expect(checkHomes([preOrg({ id: "b1", teamId: "team-x" })], teams)).toEqual([]);
   });
 
-  it("flags a bot whose department does not exist", () => {
-    const bad = checkHomes([preOrg({ id: "b1", departmentId: "dept-gone" })], departments);
-    expect(bad).toEqual([
-      { what: "bot", id: "b1", problem: "department dept-gone does not exist" },
-    ]);
+  it("flags a bot whose team does not exist", () => {
+    const bad = checkHomes([preOrg({ id: "b1", teamId: "team-gone" })], teams);
+    expect(bad).toEqual([{ what: "bot", id: "b1", problem: "team team-gone does not exist" }]);
   });
 
   it("a resource's home is its bot's home; an unknown bot is no home", () => {
     const profiles = new Map(
-      [preOrg({ id: "b1", departmentId: "dept-x" }), preOrg({ id: "b2" })].map((row) => [
-        row.id,
-        row,
-      ]),
+      [preOrg({ id: "b1", teamId: "team-x" }), preOrg({ id: "b2" })].map((row) => [row.id, row]),
     );
     const profileOf = (id: string) => profiles.get(id);
     expect(homeOfResource({ profileId: "b1" }, profileOf)).toEqual({
-      kind: "department",
-      departmentId: "dept-x",
+      kind: "team",
+      teamId: "team-x",
     });
     expect(homeOfResource({ profileId: "b2" }, profileOf)).toEqual({ kind: "org" });
     expect(homeOfResource({ profileId: "ghost" }, profileOf)).toBeNull();
   });
 
-  it("the home field is single-valued: one department, never two", () => {
+  it("the home field is single-valued: one team, never two", () => {
     // The stored field is one string or null — two homes cannot be stored.
-    const row = preOrg({ id: "b1", departmentId: "dept-x" });
-    expect(row.departmentId).toBe("dept-x");
+    const row = preOrg({ id: "b1", teamId: "team-x" });
+    expect(row.teamId).toBe("team-x");
   });
 });
 
 describe("host access flags (slice 11 data)", () => {
   const org = { hostAccess: true };
-  const departments = [
-    { id: "dept-x", hostAccess: true },
-    { id: "dept-y", hostAccess: false },
+  const teams = [
+    { id: "team-x", hostAccess: true },
+    { id: "team-y", hostAccess: false },
   ];
-  it("org AND department AND bot for a department bot; org AND bot for an org bot", () => {
-    expect(
-      effectiveHostAccess(org, departments, { departmentId: "dept-x", hostAccess: true }),
-    ).toEqual({
+  it("org AND team AND bot for a team bot; org AND bot for an org bot", () => {
+    expect(effectiveHostAccess(org, teams, { teamId: "team-x", hostAccess: true })).toEqual({
       allowed: true,
       blockedBy: null,
     });
-    expect(
-      effectiveHostAccess(org, departments, { departmentId: "dept-x", hostAccess: false }),
-    ).toEqual({
+    expect(effectiveHostAccess(org, teams, { teamId: "team-x", hostAccess: false })).toEqual({
       allowed: false,
       blockedBy: "bot",
     });
-    expect(
-      effectiveHostAccess(org, departments, { departmentId: "dept-y", hostAccess: true }),
-    ).toEqual({
+    expect(effectiveHostAccess(org, teams, { teamId: "team-y", hostAccess: true })).toEqual({
       allowed: false,
-      blockedBy: "department",
+      blockedBy: "team",
     });
-    expect(effectiveHostAccess(org, departments, { departmentId: null, hostAccess: true })).toEqual(
-      {
-        allowed: true,
-        blockedBy: null,
-      },
-    );
+    expect(effectiveHostAccess(org, teams, { teamId: null, hostAccess: true })).toEqual({
+      allowed: true,
+      blockedBy: null,
+    });
   });
 });

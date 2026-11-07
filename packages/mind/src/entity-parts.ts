@@ -77,12 +77,10 @@ interface Faculties {
   readonly untrustedTool?: (name: string) => boolean;
   /** bots_list / bot_info: read-only sibling discovery, in the allowlist universe. */
   readonly botTools: readonly ToolRegistration[];
-  /** The department Instructions resolver, for the identity section (slice 7). */
-  readonly departmentInstructions?: (profile: {
-    readonly departmentId?: string | null;
-  }) => Promise<string>;
-  /** The bot's department id, for shared memory (slice 9). */
-  readonly departmentOf?: (profileId: string) => Promise<string | null>;
+  /** The team Instructions resolver, for the identity section (slice 7). */
+  readonly teamInstructions?: (profile: { readonly teamId?: string | null }) => Promise<string>;
+  /** The bot's team id, for shared memory (slice 9). */
+  readonly teamOf?: (profileId: string) => Promise<string | null>;
   /** Whether a `provider/model` ref is in the live catalog (task models). */
   readonly knownModel?: (ref: string) => boolean;
   /** The skills faculty: built-in and self-written procedures, per profile. */
@@ -99,7 +97,7 @@ export const installFaculties = (
   const projectRef = projectRefOf(f.converse);
   piRegistry.install(act.extension());
   piRegistry.install(codemodeExtension());
-  piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.departmentInstructions));
+  piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.teamInstructions));
   piRegistry.install(memoryCoreExtension(memory, profiles));
   // Recall before each turn: the few memories the latest input is about.
   piRegistry.install(prefetchExtension({ memory, profiles, converse: f.converse }));
@@ -159,7 +157,7 @@ export const installFaculties = (
         converse: f.converse,
         ...(f.audit !== undefined ? { audit: f.audit } : {}),
         ...(f.untrustedTool !== undefined ? { untrustedTool: f.untrustedTool } : {}),
-        ...(f.departmentOf !== undefined ? { departmentOf: f.departmentOf } : {}),
+        ...(f.teamOf !== undefined ? { teamOf: f.teamOf } : {}),
       }),
     }),
   );
@@ -268,7 +266,7 @@ export const wirePolicies = (
   // Profile scoping reaches the ext plugins (artifacts dirs, vault lists)
   // through the holder the registry was built with — set now that the
   // conversation→profile index exists. With a home-scope root, the plugins
-  // also learn each conversation's HOME scope (one VM per org/department:
+  // also learn each conversation's HOME scope (one VM per org/team:
   // the sandbox name and the bot's folder in it); ext never learns org.
   holder.set({
     scopeOf: (conversationId) => {
@@ -276,14 +274,14 @@ export const wirePolicies = (
       return scope === undefined ? undefined : { owner: scope.owner, profile: scope.profileId };
     },
     // Slice 6: vault reads (tools, broker) are per home — the bot's own
-    // department, or the org. ext never judges org structure; the mind
+    // team, or the org. ext never judges org structure; the mind
     // resolves the conversation's bot to its home here.
     homeOf: (conversationId) => {
       const profile = profiles.profileOf(conversationId);
       return profile === undefined ? undefined : homeOf(profile);
     },
-    // Fix 2 audit: an org bot's writes into org-shared or a department's
-    // store (path, size, department; never content), one row per file,
+    // Fix 2 audit: an org bot's writes into org-shared or a team's
+    // store (path, size, team; never content), one row per file,
     // at most 50 per call.
     sharedWrite: (conversationId, rows) => {
       const profile = profiles.profileOf(conversationId);
@@ -302,7 +300,7 @@ export const wirePolicies = (
             path: row.path,
             bytes: row.bytes,
             area: row.area,
-            departmentId: row.departmentId,
+            teamId: row.teamId,
           },
         });
       }
@@ -375,7 +373,7 @@ export const wirePolicies = (
       });
     },
     ...(generate !== undefined ? { describe: makeDescriber(generate, converse, profiles) } : {}),
-    // The main bot's crew-minting acts (bot_create, department_create) run
+    // The main bot's crew-minting acts (bot_create, team_create) run
     // without a card (ownerUnlessMain): the broker reads this LIVE per call,
     // beside each tool's admin guard. A non-main actor parks the normal card.
     isMain: (conversationId) => {

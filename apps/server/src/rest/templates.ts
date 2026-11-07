@@ -1,9 +1,9 @@
 /**
- * Template routes (slice 8): a department publishes a bot, a skill or an
- * Instructions file; another department copies it as its own — fresh
+ * Template routes (slice 8): a team publishes a bot, a skill or an
+ * Instructions file; another team copies it as its own — fresh
  * memory and chats, never vault items. Unpublishing stops new copies;
  * existing copies keep working. The list lives in the publishing
- * department's admin view; there is no global listing.
+ * team's admin view; there is no global listing.
  */
 import type { TemplateInfo, TemplatePayload } from "@spriessen/contracts";
 import type { ProfileInfo } from "@spriessen/contracts";
@@ -60,7 +60,7 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
   if (path === "/api/org/templates" && method === "POST") {
     const body = await args.readJson<{
       kind?: string;
-      departmentId?: string;
+      teamId?: string;
       botId?: string;
       skill?: string;
       name?: string;
@@ -68,19 +68,19 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
     const kind = body.kind;
     if (
       (kind !== "bot" && kind !== "skill" && kind !== "instructions") ||
-      body.departmentId === undefined ||
+      body.teamId === undefined ||
       body.botId === undefined
     ) {
-      json(400, { error: "kind (bot|skill|instructions), departmentId and botId are required" });
+      json(400, { error: "kind (bot|skill|instructions), teamId and botId are required" });
       return true;
     }
-    if (!(await may(args, "change", { type: "template", departmentId: body.departmentId }))) {
-      json(404, { error: "unknown department" });
+    if (!(await may(args, "change", { type: "template", teamId: body.teamId }))) {
+      json(404, { error: "unknown team" });
       return true;
     }
     const bot = await mind.profiles.get(owner, body.botId);
-    if (bot === undefined || bot.departmentId !== body.departmentId) {
-      json(404, { error: "unknown bot in this department" });
+    if (bot === undefined || bot.teamId !== body.teamId) {
+      json(404, { error: "unknown bot in this team" });
       return true;
     }
     let payload: TemplatePayload;
@@ -111,7 +111,7 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
       id: crypto.randomUUID(),
       kind,
       name,
-      departmentId: body.departmentId,
+      teamId: body.teamId,
       payload,
       publishedAt: Date.now(),
       unpublishedAt: null,
@@ -123,19 +123,19 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
   }
 
   if (path === "/api/org/templates" && method === "GET") {
-    const department = args.url.searchParams.get("department");
-    if (department === null) {
-      json(400, { error: "department is required (the publisher's own list)" });
+    const team = args.url.searchParams.get("team") ?? args.url.searchParams.get("department");
+    if (team === null) {
+      json(400, { error: "team is required (the publisher's own list)" });
       return true;
     }
-    if (!(await may(args, "view", { type: "template", departmentId: department }))) {
-      json(404, { error: "unknown department" });
+    if (!(await may(args, "view", { type: "template", teamId: team }))) {
+      json(404, { error: "unknown team" });
       return true;
     }
     const view = await mind.org.view();
     json(
       200,
-      view.templates.filter((row) => row.departmentId === department && row.unpublishedAt === null),
+      view.templates.filter((row) => row.teamId === team && row.unpublishedAt === null),
     );
     return true;
   }
@@ -149,7 +149,7 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
       json(404, { error: "unknown template" });
       return true;
     }
-    if (!(await may(args, "change", { type: "template", departmentId: template.departmentId }))) {
+    if (!(await may(args, "change", { type: "template", teamId: template.teamId }))) {
       json(404, { error: "unknown template" });
       return true;
     }
@@ -162,13 +162,13 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
   const copy = path.match(/^\/api\/org\/templates\/([^/]+)\/copy$/);
   if (copy !== null && method === "POST") {
     const id = decodeURIComponent(copy[1] ?? "");
-    const body = await args.readJson<{ departmentId?: string; botId?: string }>(req);
-    if (body.departmentId === undefined) {
-      json(400, { error: "departmentId (the target department) is required" });
+    const body = await args.readJson<{ teamId?: string; botId?: string }>(req);
+    if (body.teamId === undefined) {
+      json(400, { error: "teamId (the target team) is required" });
       return true;
     }
-    if (!(await may(args, "change", { type: "template", departmentId: body.departmentId }))) {
-      json(404, { error: "unknown department" });
+    if (!(await may(args, "change", { type: "template", teamId: body.teamId }))) {
+      json(404, { error: "unknown team" });
       return true;
     }
     const view = await mind.org.view();
@@ -178,7 +178,7 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
       return true;
     }
     try {
-      const created = await copyTemplate(args, template, body.departmentId, body.botId);
+      const created = await copyTemplate(args, template, body.teamId, body.botId);
       audited(args, `template-copied-${template.kind}`);
       json(200, created);
     } catch (cause) {
@@ -190,14 +190,14 @@ export async function templateRoutes(args: RouteArgs): Promise<boolean> {
 }
 
 /**
- * Copy into the target department: a bot template spawns a new bot (fresh
+ * Copy into the target team: a bot template spawns a new bot (fresh
  * memory and chats — the payload carries no memory, sessions or vault);
  * a skill or Instructions template installs onto a named bot of the target.
  */
 const copyTemplate = async (
   args: RouteArgs,
   template: TemplateInfo,
-  targetDepartment: string,
+  targetTeam: string,
   targetBot: string | undefined,
 ): Promise<unknown> => {
   const { mind, owner } = args;
@@ -207,7 +207,7 @@ const copyTemplate = async (
     const created = await mind.profiles.create(owner, {
       name: payload.name,
       persona: payload.persona,
-      departmentId: targetDepartment,
+      teamId: targetTeam,
       onboard: false,
     });
     // The bot's Instructions file gets the template's text (create seeds an
@@ -222,11 +222,11 @@ const copyTemplate = async (
     return created;
   }
   if (targetBot === undefined) {
-    throw new Error("a skill or instructions copy needs botId (a bot of the target department)");
+    throw new Error("a skill or instructions copy needs botId (a bot of the target team)");
   }
   const bot = await mind.profiles.get(owner, targetBot);
-  if (bot === undefined || bot.departmentId !== targetDepartment) {
-    throw new Error("unknown bot in this department");
+  if (bot === undefined || bot.teamId !== targetTeam) {
+    throw new Error("unknown bot in this team");
   }
   if (template.kind === "skill") {
     if (!("files" in template.payload)) throw new Error("template payload mismatch");

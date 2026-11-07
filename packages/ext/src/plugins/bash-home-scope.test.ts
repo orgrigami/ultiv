@@ -1,6 +1,6 @@
 /**
  * One VM per home (phase 4 slice 2): the sandbox scope moves from the bot to
- * the bot's HOME (its department, or the org). Two bots of one home share a
+ * the bot's HOME (its team, or the org). Two bots of one home share a
  * VM, each in its own folder that `prepare` wipes alone; different homes get
  * different VM names; without a home-scope resolver the per-bot behaviour of
  * older embedders is unchanged. The local backend stands in for the VM: one
@@ -56,7 +56,7 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
   });
 
   it("two bots of one home share the VM, each in its own folder", () => {
-    const home: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x"), sharedGid: 10001 };
+    const home: HomeScope = { dir: join(root, "owner-a", "_home", "team-x"), sharedGid: 10001 };
     const first = homeWorldOf(botDir("owner-a", "bot-1"), home);
     const second = homeWorldOf(botDir("owner-a", "bot-2"), home);
     expect(first.vmDir).toBe(home.dir);
@@ -66,13 +66,13 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
     expect(first.sharedGid).toBe(10001);
   });
 
-  it("org and departments name different VMs; org bots share the org VM", () => {
+  it("org and teams name different VMs; org bots share the org VM", () => {
     const org: HomeScope = { dir: join(root, "owner-a", "_home", "org") };
-    const dept: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x") };
-    const other: HomeScope = { dir: join(root, "owner-a", "_home", "dept-y") };
-    const names = [org, dept, other].map((home) => sandboxNameOf(homeWorldOf("d/b", home).vmDir));
+    const team: HomeScope = { dir: join(root, "owner-a", "_home", "team-x") };
+    const other: HomeScope = { dir: join(root, "owner-a", "_home", "team-y") };
+    const names = [org, team, other].map((home) => sandboxNameOf(homeWorldOf("d/b", home).vmDir));
     expect(new Set(names).size).toBe(3);
-    // An org with no departments: every (org) bot runs in the one org VM.
+    // An org with no teams: every (org) bot runs in the one org VM.
     expect(sandboxNameOf(homeWorldOf(botDir("owner-a", "a"), org).vmDir)).toBe(
       sandboxNameOf(homeWorldOf(botDir("owner-a", "b"), org).vmDir),
     );
@@ -92,7 +92,7 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
 });
 
 describe("bash's target never names another home's VM (phase 6 merge)", () => {
-  it("the target parameter is the three-VALUE enum only — no VM-, home- or department-naming argument", () => {
+  it("the target parameter is the three-VALUE enum only — no VM-, home- or team-naming argument", () => {
     const bash = toolOf(bashPlugin({ root: join(scratch, "schema") }), "bash");
     const properties = (bash.parameters as { properties?: Record<string, unknown> }).properties;
     const union = ((properties?.target as { anyOf?: { const?: string }[] })?.anyOf ?? []).map(
@@ -107,7 +107,7 @@ describe("bash's target never names another home's VM (phase 6 merge)", () => {
   it("a target value outside the enum is refused and never forwarded anywhere", async () => {
     const root = join(scratch, "no-target");
     const disk = join(scratch, "no-target-disk");
-    const home: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x"), sharedGid: 10001 };
+    const home: HomeScope = { dir: join(root, "owner-a", "_home", "team-x"), sharedGid: 10001 };
     const asked: (string | undefined)[] = [];
     const holder = createScopeHolder();
     holder.set({
@@ -126,7 +126,7 @@ describe("bash's target never names another home's VM (phase 6 merge)", () => {
       "bash",
     );
     const ran = await bash.execute(
-      { script: "pwd", target: "dept-y" } as never,
+      { script: "pwd", target: "team-y" } as never,
       api("conv-1"),
       {} as never,
     );
@@ -138,11 +138,11 @@ describe("bash's target never names another home's VM (phase 6 merge)", () => {
 });
 
 describe("bash in a shared home VM (local backend standing in for the VM disk)", () => {
-  it("two department bots colocate; prepare for one leaves the other's folder", async () => {
+  it("two team bots colocate; prepare for one leaves the other's folder", async () => {
     const root = join(scratch, "shared");
     // One "VM disk": each guest root maps to its own host dir beneath it.
     const disk = join(scratch, "vm-disk");
-    const home: HomeScope = { dir: join(root, "owner-a", "_home", "dept-x"), sharedGid: 10001 };
+    const home: HomeScope = { dir: join(root, "owner-a", "_home", "team-x"), sharedGid: 10001 };
     const plugin = bashPlugin({
       root,
       holder: holderWith(

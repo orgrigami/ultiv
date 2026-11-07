@@ -10,8 +10,8 @@ hashing); this file is the map of trust.
 
 | Actor                                                        | Trust                                                                                                                                                                                                                                                 | Boundary they must not cross                                                                                                                                            |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The org owner (signed-in person)                             | Fully trusted. One account today; sign-in is the passcode (and passkeys). The org model (phase 3) adds departments and roles on `can()` for future accounts.                                                                                          | Nobody: the org owner is the top of the model.                                                                                                                          |
-| Members (org admins, department admins, members, viewers)    | Modelled in `can()` (`apps/server/src/rest/can.ts`): org admins act at org level; a department admin acts only inside its own department; a member works their department but never roles, settings or flags; a viewer reads.                         | Chats they did not start (contents are creator-only, summaries only for org level); another department; org-level state.                                                |
+| The org owner (signed-in person)                             | Fully trusted. One account today; sign-in is the passcode (and passkeys). The org model (phase 3) adds teams and roles on `can()` for future accounts.                                                                                                | Nobody: the org owner is the top of the model.                                                                                                                          |
+| Members (org admins, team admins, members, viewers)          | Modelled in `can()` (`apps/server/src/rest/can.ts`): org admins act at org level; a team admin acts only inside its own team; a member works their team but never roles, settings or flags; a viewer reads.                                           | Chats they did not start (contents are creator-only, summaries only for org level); another team; org-level state.                                                      |
 | Bots (profiles)                                              | Semi-trusted: they run model-chosen tool calls, gated by the approval mode (`policies.approvalMode`) with the owner as the floor.                                                                                                                     | Each other's memory, files, vault, chats; the host shell (without a card AND without the effective host-access flag); the owner's credentials.                          |
 | Tasks (background bot turns)                                 | Same trust as their bot: a task runs AS its bot (adopted scope, kind `task`), and inherits its bot's home.                                                                                                                                            | Same as bots, plus they never ask the model outside their own conversation.                                                                                             |
 | Other bots, via the mailbox                                  | Semi-trusted senders: messages arrive only through the room tunnel with rate, budget, hop and lineage caps (`packages/mind/src/mailbox/`). Any bot may message any bot across homes (open reach); each cross-home message writes a `reach` audit row. | Direct access to the recipient: a message is data on the recipient's thread, never a tool call.                                                                         |
@@ -23,14 +23,14 @@ hashing); this file is the map of trust.
 
 ## 2. What each actor can reach
 
-- **The org model (phase 3)**: one org holds flat departments (no nesting,
-  no parent) and bots; every bot has exactly one home — one department or
-  the org itself. **Departments are a boundary between bots' VMs, files and
-  vaults** (owner decision, 1 Nov 2026) — against department bots: a
-  department bot cannot enter, read or run commands in another home's VM,
+- **The org model (phase 3)**: one org holds flat teams (no nesting,
+  no parent) and bots; every bot has exactly one home — one team or
+  the org itself. **Teams are a boundary between bots' VMs, files and
+  vaults** (owner decision, 1 Nov 2026) — against team bots: a
+  team bot cannot enter, read or run commands in another home's VM,
   and no bot uses another home's `/home/shared` except the org bots through
   the slice-2d mounts. Messaging, `/home/org-shared`, the slice-2d
-  department folders in the org VM and grants for named vault items are the
+  team folders in the org VM and grants for named vault items are the
   only paths between homes.
   Every resource (bot, memory record, file, skill, vault item, routine,
   sandbox) belongs to exactly one home through its bot (`checkHomes` in
@@ -43,15 +43,15 @@ hashing); this file is the map of trust.
   is set, a loopback request can only set the first passcode (one-time
   bootstrap); every other request needs a session, loopback included.
 - **Open reach is messaging only (owner decision, 1 Nov 2026)**: no reach
-  rule limits by department, and the only cross-home reach SURFACE is
+  rule limits by team, and the only cross-home reach SURFACE is
   messaging. Every bot, in any home, can message any bot; each cross-home
   message writes a `reach` row (from, to, surface — always `message`, never
   message) into the audit trail (`org/reach.ts`). A VM is for its home's
   bots only: `bash` runs only in the bot's own home VM (the tool takes no
   target), and no bot uses another home's `/home/shared` (org bots reach a
-  department's only through the slice-2d mounts in the org VM). The DELIBERATE
+  team's only through the slice-2d mounts in the org VM). The DELIBERATE
   data paths across homes are the org-wide `/home/org-shared` folder
-  (slice 2c) and the slice-2d department folders in the org VM — both
+  (slice 2c) and the slice-2d team folders in the org VM — both
   flagged below (F-O1–F-O8, F-D1–F-D9); they are file paths, not reach
   surfaces, and write no `reach` rows. Grants for NAMED VAULT ITEMS are the
   only other cross-home path. Reach does NOT
@@ -65,8 +65,8 @@ hashing); this file is the map of trust.
   never list another home's items, and a refused cross-home credential read
   writes an audited `credential` row (ok false). From slice 7 MCP
   connectors are per home as well: config under `MCP_DIR` is stored per
-  home (the org's `servers.json` path unchanged, department connectors in
-  `dept-<id>/`), the boot upgrade stamps existing connectors as the org's,
+  home (the org's `servers.json` path unchanged, team connectors in
+  `team-<id>/`), the boot upgrade stamps existing connectors as the org's,
   a bot lists and calls only its home's connectors (a cross-home call is
   refused), and connectors are never auto-approved. From slice 8 a
   connector's PRE-REGISTERED OAuth client (Google Drive's remote MCP
@@ -75,26 +75,26 @@ hashing); this file is the map of trust.
   and never logged or shown, and a lookup that names another home's item
   (or a profile-scoped one) reads as absent — the sign-in falls back to a
   plain stored `clientId` or dynamic registration rather than crossing
-  homes. A department
+  homes. A team
   connector's keys typed in a secure field are sealed as items OF that
-  department, so a department's Google client never sits in the org's
-  vault. Department and org
+  team, so a team's Google client never sits in the org's
+  vault. Team and org
   settings are hidden from anyone without the
   role. Messaging itself is unchanged: admission-only through the mailbox
   with its caps, `canInitiate: ["*"]`.
 - **Chats stay private**: a chat belongs to whoever started it — org owner
-  and org admins see only a department's summary (counts, bots, activity
+  and org admins see only a team's summary (counts, bots, activity
   timestamps), never chat contents, over REST or the socket (the socket
   resolves chats through the signed-in account's key space). Approval cards
-  route to their approvers (a department bot's card to that department's
+  route to their approvers (a team bot's card to that team's
   admins and the org owner; an org bot's card to the org owner and org
   admins) — deciding a card never reads the chat.
 - **Bots and tasks**: their own conversation (pi-durable, durable-scoped),
-  their profile's persona and Instructions files (a department bot also
-  inherits its department's standing Instructions, rendered BEFORE its own;
+  their profile's persona and Instructions files (a team bot also
+  inherits its team's standing Instructions, rendered BEFORE its own;
   approval rules outrank any Instructions text), their memory partitions
-  (`ultiv.mem.*` doc families per `owner`/profile — plus, for a department
-  bot, its department's shared store, written only through admin-accepted
+  (`ultiv.mem.*` doc families per `owner`/profile — plus, for a team
+  bot, its team's shared store, written only through admin-accepted
   proposals), their files tree (`{ARTIFACTS_DIR}/{owner}/{bot}`), their
   artifact store partition, their vault scope (contacts readable, secrets
   only through the broker), the tools their allowlist permits, and the
@@ -117,7 +117,7 @@ hashing); this file is the map of trust.
 ## 3. What escapes the sandbox by design
 
 - **Host access has three switches (phase 3, enforced first-in-line in
-  slice 10)**: org AND department AND bot for a department bot; org AND bot
+  slice 10)**: org AND team AND bot for a team bot; org AND bot
   for an org bot; every level defaults to off for anything created after the
   migration (the migration turned the org and the existing bots on, F1). The
   effective flag gates every host-running tool before any approval decision
@@ -169,9 +169,9 @@ hashing); this file is the map of trust.
   ordinary bot scripts: the bot's files tree is synced in from artifacts,
   and the only host folders inside a VM are the sanctioned bind mounts —
   each home's `/home/shared`, the org-wide `/home/org-shared`, and in the
-  org VM the `/home/dept-shared/<department id>` stores. From phase 4 the
+  org VM the `/home/team-shared/<team id>` stores. From phase 4 the
   VM belongs to the bot's HOME, not the bot: the
-  org's bots share the org VM, a department's bots its department VM, each
+  org's bots share the org VM, a team's bots its team VM, each
   in its own `/home/<bot>` folder beside a shared `/home/shared`. Slice 2b
   gives each bot its own Linux user inside every VM it uses: a fixed uid
   from 10000 up (the same uid everywhere, allocated once and never reused),
@@ -183,11 +183,11 @@ hashing); this file is the map of trust.
   this document (it would be a microsandbox vulnerability), but bash's
   beyond-VM targets exist precisely because some jobs need the real host.
 - **Network is off by default in every VM (slice 3)**: the org VM and each
-  department VM boot deny-everything; a home's stored allowlist of named
-  hosts (its org or department row) opens exactly those. A department bot's
+  team VM boot deny-everything; a home's stored allowlist of named
+  hosts (its org or team row) opens exactly those. A team bot's
   VM can therefore not exfiltrate anywhere but its own allowlist, and the
   org VM only where the org level allows. The org owner or an org admin
-  edits the org VM's list; a department's own admin, their department's;
+  edits the org VM's list; a team's own admin, their team's;
   every change is audited (`permission` rows). An allowlist entry is an
   exfiltration channel to that host — allowlist deliberately, treat
   allowlisted-host content as untrusted input like any web fetch. Until a
@@ -197,9 +197,9 @@ hashing); this file is the map of trust.
   access, allowlist ignored, ingress still denied. While it is on, NONE of
   this section's network bounds hold for that VM — no exfiltration bound,
   no off-list refusals — and the flag is audited (`org-net-open`,
-  `department-net-open`) so the departure from the default is on the record.
+  `team-net-open`) so the departure from the default is on the record.
 - **VM size is capped per home and against the host (slice 4)**: the org VM
-  and each department VM are created with their row's stored `vm` settings
+  and each team VM are created with their row's stored `vm` settings
   (defaults 1 CPU / 512 MiB), bounded at 1–8 CPUs and 128–8192 MiB, and a
   create or edit is refused when the SUM of all homes' CONFIGURED memory
   would pass half the host's RAM. That sum is a heuristic over stored
@@ -240,7 +240,7 @@ hashing); this file is the map of trust.
   read everything. The host is the trust root; this is the same power
   bash's `host` target has (and a paired node's agent has over its own
   machine).
-- **Departments are a boundary between bots' VMs, files and vaults
+- **Teams are a boundary between bots' VMs, files and vaults
   (F-A)**: a bot's commands run only in its own home's VM by default (the
   merged `bash` tool's other targets are gated separately; owner decision,
   1 Nov 2026) and its files stay in its
@@ -276,18 +276,18 @@ hashing); this file is the map of trust.
   NO host-side isolation between bots: inside the VM uids hold, but on the
   host every file belongs to the host user, so a host-side process or
   another mount of the same store sees every bot's files (docs/SECURITY.md).
-- **The org-wide folder is a deliberate leak across departments
+- **The org-wide folder is a deliberate leak across teams
   (slice 2c, F-O1–F-O8)**: `/home/org-shared` is mounted read-write in the
-  org VM and READ-ONLY in every department VM (F-O8: the read-only mount is
-  only as strong as the VM config — the slice test proves a department
+  org VM and READ-ONLY in every team VM (F-O8: the read-only mount is
+  only as strong as the VM config — the slice test proves a team
   bot's write fails). F-O1: anything an org bot writes there (secrets,
-  personal data) becomes readable by every department bot. F-O2: it is a
-  prompt-injection channel flowing down from org bots to all department
+  personal data) becomes readable by every team bot. F-O2: it is a
+  prompt-injection channel flowing down from org bots to all team
   bots; treat its content as untrusted input. F-O3: the alternative,
-  read-write for all bots, would let a department bot poison every bot —
+  read-write for all bots, would let a team bot poison every bot —
   not the default. F-O4: it is the first data path across homes and weakens
-  the boundary restored on 1 Nov. F-O5: purging a department removes
-  nothing from the folder, including anything about that department. F-O6:
+  the boundary restored on 1 Nov. F-O5: purging a team removes
+  nothing from the folder, including anything about that team. F-O6:
   the size cap (default 1 GiB, owner-editable) is enforced at the `bash`
   tool path, not by a filesystem quota: over the cap the folder turns
   read-only in the VM (or `bash` is refused for the bots that can write
@@ -298,31 +298,31 @@ hashing); this file is the map of trust.
   folder's group after each call, so every bot of the folder can read and
   write it: anything written there is shared by design (docs/SECURITY.md,
   "Shared-folder caps").
-- **Department shared folders in the org VM (slice 2d, F-D1–F-D9)**: the
-  org VM mounts every department's shared store at
-  `/home/dept-shared/<department id>`, read-write. F-D1: a prompt-injected
+- **Team shared folders in the org VM (slice 2d, F-D1–F-D9)**: the
+  org VM mounts every team's shared store at
+  `/home/team-shared/<team id>`, read-write. F-D1: a prompt-injected
   org bot can read them all and write to them; content flows both ways
-  between org bots and every department bot — untrusted input. F-D2:
-  secrets in department shared files become readable by every org bot.
-  F-D3: this is one-way file reach (org to departments) after the owner
-  removed one-way reach for VMs; the department boundary now holds only
-  against department bots. F-D4: org bots can plant files department bots
+  between org bots and every team bot — untrusted input. F-D2:
+  secrets in team shared files become readable by every org bot.
+  F-D3: this is one-way file reach (org to teams) after the owner
+  removed one-way reach for VMs; the team boundary now holds only
+  against team bots. F-D4: org bots can plant files team bots
   read and act on. F-D5: the uniform "not found" rule for another
-  department's shared folder holds for DEPARTMENT bots only — org bots see
-  every department's id under `/home/dept-shared` and its group in
+  team's shared folder holds for TEAM bots only — org bots see
+  every team's id under `/home/team-shared` and its group in
   `/etc/group`. F-D6: microsandbox cannot change a running VM's mounts, but
-  the parent-folder mount makes new stores appear live, so a department
+  the parent-folder mount makes new stores appear live, so a team
   create or delete never restarts the org VM or kills running org-bot
   commands (verified by probe). F-D7: the org VM's group count grows with
-  the departments; no limit is set. F-D8: read-write is the default; the
-  alternative (one read-only mount for all departments) is not selected.
+  the teams; no limit is set. F-D8: read-write is the default; the
+  alternative (one read-only mount for all teams) is not selected.
   F-D9: the org VM's capacity matters more now, and the purge default
-  deletes a department's store with it (archiving is not decided). Each
-  department store has its own cap (`sharedCapBytes`, default 1 GiB,
+  deletes a team's store with it (archiving is not decided). Each
+  team store has its own cap (`sharedCapBytes`, default 1 GiB,
   enforced like the org-wide one), and org bots' writes into it are
   audited per file.
 - **One account, many roles on paper**: the role matrix (org admin,
-  department admin, member, viewer) is enforced by `can()` and tested, but
+  team admin, member, viewer) is enforced by `can()` and tested, but
   today only the org owner can sign in — no second account exists yet, so
   no non-owner role is reachable on the wire.
 - **Web Push payloads** carry names and event kinds only, but the push

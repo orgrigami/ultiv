@@ -47,7 +47,7 @@ describe("effectiveAccess", () => {
       fix: "Settings › Organization",
     });
     expect(
-      lineOf({ ...base, host: { allowed: false, blockedBy: "department" } }, "This computer")?.text,
+      lineOf({ ...base, host: { allowed: false, blockedBy: "team" } }, "This computer")?.text,
     ).toBe("No access: its team's switch is off.");
     expect(
       lineOf({ ...base, host: { allowed: true, blockedBy: null } }, "This computer")?.tone,

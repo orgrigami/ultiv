@@ -55,7 +55,7 @@ describe("vmSpecOf (what reaches the builder)", () => {
     expect(fp({ ...ro, orgShared: { ...ro.orgShared, readOnly: false } })).not.toBe(fp(ro));
     expect(fp({ ...base, sharedStore: "/s/d1" })).not.toBe(fp(base));
     expect(
-      fp({ ...base, deptShared: { parentDir: "/s/_dept", depts: [], users: [] } as never }),
+      fp({ ...base, teamShared: { parentDir: "/s/_team", teams: [], users: [] } as never }),
     ).not.toBe(fp(base));
     expect(vmSpecOf(ro).mounts).toEqual(["/home/org-shared=/s/org:ro"]);
   });

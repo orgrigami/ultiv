@@ -29,7 +29,7 @@ in `packages/ext/var/probe/` and is not committed.
 ## Reading
 
 - A 1 CPU / 512 MiB VM idles at ~60 MiB host memory and boots in under a
-  second, so an org plus a handful of departments (the phase 4 model: one VM
+  second, so an org plus a handful of teams (the phase 4 model: one VM
   per home) is far inside this host's capacity. The 16 GB host could hold
   dozens of idle VMs; memory only binds when VMs run browsers or heavy jobs
   at their cap.

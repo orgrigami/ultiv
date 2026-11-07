@@ -1,5 +1,5 @@
 /**
- * A bot's home over the real REST handler: created inside a department,
+ * A bot's home over the real REST handler: created inside a team,
  * moved between homes, a home that does not exist refused, and each move
  * audited.
  */
@@ -23,7 +23,7 @@ let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
 let cookie = "";
-let dept = "";
+let team = "";
 
 const call = async (
   method: string,
@@ -74,16 +74,16 @@ afterAll(async () => {
 });
 
 describe("a bot's home over REST", () => {
-  it("creates a bot inside a department and audits it", async () => {
-    const made = await call("POST", "/api/org/departments", { name: "Dept X" });
-    dept = (made.json as { id: string }).id;
+  it("creates a bot inside a team and audits it", async () => {
+    const made = await call("POST", "/api/org/teams", { name: "Team X" });
+    team = (made.json as { id: string }).id;
     const bot = await call("POST", "/api/profiles", {
       name: "Wren",
       onboard: false,
-      departmentId: dept,
+      teamId: team,
     });
     expect(bot.status).toBe(200);
-    expect((bot.json as { departmentId: string }).departmentId).toBe(dept);
+    expect((bot.json as { teamId: string }).teamId).toBe(team);
     const events = (await call("GET", "/api/audit?kind=permission")).json as { name: string }[];
     expect(events.some((event) => event.name === "bot-moved")).toBe(true);
   });
@@ -92,7 +92,7 @@ describe("a bot's home over REST", () => {
     const bad = await call("POST", "/api/profiles", {
       name: "Stray",
       onboard: false,
-      departmentId: "dept-nowhere",
+      teamId: "team-nowhere",
     });
     expect(bad.status).toBe(400);
     const names = ((await call("GET", "/api/profiles")).json as { name: string }[]).map(
@@ -102,33 +102,33 @@ describe("a bot's home over REST", () => {
     const bot = (await call("POST", "/api/profiles", { name: "Finch", onboard: false })).json as {
       id: string;
     };
-    const move = await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: "dept-nowhere" });
+    const move = await call("PATCH", `/api/profiles/${bot.id}`, { teamId: "team-nowhere" });
     expect(move.status).toBe(400);
-    const row = (await call("GET", `/api/profiles/${bot.id}`)).json as { departmentId: unknown };
-    expect(row.departmentId).toBeNull();
+    const row = (await call("GET", `/api/profiles/${bot.id}`)).json as { teamId: unknown };
+    expect(row.teamId).toBeNull();
   });
 
   it("moves a bot between homes and back to the org", async () => {
     const bot = (await call("POST", "/api/profiles", { name: "Lark", onboard: false })).json as {
       id: string;
     };
-    const into = await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: dept });
-    expect((into.json as { departmentId: string }).departmentId).toBe(dept);
-    const out = await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: null });
-    expect((out.json as { departmentId: unknown }).departmentId).toBeNull();
-    // The main bot (Keeper) stays in the org; a department bot cannot be main.
+    const into = await call("PATCH", `/api/profiles/${bot.id}`, { teamId: team });
+    expect((into.json as { teamId: string }).teamId).toBe(team);
+    const out = await call("PATCH", `/api/profiles/${bot.id}`, { teamId: null });
+    expect((out.json as { teamId: unknown }).teamId).toBeNull();
+    // The main bot (Keeper) stays in the org; a team bot cannot be main.
     const main = ((await call("GET", "/api/profiles")).json as { id: string; name: string }[]).find(
       (row) => row.name === "Keeper",
     );
-    const keep = await call("PATCH", `/api/profiles/${main?.id}`, { departmentId: dept });
+    const keep = await call("PATCH", `/api/profiles/${main?.id}`, { teamId: team });
     expect(keep.status).toBe(400);
     expect((keep.json as { error: string }).error).toMatch(/main bot lives in the org/);
-    await call("PATCH", `/api/profiles/${bot.id}`, { departmentId: dept });
+    await call("PATCH", `/api/profiles/${bot.id}`, { teamId: team });
     const promote = await call("POST", `/api/profiles/${bot.id}/main`, {});
     expect(promote.status).toBe(409);
     expect((await call("POST", `/api/profiles/${main?.id}/archive`, {})).status).toBe(409);
-    // A department that still has bots cannot be removed.
-    const remove = await call("DELETE", `/api/org/departments/${dept}`);
+    // A team that still has bots cannot be removed.
+    const remove = await call("DELETE", `/api/org/teams/${team}`);
     expect(remove.status).toBe(400);
   });
 });

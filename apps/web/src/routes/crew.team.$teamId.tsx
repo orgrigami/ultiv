@@ -1,0 +1,129 @@
+/**
+ * One team on one screen: its bots, settings (name, Instructions, VM
+ * size, host access), people, shared folder, shared memory, templates,
+ * activity across homes, and removal. Reached from the crew groups in the
+ * rail, the bot pill and the Crew page, from Settings → Organization, and
+ * from the command palette.
+ */
+import { Link, createFileRoute } from "@tanstack/react-router";
+import { ChevronLeftIcon, FolderIcon, UserRoundIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { TeamSummary } from "@spriessen/contracts";
+import { TeamBots } from "@/components/team/team-bots";
+import { TeamMemory } from "@/components/team/team-memory";
+import { TeamRemove } from "@/components/team/team-remove";
+import { TeamSettings } from "@/components/team/team-settings";
+import { TeamTemplates } from "@/components/team/team-templates";
+import { ReachActivity } from "@/components/team/reach-activity";
+import { Page } from "@/components/page";
+import { ListCard } from "@/components/ui/list-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeader } from "@/components/ui/section-header";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { useApp } from "@/lib/app-state";
+import { formatWhen } from "@/lib/format";
+import { orgApi } from "@/lib/org-api";
+import { vmLabel } from "@/lib/org-view";
+import { useOrg } from "@/lib/use-org";
+
+export const Route = createFileRoute("/crew/team/$teamId")({
+  component: TeamPage,
+});
+
+function BackToCrew() {
+  return (
+    <Link
+      to="/crew"
+      className="text-muted-foreground hover:text-foreground -ml-1 inline-flex min-h-11 items-center gap-1 self-start rounded-lg pr-2 text-sm sm:min-h-8"
+    >
+      <ChevronLeftIcon className="size-4" /> Crew
+    </Link>
+  );
+}
+
+/** Counts from the summary: tool calls this week, open approvals, the last call. */
+function useSummary(id: string, epoch: unknown): TeamSummary | null {
+  const [summary, setSummary] = useState<TeamSummary | null>(null);
+  useEffect(() => {
+    let live = true;
+    orgApi
+      .summary(id)
+      .then((next) => live && setSummary(next))
+      .catch(() => live && setSummary(null));
+    return () => {
+      live = false;
+    };
+  }, [id, epoch]);
+  return summary;
+}
+
+function People() {
+  return (
+    <ListCard>
+      <div className="flex min-h-11 items-center gap-3 px-3 py-2.5">
+        <UserRoundIcon className="text-muted-foreground size-4 shrink-0" />
+        <span className="text-ui flex-1">You</span>
+        <span className="text-meta text-muted-foreground">Owner</span>
+      </div>
+      <div className="flex min-h-11 items-start gap-3 px-3 py-2.5">
+        <FolderIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+        <span className="text-ui flex-1">
+          Shared folder
+          <span className="text-meta text-muted-foreground block">
+            Comes with team VMs (Phase 4). Until then each bot keeps its own files.
+          </span>
+        </span>
+      </div>
+    </ListCard>
+  );
+}
+
+function TeamPage() {
+  const { teamId } = Route.useParams();
+  const { sessions } = useApp();
+  const { view } = useOrg(sessions.profiles.length);
+  const team = view?.teams.find((row) => row.id === teamId);
+  const summary = useSummary(teamId, sessions.profiles);
+  if (view === null) {
+    return (
+      <Page title="Team" back={<BackToCrew />}>
+        <SkeletonRows label="Team" rows={3} />
+      </Page>
+    );
+  }
+  if (team === undefined) {
+    return (
+      <Page title="Team not found" back={<BackToCrew />}>
+        <EmptyState>This team was removed, or the link is from another workspace.</EmptyState>
+      </Page>
+    );
+  }
+  const count = sessions.profiles.filter((bot) => bot.teamId === team.id).length;
+  const activity = summary?.activity;
+  return (
+    <Page
+      back={<BackToCrew />}
+      title={team.name}
+      lead={`Team · ${count === 1 ? "1 bot" : `${count} bots`} · ${vmLabel(team.vm)} · host access ${team.hostAccess ? "on" : "off"}`}
+    >
+      <TeamBots teamId={team.id} />
+      <SectionHeader title="Settings" className="mt-2" />
+      <TeamSettings team={team} orgHostAccess={view.org?.hostAccess === true} />
+      <SectionHeader title="People and files" className="mt-2" />
+      <People />
+      <SectionHeader title="Shared memory" className="mt-2" />
+      <TeamMemory teamId={team.id} />
+      <SectionHeader title="Templates" className="mt-2" />
+      <TeamTemplates teamId={team.id} />
+      <SectionHeader title="Activity" className="mt-2" />
+      {activity !== undefined && (
+        <p className="text-meta text-muted-foreground">
+          {activity.toolCalls7d} tool calls this week · {activity.openApprovals} waiting for you
+          {activity.lastToolCallAt !== null ? ` · last ${formatWhen(activity.lastToolCallAt)}` : ""}
+        </p>
+      )}
+      <ReachActivity teamId={team.id} />
+      <TeamRemove team={team} />
+    </Page>
+  );
+}

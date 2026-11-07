@@ -23,7 +23,7 @@ describe("can", () => {
     expect(can("someone-else", "change", { type: "host" })).toBe(false);
   });
 
-  it("only the main bot manages bots and departments, and only for the account", () => {
+  it("only the main bot manages bots and teams, and only for the account", () => {
     const admin = (caller: string, main: string | null) =>
       ({ type: "bot-admin", caller, main }) as const;
     expect(can("owner", "change", admin("bot-main", "bot-main"))).toBe(true);
@@ -56,20 +56,20 @@ describe("can", () => {
 });
 
 /**
- * The role matrix over a two-department org (throwaway labels). The org
- * owner passes everything; an org admin spans departments; a department
- * admin never reaches outside its department; a member works but cannot
+ * The role matrix over a two-team org (throwaway labels). The org
+ * owner passes everything; an org admin spans teams; a team
+ * admin never reaches outside its team; a member works but cannot
  * change roles; a viewer only reads.
  */
 const view = {
   org: { owner: "owner-a" },
-  departments: [{ id: "dept-x" }, { id: "dept-y" }],
+  teams: [{ id: "team-x" }, { id: "team-y" }],
   members: [
-    { accountId: "owner-a", role: "owner", departmentId: null },
-    { accountId: "admin-org", role: "admin", departmentId: null },
-    { accountId: "admin-x", role: "admin", departmentId: "dept-x" },
-    { accountId: "member-x", role: "member", departmentId: "dept-x" },
-    { accountId: "viewer-x", role: "viewer", departmentId: "dept-x" },
+    { accountId: "owner-a", role: "owner", teamId: null },
+    { accountId: "admin-org", role: "admin", teamId: null },
+    { accountId: "admin-x", role: "admin", teamId: "team-x" },
+    { accountId: "member-x", role: "member", teamId: "team-x" },
+    { accountId: "viewer-x", role: "viewer", teamId: "team-x" },
   ],
 };
 
@@ -77,13 +77,13 @@ const botInX = {
   type: "bot",
   owner: "owner-a",
   id: "b-x",
-  home: { kind: "department", departmentId: "dept-x" },
+  home: { kind: "team", teamId: "team-x" },
 } as const;
 const botInY = {
   type: "bot",
   owner: "owner-a",
   id: "b-y",
-  home: { kind: "department", departmentId: "dept-y" },
+  home: { kind: "team", teamId: "team-y" },
 } as const;
 const orgBot = { type: "bot", owner: "owner-a", id: "b-org", home: { kind: "org" } } as const;
 
@@ -91,40 +91,32 @@ describe("can with the org view (slice 3)", () => {
   it("the org owner passes everything", () => {
     expect(can("owner-a", "remove", botInX, view)).toBe(true);
     expect(can("owner-a", "change", { type: "org-settings" }, view)).toBe(true);
-    expect(can("owner-a", "change", { type: "department", departmentId: "dept-y" }, view)).toBe(
-      true,
-    );
+    expect(can("owner-a", "change", { type: "team", teamId: "team-y" }, view)).toBe(true);
   });
 
-  it("an org admin acts at org level, across departments", () => {
+  it("an org admin acts at org level, across teams", () => {
     expect(can("admin-org", "change", botInY, view)).toBe(true);
     expect(can("admin-org", "change", orgBot, view)).toBe(true);
     expect(can("admin-org", "change", { type: "org-settings" }, view)).toBe(true);
     expect(can("admin-org", "change", { type: "member" }, view)).toBe(true);
   });
 
-  it("a department admin acts only inside its own department", () => {
+  it("a team admin acts only inside its own team", () => {
     expect(can("admin-x", "change", botInX, view)).toBe(true);
     expect(can("admin-x", "remove", botInX, view)).toBe(true);
     expect(can("admin-x", "change", botInY, view)).toBe(false);
     expect(can("admin-x", "change", orgBot, view)).toBe(false);
     expect(can("admin-x", "change", { type: "org-settings" }, view)).toBe(false);
     expect(can("admin-x", "change", { type: "member" }, view)).toBe(false);
-    expect(can("admin-x", "change", { type: "department", departmentId: "dept-y" }, view)).toBe(
-      false,
-    );
-    expect(can("admin-x", "change", { type: "department", departmentId: "dept-x" }, view)).toBe(
-      true,
-    );
+    expect(can("admin-x", "change", { type: "team", teamId: "team-y" }, view)).toBe(false);
+    expect(can("admin-x", "change", { type: "team", teamId: "team-x" }, view)).toBe(true);
   });
 
-  it("a member works their department but never roles or membership", () => {
+  it("a member works their team but never roles or membership", () => {
     expect(can("member-x", "change", botInX, view)).toBe(true);
     expect(can("member-x", "view", botInY, view)).toBe(false);
     expect(can("member-x", "change", { type: "member" }, view)).toBe(false);
-    expect(can("member-x", "change", { type: "department", departmentId: "dept-x" }, view)).toBe(
-      false,
-    );
+    expect(can("member-x", "change", { type: "team", teamId: "team-x" }, view)).toBe(false);
   });
 
   it("a viewer reads and never writes", () => {
@@ -155,29 +147,19 @@ describe("can with the org view (slice 3)", () => {
     expect(noFolder).toBe(false);
   });
 
-  it("a viewer of one department gets no summary of another", () => {
-    expect(
-      can("viewer-x", "view", { type: "department-summary", departmentId: "dept-x" }, view),
-    ).toBe(false);
-    expect(
-      can("admin-x", "view", { type: "department-summary", departmentId: "dept-x" }, view),
-    ).toBe(true);
-    expect(
-      can("admin-org", "view", { type: "department-summary", departmentId: "dept-y" }, view),
-    ).toBe(true);
+  it("a viewer of one team gets no summary of another", () => {
+    expect(can("viewer-x", "view", { type: "team-summary", teamId: "team-x" }, view)).toBe(false);
+    expect(can("admin-x", "view", { type: "team-summary", teamId: "team-x" }, view)).toBe(true);
+    expect(can("admin-org", "view", { type: "team-summary", teamId: "team-y" }, view)).toBe(true);
   });
 
   it("a refusal is exactly the missing-item answer at the resource level", () => {
     // can() only says yes/no; the route turns a no into the SAME answer an
     // unknown id gets. This pins the no: an unknown actor gets false for an
-    // existing resource, and an unknown department reads like a missing one.
+    // existing resource, and an unknown team reads like a missing one.
     expect(can("stranger", "view", botInX, view)).toBe(false);
-    expect(can("stranger", "view", { type: "department", departmentId: "dept-x" }, view)).toBe(
-      false,
-    );
-    expect(can("stranger", "change", { type: "department", departmentId: "dept-gone" }, view)).toBe(
-      false,
-    );
+    expect(can("stranger", "view", { type: "team", teamId: "team-x" }, view)).toBe(false);
+    expect(can("stranger", "change", { type: "team", teamId: "team-gone" }, view)).toBe(false);
   });
 });
 
@@ -190,7 +172,7 @@ describe("can with the org view (slice 3)", () => {
  * item, so another home's VM cannot be asked for, let alone granted, and
  * org-level row visibility (management summaries) opens no VM or folder.
  */
-const deptY = { kind: "department", departmentId: "dept-y" } as const;
+const teamY = { kind: "team", teamId: "team-y" } as const;
 
 const crossHomeCases: {
   readonly actor: string;
@@ -205,8 +187,8 @@ const crossHomeCases: {
 describe("cross-home isolation (phase 4 slice 5)", () => {
   it("another home's bot-owned resource answers exactly like a missing id, every cell", () => {
     for (const { actor, action, type } of crossHomeCases) {
-      const otherHome = { type, owner: "owner-a", id: "row-y", home: deptY } as const;
-      const missingId = { type, owner: "owner-a", id: "row-gone", home: deptY } as const;
+      const otherHome = { type, owner: "owner-a", id: "row-y", home: teamY } as const;
+      const missingId = { type, owner: "owner-a", id: "row-gone", home: teamY } as const;
       expect(can(actor, action, otherHome, view)).toBe(can(actor, action, missingId, view));
       expect(can(actor, action, otherHome, view)).toBe(false);
     }
@@ -217,7 +199,7 @@ describe("cross-home isolation (phase 4 slice 5)", () => {
     // existence) is refused identically to an unknown bot id.
     expect(can("admin-x", "view", botInY, view)).toBe(false);
     expect(can("admin-x", "view", botInY, view)).toBe(
-      can("admin-x", "view", { type: "bot", owner: "owner-a", id: "b-gone", home: deptY }, view),
+      can("admin-x", "view", { type: "bot", owner: "owner-a", id: "b-gone", home: teamY }, view),
     );
   });
 
@@ -232,7 +214,7 @@ describe("cross-home isolation (phase 4 slice 5)", () => {
     expect(can("member-x", "view", chat, view)).toBe(false);
   });
 
-  it("no resource type names another home's VM, shared folder or dept-shared folder", () => {
+  it("no resource type names another home's VM, shared folder or team-shared folder", () => {
     // The refusal is structural (owner decision, 1 Nov 2026): shared folders
     // and command execution never cross homes, so can() has no case that
     // lets anyone ask. The typecheck gate fails the moment any literal
@@ -244,7 +226,7 @@ describe("cross-home isolation (phase 4 slice 5)", () => {
         : NoneOf<R & readonly string[]>
       : true;
     const noVmSurface: NoneOf<
-      ["vm", "sandbox", "shared-folder", "dept-shared", "org-shared", "home-vm", "shell", "command"]
+      ["vm", "sandbox", "shared-folder", "team-shared", "org-shared", "home-vm", "shell", "command"]
     > = true;
     expect(noVmSurface).toBe(true);
   });
@@ -268,8 +250,8 @@ describe("cross-home isolation (phase 4 slice 5)", () => {
   });
 
   it("org-level row visibility opens no VM, folder or command surface", () => {
-    // The org owner and org admins span departments at the ROW level (the
-    // management surface), and a member of one department works their own —
+    // The org owner and org admins span teams at the ROW level (the
+    // management surface), and a member of one team works their own —
     // but no can() answer ever opens another home's VM or folder: those
     // belong to their home's bots alone, reached (for org bots) only through
     // the slice 2d mounts inside the org VM. The refusal there is the

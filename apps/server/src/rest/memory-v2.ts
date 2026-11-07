@@ -5,7 +5,7 @@
  */
 import { Effect } from "effect";
 import type { MemoryProposal } from "@spriessen/contracts";
-import { departmentKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
+import { teamKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 import { runTidy, tidyPush } from "../memory-tidy.ts";
@@ -170,18 +170,20 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
     return false;
   }
   const profile = args.url.searchParams.get("profile") ?? undefined;
-  const department = args.url.searchParams.get("department") ?? undefined;
-  // A department's shared store: its admins (and the org level) read it and
+  // `department` is the pre-rename name older clients still send.
+  const team =
+    args.url.searchParams.get("team") ?? args.url.searchParams.get("department") ?? undefined;
+  // A team's shared store: its admins (and the org level) read it and
   // decide its proposals; members and viewers read as missing.
-  if (department !== undefined) {
-    if (!(await may(args, "change", { type: "department", departmentId: department }))) {
-      json(404, { error: "unknown department" });
+  if (team !== undefined) {
+    if (!(await may(args, "change", { type: "team", teamId: team }))) {
+      json(404, { error: "unknown team" });
       return true;
     }
   }
   try {
-    if (path === "/api/memory/v2" && method === "GET" && department !== undefined) {
-      const key = departmentKey(args.owner, department);
+    if (path === "/api/memory/v2" && method === "GET" && team !== undefined) {
+      const key = teamKey(args.owner, team);
       const [facts, proposals] = await Promise.all([
         run(args.mind.converse.docs.snapshotKeyed(FactsDoc, key)).then((d) => d?.facts ?? []),
         run(args.mind.converse.docs.snapshotKeyed(ProposalsDoc, key)).then(
@@ -294,11 +296,11 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
       return true;
     }
     const proposalMatch = path.match(/^\/api\/memory\/v2\/proposals\/([^/]+)\/(accept|reject)$/);
-    if (proposalMatch !== null && method === "POST" && department !== undefined) {
+    if (proposalMatch !== null && method === "POST" && team !== undefined) {
       const [, id, verdict] = proposalMatch;
       const outcome = await args.mind.memory.decideShare({
         owner: args.owner,
-        departmentId: department,
+        teamId: team,
         proposalId: id ?? "",
         accept: verdict === "accept",
       });

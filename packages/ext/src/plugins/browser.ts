@@ -3,8 +3,8 @@
  * page's text and a screenshot. No clicking, typing, forms, logins,
  * downloads or multi-step browsing — the model asks for a page, the tool
  * fetches and renders it, done. The run happens INSIDE the bot's own home
- * VM (the same microVM `bash` uses: org VM for org bots, department VM for
- * department bots), under that VM's network policy — an off-allowlist url
+ * VM (the same microVM `bash` uses: org VM for org bots, team VM for
+ * team bots), under that VM's network policy — an off-allowlist url
  * is unreachable by construction, and with the default deny-all policy
  * every external page fails. Like `web_search`/`web_fetch` it is a pure
  * READ, so it is not gated; page content is untrusted input.
@@ -241,7 +241,7 @@ const browserTool = (
 
 /**
  * The bash plugin's read-only sibling: one tool, one page per call. The VM
- * is the conversation's HOME's (org or department), resolved through the
+ * is the conversation's HOME's (org or team), resolved through the
  * same holder `bash` uses, so its network policy and per-bot user apply.
  */
 export const browserPlugin = (options: BrowserOptions = {}): Plugin => {
@@ -269,7 +269,7 @@ export const browserPlugin = (options: BrowserOptions = {}): Plugin => {
               ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
               ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
               ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-              ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
+              ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
               ...(world.user === undefined ? {} : { user: world.user }),
               ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
               ...(world.vm === undefined ? {} : { vm: world.vm }),

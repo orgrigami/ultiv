@@ -1,6 +1,6 @@
 /**
  * Org admin UI (phase 3): the organization section on Settings (org
- * host-access toggle, each department linking to its page, new department) and the
+ * host-access toggle, each team linking to its page, new team) and the
  * per-bot host-access switch on a bot's Access tab, each showing the
  * effective value and, when blocked, which level blocks it (F4). Only the
  * org owner may change a switch; the server refuses everyone else (F3).
@@ -9,11 +9,11 @@ import { Link } from "@tanstack/react-router";
 import { Building2Icon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
-import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NewTeamDialog } from "@/components/team/new-team-dialog";
 import { NetAllowlistEditor } from "@/components/net-allowlist";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
-import { orgApi, type DepartmentInfo, type HostAccessMatrix } from "@/lib/org-api";
+import { orgApi, type TeamInfo, type HostAccessMatrix } from "@/lib/org-api";
 import { vmLabel } from "@/lib/org-view";
 import { useOrg } from "@/lib/use-org";
 import { Badge } from "@/components/ui/badge";
@@ -29,8 +29,8 @@ const card = "bg-card divide-border flex flex-col divide-y rounded-xl border";
 export const blockedLine = (blockedBy: HostAccessMatrix["bots"][number]["blockedBy"]): string =>
   blockedBy === "org"
     ? "Blocked: the org switch is off."
-    : blockedBy === "department"
-      ? "Blocked: the department switch is off."
+    : blockedBy === "team"
+      ? "Blocked: the team switch is off."
       : blockedBy === "bot"
         ? "Blocked: this bot's own switch is off."
         : "";
@@ -62,7 +62,7 @@ export function OrgSection() {
         title="Organization"
         action={
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-            <PlusIcon /> New department
+            <PlusIcon /> New team
           </Button>
         }
       />
@@ -100,8 +100,8 @@ export function OrgSection() {
             await orgApi.patchOrg({ netAllowlist: draft, netOpen: open });
           }}
         />
-        {view.departments.map((department) => (
-          <DepartmentRow key={department.id} department={department} />
+        {view.teams.map((team) => (
+          <TeamRow key={team.id} team={team} />
         ))}
       </div>
       {problem !== null && (
@@ -110,31 +110,31 @@ export function OrgSection() {
         </p>
       )}
       <p className="text-meta text-muted-foreground mt-2">
-        A department groups bots under shared Instructions, a VM size and its own host-access
-        switch. Open one to change it.
+        A team groups bots under shared Instructions, a VM size and its own host-access switch. Open
+        one to change it.
       </p>
-      <NewDepartmentDialog open={creating} onOpenChange={setCreating} />
+      <NewTeamDialog open={creating} onOpenChange={setCreating} />
     </section>
   );
 }
 
-function DepartmentRow({ department }: { department: DepartmentInfo }) {
+function TeamRow({ team }: { team: TeamInfo }) {
   return (
     <Link
-      to="/crew/dept/$departmentId"
-      params={{ departmentId: department.id }}
+      to="/crew/team/$teamId"
+      params={{ teamId: team.id }}
       className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 items-center gap-3 px-3 py-2.5 outline-none focus-visible:ring-2"
     >
       <Building2Icon className="text-muted-foreground size-4 shrink-0" />
       <span className="text-ui min-w-0 flex-1">
-        <span className="block truncate">{department.name}</span>
+        <span className="block truncate">{team.name}</span>
         <span className="text-meta text-muted-foreground block">
-          {vmLabel(department.vm)} · host access {department.hostAccess ? "on" : "off"} ·{" "}
-          {department.netOpen === true
+          {vmLabel(team.vm)} · host access {team.hostAccess ? "on" : "off"} ·{" "}
+          {team.netOpen === true
             ? "network open"
-            : department.netAllowlist === undefined || department.netAllowlist.length === 0
+            : team.netAllowlist === undefined || team.netAllowlist.length === 0
               ? "network off"
-              : `network: ${department.netAllowlist.length} host${department.netAllowlist.length === 1 ? "" : "s"}`}
+              : `network: ${team.netAllowlist.length} host${team.netAllowlist.length === 1 ? "" : "s"}`}
         </span>
       </span>
       <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />

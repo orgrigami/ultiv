@@ -81,9 +81,21 @@ export interface VaultReadScope {
 export const homeOfItem = (info: Pick<VaultItemInfo, "home">): HomeRef =>
   info.home ?? { kind: "org" };
 
+/**
+ * Teams were called departments: an item sealed before the rename stores
+ * `{ kind: "department", departmentId }` as its home. Read it as the team
+ * it is (the id is unchanged); the next write stores the new form.
+ */
+export const legacyHomeOf = (info: VaultItemInfo): VaultItemInfo => {
+  const home = info.home as unknown as
+    | { kind?: string; departmentId?: string; teamId?: string }
+    | undefined;
+  if (home?.kind !== "department") return info;
+  return { ...info, home: { kind: "team", teamId: home.teamId ?? home.departmentId ?? "" } };
+};
+
 const sameHome = (a: HomeRef, b: HomeRef): boolean =>
-  a.kind === b.kind &&
-  (a.kind !== "department" || (b.kind === "department" && a.departmentId === b.departmentId));
+  a.kind === b.kind && (a.kind !== "team" || (b.kind === "team" && a.teamId === b.teamId));
 export { sameHome };
 
 const encryptWith = (key: Buffer, data: Buffer): { iv: Buffer; tag: Buffer; ct: Buffer } => {
@@ -315,7 +327,7 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
     const path = tryResolveInside(itemsDir(owner), `${id}.json`);
     if (path === undefined || !existsSync(path)) return undefined;
     const stored = JSON.parse(readFileSync(path, "utf8")) as StoredVaultItem;
-    return { info: stored.info, sealed: stored.sealed ?? null };
+    return { info: legacyHomeOf(stored.info), sealed: stored.sealed ?? null };
   };
 
   const writeItem = (owner: string, item: VaultItem): void => {
@@ -341,10 +353,9 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
       if (!vaultConfigured()) {
         throw new InvalidInput({ reason: "VAULT_KEY is not set — the vault cannot seal items" });
       }
-      if (input.departmentId !== undefined && input.departmentId !== null && input.profile) {
+      if (input.teamId !== undefined && input.teamId !== null && input.profile) {
         throw new InvalidInput({
-          reason:
-            "an item scoped to one bot follows that bot's home; it cannot also name a department",
+          reason: "an item scoped to one bot follows that bot's home; it cannot also name a team",
         });
       }
       const secret = secretOf(input);
@@ -358,14 +369,14 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
         masked: maskOf(input),
         createdAt: Date.now(),
         lastUsedAt: null,
-        // Slice 6: an owner-level item's home is the department it names,
+        // Slice 6: an owner-level item's home is the team it names,
         // else the org. A profile-scoped item stays home-less (its profile
         // gates it).
         ...(input.profile === undefined || input.profile === null
           ? {
               home:
-                input.departmentId !== undefined && input.departmentId !== null
-                  ? ({ kind: "department", departmentId: input.departmentId } as const)
+                input.teamId !== undefined && input.teamId !== null
+                  ? ({ kind: "team", teamId: input.teamId } as const)
                   : ({ kind: "org" } as const),
             }
           : {}),
@@ -382,7 +393,7 @@ export const makeVaultStore = (root: string = vaultDir()): VaultStore => {
           try {
             const path = tryResolveInside(dir, file);
             if (path === undefined) return [];
-            return [(JSON.parse(readFileSync(path, "utf8")) as StoredVaultItem).info];
+            return [legacyHomeOf((JSON.parse(readFileSync(path, "utf8")) as StoredVaultItem).info)];
           } catch {
             return [];
           }

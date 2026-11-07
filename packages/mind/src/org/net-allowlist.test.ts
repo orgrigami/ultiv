@@ -1,9 +1,9 @@
 /**
  * The per-VM network allowlist (phase 4 slice 3), mind side: legacy rows
  * (stored before the field existed) read an EMPTY allowlist — the offline
- * default — never undefined; the org and department patches persist one;
+ * default — never undefined; the org and team patches persist one;
  * and the home-scope resolver hands the RIGHT home's list to ext (the
- * org's for the org VM, the department's for its VM).
+ * org's for the org VM, the team's for its VM).
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,7 +26,7 @@ const owner = "owner-a";
 describe("the allowlist default and its storage", () => {
   it("a legacy row without the field reads an empty allowlist (offline default)", async () => {
     await mind.org.ensureOrg(owner, "Personal", true);
-    await mind.org.createDepartment({ name: "Ops" }, owner);
+    await mind.org.createTeam({ name: "Ops" }, owner);
     // Rewrite both rows WITHOUT the field, the way slice 2d stored them.
     await commitOrg(mind.converse, (draft: OrgState) => {
       const org = draft.org;
@@ -34,14 +34,14 @@ describe("the allowlist default and its storage", () => {
         const { netAllowlist: _dropped, ...rest } = org;
         draft.org = rest as typeof org;
       }
-      draft.departments = draft.departments.map(({ netAllowlist: _d, ...rest }) => {
+      draft.teams = draft.teams.map(({ netAllowlist: _d, ...rest }) => {
         void _d;
-        return rest as (typeof draft.departments)[number];
+        return rest as (typeof draft.teams)[number];
       });
     });
     const state = await readOrgState(mind.converse);
     expect(state.org?.netAllowlist).toEqual([]);
-    expect(state.departments[0]?.netAllowlist).toEqual([]);
+    expect(state.teams[0]?.netAllowlist).toEqual([]);
   });
 
   it("the org patch persists an allowlist; clearing it stores an empty list", async () => {
@@ -51,39 +51,36 @@ describe("the allowlist default and its storage", () => {
     expect(cleared.netAllowlist).toEqual([]);
   });
 
-  it("a department is created with its allowlist and patches its own", async () => {
-    const made = await mind.org.createDepartment(
-      { name: "Lab", netAllowlist: ["*.pypi.org"] },
-      owner,
-    );
+  it("a team is created with its allowlist and patches its own", async () => {
+    const made = await mind.org.createTeam({ name: "Lab", netAllowlist: ["*.pypi.org"] }, owner);
     expect(made.netAllowlist).toEqual(["*.pypi.org"]);
-    const patched = await mind.org.updateDepartment(made.id, {
+    const patched = await mind.org.updateTeam(made.id, {
       netAllowlist: ["pypi.org", "files.pythonhosted.org"],
     });
     expect(patched.netAllowlist).toEqual(["pypi.org", "files.pythonhosted.org"]);
-    // The other department is untouched.
+    // The other team is untouched.
     const state = await readOrgState(mind.converse);
-    expect(state.departments.find((row) => row.id !== made.id)?.netAllowlist).toEqual([]);
+    expect(state.teams.find((row) => row.id !== made.id)?.netAllowlist).toEqual([]);
   });
 
   it("the home scope carries the right home's list to ext", async () => {
     const state = await readOrgState(mind.converse);
-    const lab = state.departments.find((row) => row.name === "Lab");
+    const lab = state.teams.find((row) => row.name === "Lab");
     expect(lab).toBeDefined();
     await mind.org.updateOrg({ netAllowlist: ["api.example.com"] });
     await mind.profiles.create(owner, { name: "Scout", onboard: false });
     await mind.profiles.create(owner, {
       name: "Digger",
-      departmentId: lab?.id ?? null,
+      teamId: lab?.id ?? null,
       onboard: false,
     });
     const profiles = await mind.profiles.list(owner);
     const orgBot = profiles.find((row) => row.name === "Scout");
-    const deptBot = profiles.find((row) => row.name === "Digger");
+    const teamBot = profiles.find((row) => row.name === "Digger");
     const orgScope = await homeScopeOfProfile(mind.converse, scratch)(owner, orgBot as never);
-    const deptScope = await homeScopeOfProfile(mind.converse, scratch)(owner, deptBot as never);
+    const teamScope = await homeScopeOfProfile(mind.converse, scratch)(owner, teamBot as never);
     expect(orgScope?.netAllowlist).toEqual(["api.example.com"]);
-    expect(deptScope?.netAllowlist).toEqual(["pypi.org", "files.pythonhosted.org"]);
+    expect(teamScope?.netAllowlist).toEqual(["pypi.org", "files.pythonhosted.org"]);
   });
 });
 

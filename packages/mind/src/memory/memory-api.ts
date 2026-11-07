@@ -62,30 +62,30 @@ export interface MemoryService {
       readonly includeHistory?: boolean;
       readonly limit?: number;
       readonly budgetTokens?: number;
-      /** Additional store keys in the pool (a department's shared store). */
+      /** Additional store keys in the pool (a team's shared store). */
       readonly extraStores?: readonly string[];
       /** What held at this moment (a past day): versions valid then, current or not. */
       readonly asOf?: number;
     },
   ) => Promise<RecallResult>;
   /**
-   * A department bot proposes one of its own profile facts for the
-   * department's shared store (slice 9). Nothing is shared until a
-   * department admin accepts; rejection discards the proposal.
+   * A team bot proposes one of its own profile facts for the
+   * team's shared store (slice 9). Nothing is shared until a
+   * team admin accepts; rejection discards the proposal.
    */
   readonly proposeShare: (input: {
     readonly owner: string;
     readonly profileId: string;
-    readonly departmentId: string;
+    readonly teamId: string;
     readonly factId: string;
     readonly summary: string;
   }) => Promise<MemoryProposal>;
-  /** A department store's facts (the shared view its admins read). */
-  readonly departmentFacts: (owner: string, departmentId: string) => Promise<readonly MemoryFact[]>;
-  /** Accept or reject a share proposal; ONLY a department admin may (REST checks). */
+  /** A team store's facts (the shared view its admins read). */
+  readonly teamFacts: (owner: string, teamId: string) => Promise<readonly MemoryFact[]>;
+  /** Accept or reject a share proposal; ONLY a team admin may (REST checks). */
   readonly decideShare: (input: {
     readonly owner: string;
-    readonly departmentId: string;
+    readonly teamId: string;
     readonly proposalId: string;
     readonly accept: boolean;
   }) => Promise<"accepted" | "rejected" | "unknown">;

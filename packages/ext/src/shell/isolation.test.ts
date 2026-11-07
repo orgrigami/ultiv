@@ -25,7 +25,7 @@ const propertyNames = (tool: ReturnType<typeof toolOf>): string[] =>
 const bashPluginTool = (name: "bash"): string[] => propertyNames(toolOf(bashPlugin(), name));
 
 describe("no tool parameter opens another home's VM", () => {
-  it("bash takes exactly a script, an optional target, an optional node name and a background yes/no — no vm, home or department argument", () => {
+  it("bash takes exactly a script, an optional target, an optional node name and a background yes/no — no vm, home or team argument", () => {
     expect(bashPluginTool("bash")).toEqual(["script", "target", "node", "background"]);
   });
 });
@@ -50,8 +50,8 @@ describe("no command path targets a VM by name", () => {
     const root = "/data/owner-a/_home";
     const homes: readonly HomeScope[] = [
       { dir: `${root}/org` },
-      { dir: `${root}/dept-x` },
-      { dir: `${root}/dept-y` },
+      { dir: `${root}/team-x` },
+      { dir: `${root}/team-y` },
     ];
     const names = homes.map((home) => sandboxNameOf(home.dir));
     expect(new Set(names).size).toBe(homes.length);

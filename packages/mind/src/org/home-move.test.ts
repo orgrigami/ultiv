@@ -34,8 +34,8 @@ type MindHandle = Awaited<ReturnType<typeof openMind>>;
 let handle: MindHandle;
 let mind: MindHandle["mind"];
 const owner = "owner-a";
-let deptA = "";
-let deptB = "";
+let teamA = "";
+let teamB = "";
 let mover = "";
 
 /** Polls until the async sweep's mark lands (or fails the test loudly). */
@@ -51,15 +51,15 @@ beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   mind = handle.mind;
   await mind.org.ensureOrg(owner, "Personal", true);
-  deptA = (await mind.org.createDepartment({ name: "Ops" }, owner)).id;
-  deptB = (await mind.org.createDepartment({ name: "Lab" }, owner)).id;
-  // A department bot whose first `bash` already ran (it has a uid). An org
+  teamA = (await mind.org.createTeam({ name: "Ops" }, owner)).id;
+  teamB = (await mind.org.createTeam({ name: "Lab" }, owner)).id;
+  // A team bot whose first `bash` already ran (it has a uid). An org
   // bot exists first: the first bot of a workspace lives in the org.
   await mind.profiles.create(owner, { name: "Keeper", onboard: false });
   mover = (
     await mind.profiles.create(owner, {
       name: "Mover",
-      departmentId: deptA,
+      teamId: teamA,
       onboard: false,
     })
   ).id;
@@ -68,17 +68,17 @@ beforeAll(async () => {
 
 describe("a bot moved between homes", () => {
   it("keeps its stored uid in the new home VM and is retired from the old one", async () => {
-    const oldHome = { kind: "department", departmentId: deptA } as const;
-    const newHome = { kind: "department", departmentId: deptB } as const;
+    const oldHome = { kind: "team", teamId: teamA } as const;
+    const newHome = { kind: "team", teamId: teamB } as const;
     const uid = await botUidPeek(mind.converse)(mover);
     expect(uid).toBeGreaterThanOrEqual(10_000);
-    await mind.profiles.update(owner, mover, { departmentId: deptB });
+    await mind.profiles.update(owner, mover, { teamId: teamB });
     const profile = (await mind.profiles.list(owner)).find((row) => row.id === mover);
-    expect(profile?.departmentId).toBe(deptB);
+    expect(profile?.teamId).toBe(teamB);
     // The new home resolves the SAME stored uid on the bot's first bash there.
     const scope = await homeScopeOfProfile(mind.converse, root)(owner, {
       id: mover,
-      departmentId: deptB,
+      teamId: teamB,
     });
     expect(scope?.dir).toBe(homeScopeDir(root, owner, newHome));
     expect(scope?.user?.uid).toBe(uid);

@@ -1,13 +1,13 @@
 /**
- * The org client (phase 3): the org row, its flat departments, host-access
- * switches, the department page's summary, shared memory and templates.
+ * The org client (phase 3): the org row, its flat teams, host-access
+ * switches, the team page's summary, shared memory and templates.
  * Every change announces itself on `ORG_CHANGED` so the crew, the
- * department page and Settings read the same state without a reload.
+ * team page and Settings read the same state without a reload.
  */
 import type {
   AuditEvent,
-  DepartmentInfo,
-  DepartmentSummary,
+  TeamInfo,
+  TeamSummary,
   MemoryFact,
   MemoryProposal,
   OrgInfo,
@@ -16,13 +16,13 @@ import type {
 } from "@spriessen/contracts";
 import { getJson, send } from "./api.ts";
 
-export type { DepartmentInfo, DepartmentSummary, OrgInfo, TemplateInfo, VmSettings };
+export type { TeamInfo, TeamSummary, OrgInfo, TemplateInfo, VmSettings };
 
-/** GET /api/org — the org row, its departments and members. */
+/** GET /api/org — the org row, its teams and members. */
 export interface OrgView {
   org: OrgInfo | null;
-  departments: DepartmentInfo[];
-  members: { accountId: string; role: string; departmentId: string | null }[];
+  teams: TeamInfo[];
+  members: { accountId: string; role: string; teamId: string | null }[];
 }
 
 /** GET /api/org/host-access — the effective switch per bot, blocker named. */
@@ -30,14 +30,14 @@ export interface HostAccessMatrix {
   org: { hostAccess: boolean } | null;
   bots: {
     profileId: string;
-    departmentId: string | null;
+    teamId: string | null;
     own: boolean;
     allowed: boolean;
-    blockedBy: "org" | "department" | "bot" | null;
+    blockedBy: "org" | "team" | "bot" | null;
   }[];
 }
 
-export interface DepartmentInput {
+export interface TeamInput {
   name?: string;
   vm?: VmSettings;
   hostAccess?: boolean;
@@ -46,7 +46,7 @@ export interface DepartmentInput {
   netOpen?: boolean;
 }
 
-/** GET /api/memory/v2?department= — the shared store and its proposals. */
+/** GET /api/memory/v2?team= — the shared store and its proposals. */
 export interface SharedMemory {
   facts: MemoryFact[];
   proposals: MemoryProposal[];
@@ -60,14 +60,14 @@ const changed = <T>(value: T): T => {
   return value;
 };
 
-const dept = (id: string): string => `/api/org/departments/${encodeURIComponent(id)}`;
+const team = (id: string): string => `/api/org/teams/${encodeURIComponent(id)}`;
 
 export const orgApi = {
   view: (): Promise<OrgView> => getJson<OrgView>("/api/org"),
   /** Cross-home reach rows (who reached which home, by which surface; no content). */
   reach: (limit = 100): Promise<AuditEvent[]> =>
     getJson<AuditEvent[]>(`/api/audit?kind=reach&limit=${limit}`),
-  /** One bot's export bundle (its definition and files), for a department export. */
+  /** One bot's export bundle (its definition and files), for a team export. */
   exportBot: (id: string): Promise<unknown> =>
     getJson<unknown>(`/api/profiles/${encodeURIComponent(id)}/export`),
   hostAccess: (): Promise<HostAccessMatrix> => getJson<HostAccessMatrix>("/api/org/host-access"),
@@ -78,33 +78,32 @@ export const orgApi = {
     netAllowlist?: string[];
     netOpen?: boolean;
   }): Promise<OrgInfo> => send<OrgInfo>("/api/org", "PATCH", patch).then(changed),
-  createDepartment: (input: DepartmentInput & { name: string }): Promise<DepartmentInfo> =>
-    send<DepartmentInfo>("/api/org/departments", "POST", input).then(changed),
-  patchDepartment: (id: string, patch: DepartmentInput): Promise<DepartmentInfo> =>
-    send<DepartmentInfo>(dept(id), "PATCH", patch).then(changed),
-  removeDepartment: (id: string): Promise<{ ok: boolean }> =>
-    send<{ ok: boolean }>(dept(id), "DELETE").then(changed),
-  summary: (id: string): Promise<DepartmentSummary> =>
-    getJson<DepartmentSummary>(`${dept(id)}/summary`),
+  createTeam: (input: TeamInput & { name: string }): Promise<TeamInfo> =>
+    send<TeamInfo>("/api/org/teams", "POST", input).then(changed),
+  patchTeam: (id: string, patch: TeamInput): Promise<TeamInfo> =>
+    send<TeamInfo>(team(id), "PATCH", patch).then(changed),
+  removeTeam: (id: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(team(id), "DELETE").then(changed),
+  summary: (id: string): Promise<TeamSummary> => getJson<TeamSummary>(`${team(id)}/summary`),
   sharedMemory: (id: string): Promise<SharedMemory> =>
-    getJson<SharedMemory>(`/api/memory/v2?department=${encodeURIComponent(id)}`),
+    getJson<SharedMemory>(`/api/memory/v2?team=${encodeURIComponent(id)}`),
   decideShare: (id: string, proposalId: string, accept: boolean): Promise<{ status: string }> =>
     send<{ status: string }>(
-      `/api/memory/v2/proposals/${encodeURIComponent(proposalId)}/${accept ? "accept" : "reject"}?department=${encodeURIComponent(id)}`,
+      `/api/memory/v2/proposals/${encodeURIComponent(proposalId)}/${accept ? "accept" : "reject"}?team=${encodeURIComponent(id)}`,
       "POST",
     ),
-  templates: (departmentId: string): Promise<TemplateInfo[]> =>
-    getJson<TemplateInfo[]>(`/api/org/templates?department=${encodeURIComponent(departmentId)}`),
+  templates: (teamId: string): Promise<TemplateInfo[]> =>
+    getJson<TemplateInfo[]>(`/api/org/templates?team=${encodeURIComponent(teamId)}`),
   publish: (input: {
     kind: "bot" | "instructions";
-    departmentId: string;
+    teamId: string;
     botId: string;
   }): Promise<TemplateInfo> => send<TemplateInfo>("/api/org/templates", "POST", input),
   unpublish: (id: string): Promise<{ ok: boolean }> =>
     send<{ ok: boolean }>(`/api/org/templates/${encodeURIComponent(id)}`, "DELETE"),
   copyTemplate: (
     id: string,
-    target: { departmentId: string; botId?: string },
+    target: { teamId: string; botId?: string },
   ): Promise<{ id?: string }> =>
     send<{ id?: string }>(`/api/org/templates/${encodeURIComponent(id)}/copy`, "POST", target),
 };

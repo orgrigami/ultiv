@@ -193,7 +193,7 @@ export const api = {
     model?: { id: string; effort?: string } | null;
     policies?: Partial<ProfilePolicies>;
     /** Its home; omitted = an org bot. */
-    departmentId?: string | null;
+    teamId?: string | null;
   }): Promise<ProfileInfo> => send<ProfileInfo>("/api/profiles", "POST", input),
   updateProfile: (
     id: string,
@@ -201,7 +201,7 @@ export const api = {
       name?: string;
       description?: string;
       persona?: string;
-      departmentId?: string | null;
+      teamId?: string | null;
       hostAccess?: boolean;
       model?: { id: string; effort?: string } | null;
       /** The curated tool list, replaced wholesale; null = every installed tool. */

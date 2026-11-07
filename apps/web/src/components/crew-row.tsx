@@ -1,6 +1,6 @@
 /**
  * One crew row and the crew's order, shared by the flat list and the
- * department groups: "rail" (one line), "menu" (role line and last
+ * team groups: "rail" (one line), "menu" (role line and last
  * activity) and "page" (role and model, opens the profile).
  */
 import { ChevronRightIcon, StarIcon } from "lucide-react";

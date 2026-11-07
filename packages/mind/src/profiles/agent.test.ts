@@ -88,7 +88,7 @@ describe("the per-profile agent's tool set", () => {
 });
 
 /**
- * Regression (Phase 4): a department bot with its host switch off got a FIXED
+ * Regression (Phase 4): a team bot with its host switch off got a FIXED
  * list built from the act/bot/connector catalog — every mind faculty tool
  * (`message`, rooms, memory, tasks, schedules) and every late install was
  * silently gone, so it could not answer its mailbox.
@@ -107,26 +107,26 @@ describe("faculty tools survive every exclusion", () => {
   const registry = [...catalog(), ...faculties, ...stdio];
   const all = () => registry;
   const orgBot = agentForProfile(row({}), catalog, undefined, [], all);
-  const deptBot = agentForProfile(
-    row({ departmentId: "research" } as Partial<ProfileInfo>),
+  const teamBot = agentForProfile(
+    row({ teamId: "research" } as Partial<ProfileInfo>),
     catalog,
     undefined,
     ["notes_search", "fs_local__read"],
     all,
   );
 
-  it("a host-switch-off department bot has exactly the org bot's tools minus host-direct ones", () => {
+  it("a host-switch-off team bot has exactly the org bot's tools minus host-direct ones", () => {
     const org = namesOf(orgBot, registry);
-    const dept = namesOf(deptBot, registry);
-    expect(dept).toEqual(
+    const team = namesOf(teamBot, registry);
+    expect(team).toEqual(
       org.filter((name) => name !== "notes_search" && name !== "fs_local__read"),
     );
-    expect(dept).toContain("message");
+    expect(team).toContain("message");
   });
 
   it("a tool installed AFTER the agent was built still reaches the excluded bot", () => {
     const late = [...registry, { name: "late_faculty" }];
-    expect(namesOf(deptBot, late)).toContain("late_faculty");
+    expect(namesOf(teamBot, late)).toContain("late_faculty");
   });
 
   it("a sandbox-off bot keeps message", () => {

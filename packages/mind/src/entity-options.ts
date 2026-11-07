@@ -39,8 +39,8 @@ export interface MindOptions {
   /** Authorization seam from the host app: host access and the admin tools (admin/index.ts). */
   readonly authz?: MindAuthz;
   /**
-   * Tears a home's microVM down (phase 4): a department removal destroys the
-   * department's VM. Defaults to the real `destroySandbox` on the home's
+   * Tears a home's microVM down (phase 4): a team removal destroys the
+   * team's VM. Defaults to the real `destroySandbox` on the home's
    * scope dir; tests inject a recorder so no VM runtime is touched.
    */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
@@ -51,16 +51,16 @@ export interface MindOptions {
    */
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
   /**
-   * Reconciles the org VM's department groups on a department create or
+   * Reconciles the org VM's team groups on a team create or
    * delete (slice 2d). Defaults to running ext's script in the running org
    * VM; tests inject a recorder.
    */
-  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
+  readonly reconcileTeamGroups?: (owner: string, script: string) => Promise<void>;
   /**
-   * Deletes a department's durable shared store with its purge (slice 2d,
+   * Deletes a team's durable shared store with its purge (slice 2d,
    * F-D9 default: delete). Defaults to removing the store directory.
    */
-  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  readonly deleteTeamStore?: (owner: string, teamId: string) => Promise<void>;
   /**
    * The node agents' exec transport (phase 6 slice 4): the server injects
    * the /agent dial here. The mind builds the bash tool's `node` facade
@@ -103,16 +103,16 @@ export interface MindWiring {
   readonly onSchedulesChanged?: () => Promise<void>;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
-  /** Who may manage bots and departments, and the full bot purge (the admin tools). */
+  /** Who may manage bots and teams, and the full bot purge (the admin tools). */
   readonly admin?: MindAdmin;
-  /** Home-VM teardown for a department removal; the entity supplies the default. */
+  /** Home-VM teardown for a team removal; the entity supplies the default. */
   readonly destroyHomeVm?: (owner: string, home: HomeRef) => Promise<void>;
   /** Bot-user teardown for a bot purge; the entity supplies the default. */
   readonly retireBotUser?: (owner: string, home: HomeRef, profileId: string) => Promise<void>;
-  /** Department-group reconcile for create/delete; the entity supplies the default. */
-  readonly reconcileDeptGroups?: (owner: string, script: string) => Promise<void>;
-  /** Department-store deletion with the purge; the entity supplies the default. */
-  readonly deleteDeptStore?: (owner: string, departmentId: string) => Promise<void>;
+  /** Team-group reconcile for create/delete; the entity supplies the default. */
+  readonly reconcileTeamGroups?: (owner: string, script: string) => Promise<void>;
+  /** Team-store deletion with the purge; the entity supplies the default. */
+  readonly deleteTeamStore?: (owner: string, teamId: string) => Promise<void>;
   /** The /agent exec dial injected by the server (the `node` target's transport). */
   readonly nodeExec?: (
     nodeId: string,

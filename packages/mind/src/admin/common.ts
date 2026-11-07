@@ -1,12 +1,12 @@
 /**
- * The main bot's admin seam (bots and departments). Who may manage them is
+ * The main bot's admin seam (bots and teams). Who may manage them is
  * one decision: the server answers it through `can()` (the `bot-admin`
  * resource); a bare mind falls back to the same rule, the main bot only.
  * Every other bot gets the one refusal below, word for word, whatever the
  * tool. Host-access switches are never part of it: no admin tool reads one
  * in from the model, so the owner stays the only one who flips them.
  */
-import type { DepartmentInfo, ProfileInfo } from "@spriessen/contracts";
+import type { TeamInfo, ProfileInfo } from "@spriessen/contracts";
 import { InvalidInput } from "@spriessen/core";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
@@ -18,7 +18,7 @@ import { textReply } from "../act/task-live.ts";
 
 /** What the host app wires in for the admin tools. */
 export interface MindAdmin {
-  /** May this bot manage bots and departments? The server asks `can()`; absent: main bot only. */
+  /** May this bot manage bots and teams? The server asks `can()`; absent: main bot only. */
   readonly mayAdminister?: (scope: {
     readonly owner: string;
     readonly profileId: string;
@@ -43,7 +43,7 @@ export interface AdminDeps {
 
 /** The one refusal: the same words for every non-main bot and every admin tool. */
 export const ADMIN_REFUSAL =
-  "only the main bot manages bots and departments; ask your owner to do it on the Crew page";
+  "only the main bot manages bots and teams; ask your owner to do it on the Crew page";
 
 /** The calling bot when it may administer; the refusal text otherwise. */
 export const adminOf = async (
@@ -70,27 +70,25 @@ export const adminGuard =
 
 export const orgOf = (deps: AdminDeps): OrgService => deps.org ?? orgService(deps.converse);
 
-/** "the org" for null; a department id or name otherwise (case-insensitive). */
+/** "the org" for null; a team id or name otherwise (case-insensitive). */
 export const resolveHome = async (
   deps: AdminDeps,
   ref: string | undefined,
 ): Promise<string | null> => {
   const wanted = (ref ?? "").trim();
   if (wanted === "" || wanted.toLowerCase() === "org") return null;
-  return (await resolveDepartment(deps, wanted)).id;
+  return (await resolveTeam(deps, wanted)).id;
 };
 
-export const resolveDepartment = async (deps: AdminDeps, ref: string): Promise<DepartmentInfo> => {
+export const resolveTeam = async (deps: AdminDeps, ref: string): Promise<TeamInfo> => {
   const view = await orgOf(deps).view();
   const key = ref.trim().toLowerCase();
-  const found = view.departments.find(
-    (row) => row.id === ref.trim() || row.name.toLowerCase() === key,
-  );
+  const found = view.teams.find((row) => row.id === ref.trim() || row.name.toLowerCase() === key);
   if (found !== undefined) return found;
-  const names = view.departments.map((row) => `"${row.name}"`).join(", ");
+  const names = view.teams.map((row) => `"${row.name}"`).join(", ");
   throw new InvalidInput({
     reason:
-      `no department "${ref}"; ` +
+      `no team "${ref}"; ` +
       (names === "" ? 'there are none yet (use "org")' : `use one of ${names} or "org"`),
   });
 };
@@ -107,14 +105,14 @@ export const resolveBot = async (
   throw new InvalidInput({ reason: `no bot "${ref}"${hint} (bots_list shows them all)` });
 };
 
-/** Where a bot lives, in words: department "Dept X" or the org (Org name). */
+/** Where a bot lives, in words: team "Team X" or the org (Org name). */
 export const homeWords = (
-  departmentId: string | null | undefined,
-  departments: readonly DepartmentInfo[],
+  teamId: string | null | undefined,
+  teams: readonly TeamInfo[],
   orgName: string,
 ): string => {
-  const dept = departments.find((row) => row.id === departmentId);
-  return dept !== undefined ? `department "${dept.name}"` : `the org (${orgName})`;
+  const team = teams.find((row) => row.id === teamId);
+  return team !== undefined ? `team "${team.name}"` : `the org (${orgName})`;
 };
 
 /** One permission audit row for a change the main bot made. */

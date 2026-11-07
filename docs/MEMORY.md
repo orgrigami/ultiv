@@ -34,7 +34,7 @@ renamed to Spriessen. They are internal storage names, not branding, and
 renaming them would mean migrating the owner's data, so they stay.
 
 All are `scope: "session"`, family docs keyed `owner:<o>` (owner store),
-`profile:<o>:<id>` (a bot's own store) or `dept:<o>:<id>` (a department's
+`profile:<o>:<id>` (a bot's own store) or `team:<o>:<id>` (a team's
 shared store). Bots never see a sibling's store.
 
 ## Facts

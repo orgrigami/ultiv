@@ -1,7 +1,7 @@
 /**
  * Purge wiring for one VM per home (phase 4 slice 2): deleting a bot must
  * NOT destroy any VM (the VM belongs to its home and is shared), while
- * deleting a department destroys the department's VM — named by the home
+ * deleting a team destroys the team's VM — named by the home
  * scope dir, never the org's. The home-VM destroyer is injected, so no VM
  * runtime is touched.
  */
@@ -28,7 +28,7 @@ let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
 let cookie = "";
-let dept = "";
+let team = "";
 let bot = "";
 
 const call = async (
@@ -63,11 +63,11 @@ beforeAll(async () => {
   });
   await handle.mind.org.ensureOrg("owner", "Personal", true);
   await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
-  dept = (await handle.mind.org.createDepartment({ name: "Shortlived" }, "owner")).id;
+  team = (await handle.mind.org.createTeam({ name: "Shortlived" }, "owner")).id;
   bot = (
     await handle.mind.profiles.create("owner", {
       name: "Temp",
-      departmentId: dept,
+      teamId: team,
       onboard: false,
     })
   ).id;
@@ -98,18 +98,16 @@ describe("purge destroys home VMs, not bots'", () => {
     expect(destroyed).toEqual([]);
   });
 
-  it("deleting a department destroys the department's VM (org VM untouched)", async () => {
+  it("deleting a team destroys the team's VM (org VM untouched)", async () => {
     const mover = await handle.mind.profiles.create("owner", {
       name: "Mover",
-      departmentId: dept,
+      teamId: team,
       onboard: false,
     });
-    await handle.mind.profiles.update("owner", mover.id, { departmentId: null });
-    const answer = await call("DELETE", `/api/org/departments/${dept}`);
+    await handle.mind.profiles.update("owner", mover.id, { teamId: null });
+    const answer = await call("DELETE", `/api/org/teams/${team}`);
     expect(answer.status).toBe(200);
-    expect(destroyed).toEqual([
-      { owner: "owner", home: { kind: "department", departmentId: dept } },
-    ]);
+    expect(destroyed).toEqual([{ owner: "owner", home: { kind: "team", teamId: team } }]);
     // The org VM's scope was never asked for: it is destroyed only with the org.
     expect(destroyed.some((row) => row.home.kind === "org")).toBe(false);
   });

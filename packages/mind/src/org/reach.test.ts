@@ -17,14 +17,14 @@ process.env["AUDIT_LOG"] = join(scratch, "audit.jsonl");
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 const org = { kind: "org" } as const;
-const deptA = { kind: "department", departmentId: "dept-a" } as const;
-const deptB = { kind: "department", departmentId: "dept-b" } as const;
+const teamA = { kind: "team", teamId: "team-a" } as const;
+const teamB = { kind: "team", teamId: "team-b" } as const;
 
 describe("crossHome", () => {
-  it("org and any department differ; two departments differ; same home does not", () => {
-    expect(crossHome(org, deptA)).toBe(true);
-    expect(crossHome(deptA, deptB)).toBe(true);
-    expect(crossHome(deptA, deptA)).toBe(false);
+  it("org and any team differ; two teams differ; same home does not", () => {
+    expect(crossHome(org, teamA)).toBe(true);
+    expect(crossHome(teamA, teamB)).toBe(true);
+    expect(crossHome(teamA, teamA)).toBe(false);
     expect(crossHome(org, org)).toBe(false);
   });
 });
@@ -33,24 +33,24 @@ describe("the mailbox reach audit (wired in the entity)", () => {
   it("a cross-home send writes one reach row; a same-home send writes none", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     await handle.mind.org.ensureOrg("owner", "Personal", true);
-    const a = await handle.mind.org.createDepartment({ name: "Alpha" }, "owner");
-    const b = await handle.mind.org.createDepartment({ name: "Beta" }, "owner");
+    const a = await handle.mind.org.createTeam({ name: "Alpha" }, "owner");
+    const b = await handle.mind.org.createTeam({ name: "Beta" }, "owner");
     // The first bot lives in the org (it becomes the main bot).
     await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const scout = await handle.mind.profiles.create("owner", {
       name: "Scout",
       onboard: false,
-      departmentId: a.id,
+      teamId: a.id,
     });
     const scribe = await handle.mind.profiles.create("owner", {
       name: "Scribe",
       onboard: false,
-      departmentId: b.id,
+      teamId: b.id,
     });
     const mate = await handle.mind.profiles.create("owner", {
       name: "Mate",
       onboard: false,
-      departmentId: a.id,
+      teamId: a.id,
     });
     const before = handle.mind.audit.tail(100).filter((event) => event.kind === "reach").length;
     await handle.mind.mailbox.send({
@@ -64,8 +64,8 @@ describe("the mailbox reach audit (wired in the entity)", () => {
     const reach = handle.mind.audit.tail(100).filter((event) => event.kind === "reach");
     expect(reach.length).toBe(before + 1);
     expect(reach[0]?.reach).toEqual({
-      from: { kind: "department", departmentId: a.id },
-      to: { kind: "department", departmentId: b.id },
+      from: { kind: "team", teamId: a.id },
+      to: { kind: "team", teamId: b.id },
       surface: "message",
     });
     expect(reach[0]?.profile).toBe(scout.id);
@@ -84,19 +84,19 @@ describe("the mailbox reach audit (wired in the entity)", () => {
     await handle.close();
   });
 
-  it("cross-home delivery keeps its caps: org↔department sends hit the pair rate limit", async () => {
+  it("cross-home delivery keeps its caps: org↔team sends hit the pair rate limit", async () => {
     // Open reach is messaging ONLY, and it changes nothing about the loop
-    // and cost safety: a tool send from an org bot to a department bot (and
+    // and cost safety: a tool send from an org bot to a team bot (and
     // the reverse) delivers across the home boundary and counts against the
     // same per-pair rate and budgets as any other pair.
     const handle = await openMind({ storage: new MemoryStorage() });
     await handle.mind.org.ensureOrg("owner", "Personal", true);
-    const dept = await handle.mind.org.createDepartment({ name: "Ops" }, "owner");
+    const team = await handle.mind.org.createTeam({ name: "Ops" }, "owner");
     // The first bot is the org bot (main); the second lives in Ops.
     const keeper = await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
     const digger = await handle.mind.profiles.create("owner", {
       name: "Digger",
-      departmentId: dept.id,
+      teamId: team.id,
       onboard: false,
     });
     const send = (from: string, to: string) =>
@@ -118,7 +118,7 @@ describe("the mailbox reach audit (wired in the entity)", () => {
     await expect(send(keeper.id, digger.id)).rejects.toMatchObject({
       reason: expect.stringContaining("pair rate limit reached"),
     });
-    // Every admitted one of these writes its reach row (org ↔ department).
+    // Every admitted one of these writes its reach row (org ↔ team).
     const reach = handle.mind.audit.tail(100).filter((event) => event.kind === "reach");
     expect(reach.length).toBeGreaterThanOrEqual(PAIR_RATE_PER_HOUR);
     await handle.close();
@@ -145,8 +145,8 @@ describe("grantedCredential", () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const converse = handle.mind.converse;
     await handle.mind.org.ensureOrg("owner", "Personal", true);
-    const deptA = await handle.mind.org.createDepartment({ name: "Alpha" }, "owner");
-    const deptB = await handle.mind.org.createDepartment({ name: "Beta" }, "owner");
+    const teamA = await handle.mind.org.createTeam({ name: "Alpha" }, "owner");
+    const teamB = await handle.mind.org.createTeam({ name: "Beta" }, "owner");
     // eve lives in Alpha; the item sits with frank's bot in Beta.
     await commitProfiles(converse, () => [
       {
@@ -168,7 +168,7 @@ describe("grantedCredential", () => {
         },
         createdAt: 1,
         archivedAt: null,
-        departmentId: deptA.id,
+        teamId: teamA.id,
       } as never,
     ]);
     const lookup = grantedCredential({
@@ -181,8 +181,8 @@ describe("grantedCredential", () => {
     expect(await lookup(scope, "Shared key")).toBeUndefined();
     // The grant (Beta's item, granted to Alpha) resolves it.
     await handle.mind.org.addGrant(
-      { kind: "vault-item", id: "item-1", home: { kind: "department", departmentId: deptB.id } },
-      { kind: "department", departmentId: deptA.id },
+      { kind: "vault-item", id: "item-1", home: { kind: "team", teamId: teamB.id } },
+      { kind: "team", teamId: teamA.id },
       "owner",
     );
     const granted = await lookup(scope, "shared key");

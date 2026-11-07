@@ -1,11 +1,11 @@
 /**
  * "New bot", without a trigger of its own (the bot pill, the Crew page and
- * a department page drive it). With departments it asks "Which
- * department?", preset to the department it was opened from.
+ * a team page drive it). With teams it asks "Which
+ * team?", preset to the team it was opened from.
  */
 import { useEffect, useState } from "react";
 import { BotDialog, createBot, emptyForm } from "@/components/bot-dialog";
-import { HomeSelect } from "@/components/department/home-select";
+import { HomeSelect } from "@/components/team/home-select";
 import { useApp } from "@/lib/app-state";
 import { loadOrg } from "@/lib/use-org";
 
@@ -13,19 +13,19 @@ export function NewBotDialog({
   open,
   onOpenChange,
   onCreated,
-  departmentId = null,
+  teamId = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (id: string) => Promise<void>;
   /** The home to preset; null = the org. */
-  departmentId?: string | null;
+  teamId?: string | null;
 }) {
   const { sessions } = useApp();
-  const [home, setHome] = useState(departmentId ?? "");
+  const [home, setHome] = useState(teamId ?? "");
   useEffect(() => {
-    if (open) setHome(departmentId ?? "");
-  }, [open, departmentId]);
+    if (open) setHome(teamId ?? "");
+  }, [open, teamId]);
   return (
     <BotDialog
       title="New bot"
@@ -35,10 +35,10 @@ export function NewBotDialog({
       onOpenChange={onOpenChange}
       extra={
         <HomeSelect
-          label="Which department?"
+          label="Which team?"
           value={home}
           onChange={setHome}
-          hint="It follows its department's Instructions. Host access starts off."
+          hint="It follows its team's Instructions. Host access starts off."
         />
       }
       confirm={async (form) => {

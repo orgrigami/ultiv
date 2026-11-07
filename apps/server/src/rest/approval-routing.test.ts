@@ -1,6 +1,6 @@
 /**
- * Approval routing (slice 6): a department bot's card reaches that
- * department's admins (and the org owner), an org bot's card the org owner
+ * Approval routing (slice 6): a team bot's card reaches that
+ * team's admins (and the org owner), an org bot's card the org owner
  * and org admins — and no one else. The list and the decide path both route;
  * deciding a card never reads the chat.
  */
@@ -105,38 +105,39 @@ afterAll(async () => {
 });
 
 describe("approversFor", () => {
-  const members: { accountId: string; role: "owner" | "admin"; departmentId: string | null }[] = [
-    { accountId: "owner-a", role: "owner", departmentId: null },
-    { accountId: "admin-org", role: "admin", departmentId: null },
-    { accountId: "admin-b", role: "admin", departmentId: "dept-b" },
-    { accountId: "admin-c", role: "admin", departmentId: "dept-c" },
+  const members: { accountId: string; role: "owner" | "admin"; teamId: string | null }[] = [
+    { accountId: "owner-a", role: "owner", teamId: null },
+    { accountId: "admin-org", role: "admin", teamId: null },
+    { accountId: "admin-b", role: "admin", teamId: "team-b" },
+    { accountId: "admin-c", role: "admin", teamId: "team-c" },
   ];
 
-  it("a department bot's card reaches its admins and the org owner", () => {
-    expect(
-      approversFor(members, "owner-a", { kind: "department", departmentId: "dept-b" }),
-    ).toEqual(["owner-a", "admin-b"]);
+  it("a team bot's card reaches its admins and the org owner", () => {
+    expect(approversFor(members, "owner-a", { kind: "team", teamId: "team-b" })).toEqual([
+      "owner-a",
+      "admin-b",
+    ]);
   });
 
   it("an org bot's card reaches the org owner and org admins", () => {
     expect(approversFor(members, "owner-a", { kind: "org" })).toEqual(["owner-a", "admin-org"]);
   });
 
-  it("never another department's admin", () => {
-    const who = approversFor(members, "owner-a", { kind: "department", departmentId: "dept-c" });
+  it("never another team's admin", () => {
+    const who = approversFor(members, "owner-a", { kind: "team", teamId: "team-c" });
     expect(who).toContain("admin-c");
     expect(who).not.toContain("admin-b");
   });
 });
 
 describe("approval routing over REST", () => {
-  let deptB = "";
-  let deptC = "";
+  let teamB = "";
+  let teamC = "";
   beforeAll(async () => {
-    deptB = (await handle.mind.org.createDepartment({ name: "RoutingB" }, "owner")).id;
-    deptC = (await handle.mind.org.createDepartment({ name: "RoutingC" }, "owner")).id;
-    await handle.mind.org.setMember({ accountId: "admin-b", role: "admin", departmentId: deptB });
-    await handle.mind.org.setMember({ accountId: "admin-c", role: "admin", departmentId: deptC });
+    teamB = (await handle.mind.org.createTeam({ name: "RoutingB" }, "owner")).id;
+    teamC = (await handle.mind.org.createTeam({ name: "RoutingC" }, "owner")).id;
+    await handle.mind.org.setMember({ accountId: "admin-b", role: "admin", teamId: teamB });
+    await handle.mind.org.setMember({ accountId: "admin-c", role: "admin", teamId: teamC });
   });
 
   const pending = async (botId: string, conversationId: string, callId: string): Promise<void> => {
@@ -163,11 +164,11 @@ describe("approval routing over REST", () => {
     return String(await Effect.runPromise(handle.mind.converse.conversationIdOf(key as never)));
   };
 
-  it("a department B card reaches B's admin and the owner, never C's admin", async () => {
+  it("a team B card reaches B's admin and the owner, never C's admin", async () => {
     const bot = await handle.mind.profiles.create("owner", {
       name: "Bee",
       onboard: false,
-      departmentId: deptB,
+      teamId: teamB,
     });
     const chat = await handle.mind.profiles.ensureMain("owner", bot.id);
     const conversation = await conversationOf(chat.id);
@@ -197,8 +198,8 @@ describe("approval routing over REST", () => {
     expect(refused.json).toEqual({ error: "not your conversation" });
   });
 
-  it("an org bot's card reaches the org owner and org admins, no department admin", async () => {
-    await handle.mind.org.setMember({ accountId: "admin-org", role: "admin", departmentId: null });
+  it("an org bot's card reaches the org owner and org admins, no team admin", async () => {
+    await handle.mind.org.setMember({ accountId: "admin-org", role: "admin", teamId: null });
     const bot = await handle.mind.profiles.create("owner", { name: "Orgy", onboard: false });
     const chat = await handle.mind.profiles.ensureMain("owner", bot.id);
     const conversation = await conversationOf(chat.id);

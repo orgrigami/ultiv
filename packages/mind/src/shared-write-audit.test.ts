@@ -1,7 +1,7 @@
 /**
- * Fix 2 audit: an org bot's writes into org-shared or a department store,
+ * Fix 2 audit: an org bot's writes into org-shared or a team store,
  * reported by ext after a bash call, become one audit row per file (path,
- * size, area, department, the writing bot) — never content, at most 50.
+ * size, area, team, the writing bot) — never content, at most 50.
  */
 import { describe, expect, it } from "vite-plus/test";
 import { Duration, Effect } from "effect";
@@ -11,7 +11,7 @@ import { makeApprovals } from "./approvals.ts";
 import { wirePolicies } from "./entity-parts.ts";
 
 describe("shared-write audit rows", () => {
-  it("records path, bytes, area, department and the bot", () => {
+  it("records path, bytes, area, team and the bot", () => {
     let resolver: ScopeResolver | undefined;
     const audit: AuditEvent[] = [];
     wirePolicies(
@@ -19,7 +19,7 @@ describe("shared-write audit rows", () => {
       makeApprovals(Duration.seconds(30), Duration.seconds(8)),
       { record: (event: AuditEvent) => audit.push(event) } as never,
       {
-        profileOf: () => ({ id: "bot-org", departmentId: null }),
+        profileOf: () => ({ id: "bot-org", teamId: null }),
         scopeOf: () => undefined,
       } as never,
       { available: false } as never,
@@ -27,16 +27,16 @@ describe("shared-write audit rows", () => {
     );
     resolver?.sharedWrite?.("conv-1", [
       {
-        path: "/home/dept-shared/research/a.txt",
+        path: "/home/team-shared/research/a.txt",
         bytes: 9,
-        area: "dept-shared",
-        departmentId: "research",
+        area: "team-shared",
+        teamId: "research",
       },
       ...Array.from({ length: 60 }, (_, i) => ({
         path: `/home/org-shared/f${i}`,
         bytes: i,
         area: "org-shared" as const,
-        departmentId: null,
+        teamId: null,
       })),
     ]);
     expect(audit).toHaveLength(50);
@@ -45,10 +45,10 @@ describe("shared-write audit rows", () => {
       conversationId: "conv-1",
       profile: "bot-org",
       sharedWrite: {
-        path: "/home/dept-shared/research/a.txt",
+        path: "/home/team-shared/research/a.txt",
         bytes: 9,
-        area: "dept-shared",
-        departmentId: "research",
+        area: "team-shared",
+        teamId: "research",
       },
     });
   });

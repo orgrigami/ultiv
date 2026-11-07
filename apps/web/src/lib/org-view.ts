@@ -1,48 +1,46 @@
 /**
  * Pure readings of the org for the UI: crew groups by home (the org's own
- * bots first, then every department, empty ones included so a new one is
+ * bots first, then every team, empty ones included so a new one is
  * visible at once), home labels, the VM size as typed and as shown, the
  * remembered collapsed groups, and reach rows in words.
  */
-import type { AuditEvent, DepartmentInfo, HomeRef, VmSettings } from "@spriessen/contracts";
+import type { AuditEvent, TeamInfo, HomeRef, VmSettings } from "@spriessen/contracts";
 import { plural } from "./plural.ts";
 
 export interface CrewGroup<T> {
-  /** The department id, or null for the org's own bots. */
+  /** The team id, or null for the org's own bots. */
   readonly id: string | null;
   readonly name: string;
   readonly bots: T[];
 }
 
-/** The org's own bots first (always), then departments by name. */
-export const groupByHome = <T extends { departmentId?: string | null | undefined }>(
+/** The org's own bots first (always), then teams by name. */
+export const groupByHome = <T extends { teamId?: string | null | undefined }>(
   bots: readonly T[],
-  departments: readonly Pick<DepartmentInfo, "id" | "name">[],
+  teams: readonly Pick<TeamInfo, "id" | "name">[],
   orgName: string,
 ): CrewGroup<T>[] => {
-  const known = new Set(departments.map((row) => row.id));
-  const groups: CrewGroup<T>[] = [...departments]
+  const known = new Set(teams.map((row) => row.id));
+  const groups: CrewGroup<T>[] = [...teams]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((row) => ({
       id: row.id,
       name: row.name,
-      bots: bots.filter((bot) => bot.departmentId === row.id),
+      bots: bots.filter((bot) => bot.teamId === row.id),
     }));
-  // A bot whose department is gone reads as an org bot (never lost).
+  // A bot whose team is gone reads as an org bot (never lost).
   const orgBots = bots.filter(
-    (bot) =>
-      bot.departmentId === null || bot.departmentId === undefined || !known.has(bot.departmentId),
+    (bot) => bot.teamId === null || bot.teamId === undefined || !known.has(bot.teamId),
   );
   return [{ id: null, name: orgName, bots: orgBots }, ...groups];
 };
 
 /** Where a bot lives, in words. */
 export const homeName = (
-  departmentId: string | null | undefined,
-  departments: readonly Pick<DepartmentInfo, "id" | "name">[],
+  teamId: string | null | undefined,
+  teams: readonly Pick<TeamInfo, "id" | "name">[],
   orgName: string,
-): string =>
-  departments.find((row) => row.id === departmentId)?.name ?? `${orgName} (no department)`;
+): string => teams.find((row) => row.id === teamId)?.name ?? `${orgName} (no team)`;
 
 export const vmLabel = (vm: VmSettings): string =>
   `${vm.cpus} ${plural(vm.cpus, "CPU", "CPUs")} · ${vm.memoryMiB} MiB`;
@@ -58,7 +56,7 @@ export const readVmInput = (cpus: string, memory: string): VmSettings | string =
   return { cpus: c, memoryMiB: m };
 };
 
-/** Where the crew's collapsed groups are remembered (department ids). */
+/** Where the crew's collapsed groups are remembered (team ids). */
 export const COLLAPSED_KEY = "spriessen.crew.collapsed";
 
 /** The stored list, tolerant of anything that isn't a list of strings. */
@@ -77,9 +75,9 @@ export const toggleCollapsed = (current: ReadonlySet<string>, id: string): strin
 
 const homeOf = (
   ref: HomeRef,
-  departments: readonly Pick<DepartmentInfo, "id" | "name">[],
+  teams: readonly Pick<TeamInfo, "id" | "name">[],
   orgName: string,
-): string => (ref.kind === "org" ? orgName : homeName(ref.departmentId, departments, orgName));
+): string => (ref.kind === "org" ? orgName : homeName(ref.teamId, teams, orgName));
 
 const SURFACE: Record<NonNullable<AuditEvent["reach"]>["surface"], string> = {
   message: "message",
@@ -88,16 +86,14 @@ const SURFACE: Record<NonNullable<AuditEvent["reach"]>["surface"], string> = {
 /** One reach row in words: "Atelier → Yard · message", or null when it isn't one. */
 export const reachLine = (
   row: Pick<AuditEvent, "reach">,
-  departments: readonly Pick<DepartmentInfo, "id" | "name">[],
+  teams: readonly Pick<TeamInfo, "id" | "name">[],
   orgName: string,
 ): string | null =>
   row.reach === undefined
     ? null
-    : `${homeOf(row.reach.from, departments, orgName)} → ${homeOf(row.reach.to, departments, orgName)} · ${SURFACE[row.reach.surface]}`;
+    : `${homeOf(row.reach.from, teams, orgName)} → ${homeOf(row.reach.to, teams, orgName)} · ${SURFACE[row.reach.surface]}`;
 
-/** Whether a reach row starts or ends in this department. */
-export const reachTouches = (row: Pick<AuditEvent, "reach">, departmentId: string): boolean =>
+/** Whether a reach row starts or ends in this team. */
+export const reachTouches = (row: Pick<AuditEvent, "reach">, teamId: string): boolean =>
   row.reach !== undefined &&
-  [row.reach.from, row.reach.to].some(
-    (ref) => ref.kind === "department" && ref.departmentId === departmentId,
-  );
+  [row.reach.from, row.reach.to].some((ref) => ref.kind === "team" && ref.teamId === teamId);

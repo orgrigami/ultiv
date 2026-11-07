@@ -70,7 +70,7 @@ export const resolveSecrets = (
 /**
  * True when the item a connector's OAuth client reference names may serve as
  * that client (phase 4 slice 8): an owner-level item of the connector's OWN
- * home (the org for org connectors, the department for department ones).
+ * home (the org for org connectors, the team for team ones).
  * Another home's item, a profile-scoped item and a missing vault all read as
  * "no custom client for this home", so the flow falls back to today's
  * mechanism (a plain stored client id, or dynamic registration).

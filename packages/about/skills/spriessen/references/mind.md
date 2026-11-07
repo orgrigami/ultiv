@@ -99,7 +99,7 @@ missing, say so rather than improvising around it.
 - **The crew** (main bot only). The owner's main bot can create a new bot
   (`bot_create`, which runs directly; the owner can edit it after), read and
   change bots (changes still ask), and manage
-  departments. Every other bot sees its siblings through `bots_list` and
+  teams. Every other bot sees its siblings through `bots_list` and
   `bot_info`, read-only.
 
 ## Choosing a faculty

@@ -2,7 +2,7 @@
  * The slice 4 VM-size validation for the org service: sane bounds first
  * (the dialog's words), then the host-capacity rule — with the candidate
  * applied, the CONFIGURED memory of all homes' VMs (the org's plus every
- * department's) must stay within half the host's RAM. This is a
+ * team's) must stay within half the host's RAM. This is a
  * configured-sum heuristic over STORED settings, never a live measurement
  * of the host (docs/SECURITY.md).
  */

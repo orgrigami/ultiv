@@ -1,7 +1,7 @@
 /**
  * The cross-profile approval inbox: every pending gate in one list, plus
- * REST decide. Cards route to their approvers (slice 6): a department bot's
- * card reaches that department's admins (and the org owner), an org bot's
+ * REST decide. Cards route to their approvers (slice 6): a team bot's
+ * card reaches that team's admins (and the org owner), an org bot's
  * card the org owner and org admins. Deciding a card never reads the chat.
  */
 import { homeOf } from "@spriessen/mind";

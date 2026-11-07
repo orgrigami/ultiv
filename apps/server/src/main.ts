@@ -10,7 +10,13 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 import { WebSocketServer, type WebSocket } from "ws";
 import { Ping } from "@spriessen/contracts";
-import { artifactsDir, copyArtifact, resolveInside, upgradeMcpHomes } from "@spriessen/ext";
+import {
+  artifactsDir,
+  copyArtifact,
+  resolveInside,
+  upgradeMcpHomes,
+  upgradeMcpTeamHomes,
+} from "@spriessen/ext";
 import { httpPlugin } from "@spriessen/ext";
 import { closeWebhookPump } from "./webhooks.ts";
 import { agentEndpoint, AGENT_PATH } from "./agent.ts";
@@ -63,12 +69,18 @@ export async function buildStack(options?: {
   // The node agents' dial exists before the mind: openMind injects its exec
   // as the bash tool's `node` target transport (mind/node facade).
   const transport = createNodeTransport();
+  // Teams were departments: their connector folders move from `dept-<id>`
+  // to `team-<id>` before the mind loads any connector (repeatable).
+  const [teamHomes, teamHomeConflicts] = upgradeMcpTeamHomes();
+  if (teamHomes > 0) console.log(`mcp: renamed ${teamHomes} team connector folder(s)`);
+  for (const kept of teamHomeConflicts)
+    console.warn(`mcp: kept ${kept} (a team folder of that name already exists)`);
   const handle = await openMind({
     plugins: [httpPlugin],
     // Slice 4: the /agent exec dial behind the bash tool's node target.
     nodeExec: (nodeId, request) => transport.exec(nodeId, request),
     // The host capability (slice 11): the effective flag — org AND
-    // department AND bot for a department bot, org AND bot for an org bot.
+    // team AND bot for a team bot, org AND bot for an org bot.
     // Rest takes the account check (see rest/can.ts).
     authz: {
       hostAccess: async (scope) => {
@@ -79,7 +91,7 @@ export async function buildStack(options?: {
             : handle.mind.profiles.get(scope.owner, scope.profileId),
         ]);
         if (profile === undefined) return false;
-        return effectiveHostAccess(view.org, view.departments, profile).allowed;
+        return effectiveHostAccess(view.org, view.teams, profile).allowed;
       },
       // The main bot's admin tools ask the one permission check; host-access
       // switches are not among them (the owner's alone, rest/can.ts).
@@ -134,11 +146,11 @@ export async function buildStack(options?: {
   }
   // One-time, repeatable: the workspace becomes the org ("Personal", owned
   // by the account); every existing bot becomes an org bot with host access
-  // on. No department rows are created. Logs when it changed anything.
+  // on. No team rows are created. Logs when it changed anything.
   const org = await migrateOrg(mind.converse, { owner: OWNER_ID });
   if (org.createdOrg || org.botsStamped > 0) {
     console.log(
-      `org: created=${org.createdOrg} bots stamped ${org.botsStamped}, departments ${org.departments}`,
+      `org: created=${org.createdOrg} bots stamped ${org.botsStamped}, teams ${org.teams}`,
     );
   }
   // One-time, repeatable: MCP connector config moves from per owner to per

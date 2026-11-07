@@ -39,14 +39,14 @@ export interface ShellExecResult {
   readonly sharedWrites?: readonly SharedWrite[];
 }
 
-/** One file written into `/home/org-shared` or `/home/dept-shared/<id>`. */
+/** One file written into `/home/org-shared` or `/home/team-shared/<id>`. */
 export interface SharedWrite {
   /** Path inside the VM. */
   readonly path: string;
   readonly bytes: number;
-  readonly area: "org-shared" | "dept-shared";
-  /** The department whose store it is; null for org-shared. */
-  readonly departmentId: string | null;
+  readonly area: "org-shared" | "team-shared";
+  /** The team whose store it is; null for org-shared. */
+  readonly teamId: string | null;
 }
 
 export interface ShellBackend {

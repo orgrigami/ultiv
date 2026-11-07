@@ -1,5 +1,5 @@
 /**
- * A department's shared memory: the facts its bots share, and the share
+ * A team's shared memory: the facts its bots share, and the share
  * proposals waiting for the owner (a bot offers one of its own facts; you
  * accept it into the shared store or turn it down).
  */
@@ -14,18 +14,18 @@ import { orgApi, type SharedMemory } from "@/lib/org-api";
 const errorText = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
-export function DeptMemory({ departmentId }: { departmentId: string }) {
+export function TeamMemory({ teamId }: { teamId: string }) {
   const [memory, setMemory] = useState<SharedMemory | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(async (): Promise<void> => {
     try {
-      setMemory(await orgApi.sharedMemory(departmentId));
+      setMemory(await orgApi.sharedMemory(teamId));
       setError(null);
     } catch (cause) {
       setError(errorText(cause));
     }
-  }, [departmentId]);
+  }, [teamId]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -36,7 +36,7 @@ export function DeptMemory({ departmentId }: { departmentId: string }) {
   const decide = async (id: string, accept: boolean): Promise<void> => {
     setBusy(id);
     try {
-      await orgApi.decideShare(departmentId, id, accept);
+      await orgApi.decideShare(teamId, id, accept);
       await load();
     } catch (cause) {
       setError(errorText(cause));

@@ -1,15 +1,15 @@
 /**
  * The crew grouped by home: the org on top with its own bots right under
- * it, then each department as a collapsible group (remembered per browser;
- * opening a bot in a collapsed group opens it), then "New department". A
- * department's name toggles the group; the gear beside it opens the
- * department's page.
+ * it, then each team as a collapsible group (remembered per browser;
+ * opening a bot in a collapsed group opens it), then "New team". A
+ * team's name toggles the group; the gear beside it opens the
+ * team's page.
  */
 import { useNavigate } from "@tanstack/react-router";
 import { Building2Icon, ChevronDownIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
-import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NewTeamDialog } from "@/components/team/new-team-dialog";
 import type { CrewVariant } from "@/components/crew-row";
 import type { CrewGroup } from "@/lib/org-view";
 import { useCollapsed } from "@/lib/use-collapsed";
@@ -70,29 +70,29 @@ export function CrewGroups({
   groups,
   row,
   activeId,
-  onOpenDepartment,
-  onNewDepartment,
+  onOpenTeam,
+  onNewTeam,
   className,
 }: {
   variant: CrewVariant;
   groups: CrewGroup<ProfileInfo>[];
   row: (bot: ProfileInfo) => React.ReactNode;
   activeId: string | undefined;
-  onOpenDepartment?: ((id: string) => void) | undefined;
-  onNewDepartment?: (() => void) | undefined;
+  onOpenTeam?: ((id: string) => void) | undefined;
+  onNewTeam?: (() => void) | undefined;
   className?: string | undefined;
 }) {
   const navigate = useNavigate();
   const { collapsed, toggle, expand } = useCollapsed();
   const [creating, setCreating] = useState(false);
   const open = (id: string): void =>
-    onOpenDepartment !== undefined
-      ? onOpenDepartment(id)
-      : void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: id } });
-  const [org, ...departments] = groups;
+    onOpenTeam !== undefined
+      ? onOpenTeam(id)
+      : void navigate({ to: "/crew/team/$teamId", params: { teamId: id } });
+  const [org, ...teams] = groups;
   // Opening a bot whose group is collapsed opens that group once; after
   // that the chevron is the user's again.
-  const activeGroup = departments.find((group) => group.bots.some((bot) => bot.id === activeId));
+  const activeGroup = teams.find((group) => group.bots.some((bot) => bot.id === activeId));
   const activeGroupId = activeGroup?.id ?? null;
   useEffect(() => {
     if (activeGroupId !== null) expand(activeGroupId);
@@ -112,7 +112,7 @@ export function CrewGroups({
           )}
         </section>
       )}
-      {departments.map((group) => {
+      {teams.map((group) => {
         const id = group.id ?? "";
         const isOpen = !collapsed.has(id);
         return (
@@ -139,15 +139,13 @@ export function CrewGroups({
         );
       })}
       <RowButton
-        onClick={() => (onNewDepartment !== undefined ? onNewDepartment() : setCreating(true))}
+        onClick={() => (onNewTeam !== undefined ? onNewTeam() : setCreating(true))}
         className={cn(headRow(variant), "flex-none")}
       >
         <PlusIcon aria-hidden className="size-3.5 shrink-0" />
-        New department
+        New team
       </RowButton>
-      {onNewDepartment === undefined && (
-        <NewDepartmentDialog open={creating} onOpenChange={setCreating} />
-      )}
+      {onNewTeam === undefined && <NewTeamDialog open={creating} onOpenChange={setCreating} />}
     </div>
   );
 }

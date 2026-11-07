@@ -15,7 +15,7 @@ export const readBotDetails = async (deps: AdminDeps, bot: ProfileInfo): Promise
   const tools = bot.toolAllowlist === null ? "all installed tools" : bot.toolAllowlist.join(", ");
   return [
     `${bot.name} (id ${bot.id})${bot.id === mainId ? " (the main bot)" : ""}`,
-    `Home: ${homeWords(bot.departmentId, view.departments, view.org?.name ?? "Personal")}`,
+    `Home: ${homeWords(bot.teamId, view.teams, view.org?.name ?? "Personal")}`,
     `Role: ${bot.description.trim() === "" ? "(none)" : bot.description.trim()}`,
     `Model: ${bot.model === null ? "workspace default" : `${bot.model.id}${bot.model.effort !== "" ? ` (effort ${bot.model.effort})` : ""}`}`,
     `Tools: ${tools}`,

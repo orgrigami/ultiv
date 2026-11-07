@@ -1,10 +1,10 @@
 /**
- * A department's settings in one card: its name, standing Instructions and
+ * A team's settings in one card: its name, standing Instructions and
  * VM size (one Save), and its host-access switch (applies at once, and
  * says when the org switch blocks it anyway).
  */
 import { useEffect, useState } from "react";
-import type { DepartmentInfo } from "@spriessen/contracts";
+import type { TeamInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { ListCard } from "@/components/ui/list-card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,36 +18,29 @@ import { VmFields } from "./vm-fields";
 const errorText = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
-export function DeptSettings({
-  department,
-  orgHostAccess,
-}: {
-  department: DepartmentInfo;
-  orgHostAccess: boolean;
-}) {
-  const [name, setName] = useState(department.name);
-  const [instructions, setInstructions] = useState(department.instructions);
-  const [cpus, setCpus] = useState(String(department.vm.cpus));
-  const [memory, setMemory] = useState(String(department.vm.memoryMiB));
+export function TeamSettings({ team, orgHostAccess }: { team: TeamInfo; orgHostAccess: boolean }) {
+  const [name, setName] = useState(team.name);
+  const [instructions, setInstructions] = useState(team.instructions);
+  const [cpus, setCpus] = useState(String(team.vm.cpus));
+  const [memory, setMemory] = useState(String(team.vm.memoryMiB));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
-    setName(department.name);
-    setInstructions(department.instructions);
-    setCpus(String(department.vm.cpus));
-    setMemory(String(department.vm.memoryMiB));
-  }, [department]);
+    setName(team.name);
+    setInstructions(team.instructions);
+    setCpus(String(team.vm.cpus));
+    setMemory(String(team.vm.memoryMiB));
+  }, [team]);
   const vm = readVmInput(cpus, memory);
   const dirty =
-    name.trim() !== department.name ||
-    instructions !== department.instructions ||
-    (typeof vm !== "string" &&
-      (vm.cpus !== department.vm.cpus || vm.memoryMiB !== department.vm.memoryMiB));
-  const run = async (patch: Parameters<typeof orgApi.patchDepartment>[1], done: string) => {
+    name.trim() !== team.name ||
+    instructions !== team.instructions ||
+    (typeof vm !== "string" && (vm.cpus !== team.vm.cpus || vm.memoryMiB !== team.vm.memoryMiB));
+  const run = async (patch: Parameters<typeof orgApi.patchTeam>[1], done: string) => {
     setBusy(true);
     setNote(null);
     try {
-      await orgApi.patchDepartment(department.id, patch);
+      await orgApi.patchTeam(team.id, patch);
       setNote({ ok: true, text: done });
     } catch (cause) {
       setNote({ ok: false, text: errorText(cause) });
@@ -100,7 +93,7 @@ export function DeptSettings({
       <label className="flex cursor-pointer items-start gap-3 px-3 py-2.5">
         <Checkbox
           className="mt-0.5"
-          checked={department.hostAccess}
+          checked={team.hostAccess}
           disabled={busy}
           onCheckedChange={(checked) =>
             void run(
@@ -110,9 +103,9 @@ export function DeptSettings({
           }
         />
         <span className="text-ui">
-          Host access for this department
+          Host access for this team
           <span className="text-meta text-muted-foreground block">
-            {!department.hostAccess
+            {!team.hostAccess
               ? "Off. Its bots can't run things on this computer."
               : orgHostAccess
                 ? "On. A bot here still needs its own switch on (its Access tab)."
@@ -121,18 +114,18 @@ export function DeptSettings({
         </span>
       </label>
       <NetAllowlistEditor
-        title="Department VM network"
-        entries={department.netAllowlist ?? []}
-        open={department.netOpen === true}
+        title="Team VM network"
+        entries={team.netAllowlist ?? []}
+        open={team.netOpen === true}
         meta={
-          department.netOpen === true
+          team.netOpen === true
             ? "Open: this VM reaches everything. The allowlist below is ignored until you close it again."
-            : department.netAllowlist === undefined || department.netAllowlist.length === 0
+            : team.netAllowlist === undefined || team.netAllowlist.length === 0
               ? "Offline: this VM reaches no hosts. Add the ones its bots need."
-              : `This VM reaches exactly these hosts (${department.netAllowlist.length} of at most 64).`
+              : `This VM reaches exactly these hosts (${team.netAllowlist.length} of at most 64).`
         }
         onSave={async (draft, open) => {
-          await orgApi.patchDepartment(department.id, { netAllowlist: draft, netOpen: open });
+          await orgApi.patchTeam(team.id, { netAllowlist: draft, netOpen: open });
         }}
       />
     </ListCard>

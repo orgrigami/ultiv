@@ -60,11 +60,11 @@ import { adminTools } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService } from "./profiles/rooms.ts";
 import { mailboxService } from "./mailbox/mailbox.ts";
-import { departmentInstructionsOf, departmentOfProfile, orgService } from "./org/service.ts";
+import { teamInstructionsOf, teamOfProfile, orgService } from "./org/service.ts";
 import {
-  defaultDeleteDeptStore,
+  defaultDeleteTeamStore,
   defaultDestroyHomeVm,
-  defaultReconcileDeptGroups,
+  defaultReconcileTeamGroups,
   defaultRetireBotUser,
 } from "./org/home-scope.ts";
 import type { MindError, MindOptions, MindWiring } from "./entity-options.ts";
@@ -147,8 +147,8 @@ const mindLayerRaw = (
       // destroys no VM at all.
       const destroyHomeVm = wiring.destroyHomeVm ?? defaultDestroyHomeVm();
       const retireBotUser = wiring.retireBotUser ?? defaultRetireBotUser(converse);
-      const reconcileDeptGroups = wiring.reconcileDeptGroups ?? defaultReconcileDeptGroups();
-      const deleteDeptStore = wiring.deleteDeptStore ?? defaultDeleteDeptStore();
+      const reconcileTeamGroups = wiring.reconcileTeamGroups ?? defaultReconcileTeamGroups();
+      const deleteTeamStore = wiring.deleteTeamStore ?? defaultDeleteTeamStore();
       // Slice 10: the switch watch — snapshot for the list exclusion, re-applies on a flip.
       const hostSwitch: { current: HostSwitchWatch | undefined } = { current: undefined };
       const piRegistryEarly = yield* PiRegistry;
@@ -185,8 +185,8 @@ const mindLayerRaw = (
       const org = orgService(converse, {
         destroyHomeVm,
         retireBotUser,
-        reconcileDeptGroups,
-        deleteDeptStore,
+        reconcileTeamGroups,
+        deleteTeamStore,
         // Slice 10: a flip re-applies every bot's agent (its tool list changed).
         onChanged: () => hostSwitch.current?.onOrgChange(),
       });
@@ -270,8 +270,8 @@ const mindLayerRaw = (
         audit,
         approvals,
         skills: skillsRef,
-        departmentInstructions: departmentInstructionsOf(converse),
-        departmentOf: departmentOfProfile(converse),
+        teamInstructions: teamInstructionsOf(converse),
+        teamOf: teamOfProfile(converse),
         knownModel: (ref) => models.list().length === 0 || models.find(ref) !== undefined,
         untrustedTool: (name) =>
           mcpRef?.wiring.allowlistTools().some((tool) => tool.name === name) ?? false,
@@ -379,10 +379,10 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       : {}),
     ...(options.destroyHomeVm !== undefined ? { destroyHomeVm: options.destroyHomeVm } : {}),
     ...(options.retireBotUser !== undefined ? { retireBotUser: options.retireBotUser } : {}),
-    ...(options.reconcileDeptGroups !== undefined
-      ? { reconcileDeptGroups: options.reconcileDeptGroups }
+    ...(options.reconcileTeamGroups !== undefined
+      ? { reconcileTeamGroups: options.reconcileTeamGroups }
       : {}),
-    ...(options.deleteDeptStore !== undefined ? { deleteDeptStore: options.deleteDeptStore } : {}),
+    ...(options.deleteTeamStore !== undefined ? { deleteTeamStore: options.deleteTeamStore } : {}),
     ...(options.nodeExec !== undefined ? { nodeExec: options.nodeExec } : {}),
     ...(options.authz !== undefined ? { admin: options.authz } : {}),
     ...(options.authz?.hostAccess !== undefined

@@ -1,6 +1,6 @@
 /**
  * VM size per home (phase 4 slice 4), mind side: the defaults (1 CPU /
- * 512 MiB) ride on the org and department rows and reach ext through the
+ * 512 MiB) ride on the org and team rows and reach ext through the
  * home-scope resolver; create and edit validate the bounds in the dialog's
  * words; and the host-capacity rule refuses a set of sizes whose CONFIGURED
  * memory sums past half the host's RAM — a configured-sum heuristic over
@@ -25,33 +25,33 @@ const mind = handle.mind;
 const owner = "owner-a";
 
 describe("the defaults ride on the rows and reach ext", () => {
-  it("a fresh org and a fresh department read the default 1 CPU / 512 MiB", async () => {
+  it("a fresh org and a fresh team read the default 1 CPU / 512 MiB", async () => {
     await mind.org.ensureOrg(owner, "Personal", true);
     expect((await mind.org.view()).org?.vm).toEqual(DEFAULT_VM);
-    const dept = await mind.org.createDepartment({ name: "Ops" }, owner);
-    expect(dept.vm).toEqual({ cpus: 1, memoryMiB: 512 });
+    const team = await mind.org.createTeam({ name: "Ops" }, owner);
+    expect(team.vm).toEqual({ cpus: 1, memoryMiB: 512 });
   });
 
   it("the home-scope resolver hands each home ITS stored size to ext", async () => {
     await mind.org.updateOrg({ vm: { cpus: 2, memoryMiB: 1024 } });
-    const dept = await mind.org.createDepartment(
+    const team = await mind.org.createTeam(
       { name: "Lab", vm: { cpus: 4, memoryMiB: 2048 } },
       owner,
     );
     await mind.profiles.create(owner, { name: "Scout", onboard: false });
     await mind.profiles.create(owner, {
       name: "Digger",
-      departmentId: dept.id,
+      teamId: team.id,
       onboard: false,
     });
     const profiles = await mind.profiles.list(owner);
     const orgBot = profiles.find((row) => row.name === "Scout");
-    const deptBot = profiles.find((row) => row.name === "Digger");
-    if (orgBot === undefined || deptBot === undefined) throw new Error("bots not stored");
+    const teamBot = profiles.find((row) => row.name === "Digger");
+    if (orgBot === undefined || teamBot === undefined) throw new Error("bots not stored");
     const orgScope = await homeScope(orgBot);
-    const deptScope = await homeScope(deptBot);
+    const teamScope = await homeScope(teamBot);
     expect(orgScope?.vm).toEqual({ cpus: 2, memoryMiB: 1024 });
-    expect(deptScope?.vm).toEqual({ cpus: 4, memoryMiB: 2048 });
+    expect(teamScope?.vm).toEqual({ cpus: 4, memoryMiB: 2048 });
   });
 });
 
@@ -62,7 +62,7 @@ describe("the bounds, in the dialog's words", () => {
         reason: expect.stringMatching(/VM CPUs must be a whole number from 1 to 8/),
       });
       await expect(
-        mind.org.createDepartment({ name: "X", vm: { cpus, memoryMiB: 512 } }, owner),
+        mind.org.createTeam({ name: "X", vm: { cpus, memoryMiB: 512 } }, owner),
       ).rejects.toMatchObject({ reason: expect.stringMatching(/VM CPUs must be a whole number/) });
     }
   });
@@ -73,20 +73,20 @@ describe("the bounds, in the dialog's words", () => {
         reason: expect.stringMatching(/VM memory \(MiB\) must be a whole number from 128 to 8192/),
       });
       await expect(
-        mind.org.createDepartment({ name: "X", vm: { cpus: 1, memoryMiB } }, owner),
+        mind.org.createTeam({ name: "X", vm: { cpus: 1, memoryMiB } }, owner),
       ).rejects.toMatchObject({
         reason: expect.stringMatching(/VM memory \(MiB\) must be a whole number/),
       });
     }
   });
 
-  it("a department edit is bounds-checked too; sane sizes pass everywhere", async () => {
-    const dept = (await mind.org.view()).departments[0];
-    if (dept === undefined) throw new Error("no department stored");
+  it("a team edit is bounds-checked too; sane sizes pass everywhere", async () => {
+    const team = (await mind.org.view()).teams[0];
+    if (team === undefined) throw new Error("no team stored");
     await expect(
-      mind.org.updateDepartment(dept.id, { vm: { cpus: 1, memoryMiB: 65_536 } }),
+      mind.org.updateTeam(team.id, { vm: { cpus: 1, memoryMiB: 65_536 } }),
     ).rejects.toMatchObject({ reason: expect.stringMatching(/from 128 to 8192/) });
-    const patched = await mind.org.updateDepartment(dept.id, {
+    const patched = await mind.org.updateTeam(team.id, {
       vm: { cpus: 2, memoryMiB: 1024 },
     });
     expect(patched.vm).toEqual({ cpus: 2, memoryMiB: 1024 });
@@ -102,37 +102,37 @@ describe("the host-capacity refusal (configured-sum heuristic)", () => {
     await expect(org.updateOrg({ vm: { cpus: 1, memoryMiB: 512 } })).rejects.toMatchObject({
       reason: expect.stringMatching(/ask for \d+ MiB of memory, and the host can hold 1024 MiB/),
     });
-    await expect(org.createDepartment({ name: "Y" }, owner)).rejects.toMatchObject({
+    await expect(org.createTeam({ name: "Y" }, owner)).rejects.toMatchObject({
       reason: expect.stringMatching(/half its RAM/),
     });
   });
 
-  it("passes while the sum is within the budget, and a fresh department counts at its default", async () => {
+  it("passes while the sum is within the budget, and a fresh team counts at its default", async () => {
     // A 16 GiB host: the budget is 8192 MiB — room for the stored sizes
     // (2560 MiB) plus more defaults.
     const org = orgService(mind.converse, { hostMemoryBytes: 16 * 1024 * 1024 * 1024 });
-    await expect(org.createDepartment({ name: "Z" }, owner)).resolves.toMatchObject({
+    await expect(org.createTeam({ name: "Z" }, owner)).resolves.toMatchObject({
       vm: { cpus: 1, memoryMiB: 512 },
     });
-    // But the budget is finite: eight departments at the default plus the
+    // But the budget is finite: eight teams at the default plus the
     // org's 1024 sum to 5120; a ninth stays inside, so shrink the host
     // instead to show the refusal counting the DEFAULT of the new home.
     const tight = orgService(mind.converse, { hostMemoryBytes: 5 * 1024 * 1024 * 1024 });
-    await expect(tight.createDepartment({ name: "W" }, owner)).rejects.toMatchObject({
+    await expect(tight.createTeam({ name: "W" }, owner)).rejects.toMatchObject({
       reason: expect.stringMatching(/ask for 5120 MiB of memory, and the host can hold 2560 MiB/),
     });
   });
 
   it("an edit that keeps the sum inside the budget passes", async () => {
     const org = orgService(mind.converse, { hostMemoryBytes: 16 * 1024 * 1024 * 1024 });
-    const dept = (await mind.org.view()).departments[0];
-    if (dept === undefined) throw new Error("no department stored");
+    const team = (await mind.org.view()).teams[0];
+    if (team === undefined) throw new Error("no team stored");
     await expect(
-      org.updateDepartment(dept.id, { vm: { cpus: 1, memoryMiB: 512 } }),
+      org.updateTeam(team.id, { vm: { cpus: 1, memoryMiB: 512 } }),
     ).resolves.toMatchObject({ vm: { cpus: 1, memoryMiB: 512 } });
   });
 });
 
 /** The home scope of one profile, through the mind's resolver. */
-const homeScope = (profile: { readonly id: string; readonly departmentId?: string | null }) =>
+const homeScope = (profile: { readonly id: string; readonly teamId?: string | null }) =>
   homeScopeOfProfile(mind.converse, scratch)(owner, profile);

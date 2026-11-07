@@ -4,9 +4,9 @@
  * artifact tree). The DELETE route and the main bot's bot_delete share it.
  *
  * The bot's microVM is NOT destroyed here (phase 4, one VM per home): the
- * VM belongs to the bot's home — the org or its department — and is shared
- * with the home's other bots. A department's VM goes with the department
- * (`orgService.removeDepartment` tears it down); the org VM only with the
+ * VM belongs to the bot's home — the org or its team — and is shared
+ * with the home's other bots. A team's VM goes with the team
+ * (`orgService.removeTeam` tears it down); the org VM only with the
  * org.
  */
 import { rmSync } from "node:fs";

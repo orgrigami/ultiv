@@ -11,7 +11,7 @@ import type { ConverseService } from "../converse/converse.ts";
 import type { MemoryService } from "./memory.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { CORE_LIMITS } from "./core.ts";
-import { departmentKey } from "./model.ts";
+import { teamKey } from "./model.ts";
 import { forgetTool, historyTool, relatedTool } from "./tools-lifecycle.ts";
 import { contextOf, coreVerdict } from "./guard.ts";
 
@@ -23,8 +23,8 @@ import { updateTool } from "./tools-update.ts";
 const recallTool = (
   memory: MemoryService,
   profiles: ProfilesService,
-  /** The bot's department id, for the shared store in the pool (slice 9). */
-  departmentOf?: (profileId: string) => Promise<string | null>,
+  /** The bot's team id, for the shared store in the pool (slice 9). */
+  teamOf?: (profileId: string) => Promise<string | null>,
 ): Tool =>
   defineTool({
     name: "memory_recall",
@@ -86,8 +86,8 @@ const recallTool = (
           structuredOutput: [],
         };
       }
-      // A department bot recalls its department's accepted shared facts too.
-      const departmentId = departmentOf === undefined ? null : await departmentOf(scope.profileId);
+      // A team bot recalls its team's accepted shared facts too.
+      const teamId = teamOf === undefined ? null : await teamOf(scope.profileId);
       return memory
         .recallV2(scope.owner, scope.profileId, {
           ...(query !== "" ? { query } : {}),
@@ -95,9 +95,7 @@ const recallTool = (
           ...(asOf !== undefined ? { asOf } : {}),
           ...(args.limit !== undefined ? { limit: args.limit } : {}),
           ...(args.budgetTokens !== undefined ? { budgetTokens: args.budgetTokens } : {}),
-          ...(departmentId !== null
-            ? { extraStores: [departmentKey(scope.owner, departmentId)] }
-            : {}),
+          ...(teamId !== null ? { extraStores: [teamKey(scope.owner, teamId)] } : {}),
         })
         .then((result) => ({
           output: [
@@ -125,12 +123,12 @@ export const memoryTools = (
     readonly converse: ConverseService;
     readonly audit?: AuditService;
     readonly untrustedTool?: (name: string) => boolean;
-    readonly departmentOf?: (profileId: string) => Promise<string | null>;
+    readonly teamOf?: (profileId: string) => Promise<string | null>;
   },
 ): readonly Tool[] => [
   writeTool(memory, profiles, guardDeps),
   updateTool(memory, profiles, guardDeps),
-  recallTool(memory, profiles, guardDeps.departmentOf),
+  recallTool(memory, profiles, guardDeps.teamOf),
   coreTool(memory, profiles, guardDeps),
   forgetTool(memory, profiles),
   historyTool(memory, profiles),

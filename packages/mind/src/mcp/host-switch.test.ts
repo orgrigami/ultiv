@@ -48,7 +48,7 @@ const setUp = async (hostAccess: () => boolean, hostAllowed?: () => boolean) => 
   const audit = makeAudit(join("/dev", "null"));
   const profiles = {
     scopeOf: () => ({ owner: OWNER, profileId: "p1" }),
-    profileOf: () => ({ id: "p1", toolAllowlist: null, departmentId: null, hostAccess: true }),
+    profileOf: () => ({ id: "p1", toolAllowlist: null, teamId: null, hostAccess: true }),
   } as unknown as ProfilesService;
   wiring = wireMcp(registry, {
     manager: rig.manager,

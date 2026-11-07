@@ -10,47 +10,47 @@ import {
   vmLabel,
 } from "./org-view.ts";
 
-const departments = [
-  { id: "dept-y", name: "Yard" },
-  { id: "dept-x", name: "Atelier" },
+const teams = [
+  { id: "team-y", name: "Yard" },
+  { id: "team-x", name: "Atelier" },
 ];
 
 describe("groupByHome", () => {
-  it("lists the org's bots first, then every department by name, empty ones too", () => {
+  it("lists the org's bots first, then every team by name, empty ones too", () => {
     const groups = groupByHome(
       [
-        { id: "a", departmentId: "dept-y" },
-        { id: "b", departmentId: null },
+        { id: "a", teamId: "team-y" },
+        { id: "b", teamId: null },
       ],
-      departments,
+      teams,
       "Personal",
     );
     expect(groups.map((group) => [group.id, group.bots.map((bot) => bot.id)])).toEqual([
       [null, ["b"]],
-      ["dept-x", []],
-      ["dept-y", ["a"]],
+      ["team-x", []],
+      ["team-y", ["a"]],
     ]);
   });
 
   it("keeps the org on top even when it has no bots of its own", () => {
-    const groups = groupByHome([{ id: "a", departmentId: "dept-x" }], departments, "Personal");
+    const groups = groupByHome([{ id: "a", teamId: "team-x" }], teams, "Personal");
     expect(groups[0]).toEqual({ id: null, name: "Personal", bots: [] });
   });
 
-  it("reads a bot whose department is gone as an org bot", () => {
-    const groups = groupByHome([{ id: "a", departmentId: "dept-gone" }], departments, "Personal");
+  it("reads a bot whose team is gone as an org bot", () => {
+    const groups = groupByHome([{ id: "a", teamId: "team-gone" }], teams, "Personal");
     expect(groups[0]).toEqual({
       id: null,
       name: "Personal",
-      bots: [{ id: "a", departmentId: "dept-gone" }],
+      bots: [{ id: "a", teamId: "team-gone" }],
     });
   });
 });
 
 describe("home and size labels", () => {
   it("names the home", () => {
-    expect(homeName("dept-x", departments, "Personal")).toBe("Atelier");
-    expect(homeName(null, departments, "Personal")).toBe("Personal (no department)");
+    expect(homeName("team-x", teams, "Personal")).toBe("Atelier");
+    expect(homeName(null, teams, "Personal")).toBe("Personal (no team)");
   });
 
   it("shows and reads the VM size", () => {
@@ -68,30 +68,30 @@ describe("home and size labels", () => {
 
 describe("collapsed groups", () => {
   it("reads the stored list tolerantly and flips one group", () => {
-    expect([...parseCollapsed('["dept-x",3]')]).toEqual(["dept-x"]);
+    expect([...parseCollapsed('["team-x",3]')]).toEqual(["team-x"]);
     expect([...parseCollapsed("not json")]).toEqual([]);
     expect([...parseCollapsed(null)]).toEqual([]);
-    expect(toggleCollapsed(new Set(["dept-x"]), "dept-x")).toEqual([]);
-    expect(toggleCollapsed(new Set(["dept-x"]), "dept-y")).toEqual(["dept-x", "dept-y"]);
+    expect(toggleCollapsed(new Set(["team-x"]), "team-x")).toEqual([]);
+    expect(toggleCollapsed(new Set(["team-x"]), "team-y")).toEqual(["team-x", "team-y"]);
   });
 });
 
 describe("reach rows", () => {
   const row = {
     reach: {
-      from: { kind: "department" as const, departmentId: "dept-x" },
+      from: { kind: "team" as const, teamId: "team-x" },
       to: { kind: "org" as const },
       surface: "message" as const,
     },
   };
 
   it("reads a reach row as from → to and its surface", () => {
-    expect(reachLine(row, departments, "Personal")).toBe("Atelier → Personal · message");
-    expect(reachLine({}, departments, "Personal")).toBeNull();
+    expect(reachLine(row, teams, "Personal")).toBe("Atelier → Personal · message");
+    expect(reachLine({}, teams, "Personal")).toBeNull();
   });
 
-  it("knows which departments a row touches", () => {
-    expect(reachTouches(row, "dept-x")).toBe(true);
-    expect(reachTouches(row, "dept-y")).toBe(false);
+  it("knows which teams a row touches", () => {
+    expect(reachTouches(row, "team-x")).toBe(true);
+    expect(reachTouches(row, "team-y")).toBe(false);
   });
 });

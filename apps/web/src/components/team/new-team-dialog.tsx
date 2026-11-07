@@ -1,7 +1,7 @@
 /**
- * New department: a name, optional standing Instructions and the VM size
+ * New team: a name, optional standing Instructions and the VM size
  * its bots share. Host access starts off; the owner turns it on from the
- * department page. Opens the new department's page once it exists.
+ * team page. Opens the new team's page once it exists.
  */
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -15,7 +15,7 @@ import { orgApi } from "@/lib/org-api";
 import { readVmInput } from "@/lib/org-view";
 import { VmFields } from "./vm-fields";
 
-export function NewDepartmentDialog({
+export function NewTeamDialog({
   open,
   onOpenChange,
   onCreated,
@@ -45,7 +45,7 @@ export function NewDepartmentDialog({
     setBusy(true);
     setError(null);
     try {
-      const created = await orgApi.createDepartment({
+      const created = await orgApi.createTeam({
         name: name.trim(),
         vm,
         hostAccess: false,
@@ -58,7 +58,7 @@ export function NewDepartmentDialog({
       setInstructions("");
       setHosts("");
       if (onCreated !== undefined) onCreated(created.id);
-      else void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: created.id } });
+      else void navigate({ to: "/crew/team/$teamId", params: { teamId: created.id } });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -68,7 +68,7 @@ export function NewDepartmentDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogTitle>New department</DialogTitle>
+        <DialogTitle>New team</DialogTitle>
         <form
           className="mt-4 flex flex-col gap-3"
           onSubmit={(event) => {
@@ -91,7 +91,7 @@ export function NewDepartmentDialog({
             <Textarea
               rows={4}
               value={instructions}
-              placeholder="Standing rules every bot in this department follows, before its own."
+              placeholder="Standing rules every bot in this team follows, before its own."
               onChange={(event) => setInstructions(event.target.value)}
             />
           </label>
@@ -126,8 +126,8 @@ export function NewDepartmentDialog({
           </label>
           <p className="text-muted-foreground text-xs">
             Host access starts off: its bots can't run things on this computer until you switch it
-            on from the department page. The VM's network is off unless hosts are listed (or full
-            access is on).
+            on from the team page. The VM's network is off unless hosts are listed (or full access
+            is on).
           </p>
           {error !== null && (
             <p role="alert" className="text-destructive text-sm">
@@ -141,7 +141,7 @@ export function NewDepartmentDialog({
                 busy || name.trim() === "" || typeof vm === "string" || hostProblem !== null
               }
             >
-              {busy ? "Creating…" : "Create department"}
+              {busy ? "Creating…" : "Create team"}
             </Button>
           </div>
         </form>

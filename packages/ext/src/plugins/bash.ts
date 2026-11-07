@@ -369,7 +369,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
   const hostSessions = new Map<string, HostSession>();
   const nodeSessions = new Map<string, NodeSession>();
   const stagingOf = (dir: string): string => join(root, "..", "bash-home", scopeHash(dir));
-  // One VM per HOME (org or department) when the mind wires a home-scope
+  // One VM per HOME (org or team) when the mind wires a home-scope
   // resolver: the sandbox is named by the home's scope dir and the bot works
   // in its own folder inside it. Without the resolver, the per-bot VM of
   // older embedders: the bot's dir names the VM and the workspace is /home.
@@ -384,7 +384,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
       ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
       ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
       ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-      ...(world.deptShared === undefined ? {} : { deptShared: world.deptShared }),
+      ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
       ...(world.user === undefined ? {} : { user: world.user }),
       ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
       ...(world.netOpen === undefined ? {} : { netOpen: world.netOpen }),

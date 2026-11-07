@@ -6,6 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { defineDocFamily } from "@earendil-works/pi-durable";
+import { renameLegacyTeams } from "../migrate/teams.ts";
 import { readEnv } from "@spriessen/core";
 import type {
   CoreLine,
@@ -33,9 +34,12 @@ export const MemoryDoc = defineDocFamily<{ records: MemoryRecord[] }, { records:
 export const ownerKey = (owner: string): string => `owner:${owner}`;
 export const profileKey = (owner: string, profileId: string): string =>
   `profile:${owner}:${profileId}`;
-/** A department's shared store: its bots recall it; its admins decide it. */
-export const departmentKey = (owner: string, departmentId: string): string =>
-  `dept:${owner}:${departmentId}`;
+/**
+ * A team's shared store: its bots recall it; its admins decide it. The
+ * `dept:` prefix is a stored doc address from when teams were departments,
+ * kept on purpose (renaming it would orphan every team's shared memory).
+ */
+export const teamKey = (owner: string, teamId: string): string => `dept:${owner}:${teamId}`;
 
 /** The facts store: current, superseded and forgotten facts, with history. */
 export const FactsDoc = defineDocFamily<
@@ -43,9 +47,11 @@ export const FactsDoc = defineDocFamily<
   { facts: MemoryFact[]; migratedAt: number | null }
 >({
   kind: "ultiv.mem.facts",
-  version: 1,
+  // v2: departments became teams (migrate/teams.ts).
+  version: 2,
   scope: "session",
   family: true,
+  migrate: (value) => renameLegacyTeams(value) as never,
   initial: (seed) => seed,
   checkpointWhen: () => true,
 });
@@ -104,9 +110,11 @@ export const ProposalsDoc = defineDocFamily<
   { proposals: MemoryProposal[] }
 >({
   kind: "ultiv.mem.proposals",
-  version: 1,
+  // v2: departments became teams (migrate/teams.ts).
+  version: 2,
   scope: "session",
   family: true,
+  migrate: (value) => renameLegacyTeams(value) as never,
   initial: (seed) => seed,
   checkpointWhen: () => true,
 });
@@ -157,7 +165,7 @@ export const storeChecksum = (facts: readonly { id: string; hash: string }[]): s
 
 export interface NewFactInput {
   readonly id: string;
-  readonly scope: "profile" | "owner" | "department";
+  readonly scope: "profile" | "owner" | "team";
   readonly profile: string | null;
   readonly text: string;
   readonly kind: MemoryFact["kind"];

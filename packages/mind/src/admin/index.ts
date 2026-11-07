@@ -1,17 +1,17 @@
 /**
  * The main bot's admin tools in one list (bot_create, the bot tools and the
- * department tools), and the host app's authorization seam they share with
+ * team tools), and the host app's authorization seam they share with
  * the host-access decision.
  */
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { botCreateTools } from "../profiles/bot-create.ts";
 import { botAdminTools } from "./bot-tools.ts";
 import type { AdminDeps, MindAdmin } from "./common.ts";
-import { departmentTools } from "./department-tools.ts";
+import { teamTools } from "./team-tools.ts";
 
 export * from "./common.ts";
 export * from "./bot-tools.ts";
-export * from "./department-tools.ts";
+export * from "./team-tools.ts";
 
 /**
  * Authorization from the host app. `hostAccess` decides the beyond-VM
@@ -30,5 +30,5 @@ export interface MindAuthz extends MindAdmin {
 export const adminTools = (deps: AdminDeps): readonly ToolRegistration[] => [
   ...botCreateTools(deps),
   ...botAdminTools(deps),
-  ...departmentTools(deps),
+  ...teamTools(deps),
 ];

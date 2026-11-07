@@ -17,7 +17,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { BrainIcon, PlusIcon, UserRoundCogIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { useState } from "react";
-import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NewTeamDialog } from "@/components/team/new-team-dialog";
 import { NewBotDialog } from "@/components/new-bot-dialog";
 import { CrewList } from "@/components/crew-list";
 import { useApp } from "@/lib/app-state";
@@ -60,11 +60,11 @@ export function BotPanel({
   const { sessions, mainId, refreshAll } = useApp();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
-  const [creatingDepartment, setCreatingDepartment] = useState(false);
+  const [creatingTeam, setCreatingTeam] = useState(false);
   const now = useNow(30_000, true);
   const current = sessions.profiles.find((bot) => bot.id === currentId);
-  // "New bot" from a department bot's pill starts in that department.
-  const currentDepartment = current?.departmentId ?? null;
+  // "New bot" from a team bot's pill starts in that team.
+  const currentTeam = current?.teamId ?? null;
 
   const pick = (id: string): void => {
     onClose();
@@ -87,11 +87,11 @@ export function BotPanel({
               variant="menu"
               activeId={currentId}
               onPick={pick}
-              onOpenDepartment={(id) => {
+              onOpenTeam={(id) => {
                 onClose();
-                void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: id } });
+                void navigate({ to: "/crew/team/$teamId", params: { teamId: id } });
               }}
-              onNewDepartment={() => setCreatingDepartment(true)}
+              onNewTeam={() => setCreatingTeam(true)}
               now={now}
             />
             <SheetSeparator />
@@ -123,16 +123,16 @@ export function BotPanel({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
-      <NewDepartmentDialog
-        open={creatingDepartment}
-        onOpenChange={setCreatingDepartment}
+      <NewTeamDialog
+        open={creatingTeam}
+        onOpenChange={setCreatingTeam}
         onCreated={(id) => {
           onClose();
-          void navigate({ to: "/crew/dept/$departmentId", params: { departmentId: id } });
+          void navigate({ to: "/crew/team/$teamId", params: { teamId: id } });
         }}
       />
       <NewBotDialog
-        departmentId={currentDepartment}
+        teamId={currentTeam}
         open={creating}
         onOpenChange={setCreating}
         onCreated={async (id) => {

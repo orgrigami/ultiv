@@ -8,7 +8,7 @@ const step = (name: string, input: unknown, status: ToolStep["status"] = "done")
 describe("admin tool views", () => {
   it("names the admin tools and only them", () => {
     expect(isAdminTool("bot_move")).toBe(true);
-    expect(isAdminTool("department_create")).toBe(true);
+    expect(isAdminTool("team_create")).toBe(true);
     expect(isAdminTool("bots_list")).toBe(false);
   });
 
@@ -36,6 +36,6 @@ describe("admin tool views", () => {
   it("returns null for other tools and words the destructive ones", () => {
     expect(adminView(step("web_search", { query: "x" }))).toBeNull();
     expect(ADMIN_APPROVALS["bot_delete"]?.risky).toBe(true);
-    expect(ADMIN_APPROVALS["department_delete"]?.risky).toBe(true);
+    expect(ADMIN_APPROVALS["team_delete"]?.risky).toBe(true);
   });
 });

@@ -100,8 +100,8 @@ const onApproval = async (
     sessionOfConversation(mind, scope.owner, scope.profileId, conversationId),
     mind.org.view(),
   ]);
-  // The card routes to its approvers (slice 6): a department bot's card
-  // reaches that department's admins and the org owner; an org bot's card
+  // The card routes to its approvers (slice 6): a team bot's card
+  // reaches that team's admins and the org owner; an org bot's card
   // the org owner and org admins. Today that list is the org owner.
   const profile = (await mind.profiles.get(scope.owner, scope.profileId)) ?? null;
   const home = profile !== null ? homeOf(profile) : { kind: "org" as const };

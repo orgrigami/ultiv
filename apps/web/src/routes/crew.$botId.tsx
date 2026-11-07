@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
 import { EditBotDialog } from "@/components/bot-dialog";
 import { BotAvatar } from "@/components/bot-avatar";
-import { HomeLabel } from "@/components/department/bot-home";
+import { HomeLabel } from "@/components/team/bot-home";
 import { MemoryContent } from "@/components/memory/memory-panel";
 import { Page } from "@/components/page";
 import { RoutinesContent } from "@/components/routines-panel";

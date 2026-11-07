@@ -1,7 +1,7 @@
 /**
  * The per-VM network allowlist over REST (phase 4 slice 3): the org owner
- * or an org admin edits the org VM's list; a department admin edits only
- * their own department VM's; a member and a foreign department's admin read
+ * or an org admin edits the org VM's list; a team admin edits only
+ * their own team VM's; a member and a foreign team's admin read
  * as missing items; a malformed entry is a 400; every change writes a
  * `permission` audit row.
  */
@@ -25,7 +25,7 @@ let handle: Awaited<ReturnType<typeof openMind>>;
 let server: Server;
 let base = "";
 let cookie = "";
-let dept = "";
+let team = "";
 
 const call = async (
   method: string,
@@ -54,9 +54,9 @@ beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage(), destroyHomeVm: async () => {} });
   await handle.mind.org.ensureOrg("owner", "Personal", true);
   await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
-  dept = (await handle.mind.org.createDepartment({ name: "Ops" }, "owner")).id;
-  await handle.mind.org.setMember({ accountId: "admin-ops", role: "admin", departmentId: dept });
-  await handle.mind.org.setMember({ accountId: "mate-ops", role: "member", departmentId: dept });
+  team = (await handle.mind.org.createTeam({ name: "Ops" }, "owner")).id;
+  await handle.mind.org.setMember({ accountId: "admin-ops", role: "admin", teamId: team });
+  await handle.mind.org.setMember({ accountId: "mate-ops", role: "member", teamId: team });
   server = createServer(
     createRestHandler({
       mind: handle.mind,
@@ -107,46 +107,46 @@ describe("the org VM's allowlist (org owner or org admin)", () => {
   });
 });
 
-describe("a department VM's allowlist (that department's admin)", () => {
-  it("the org owner sets it; the department's admin edits their own", async () => {
-    const ownerSet = await call("PATCH", `/api/org/departments/${dept}`, {
+describe("a team VM's allowlist (that team's admin)", () => {
+  it("the org owner sets it; the team's admin edits their own", async () => {
+    const ownerSet = await call("PATCH", `/api/org/teams/${team}`, {
       netAllowlist: ["files.pythonhosted.org"],
     });
     expect(ownerSet.status).toBe(200);
-    const adminSet = await callAs("admin-ops", "PATCH", `/api/org/departments/${dept}`, {
+    const adminSet = await callAs("admin-ops", "PATCH", `/api/org/teams/${team}`, {
       netAllowlist: ["pypi.org"],
     });
     expect(adminSet.status).toBe(200);
     expect((adminSet.json as { netAllowlist: string[] }).netAllowlist).toEqual(["pypi.org"]);
   });
 
-  it("another department's admin and a member read as missing items", async () => {
-    const other = (await call("POST", "/api/org/departments", { name: "East" })).json as {
+  it("another team's admin and a member read as missing items", async () => {
+    const other = (await call("POST", "/api/org/teams", { name: "East" })).json as {
       id: string;
     };
     await handle.mind.org.setMember({
       accountId: "admin-east",
       role: "admin",
-      departmentId: other.id,
+      teamId: other.id,
     });
-    const refusal = { status: 404, json: { error: "unknown department" } };
+    const refusal = { status: 404, json: { error: "unknown team" } };
     expect(
-      await callAs("admin-east", "PATCH", `/api/org/departments/${dept}`, { netAllowlist: [] }),
+      await callAs("admin-east", "PATCH", `/api/org/teams/${team}`, { netAllowlist: [] }),
     ).toEqual(refusal);
     expect(
-      await callAs("mate-ops", "PATCH", `/api/org/departments/${dept}`, { netAllowlist: [] }),
+      await callAs("mate-ops", "PATCH", `/api/org/teams/${team}`, { netAllowlist: [] }),
     ).toEqual(refusal);
   });
 
   it("the change is audited", async () => {
     const events = await call("GET", "/api/audit?kind=permission");
     expect((events.json as { name: string }[]).map((event) => event.name)).toContain(
-      "department-net-allowlist",
+      "team-net-allowlist",
     );
   });
 
-  it("a department can be created with its allowlist", async () => {
-    const made = await call("POST", "/api/org/departments", {
+  it("a team can be created with its allowlist", async () => {
+    const made = await call("POST", "/api/org/teams", {
       name: "West",
       netAllowlist: ["registry.npmjs.org"],
     });

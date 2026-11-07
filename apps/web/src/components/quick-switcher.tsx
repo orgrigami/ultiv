@@ -1,5 +1,5 @@
 /**
- * Cmd/Ctrl-K: one box that finds any bot, department, past chat, screen or action and
+ * Cmd/Ctrl-K: one box that finds any bot, team, past chat, screen or action and
  * opens it with Enter. N starts a new chat and ? shows every shortcut. Bare
  * keys never fire while typing in a field. The ranking lives in
  * lib/quick-switch.ts; this file is the dialog and the key listener.
@@ -28,7 +28,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
 import { useNewChat, useOpenChat } from "@/components/app-nav";
-import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
+import { NewTeamDialog } from "@/components/team/new-team-dialog";
 import { useApp } from "@/lib/app-state";
 import { pastChats } from "@/lib/chats";
 import { formatWhen } from "@/lib/format";
@@ -115,7 +115,7 @@ const SCREENS: readonly {
 
 const countBots = (count: number): string => (count === 1 ? "1 bot" : `${count} bots`);
 
-function useEntries(close: () => void, showHelp: () => void, newDepartment: () => void): Entry[] {
+function useEntries(close: () => void, showHelp: () => void, newTeam: () => void): Entry[] {
   const { sessions, mainId } = useApp();
   const { view } = useOrg();
   const navigate = useNavigate();
@@ -165,24 +165,24 @@ function useEntries(close: () => void, showHelp: () => void, newDepartment: () =
       },
     },
     {
-      id: "new-department",
+      id: "new-team",
       kind: "action",
-      title: "New department",
+      title: "New team",
       icon: Building2Icon,
       keywords: ["org", "team", "group"],
       run: () => {
         close();
-        newDepartment();
+        newTeam();
       },
     },
-    ...(view?.departments ?? []).map((department): Entry => ({
-      id: `department-${department.id}`,
-      kind: "department",
-      title: department.name,
-      detail: `${countBots(bots.filter((bot) => bot.departmentId === department.id).length)} · Instructions, VM, access`,
+    ...(view?.teams ?? []).map((team): Entry => ({
+      id: `team-${team.id}`,
+      kind: "team",
+      title: team.name,
+      detail: `${countBots(bots.filter((bot) => bot.teamId === team.id).length)} · Instructions, VM, access`,
       icon: Building2Icon,
-      keywords: ["department"],
-      run: () => go(`/crew/dept/${department.id}`),
+      keywords: ["team"],
+      run: () => go(`/crew/team/${team.id}`),
     })),
     ...SCREENS.map((screen): Entry => ({
       id: `screen-${screen.id}`,
@@ -237,16 +237,16 @@ function Kbd({ children }: { children: React.ReactNode }) {
 function Switcher({
   onClose,
   showHelp,
-  newDepartment,
+  newTeam,
 }: {
   onClose: () => void;
   showHelp: () => void;
-  newDepartment: () => void;
+  newTeam: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
-  const entries = useEntries(onClose, showHelp, newDepartment);
+  const entries = useEntries(onClose, showHelp, newTeam);
   // A few dozen rows: ranking on each render is cheaper than memoising closures.
   const rows = rankItems(entries, query) as Entry[];
   const current = Math.min(active, Math.max(0, rows.length - 1));
@@ -393,7 +393,7 @@ function Floating({
 export function QuickSwitchProvider({ children }: { children: React.ReactNode }) {
   const [switcher, setSwitcher] = useState(false);
   const [help, setHelp] = useState(false);
-  const [newDepartment, setNewDepartment] = useState(false);
+  const [newTeam, setNewTeam] = useState(false);
   const newChat = useNewChat();
   const startNew = useRef(newChat.start);
   startNew.current = newChat.start;
@@ -430,14 +430,14 @@ export function QuickSwitchProvider({ children }: { children: React.ReactNode })
           <Switcher
             onClose={() => setSwitcher(false)}
             showHelp={() => setHelp(true)}
-            newDepartment={() => setNewDepartment(true)}
+            newTeam={() => setNewTeam(true)}
           />
         )}
       </Floating>
       <Floating open={help} onOpenChange={setHelp} label="Keyboard shortcuts">
         <ShortcutSheet />
       </Floating>
-      <NewDepartmentDialog open={newDepartment} onOpenChange={setNewDepartment} />
+      <NewTeamDialog open={newTeam} onOpenChange={setNewTeam} />
     </QuickSwitchContext.Provider>
   );
 }

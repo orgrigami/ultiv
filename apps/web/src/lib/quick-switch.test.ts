@@ -42,11 +42,11 @@ describe("rankItems", () => {
     const rows = rankItems(items, "", { chatsWhenEmpty: 1 });
     expect(rows.map((row) => row.id)).toEqual(["a1", "s1", "s2", "b1", "b2", "c1"]);
   });
-  it("lists departments after screens and before bots, and finds them by name", () => {
-    const withDept: QuickItem[] = [...items, { id: "d1", kind: "department", title: "Atelier" }];
-    const rows = rankItems(withDept, "", { chatsWhenEmpty: 0 });
+  it("lists teams after screens and before bots, and finds them by name", () => {
+    const withTeam: QuickItem[] = [...items, { id: "d1", kind: "team", title: "Atelier" }];
+    const rows = rankItems(withTeam, "", { chatsWhenEmpty: 0 });
     expect(rows.map((row) => row.id)).toEqual(["a1", "s1", "s2", "d1", "b1", "b2"]);
-    expect(rankItems(withDept, "atel")[0]?.id).toBe("d1");
+    expect(rankItems(withTeam, "atel")[0]?.id).toBe("d1");
   });
   it("puts the best title first", () => {
     expect(rankItems(items, "atl")[0]?.id).toBe("b2");

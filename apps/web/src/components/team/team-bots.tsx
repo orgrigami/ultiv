@@ -1,6 +1,6 @@
 /**
- * A department's bots: each opens its profile; "New bot here" starts one
- * in this department; "Move a bot here" brings in a bot from elsewhere
+ * A team's bots: each opens its profile; "New bot here" starts one
+ * in this team; "Move a bot here" brings in a bot from elsewhere
  * (never the main bot: it lives in the org).
  */
 import { useNavigate } from "@tanstack/react-router";
@@ -19,7 +19,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/lib/app-state";
 import { loadOrg } from "@/lib/use-org";
 
-function MoveHere({ departmentId, others }: { departmentId: string; others: ProfileInfo[] }) {
+function MoveHere({ teamId, others }: { teamId: string; others: ProfileInfo[] }) {
   const { refreshAll } = useApp();
   const [pick, setPick] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,7 +29,7 @@ function MoveHere({ departmentId, others }: { departmentId: string; others: Prof
     setBusy(true);
     setError(null);
     try {
-      await api.updateProfile(pick, { departmentId });
+      await api.updateProfile(pick, { teamId });
       setPick("");
       await refreshAll();
       void loadOrg();
@@ -73,13 +73,13 @@ function MoveHere({ departmentId, others }: { departmentId: string; others: Prof
   );
 }
 
-export function DeptBots({ departmentId }: { departmentId: string }) {
+export function TeamBots({ teamId }: { teamId: string }) {
   const { sessions, mainId, refreshAll } = useApp();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const visible = sessions.profiles.filter((bot) => bot.archivedAt === null);
-  const here = visible.filter((bot) => bot.departmentId === departmentId);
-  const others = visible.filter((bot) => bot.departmentId !== departmentId && bot.id !== mainId);
+  const here = visible.filter((bot) => bot.teamId === teamId);
+  const others = visible.filter((bot) => bot.teamId !== teamId && bot.id !== mainId);
   const open = (id: string): void => void navigate({ to: "/crew/$botId", params: { botId: id } });
   return (
     <section aria-label="Bots" className="flex flex-col gap-2">
@@ -97,7 +97,7 @@ export function DeptBots({ departmentId }: { departmentId: string }) {
             No bots here yet. Start one, or move one in.
           </EmptyState>
         ) : (
-          <ul aria-label="Bots in this department" className="divide-border flex flex-col divide-y">
+          <ul aria-label="Bots in this team" className="divide-border flex flex-col divide-y">
             {here.map((bot) => (
               <li key={bot.id}>
                 <RowButton
@@ -117,10 +117,10 @@ export function DeptBots({ departmentId }: { departmentId: string }) {
             ))}
           </ul>
         )}
-        <MoveHere departmentId={departmentId} others={others} />
+        <MoveHere teamId={teamId} others={others} />
       </ListCard>
       <NewBotDialog
-        departmentId={departmentId}
+        teamId={teamId}
         open={creating}
         onOpenChange={setCreating}
         onCreated={async (id) => {

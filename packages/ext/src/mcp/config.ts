@@ -1,8 +1,8 @@
 /**
  * MCP server config, persisted server-side under MCP_DIR (default `var/mcp`,
  * outside git): per HOME, written 0600 (phase 4 slice 7 — the layout: the
- * ORG's file stays `{root}/{owner}/servers.json`; department D's is
- * `{root}/{owner}/dept-<D>/servers.json`). Records hold no secret bytes;
+ * ORG's file stays `{root}/{owner}/servers.json`; team D's is
+ * `{root}/{owner}/team-<D>/servers.json`). Records hold no secret bytes;
  * header values and stdio env vars are vault item ids. `upgradeMcpHomes`
  * stamps legacy rows (a bare `servers.json` pre-dating the field) as org
  * home connectors — repeatable, like `sealWebhookTokens`.
@@ -14,6 +14,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -32,7 +33,7 @@ export type McpServerRecord = McpServerInput & {
   readonly firstUseApproved: boolean;
   /**
    * The home the connector belongs to (slice 7): an opaque home segment the
-   * mind supplies (`org` or `dept-<department id>`); ext judges nothing.
+   * mind supplies (`org` or `team-<team id>`); ext judges nothing.
    * Absent on legacy rows — they read, and upgrade, as the org.
    */
   readonly home?: string;
@@ -47,14 +48,57 @@ export const homeOfRecord = (record: Pick<McpServerRecord, "home">): string =>
 
 /**
  * The home a record's vault lookups run in (phase 4 slice 8): the org, or
- * the department the segment names. The `dept-` prefix is the mind's home
+ * the team the segment names. The `team-` prefix is the mind's home
  * segment convention (slice 7); ext only maps it, it never judges homes.
  */
 export const homeRefOfRecord = (record: Pick<McpServerRecord, "home">): HomeRef => {
   const home = homeOfRecord(record);
-  return home === ORG_HOME || !home.startsWith("dept-")
+  const prefix = [TEAM_SEGMENT, LEGACY_TEAM_SEGMENT].find((p) => home.startsWith(p));
+  return home === ORG_HOME || prefix === undefined
     ? { kind: "org" }
-    : { kind: "department", departmentId: home.slice("dept-".length) };
+    : { kind: "team", teamId: home.slice(prefix.length) };
+};
+
+/** A team home's segment prefix; teams were departments, whose was `dept-`. */
+export const TEAM_SEGMENT = "team-";
+const LEGACY_TEAM_SEGMENT = "dept-";
+
+/**
+ * Teams were called departments: their connector folders were named
+ * `dept-<id>` and their records' `home` said so. Rename each such folder to
+ * `team-<id>` and rewrite its records' home, before anything reads them.
+ * Repeatable (a second run finds nothing); a folder whose new name is
+ * already taken is left alone and reported. Returns [moved, conflicts].
+ */
+export const upgradeMcpTeamHomes = (root: string = mcpDir()): [number, string[]] => {
+  let moved = 0;
+  const conflicts: string[] = [];
+  if (!existsSync(root)) return [0, conflicts];
+  for (const owner of readdirSync(root)) {
+    if (!SAFE_SEGMENT.test(owner)) continue;
+    const dir = resolveInside(root, owner);
+    if (!statSync(dir).isDirectory()) continue;
+    for (const home of readdirSync(dir)) {
+      if (!home.startsWith(LEGACY_TEAM_SEGMENT) || !SAFE_SEGMENT.test(home)) continue;
+      const next = `${TEAM_SEGMENT}${home.slice(LEGACY_TEAM_SEGMENT.length)}`;
+      const from = resolveInside(dir, home);
+      const to = resolveInside(dir, next);
+      if (existsSync(to)) {
+        conflicts.push(`${owner}/${home}`);
+        continue;
+      }
+      renameSync(from, to);
+      const file = join(to, "servers.json");
+      if (existsSync(file)) {
+        const records = JSON.parse(readFileSync(file, "utf8")) as McpServerRecord[];
+        const rewritten = records.map((record) => ({ ...record, home: next }));
+        writeFileSync(`${file}.tmp`, JSON.stringify(rewritten, null, 2), { mode: 0o600 });
+        renameSync(`${file}.tmp`, file);
+      }
+      moved += 1;
+    }
+  }
+  return [moved, conflicts];
 };
 
 export const mcpDir = (): string => {
@@ -116,7 +160,7 @@ export const upgradeMcpHomes = (root: string = mcpDir()): number => {
 };
 
 export const makeMcpConfigStore = (root: string = mcpDir()): McpConfigStore => {
-  // The org's records live in the owner's own servers.json; a department
+  // The org's records live in the owner's own servers.json; a team
   // home's live in a subdirectory named by its segment.
   const homeDirOf = (owner: string, home: string): string =>
     home === ORG_HOME ? resolveInside(root, owner) : resolveInside(root, owner, home);

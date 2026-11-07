@@ -57,7 +57,7 @@ describe("migrateShellTargets (round trip)", () => {
             approvalTimeout: "deny" as const,
           },
           hostAccess: true,
-          departmentId: null,
+          teamId: null,
           createdAt: 0,
           archivedAt: null,
         } as never,

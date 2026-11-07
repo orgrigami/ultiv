@@ -49,7 +49,7 @@ describe("GET /api/tools", () => {
     // The union reaches the late installs (org mutations) and the act's own tools.
     const byName = new Map(catalog.map((tool) => [tool.name, tool.description]));
     expect(byName.get("bot_create")).toBeTruthy();
-    expect(byName.get("departments_list")).toBeTruthy();
+    expect(byName.get("teams_list")).toBeTruthy();
     await handle.close();
   });
 

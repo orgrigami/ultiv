@@ -149,7 +149,7 @@ describe("http_request broker tool", () => {
 
   it("a cross-home grant unlocks a named item; revoking stops it at once", async () => {
     // An item of ANOTHER home: scoped to frank's profile (frank lives in
-    // another department), so eve's scope cannot see it at all.
+    // another team), so eve's scope cannot see it at all.
     const hidden = rig.vault.create("harry", {
       kind: "key",
       name: "Hidden",

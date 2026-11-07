@@ -1,8 +1,8 @@
 /**
  * Connectors per home (phase 4 slice 7): MCP server config moves from per
  * owner to per home. The storage layout: the ORG's file stays
- * `{MCP_DIR}/{owner}/servers.json`; department D's records live at
- * `{MCP_DIR}/{owner}/dept-<D>/servers.json`. `upgradeMcpHomes` stamps legacy
+ * `{MCP_DIR}/{owner}/servers.json`; team D's records live at
+ * `{MCP_DIR}/{owner}/team-<D>/servers.json`. `upgradeMcpHomes` stamps legacy
  * rows as org connectors — repeatable, like `sealWebhookTokens`.
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -41,7 +41,7 @@ const input = (name: string) => ({
 });
 
 describe("the per-home config store", () => {
-  it("files each record under its home: the org at the owner root, a department in its segment", () => {
+  it("files each record under its home: the org at the owner root, a team in its segment", () => {
     const root = tempRoot();
     const store = makeMcpConfigStore(root);
     const org = {
@@ -52,52 +52,52 @@ describe("the per-home config store", () => {
       createdAt: 1,
       firstUseApproved: false,
     };
-    const dept = {
-      ...input("Dept relay"),
-      id: "srv-dept",
+    const team = {
+      ...input("Team relay"),
+      id: "srv-team",
       owner: "owner-a",
-      slug: "deptrelay",
+      slug: "teamrelay",
       createdAt: 2,
       firstUseApproved: false,
-      home: "dept-x",
+      home: "team-x",
     };
     store.put(org);
-    store.put(dept);
+    store.put(team);
     // Layout: the org's file is unchanged ({owner}/servers.json); the
-    // department's is {owner}/dept-x/servers.json.
+    // team's is {owner}/team-x/servers.json.
     expect(existsSync(join(root, "owner-a", "servers.json"))).toBe(true);
-    expect(existsSync(join(root, "owner-a", "dept-x", "servers.json"))).toBe(true);
+    expect(existsSync(join(root, "owner-a", "team-x", "servers.json"))).toBe(true);
     // The owner's list spans homes; a home's list is exactly its own.
-    expect(store.list("owner-a").map((record) => record.id)).toEqual(["srv-org", "srv-dept"]);
+    expect(store.list("owner-a").map((record) => record.id)).toEqual(["srv-org", "srv-team"]);
     expect(store.listHome("owner-a", "org").map((record) => record.id)).toEqual(["srv-org"]);
-    expect(store.listHome("owner-a", "dept-x").map((record) => record.id)).toEqual(["srv-dept"]);
+    expect(store.listHome("owner-a", "team-x").map((record) => record.id)).toEqual(["srv-team"]);
     // get/remove search across homes; the record remembers its home (a row
     // in a home file reads as that home).
-    expect(store.get("owner-a", "srv-dept")?.home).toBe("dept-x");
+    expect(store.get("owner-a", "srv-team")?.home).toBe("team-x");
     expect(store.get("owner-a", "srv-org")?.home).toBe("org");
     expect(homeOfRecord(store.get("owner-a", "srv-org")!)).toBe("org");
-    expect(store.remove("owner-a", "srv-dept")).toBe(true);
-    expect(store.get("owner-a", "srv-dept")).toBeUndefined();
-    expect(store.listHome("owner-a", "dept-x")).toEqual([]);
+    expect(store.remove("owner-a", "srv-team")).toBe(true);
+    expect(store.get("owner-a", "srv-team")).toBeUndefined();
+    expect(store.listHome("owner-a", "team-x")).toEqual([]);
   });
 
   it("keeps a record's home on re-put and never mixes homes with the same id", () => {
     const root = tempRoot();
     const store = makeMcpConfigStore(root);
     const record: McpServerRecord = {
-      ...input("Dept relay"),
+      ...input("Team relay"),
       id: "srv-1",
       owner: "owner-a",
-      slug: "deptrelay",
+      slug: "teamrelay",
       createdAt: 1,
       firstUseApproved: false,
-      home: "dept-x",
+      home: "team-x",
     };
     store.put(record);
     store.put({ ...record, name: "Renamed" });
     expect(store.get("owner-a", "srv-1")?.name).toBe("Renamed");
     expect(store.listHome("owner-a", "org")).toEqual([]);
-    expect(store.listHome("owner-a", "dept-x")).toHaveLength(1);
+    expect(store.listHome("owner-a", "team-x")).toHaveLength(1);
   });
 });
 
@@ -128,14 +128,14 @@ describe("upgradeMcpHomes (existing connectors move to the org)", () => {
         slug: "kept",
         createdAt: 2,
         firstUseApproved: false,
-        home: "dept-x",
+        home: "team-x",
       },
     ]);
     expect(upgradeMcpHomes(root)).toBe(1);
     const records = JSON.parse(readFileSync(path, "utf8")) as McpServerRecord[];
     expect(records.find((record) => record.id === "srv-1")?.home).toBe("org");
-    // The department row is untouched.
-    expect(records.find((record) => record.id === "srv-2")?.home).toBe("dept-x");
+    // The team row is untouched.
+    expect(records.find((record) => record.id === "srv-2")?.home).toBe("team-x");
     // Repeatable: the second run changes nothing.
     expect(upgradeMcpHomes(root)).toBe(0);
     // A missing dir is not an error.
@@ -169,11 +169,11 @@ describe("the manager stamps the home it is given", () => {
       vaultRoot: null,
     });
     try {
-      const dept = manager.add("owner-a", input("Dept relay"), "dept-y");
-      expect(dept.home).toBe("dept-y");
+      const team = manager.add("owner-a", input("Team relay"), "team-y");
+      expect(team.home).toBe("team-y");
       const org = manager.add("owner-a", input("Org relay"));
       expect(org.home).toBeUndefined();
-      expect(manager.view("owner-a", dept.id)?.record.home).toBe("dept-y");
+      expect(manager.view("owner-a", team.id)?.record.home).toBe("team-y");
     } finally {
       await manager.close();
     }

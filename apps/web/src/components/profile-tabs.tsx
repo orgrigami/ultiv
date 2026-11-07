@@ -24,7 +24,7 @@ import { HostAccessSwitch } from "@/components/org-admin";
 import { EffectiveAccess } from "@/components/effective-access";
 import { EditBotDialog } from "@/components/bot-dialog";
 import { APPROVAL_MODE_HELP, AutoApproveField } from "@/components/bot-fields";
-import { BotHomeField } from "@/components/department/bot-home";
+import { BotHomeField } from "@/components/team/bot-home";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { NavCard } from "@/components/nav-card";
 import { Mark } from "@/components/state-mark";
@@ -158,11 +158,11 @@ export function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: Profile
           <ManageRow
             title="Make main bot"
             detail={
-              bot.departmentId
+              bot.teamId
                 ? "The main bot lives in the org: move this bot to the org first."
                 : "Opens first when you start."
             }
-            disabled={Boolean(bot.departmentId)}
+            disabled={Boolean(bot.teamId)}
             onClick={() => void act(() => api.setMain(bot.id))}
           />
         )}
@@ -279,7 +279,7 @@ export function AccessTab({ bot }: { bot: ProfileInfo }) {
       <dl className="bg-card divide-border divide-y rounded-xl border">
         <Fact label="Sandboxed shell">
           {sandboxed
-            ? "On. Commands run in this bot's home's VM — the org VM for an org bot, its department's VM otherwise — as its own Linux user."
+            ? "On. Commands run in this bot's home's VM — the org VM for an org bot, its team's VM otherwise — as its own Linux user."
             : "Off. Only the host shell is available, and it always asks you."}
         </Fact>
         <Fact label="Tool list">

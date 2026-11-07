@@ -1,8 +1,8 @@
 /**
  * The home scope seam (phase 4 slice 2): one VM per home. The org and each
- * department get their own microVM; a bot's `bash` runs in its home's VM,
+ * team get their own microVM; a bot's `bash` runs in its home's VM,
  * inside the bot's own folder. The scope dir is a stable string under the
- * artifacts root — `{root}/{owner}/_home/org` or `.../_home/dept-<id>` —
+ * artifacts root — `{root}/{owner}/_home/org` or `.../_home/team-<id>` —
  * that ext consumes verbatim (`sandboxNameOf` on it names the VM, keeping
  * the `ultiv-` prefix); ext never learns org concepts.
  *
@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { rmSync } from "node:fs";
 import { Effect } from "effect";
 import type { HomeRef, ProfileInfo } from "@spriessen/contracts";
-import { DEFAULT_DEPT_SHARED_CAP_BYTES, DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
+import { DEFAULT_TEAM_SHARED_CAP_BYTES, DEFAULT_ORG_SHARED_CAP_BYTES } from "@spriessen/contracts";
 import {
   artifactsDir,
   botFolderName,
@@ -34,9 +34,9 @@ import { readProfiles } from "../profiles/docs.ts";
 import { homeOf } from "./model.ts";
 import { readOrgState } from "./service.ts";
 
-/** The stable scope dir naming one home's VM: {root}/{owner}/_home/{org|<departmentId>}. */
+/** The stable scope dir naming one home's VM: {root}/{owner}/_home/{org|<teamId>}. */
 export const homeScopeDir = (root: string, owner: string, home: HomeRef): string =>
-  join(root, owner, "_home", home.kind === "org" ? "org" : home.departmentId);
+  join(root, owner, "_home", home.kind === "org" ? "org" : home.teamId);
 
 /**
  * The home scope of one bot: its home's scope dir, the home's shared-folder
@@ -48,47 +48,45 @@ export const homeScopeOfProfile =
   (converse: ConverseService, root: string) =>
   async (
     owner: string,
-    profile: Pick<ProfileInfo, "id" | "departmentId">,
+    profile: Pick<ProfileInfo, "id" | "teamId">,
   ): Promise<HomeScope | undefined> => {
     const state = await readOrgState(converse);
     if (state.org === null) return undefined;
     const home = homeOf(profile);
-    const department =
-      home.kind === "department"
-        ? state.departments.find((row) => row.id === home.departmentId)
-        : undefined;
-    const sharedGid = home.kind === "org" ? state.org.sharedGid : department?.sharedGid;
+    const team =
+      home.kind === "team" ? state.teams.find((row) => row.id === home.teamId) : undefined;
+    const sharedGid = home.kind === "org" ? state.org.sharedGid : team?.sharedGid;
     // The home's network allowlist (slice 3): the org's for the org VM, the
-    // department's for its VM — both defaulting to [] (fully offline). A
+    // team's for its VM — both defaulting to [] (fully offline). A
     // home with full network access (`netOpen`) ignores the list entirely.
     const netAllowlist =
-      home.kind === "org" ? (state.org.netAllowlist ?? []) : (department?.netAllowlist ?? []);
-    const netOpen = home.kind === "org" ? state.org.netOpen === true : department?.netOpen === true;
+      home.kind === "org" ? (state.org.netAllowlist ?? []) : (team?.netAllowlist ?? []);
+    const netOpen = home.kind === "org" ? state.org.netOpen === true : team?.netOpen === true;
     // The home's stored VM size (slice 4): the cpus and memory its VM is
-    // CREATED with — the org's or department's stored settings, defaults
+    // CREATED with — the org's or team's stored settings, defaults
     // 1 CPU / 512 MiB applied in ext when a legacy row has none.
-    const vm = home.kind === "org" ? state.org.vm : department?.vm;
+    const vm = home.kind === "org" ? state.org.vm : team?.vm;
     const user = await botUserOf(converse)(root, owner, profile.id);
     // The org-wide folder (slice 2c): one host-side store per org, mounted
-    // into EVERY VM — read-write in the org VM, read-only in a department
-    // VM (enforced by the mount). Departments are a boundary again; this
+    // into EVERY VM — read-write in the org VM, read-only in a team
+    // VM (enforced by the mount). Teams are a boundary again; this
     // folder and messaging are the only paths between homes.
     const orgShared = {
       hostDir: join(root, owner, "_shared", "org"),
       gid: state.org.orgSharedGid ?? 10_001,
-      readOnly: home.kind === "department",
+      readOnly: home.kind === "team",
     };
-    // The department's own durable store (slice 2d): backs BOTH its VM's
-    // /home/shared and the org VM's /home/dept-shared/<id>. One store, two
+    // The team's own durable store (slice 2d): backs BOTH its VM's
+    // /home/shared and the org VM's /home/team-shared/<id>. One store, two
     // mounts, no copy.
-    const deptStoreDir = (departmentId: string): string => join(root, owner, "_dept", departmentId);
-    const sharedStore = home.kind === "department" ? deptStoreDir(home.departmentId) : undefined;
-    // The org VM's department folders (slice 2d), ORG bots only: the parent
-    // directory of every department store, the stored departments (a
+    const teamStoreDir = (teamId: string): string => join(root, owner, "_team", teamId);
+    const sharedStore = home.kind === "team" ? teamStoreDir(home.teamId) : undefined;
+    // The org VM's team folders (slice 2d), ORG bots only: the parent
+    // directory of every team store, the stored teams (a
     // create/delete reconciles /etc/group instead of restarting the VM),
     // and the org bots that already have a Linux user (never allocating —
     // a user is created at its bot's first use, never pre-created).
-    let deptShared: HomeScope["deptShared"];
+    let teamShared: HomeScope["teamShared"];
     if (home.kind === "org") {
       const profiles = await Effect.runPromise(readProfiles(converse));
       const orgBots = profiles.filter((row) => homeOf(row).kind === "org");
@@ -98,28 +96,28 @@ export const homeScopeOfProfile =
           users.push(botUserName(bot.id));
         }
       }
-      deptShared = {
-        parentDir: join(root, owner, "_dept"),
-        depts: state.departments
+      teamShared = {
+        parentDir: join(root, owner, "_team"),
+        teams: state.teams
           .filter((row) => row.sharedGid !== undefined)
           .map((row) => ({ id: row.id, gid: row.sharedGid as number })),
         users,
       };
     }
     // Shared-folder caps (fix 2), enforced at the tool path in ext: the
-    // org-shared cap where it is writable, the department's own store cap,
-    // and — org VM — every department store's cap.
+    // org-shared cap where it is writable, the team's own store cap,
+    // and — org VM — every team store's cap.
     const caps: NonNullable<HomeScope["caps"]> = {
       orgShared: state.org.orgSharedCapBytes ?? DEFAULT_ORG_SHARED_CAP_BYTES,
-      ...(department === undefined
+      ...(team === undefined
         ? {}
-        : { shared: department.sharedCapBytes ?? DEFAULT_DEPT_SHARED_CAP_BYTES }),
+        : { shared: team.sharedCapBytes ?? DEFAULT_TEAM_SHARED_CAP_BYTES }),
       ...(home.kind === "org"
         ? {
-            dept: Object.fromEntries(
-              state.departments.map((row) => [
+            team: Object.fromEntries(
+              state.teams.map((row) => [
                 row.id,
-                row.sharedCapBytes ?? DEFAULT_DEPT_SHARED_CAP_BYTES,
+                row.sharedCapBytes ?? DEFAULT_TEAM_SHARED_CAP_BYTES,
               ]),
             ),
           }
@@ -131,7 +129,7 @@ export const homeScopeOfProfile =
       ...(sharedGid === undefined ? {} : { sharedGid }),
       orgShared,
       ...(sharedStore === undefined ? {} : { sharedStore }),
-      ...(deptShared === undefined ? {} : { deptShared }),
+      ...(teamShared === undefined ? {} : { teamShared }),
       user,
       netAllowlist,
       netOpen,
@@ -181,12 +179,12 @@ export const defaultRetireBotUser =
   };
 
 /**
- * The default department-group reconciliation (slice 2d): run ext's
+ * The default team-group reconciliation (slice 2d): run ext's
  * reconcile script inside the RUNNING org VM. A stopped VM is skipped — its
- * next boot reconciles from the stored departments anyway. Best effort,
+ * next boot reconciles from the stored teams anyway. Best effort,
  * never throws.
  */
-export const defaultReconcileDeptGroups = (): ((
+export const defaultReconcileTeamGroups = (): ((
   owner: string,
   script: string,
 ) => Promise<void>) => {
@@ -197,17 +195,14 @@ export const defaultReconcileDeptGroups = (): ((
 };
 
 /**
- * The default department-store deletion (slice 2d, F-D9 default): the
- * store is deleted with the department's purge. Best effort; archiving is
+ * The default team-store deletion (slice 2d, F-D9 default): the
+ * store is deleted with the team's purge. Best effort; archiving is
  * not decided.
  */
-export const defaultDeleteDeptStore = (): ((
-  owner: string,
-  departmentId: string,
-) => Promise<void>) => {
+export const defaultDeleteTeamStore = (): ((owner: string, teamId: string) => Promise<void>) => {
   const root = artifactsDir();
-  return (owner, departmentId) => {
-    rmSync(join(root, owner, "_dept", departmentId), { recursive: true, force: true });
+  return (owner, teamId) => {
+    rmSync(join(root, owner, "_team", teamId), { recursive: true, force: true });
     return Promise.resolve();
   };
 };

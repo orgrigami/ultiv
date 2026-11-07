@@ -10,7 +10,7 @@ import { useState } from "react";
 import { BotAvatar } from "@/components/bot-avatar";
 import { Mark } from "@/components/state-mark";
 import { BotPanel } from "@/components/bot-panel";
-import { useHomeWord } from "@/components/department/bot-home";
+import { useHomeWord } from "@/components/team/bot-home";
 import { useApp } from "@/lib/app-state";
 import { usePhoneSheet } from "@/components/ui/menu-sheet";
 
@@ -28,8 +28,8 @@ export function BotSwitcher({
 }) {
   const { attention, busy, sessions } = useApp();
   const bot = sessions.profiles.find((one) => one.id === currentId);
-  // With departments, the pill says where this bot lives.
-  const home = useHomeWord(bot?.departmentId, bot !== undefined);
+  // With teams, the pill says where this bot lives.
+  const home = useHomeWord(bot?.teamId, bot !== undefined);
   const [open, setOpen] = useState(false);
   const phone = usePhoneSheet();
   // Another bot's gate may need the owner; this chat's own card handles its own.

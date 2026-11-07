@@ -1,19 +1,19 @@
 /**
- * The main bot's department tools: `departments_list` (every home with its
- * bots), `department_create`, `department_update` (rename, Instructions, VM
- * size) and `department_delete`. Main bot only (see common.ts); updates and
- * deletes park an owner card first, since every bot in the department
+ * The main bot's team tools: `teams_list` (every home with its
+ * bots), `team_create`, `team_update` (rename, Instructions, VM
+ * size) and `team_delete`. Main bot only (see common.ts); updates and
+ * deletes park an owner card first, since every bot in the team
  * follows its Instructions. Creation runs without a card when the MAIN bot
  * acts (ownerUnlessMain — assembling crew is its job); any other
- * may-administer actor gets the card. A delete warns first: a department
+ * may-administer actor gets the card. A delete warns first: a team
  * that still has bots is refused with their names and the way out (move
- * them to the org with bot_move, or export them on the department page).
+ * them to the org with bot_move, or export them on the team page).
  * Host-access switches are never read from the model.
  */
 import { Duration } from "effect";
 import { Type } from "typebox";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import type { DepartmentInfo, ProfileInfo } from "@spriessen/contracts";
+import type { TeamInfo, ProfileInfo } from "@spriessen/contracts";
 import { defineTool } from "@spriessen/ext";
 import { withApproval } from "../approvals.ts";
 import { withAudit } from "../audit/audit.ts";
@@ -24,17 +24,17 @@ import {
   auditChange,
   failed,
   orgOf,
-  resolveDepartment,
+  resolveTeam,
   vmOf,
   type AdminDeps,
 } from "./common.ts";
 
-export const DEPARTMENTS_LIST = "departments_list";
-export const DEPARTMENT_CREATE = "department_create";
-export const DEPARTMENT_UPDATE = "department_update";
-export const DEPARTMENT_DELETE = "department_delete";
+export const TEAMS_LIST = "teams_list";
+export const TEAM_CREATE = "team_create";
+export const TEAM_UPDATE = "team_update";
+export const TEAM_DELETE = "team_delete";
 
-const vmWords = (vm: DepartmentInfo["vm"]): string => `${vm.cpus} CPU · ${vm.memoryMiB} MiB`;
+const vmWords = (vm: TeamInfo["vm"]): string => `${vm.cpus} CPU · ${vm.memoryMiB} MiB`;
 
 const firstLine = (text: string): string => {
   const line = text.split(/\r?\n/).find((entry) => entry.trim() !== "") ?? "";
@@ -51,22 +51,22 @@ const botWords = (bots: readonly ProfileInfo[], mainId: string | null): string =
         )
         .join(", ");
 
-/** The whole org as lines: the org's own bots, then each department with its bots. */
+/** The whole org as lines: the org's own bots, then each team with its bots. */
 export const homesText = (
   orgName: string,
-  departments: readonly DepartmentInfo[],
+  teams: readonly TeamInfo[],
   bots: readonly ProfileInfo[],
   mainId: string | null,
 ): string => {
-  const known = new Set(departments.map((row) => row.id));
-  const orgBots = bots.filter((bot) => !known.has(bot.departmentId ?? ""));
+  const known = new Set(teams.map((row) => row.id));
+  const orgBots = bots.filter((bot) => !known.has(bot.teamId ?? ""));
   const lines = [`The org "${orgName}": ${botWords(orgBots, mainId)}`];
-  for (const dept of departments) {
-    const own = bots.filter((bot) => bot.departmentId === dept.id);
-    const said = firstLine(dept.instructions);
+  for (const team of teams) {
+    const own = bots.filter((bot) => bot.teamId === team.id);
+    const said = firstLine(team.instructions);
     lines.push(
-      `Department "${dept.name}" (id ${dept.id}; VM ${vmWords(dept.vm)}; ` +
-        `host access ${dept.hostAccess ? "on" : "off"}; ` +
+      `Team "${team.name}" (id ${team.id}; VM ${vmWords(team.vm)}; ` +
+        `host access ${team.hostAccess ? "on" : "off"}; ` +
         `Instructions: ${said === "" ? "none" : `"${said}"`}): ${botWords(own, mainId)}`,
     );
   }
@@ -75,11 +75,11 @@ export const homesText = (
 
 const listTool = (deps: AdminDeps) =>
   defineTool({
-    name: DEPARTMENTS_LIST,
+    name: TEAMS_LIST,
     description:
-      "List the org's homes: the org itself and every department, each with its bots, VM size, " +
+      "List the org's homes: the org itself and every team, each with its bots, VM size, " +
       "host-access state and first line of Instructions. Main bot only. Use it before " +
-      "creating, moving or deleting so you name the right department.",
+      "creating, moving or deleting so you name the right team.",
     // Read-only, so script-callable: main-bot-only stays in execute (adminOf).
     parameters: Type.Object({}),
     replay: "safe",
@@ -89,19 +89,19 @@ const listTool = (deps: AdminDeps) =>
       const view = await orgOf(deps).view();
       const bots = await deps.profiles.list(me.owner);
       const mainId = await deps.profiles.mainOf(me.owner);
-      return textReply(homesText(view.org?.name ?? "Personal", view.departments, bots, mainId));
+      return textReply(homesText(view.org?.name ?? "Personal", view.teams, bots, mainId));
     },
   });
 
 const createTool = (deps: AdminDeps) =>
   defineTool({
-    name: DEPARTMENT_CREATE,
+    name: TEAM_CREATE,
     description:
-      "Create a department: a home for bots with its own Instructions (every bot in it follows " +
+      "Create a team: a home for bots with its own Instructions (every bot in it follows " +
       "them, before its own) and VM size. Main bot only. Host access starts off; only the " +
       "owner can turn it on. Then move or create bots into it.",
     parameters: Type.Object({
-      name: Type.String({ minLength: 1, maxLength: 80, description: "The department's name." }),
+      name: Type.String({ minLength: 1, maxLength: 80, description: "The team's name." }),
       instructions: Type.Optional(
         Type.String({ maxLength: 16_000, description: "Standing Instructions for its bots." }),
       ),
@@ -124,7 +124,7 @@ const createTool = (deps: AdminDeps) =>
         const name = args.name.trim();
         if (name === "") return failed("created", "the name is empty");
         const vm = vmOf(args.cpus, args.memoryMiB, { cpus: 1, memoryMiB: 512 });
-        const dept = await orgOf(deps).createDepartment(
+        const team = await orgOf(deps).createTeam(
           {
             name,
             hostAccess: false,
@@ -133,9 +133,9 @@ const createTool = (deps: AdminDeps) =>
           },
           me.owner,
         );
-        auditChange(deps, me.id, "department-created");
+        auditChange(deps, me.id, "team-created");
         return textReply(
-          `created department "${dept.name}" (id ${dept.id}; VM ${vmWords(dept.vm)}; host access off). ` +
+          `created team "${team.name}" (id ${team.id}; VM ${vmWords(team.vm)}; host access off). ` +
             "It is empty: move bots in with bot_move or create one there with bot_create.",
         );
       } catch (cause) {
@@ -146,13 +146,13 @@ const createTool = (deps: AdminDeps) =>
 
 const updateTool = (deps: AdminDeps) =>
   defineTool({
-    name: DEPARTMENT_UPDATE,
+    name: TEAM_UPDATE,
     description:
-      "Change a department: rename it, replace its Instructions, or resize its VM. Main bot " +
+      "Change a team: rename it, replace its Instructions, or resize its VM. Main bot " +
       "only; the owner confirms on a card. Give only the fields to change. Instructions " +
       "replace the old text entirely, so include what should stay. Host access is the owner's.",
     parameters: Type.Object({
-      department: Type.String({ description: "The department's name or id." }),
+      team: Type.String({ description: "The team's name or id." }),
       name: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "A new name." })),
       instructions: Type.Optional(
         Type.String({ maxLength: 16_000, description: "The full new Instructions text." }),
@@ -165,18 +165,18 @@ const updateTool = (deps: AdminDeps) =>
       const me = await adminOf(deps, String(api.conversationId));
       if (typeof me === "string") return failed("changed", me);
       try {
-        const dept = await resolveDepartment(deps, args.department);
-        const vm = vmOf(args.cpus, args.memoryMiB, dept.vm);
+        const team = await resolveTeam(deps, args.team);
+        const vm = vmOf(args.cpus, args.memoryMiB, team.vm);
         const name = args.name?.trim();
         if (name === "") return failed("changed", "the new name is empty");
-        const next = await orgOf(deps).updateDepartment(dept.id, {
+        const next = await orgOf(deps).updateTeam(team.id, {
           ...(name !== undefined ? { name } : {}),
           ...(args.instructions !== undefined ? { instructions: args.instructions } : {}),
           ...(vm !== undefined ? { vm } : {}),
         });
-        auditChange(deps, me.id, "department-updated");
+        auditChange(deps, me.id, "team-updated");
         return textReply(
-          `updated department "${next.name}" (VM ${vmWords(next.vm)}). ` +
+          `updated team "${next.name}" (VM ${vmWords(next.vm)}). ` +
             "Its bots follow the new Instructions from their next turn.",
         );
       } catch (cause) {
@@ -185,53 +185,53 @@ const updateTool = (deps: AdminDeps) =>
     },
   });
 
-/** The warn-first check: a department with bots is refused with their names and the way out. */
+/** The warn-first check: a team with bots is refused with their names and the way out. */
 export const deleteProblem = async (deps: AdminDeps, owner: string, ref: string) => {
-  const dept = await resolveDepartment(deps, ref);
-  const bots = (await deps.profiles.list(owner)).filter((bot) => bot.departmentId === dept.id);
-  if (bots.length === 0) return { dept, problem: undefined };
+  const team = await resolveTeam(deps, ref);
+  const bots = (await deps.profiles.list(owner)).filter((bot) => bot.teamId === team.id);
+  if (bots.length === 0) return { team, problem: undefined };
   return {
-    dept,
+    team,
     problem:
-      `department "${dept.name}" still has ${bots.length} bot(s): ${bots.map((bot) => bot.name).join(", ")}. ` +
+      `team "${team.name}" still has ${bots.length} bot(s): ${bots.map((bot) => bot.name).join(", ")}. ` +
       'Move each to the org first (bot_move with to "org"), or ask the owner to export them ' +
-      "from the department page before deleting them",
+      "from the team page before deleting them",
   };
 };
 
 const deleteTool = (deps: AdminDeps) =>
   defineTool({
-    name: DEPARTMENT_DELETE,
+    name: TEAM_DELETE,
     description:
-      "Delete an empty department. Main bot only; the owner confirms on a card. A department " +
+      "Delete an empty team. Main bot only; the owner confirms on a card. A team " +
       "that still has bots is refused with their names: move them to the org with bot_move " +
       "first (nothing is deleted with it but its Instructions, members and grants).",
     parameters: Type.Object({
-      department: Type.String({ description: "The department's name or id." }),
+      team: Type.String({ description: "The team's name or id." }),
     }),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
       if (typeof me === "string") return failed("deleted", me);
       try {
-        const { dept, problem } = await deleteProblem(deps, me.owner, args.department);
+        const { team, problem } = await deleteProblem(deps, me.owner, args.team);
         if (problem !== undefined) return failed("deleted", problem);
-        await orgOf(deps).removeDepartment(dept.id);
-        auditChange(deps, me.id, "department-removed");
-        return textReply(`deleted department "${dept.name}".`);
+        await orgOf(deps).removeTeam(team.id);
+        auditChange(deps, me.id, "team-removed");
+        return textReply(`deleted team "${team.name}".`);
       } catch (cause) {
         return failed("deleted", cause);
       }
     },
   });
 
-/** Refused before the card: not the main bot, an unknown department, or one with bots. */
+/** Refused before the card: not the main bot, an unknown team, or one with bots. */
 const deleteGuard = (deps: AdminDeps) => async (args: unknown, api: unknown) => {
   const refused = await adminGuard(deps)(args, api);
   if (refused !== undefined) return refused;
   const me = deps.profiles.profileOf(String((api as { conversationId: unknown }).conversationId));
   try {
-    const ref = String((args as { department?: unknown }).department ?? "");
+    const ref = String((args as { team?: unknown }).team ?? "");
     const { problem } = await deleteProblem(deps, me?.owner ?? "", ref);
     return problem === undefined ? undefined : `not deleted: ${problem}`;
   } catch (cause) {
@@ -239,7 +239,7 @@ const deleteGuard = (deps: AdminDeps) => async (args: unknown, api: unknown) => 
   }
 };
 
-export const departmentTools = (deps: AdminDeps): readonly ToolRegistration[] => {
+export const teamTools = (deps: AdminDeps): readonly ToolRegistration[] => {
   const profileOf = (conversationId: string): string | null =>
     deps.profiles.profileOf(conversationId)?.id ?? null;
   const card = { owner: true, timeout: Duration.minutes(10) } as const;

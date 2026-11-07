@@ -1,13 +1,13 @@
 /**
  * The home invariants around the main bot: the main bot is an org bot
- * (its home is the org, never a department), and the org always keeps at
+ * (its home is the org, never a team), and the org always keeps at
  * least one active bot. One pure check, asked by every write that could
  * break either (create, move, archive, remove, set main) — the REST routes
  * and the main bot's tools both reach it through the profiles service.
  */
 import type { ProfileInfo } from "@spriessen/contracts";
 
-type Row = Pick<ProfileInfo, "id" | "owner" | "departmentId" | "archivedAt">;
+type Row = Pick<ProfileInfo, "id" | "owner" | "teamId" | "archivedAt">;
 
 export type HomeChange =
   | { readonly kind: "create"; readonly to: string | null }
@@ -16,8 +16,8 @@ export type HomeChange =
   | { readonly kind: "remove"; readonly id: string }
   | { readonly kind: "set-main"; readonly id: string };
 
-const inOrg = (row: Pick<Row, "departmentId">): boolean =>
-  row.departmentId === null || row.departmentId === undefined || row.departmentId === "";
+const inOrg = (row: Pick<Row, "teamId">): boolean =>
+  row.teamId === null || row.teamId === undefined || row.teamId === "";
 
 /** Why this change would break a home invariant, in words the owner can act on; null when fine. */
 export const homeRuleProblem = (
@@ -32,7 +32,7 @@ export const homeRuleProblem = (
   switch (change.kind) {
     case "create":
       return change.to !== null && orgBots.length === 0
-        ? "the first bot lives in the org (it becomes the main bot); create it without a department"
+        ? "the first bot lives in the org (it becomes the main bot); create it without a team"
         : null;
     case "move":
       if (change.to === null) return null;

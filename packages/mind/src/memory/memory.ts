@@ -348,7 +348,7 @@ export const memoryService = (deps: {
       // sibling's. ONE ranking over the combined pool, so the limit and the
       // token budget hold across the merge and owner facts compete on score
       // instead of being appended after the profile's (they crowded out).
-      // A department bot's shared store joins the pool through extraStores.
+      // A team bot's shared store joins the pool through extraStores.
       const stores = [profileKey(owner, profileId), ownerKey(owner), ...(opts.extraStores ?? [])];
       const read = await Promise.all(
         stores.map(async (key) => ({
@@ -433,7 +433,7 @@ export const memoryService = (deps: {
         }),
       );
     },
-    // Shared department memory (slice 9): propose, read, decide.
+    // Shared team memory (slice 9): propose, read, decide.
     ...shareOps(converse),
   };
   return service;

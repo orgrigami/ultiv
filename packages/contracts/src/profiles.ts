@@ -119,10 +119,10 @@ export const ProfileInfoSchema = Type.Object({
   createdAt: Type.Number(),
   archivedAt: Type.Union([Type.Number(), Type.Null()]),
   /**
-   * The bot's home: one department id, or null for an org bot (the org
+   * The bot's home: one team id, or null for an org bot (the org
    * itself). Exactly one home, always; absent on pre-org rows reads as null.
    */
-  departmentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  teamId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   /**
    * The bot's own host-access switch (tools that run on the server's own
    * machine). Effective access ANDs it with its home's levels. Absent on
@@ -148,8 +148,8 @@ export const ProfileCreateSchema = Type.Object({
   policies: Type.Optional(ProfilePoliciesSchema),
   /** Spawn-time first turn under the bot's own identity (default true). */
   onboard: Type.Optional(Type.Boolean()),
-  /** The department to place the bot in; omitted or null = an org bot. */
-  departmentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /** The team to place the bot in; omitted or null = an org bot. */
+  teamId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   /** The bot's own host-access switch; org owner only may set it (F3). */
   hostAccess: Type.Optional(Type.Boolean()),
 });

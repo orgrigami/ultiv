@@ -183,7 +183,7 @@ describe("changes bots make through tools", () => {
 
   it("org changes over REST refresh the crew", () => {
     expect(liveKindsFor("PATCH", "/api/org")).toEqual(["profiles", "sessions"]);
-    expect(liveKindsFor("POST", "/api/org/departments")).toEqual(["profiles", "sessions"]);
+    expect(liveKindsFor("POST", "/api/org/teams")).toEqual(["profiles", "sessions"]);
   });
 });
 

@@ -4,6 +4,7 @@
  * normalization, policy/timezone defaults, and the registry read/write
  * helpers the profiles service composes.
  */
+import { renameLegacyTeams } from "../migrate/teams.ts";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { Type } from "typebox";
@@ -15,21 +16,25 @@ import { normalizeRef } from "../providers/refs.ts";
 /** Registry doc: every profile row, owner-partitioned like the sessions doc. */
 export const ProfilesDoc = defineDoc<{ profiles: ProfileInfo[] }>({
   kind: "ultiv.profiles",
-  version: 2,
+  version: 3,
   scope: "session",
   initial: () => ({ profiles: [] }),
   // v1 rows carry the pre-permissive default (canInitiate: []) — which
   // blocked even owner-instructed relays. Empty or missing lists become the
-  // open default; a deliberately set non-empty list is preserved.
-  migrate: (value) => {
+  // open default; a deliberately set non-empty list is preserved. Only v1
+  // rows: from v2 on, an empty list is the owner's deliberate lock.
+  // v3: departments became teams (migrate/teams.ts): `departmentId` and the
+  // old team tool names in tool lists and approval rules.
+  migrate: (value, fromVersion) => {
     const stored = (value.profiles ?? []) as unknown as ReadonlyArray<Record<string, unknown>>;
     const profiles = stored.map((row) => {
+      if (fromVersion >= 2) return row;
       const policies = (row.policies ?? {}) as Record<string, unknown>;
       const list = policies.canInitiate;
       const canInitiate = Array.isArray(list) && list.length > 0 ? list : ["*"];
       return { ...row, policies: { ...defaultPolicies(), ...policies, canInitiate } };
     });
-    return { profiles } as unknown as { profiles: ProfileInfo[] };
+    return renameLegacyTeams({ profiles }) as unknown as { profiles: ProfileInfo[] };
   },
   checkpointWhen: () => true,
 });
@@ -157,7 +162,7 @@ export const readSessions = (converse: ConverseService) =>
 const withModelRef = (profile: ProfileInfo): ProfileInfo => {
   const normalized: ProfileInfo = {
     ...profile,
-    departmentId: profile.departmentId ?? null,
+    teamId: profile.teamId ?? null,
     hostAccess: profile.hostAccess ?? false,
   };
   return normalized.model === null

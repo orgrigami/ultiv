@@ -28,13 +28,13 @@ export interface HomeWorld {
   readonly sharedGid?: number;
   /**
    * The org-wide folder (slice 2c): mounted at `/home/org-shared` in every
-   * VM, read-write for an org bot, read-only for a department bot.
+   * VM, read-write for an org bot, read-only for a team bot.
    */
   readonly orgShared?: HomeScope["orgShared"];
-  /** The department's durable store backing `/home/shared` (slice 2d). */
+  /** The team's durable store backing `/home/shared` (slice 2d). */
   readonly sharedStore?: string;
-  /** The org VM's department folders (slice 2d), org bots only. */
-  readonly deptShared?: HomeScope["deptShared"];
+  /** The org VM's team folders (slice 2d), org bots only. */
+  readonly teamShared?: HomeScope["teamShared"];
   /** The bot's own Linux user in the VM (slice 2b), when the home gives one. */
   readonly user?: SandboxUser;
   /** The home's network allowlist (slice 3): named hosts, everything else denied. */
@@ -65,7 +65,7 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     ...(home.sharedGid === undefined ? {} : { sharedGid: home.sharedGid }),
     ...(home.orgShared === undefined ? {} : { orgShared: home.orgShared }),
     ...(home.sharedStore === undefined ? {} : { sharedStore: home.sharedStore }),
-    ...(home.deptShared === undefined ? {} : { deptShared: home.deptShared }),
+    ...(home.teamShared === undefined ? {} : { teamShared: home.teamShared }),
     ...(home.user === undefined ? {} : { user: home.user }),
     ...(home.netAllowlist === undefined ? {} : { netAllowlist: home.netAllowlist }),
     ...(home.netOpen === undefined ? {} : { netOpen: home.netOpen }),

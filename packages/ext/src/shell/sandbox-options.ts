@@ -1,6 +1,6 @@
 /**
  * What a sandbox shell backend is built from (SandboxBackendOptions): the
- * VM's name, image and size, the guest root and shared org/department
+ * VM's name, image and size, the guest root and shared org/team
  * stores, the bot user, the network allowlist and the shared caps.
  */
 
@@ -26,7 +26,7 @@ export interface SandboxBackendOptions {
   /**
    * The org-wide folder (slice 2c): one durable host directory, bind-mounted
    * at `/home/org-shared` into EVERY VM — read-write in the org VM,
-   * read-only in a department VM (enforced by the mount). Its group
+   * read-only in a team VM (enforced by the mount). Its group
    * (`ultiv-org`) is the org's own stored gid; every bot's user joins it.
    */
   readonly orgShared?: {
@@ -40,21 +40,21 @@ export interface SandboxBackendOptions {
    */
   readonly user?: SandboxUser;
   /**
-   * The department's own durable store (slice 2d): when set, `/home/shared`
+   * The team's own durable store (slice 2d): when set, `/home/shared`
    * is a bind mount of this host directory instead of a writable-layer
    * folder — the same store the org VM sees at
-   * `/home/dept-shared/<department id>`.
+   * `/home/team-shared/<team id>`.
    */
   readonly sharedStore?: string;
   /**
-   * The org VM's department shared folders (slice 2d): the per-org parent
-   * directory, bind-mounted at `/home/dept-shared` (its subfolders are the
-   * department stores), the stored departments (ids and gids) for
+   * The org VM's team shared folders (slice 2d): the per-org parent
+   * directory, bind-mounted at `/home/team-shared` (its subfolders are the
+   * team stores), the stored teams (ids and gids) for
    * provisioning, and every org bot's Linux user for group reconciliation.
    */
-  readonly deptShared?: {
+  readonly teamShared?: {
     readonly parentDir: string;
-    readonly depts: readonly { readonly id: string; readonly gid: number }[];
+    readonly teams: readonly { readonly id: string; readonly gid: number }[];
     readonly users: readonly string[];
   };
   /**
@@ -68,7 +68,7 @@ export interface SandboxBackendOptions {
   readonly netOpen?: boolean;
   /**
    * The home's stored VM size (slice 4): the cpus and memory the VM is
-   * CREATED with — the org's or department's stored settings. Undefined
+   * CREATED with — the org's or team's stored settings. Undefined
    * reads the defaults (`VM_CPUS` / `VM_MEMORY_MIB`). Create-time-only in
    * the SDK like the policy: an edited size recreates the VM at its next
    * use (the same spec fingerprint).
@@ -76,8 +76,8 @@ export interface SandboxBackendOptions {
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
   /**
    * Size caps of the writable shared folders (fix 2), in bytes: the org's
-   * `/home/org-shared`, a department's own `/home/shared` (its store) and,
-   * in the org VM, each `/home/dept-shared/<id>`. Enforced at the tool path
+   * `/home/org-shared`, a team's own `/home/shared` (its store) and,
+   * in the org VM, each `/home/team-shared/<id>`. Enforced at the tool path
    * (see shell/shared-caps.ts); absent means uncapped.
    */
   readonly caps?: SharedCaps;

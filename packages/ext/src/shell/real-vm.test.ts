@@ -7,8 +7,8 @@
  *
  * Covers: two bots in one VM cannot read or kill each other; hidepid;
  * /tmp under umask 077; the shared-folder group mechanism; supplementary
- * groups for a numeric uid:gid; org-shared read-only in a department VM;
- * no /home/dept-shared there; a new department folder appearing live in
+ * groups for a numeric uid:gid; org-shared read-only in a team VM;
+ * no /home/team-shared there; a new team folder appearing live in
  * the org VM; no network path between VMs; the cap remount; recreate.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
@@ -23,7 +23,7 @@ const REAL = process.env.SPRIESSEN_REAL_VM === "1";
 const T = 600_000;
 const tag = Math.random().toString(36).slice(2, 8);
 const ORG_VM = `spriessen-rvt-org-${tag}`;
-const DEPT_VM = `spriessen-rvt-dept-${tag}`;
+const TEAM_VM = `spriessen-rvt-team-${tag}`;
 
 const userA = { name: "bot-rvta", uid: 20_101, gid: 20_101, home: "/home/rvta" };
 const userB = { name: "bot-rvtb", uid: 20_102, gid: 20_102, home: "/home/rvtb" };
@@ -34,7 +34,7 @@ const suite = REAL ? describe : describe.skip;
 suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_REAL_VM=1"})`, () => {
   let scratch = "";
   let orgStore = "";
-  let deptParent = "";
+  let teamParent = "";
   let a: ShellBackend;
   let b: ShellBackend;
   let c: ShellBackend;
@@ -45,13 +45,13 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
     guestRoot: user.home,
     sharedGid: 10_900,
     orgShared: { hostDir: orgStore, gid: 10_901, readOnly: false },
-    deptShared: {
-      parentDir: deptParent,
-      depts: [{ id: "d1", gid: 10_902 }],
+    teamShared: {
+      parentDir: teamParent,
+      teams: [{ id: "d1", gid: 10_902 }],
       users: [userA.name, userB.name],
     },
     user,
-    caps: { orgShared: 1_048_576, dept: { d1: 1_073_741_824 } },
+    caps: { orgShared: 1_048_576, team: { d1: 1_073_741_824 } },
     ...extra,
   });
 
@@ -61,9 +61,9 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
   beforeAll(async () => {
     scratch = mkdtempSync(join(homedir(), "workspace", ".ultiv-stage", "tmp", "rvt-"));
     orgStore = join(scratch, "org-shared");
-    deptParent = join(scratch, "dept");
+    teamParent = join(scratch, "team");
     mkdirSync(orgStore, { recursive: true });
-    mkdirSync(join(deptParent, "d1"), { recursive: true });
+    mkdirSync(join(teamParent, "d1"), { recursive: true });
     process.env.ARTIFACTS_DIR = join(scratch, "artifacts");
     mkdirSync(process.env.ARTIFACTS_DIR, { recursive: true });
     a = sandboxShellBackend(orgOptions(userA))(join(scratch, "a"));
@@ -71,11 +71,11 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
     await a.prepare([{ path: "secret.txt", bytes: new TextEncoder().encode("a-only\n") }]);
     await b.prepare([]);
     c = sandboxShellBackend({
-      name: DEPT_VM,
+      name: TEAM_VM,
       guestRoot: userC.home,
       sharedGid: 10_902,
       orgShared: { hostDir: orgStore, gid: 10_901, readOnly: true },
-      sharedStore: join(deptParent, "d1"),
+      sharedStore: join(teamParent, "d1"),
       user: userC,
       caps: { orgShared: 1_048_576, shared: 1_073_741_824 },
     })(join(scratch, "c"));
@@ -84,7 +84,7 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
 
   afterAll(async () => {
     await destroySandbox(ORG_VM).catch(() => {});
-    await destroySandbox(DEPT_VM).catch(() => {});
+    await destroySandbox(TEAM_VM).catch(() => {});
     if (previousArtifacts === undefined) delete process.env.ARTIFACTS_DIR;
     else process.env.ARTIFACTS_DIR = previousArtifacts;
     rmSync(scratch, { recursive: true, force: true });
@@ -145,16 +145,16 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
     async () => {
       const wrote = await sh(
         a,
-        "echo hi > /home/org-shared/note.txt; mkdir -p /home/dept-shared/d1/sub && echo x > /home/dept-shared/d1/sub/f",
+        "echo hi > /home/org-shared/note.txt; mkdir -p /home/team-shared/d1/sub && echo x > /home/team-shared/d1/sub/f",
       );
       expect(wrote.exitCode).toBe(0);
       expect((wrote.sharedWrites ?? []).map((row) => row.path).sort()).toEqual([
-        "/home/dept-shared/d1/sub/f",
+        "/home/team-shared/d1/sub/f",
         "/home/org-shared/note.txt",
       ]);
       const read = await sh(
         b,
-        "cat /home/org-shared/note.txt && stat -c '%g %a' /home/org-shared/note.txt && echo more >> /home/dept-shared/d1/sub/f && echo ok",
+        "cat /home/org-shared/note.txt && stat -c '%g %a' /home/org-shared/note.txt && echo more >> /home/team-shared/d1/sub/f && echo ok",
       );
       expect(read.stdout).toContain("hi");
       expect(read.stdout).toContain("10901");
@@ -164,17 +164,17 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
   );
 
   it(
-    "a new department folder appears live in the org VM",
+    "a new team folder appears live in the org VM",
     async () => {
-      mkdirSync(join(deptParent, "d2"));
-      const listed = await sh(a, "ls /home/dept-shared");
+      mkdirSync(join(teamParent, "d2"));
+      const listed = await sh(a, "ls /home/team-shared");
       expect(listed.stdout.split("\n")).toContain("d2");
     },
     T,
   );
 
   it(
-    "department VM: org-shared is read-only, no /home/dept-shared, own store is the department's",
+    "team VM: org-shared is read-only, no /home/team-shared, own store is the team's",
     async () => {
       const ro = await sh(
         c,
@@ -182,7 +182,7 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
       );
       expect(ro.stdout).not.toContain("rc=0");
       expect(ro.stdout).toContain("hi");
-      const absent = await sh(c, "test -e /home/dept-shared && echo present || echo absent");
+      const absent = await sh(c, "test -e /home/team-shared && echo present || echo absent");
       expect(absent.stdout.trim()).toBe("absent");
       const store = await sh(c, "cat /home/shared/sub/f");
       expect(store.stdout).toContain("x");
@@ -194,7 +194,7 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
     "no network path between VMs (and offline by default)",
     async () => {
       // A listener in the org VM, proven reachable from inside it; the
-      // department VM must not get its answer. (A userspace network stack
+      // team VM must not get its answer. (A userspace network stack
       // may accept a TCP connect locally, so only a real answer counts.)
       await sh(
         a,

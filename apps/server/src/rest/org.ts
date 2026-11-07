@@ -1,10 +1,10 @@
 /**
- * Org routes: the org row, its flat departments and their members. Every
+ * Org routes: the org row, its flat teams and their members. Every
  * permission question goes through `may()` (which asks `can()`) — these
- * routes only shape the answers. A department another role may not touch
+ * routes only shape the answers. A team another role may not touch
  * reads as a missing one, like every scoped route.
  */
-import type { DepartmentInfo, DepartmentSummary, HomeRef, VmSettings } from "@spriessen/contracts";
+import type { TeamInfo, TeamSummary, HomeRef, VmSettings } from "@spriessen/contracts";
 import {
   netAllowlistProblem,
   totalVmMemoryMiB,
@@ -17,7 +17,7 @@ import { totalmem } from "node:os";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 
-/** One `permission` audit row (org and department state changes). */
+/** One `permission` audit row (org and team state changes). */
 const audited = (args: RouteArgs, name: string): void => {
   args.mind.audit.record({
     at: Date.now(),
@@ -41,15 +41,13 @@ const audited = (args: RouteArgs, name: string): void => {
 const capacityProblem = (
   candidate: VmSettings | undefined,
   org: VmSettings,
-  departments: readonly DepartmentInfo[],
+  teams: readonly TeamInfo[],
   changedId?: string,
 ): string | null =>
   vmCapacityProblem(
     totalVmMemoryMiB([
       changedId === undefined ? (candidate ?? org) : org,
-      ...departments.map((row) =>
-        row.id === changedId && candidate !== undefined ? candidate : row.vm,
-      ),
+      ...teams.map((row) => (row.id === changedId && candidate !== undefined ? candidate : row.vm)),
     ]),
     totalmem(),
   );
@@ -101,7 +99,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
     if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
     const vm = readVm(body.vm);
-    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.departments);
+    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.teams);
     if (capProblem !== null) return (json(400, { error: capProblem }), true);
     if (
       body.orgSharedCapBytes !== undefined &&
@@ -132,7 +130,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (body.netOpen !== undefined) audited(args, "org-net-open");
     return (json(200, body.vm !== undefined ? { ...org, vmNote: VM_CHANGE_NOTE } : org), true);
   }
-  if (path === "/api/org/departments" && method === "POST") {
+  if (path === "/api/org/teams" && method === "POST") {
     if (!(await may(args, "change", { type: "org-settings" }))) {
       return (json(404, { error: "unknown route" }), true);
     }
@@ -145,7 +143,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       netOpen?: boolean;
     }>(req);
     if (body.name === undefined || body.name.trim() === "") {
-      return (json(400, { error: "a department needs a name" }), true);
+      return (json(400, { error: "a team needs a name" }), true);
     }
     const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
     if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
@@ -155,10 +153,10 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     if (allowProblem !== null) return (json(400, { error: allowProblem }), true);
     const view = await mind.org.view();
     if (view.org === null) return (json(404, { error: "the org does not exist yet" }), true);
-    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.departments);
+    const capProblem = vm === undefined ? null : capacityProblem(vm, view.org.vm, view.teams);
     if (capProblem !== null) return (json(400, { error: capProblem }), true);
     try {
-      const department = await mind.org.createDepartment(
+      const team = await mind.org.createTeam(
         {
           name: body.name.trim().slice(0, 80),
           ...(vm !== undefined ? { vm } : {}),
@@ -169,17 +167,17 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         },
         owner,
       );
-      audited(args, "department-created");
-      return (json(200, department), true);
+      audited(args, "team-created");
+      return (json(200, team), true);
     } catch (cause) {
       return (json(400, { error: errorOf(cause) }), true);
     }
   }
-  if (path.startsWith("/api/org/departments/") && method === "PATCH") {
-    const id = segment("/api/org/departments/");
+  if (path.startsWith("/api/org/teams/") && method === "PATCH") {
+    const id = segment("/api/org/teams/");
     const view = await mind.org.view();
-    if (!view.departments.some((row) => row.id === id)) {
-      return (json(404, { error: "unknown department" }), true);
+    if (!view.teams.some((row) => row.id === id)) {
+      return (json(404, { error: "unknown team" }), true);
     }
     const body = await args.readJson<{
       name?: string;
@@ -190,15 +188,15 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       netOpen?: boolean;
       sharedCapBytes?: number;
     }>(req);
-    // A department's admins manage its state (its VM's network allowlist
+    // A team's admins manage its state (its VM's network allowlist
     // included, slice 3), but a host-access switch is the org owner's alone
     // (F3); a member reads as missing either way.
     if (
       body.hostAccess !== undefined
         ? !(await may(args, "change", { type: "host-flag" }))
-        : !(await may(args, "change", { type: "department", departmentId: id }))
+        : !(await may(args, "change", { type: "team", teamId: id }))
     ) {
-      return (json(404, { error: "unknown department" }), true);
+      return (json(404, { error: "unknown team" }), true);
     }
     const vmProblem = body.vm === undefined ? null : vmSettingsProblem(body.vm);
     if (vmProblem !== null) return (json(400, { error: vmProblem }), true);
@@ -206,7 +204,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
     const capProblem =
       vm === undefined || view.org === null
         ? null
-        : capacityProblem(vm, view.org.vm, view.departments, id);
+        : capacityProblem(vm, view.org.vm, view.teams, id);
     if (capProblem !== null) return (json(400, { error: capProblem }), true);
     const allowProblem =
       body.netAllowlist === undefined ? null : netAllowlistProblem(body.netAllowlist);
@@ -220,7 +218,7 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       );
     }
     try {
-      const department = await mind.org.updateDepartment(id, {
+      const team = await mind.org.updateTeam(id, {
         ...(body.name !== undefined ? { name: body.name.trim().slice(0, 80) } : {}),
         ...(vm !== undefined ? { vm } : {}),
         ...(body.hostAccess !== undefined ? { hostAccess: body.hostAccess } : {}),
@@ -230,51 +228,48 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
         ...(body.sharedCapBytes !== undefined ? { sharedCapBytes: body.sharedCapBytes } : {}),
       });
       if (body.hostAccess !== undefined) {
-        audited(args, "department-host-access");
+        audited(args, "team-host-access");
       }
-      if (body.netAllowlist !== undefined) audited(args, "department-net-allowlist");
-      if (body.netOpen !== undefined) audited(args, "department-net-open");
-      if (body.sharedCapBytes !== undefined) audited(args, "department-shared-cap");
-      return (
-        json(200, body.vm !== undefined ? { ...department, vmNote: VM_CHANGE_NOTE } : department),
-        true
-      );
+      if (body.netAllowlist !== undefined) audited(args, "team-net-allowlist");
+      if (body.netOpen !== undefined) audited(args, "team-net-open");
+      if (body.sharedCapBytes !== undefined) audited(args, "team-shared-cap");
+      return (json(200, body.vm !== undefined ? { ...team, vmNote: VM_CHANGE_NOTE } : team), true);
     } catch (cause) {
       return (json(400, { error: errorOf(cause) }), true);
     }
   }
-  if (path.startsWith("/api/org/departments/") && method === "DELETE") {
-    const id = segment("/api/org/departments/");
+  if (path.startsWith("/api/org/teams/") && method === "DELETE") {
+    const id = segment("/api/org/teams/");
     const view = await mind.org.view();
-    if (!view.departments.some((row) => row.id === id)) {
-      return (json(404, { error: "unknown department" }), true);
+    if (!view.teams.some((row) => row.id === id)) {
+      return (json(404, { error: "unknown team" }), true);
     }
-    if (!(await may(args, "remove", { type: "department", departmentId: id }))) {
-      return (json(404, { error: "unknown department" }), true);
+    if (!(await may(args, "remove", { type: "team", teamId: id }))) {
+      return (json(404, { error: "unknown team" }), true);
     }
     try {
-      const ok = await mind.org.removeDepartment(id);
-      if (ok) audited(args, "department-removed");
+      const ok = await mind.org.removeTeam(id);
+      if (ok) audited(args, "team-removed");
       return (json(200, { ok }), true);
     } catch (cause) {
       return (json(400, { error: errorOf(cause) }), true);
     }
   }
-  if (path.startsWith("/api/org/departments/") && path.endsWith("/summary") && method === "GET") {
-    const id = segment("/api/org/departments/").replace(/\/summary$/, "");
+  if (path.startsWith("/api/org/teams/") && path.endsWith("/summary") && method === "GET") {
+    const id = segment("/api/org/teams/").replace(/\/summary$/, "");
     const view = await mind.org.view();
-    const department = view.departments.find((row) => row.id === id);
-    if (department === undefined) {
-      return (json(404, { error: "unknown department" }), true);
+    const team = view.teams.find((row) => row.id === id);
+    if (team === undefined) {
+      return (json(404, { error: "unknown team" }), true);
     }
-    if (!(await may(args, "view", { type: "department-summary", departmentId: id }))) {
-      return (json(404, { error: "unknown department" }), true);
+    if (!(await may(args, "view", { type: "team-summary", teamId: id }))) {
+      return (json(404, { error: "unknown team" }), true);
     }
-    return (json(200, await departmentSummary(args, department)), true);
+    return (json(200, await teamSummary(args, team)), true);
   }
   if (path === "/api/org/host-access" && method === "GET") {
-    // The effective matrix (slice 11): org AND department AND bot for a
-    // department bot; org AND bot for an org bot; blockedBy names the level
+    // The effective matrix (slice 11): org AND team AND bot for a
+    // team bot; org AND bot for an org bot; blockedBy names the level
     // that blocks (F4).
     const view = await mind.org.view();
     const bots = await mind.profiles.list(args.owner);
@@ -282,10 +277,10 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
       json(200, {
         org: view.org === null ? null : { hostAccess: view.org.hostAccess },
         bots: bots.map((profile) => {
-          const verdict = effectiveHostAccess(view.org, view.departments, profile);
+          const verdict = effectiveHostAccess(view.org, view.teams, profile);
           return {
             profileId: profile.id,
-            departmentId: profile.departmentId ?? null,
+            teamId: profile.teamId ?? null,
             own: profile.hostAccess ?? false,
             allowed: verdict.allowed,
             blockedBy: verdict.blockedBy,
@@ -355,23 +350,18 @@ export async function orgRoutes(args: RouteArgs): Promise<boolean> {
 const homesExist = async (mind: RouteArgs["mind"], ...homes: HomeRef[]): Promise<boolean> => {
   const view = await mind.org.view();
   return homes.every((home) =>
-    home.kind === "org"
-      ? view.org !== null
-      : view.departments.some((row) => row.id === home.departmentId),
+    home.kind === "org" ? view.org !== null : view.teams.some((row) => row.id === home.teamId),
   );
 };
 
 /**
- * The department digest: counts, bot names, activity timestamps. Metadata
+ * The team digest: counts, bot names, activity timestamps. Metadata
  * only — never a chat's contents (slice 4).
  */
-const departmentSummary = async (
-  args: RouteArgs,
-  department: DepartmentInfo,
-): Promise<DepartmentSummary> => {
+const teamSummary = async (args: RouteArgs, team: TeamInfo): Promise<TeamSummary> => {
   const { mind } = args;
   const bots = (await mind.profiles.list(args.owner)).filter(
-    (profile) => profile.departmentId === department.id,
+    (profile) => profile.teamId === team.id,
   );
   const active = bots.filter((profile) => profile.archivedAt === null);
   const ids = new Set(bots.map((profile) => profile.id));
@@ -385,7 +375,7 @@ const departmentSummary = async (
     return scope !== undefined && ids.has(scope.profileId);
   });
   return {
-    department,
+    team,
     bots: active.map((profile) => ({ id: profile.id, name: profile.name })),
     archivedBots: bots.length - active.length,
     activity: {

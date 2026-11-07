@@ -169,9 +169,9 @@ function AuthFields(props: { form: ConnectorForm; patch: Patch; items: VaultItem
           <p className="text-muted-foreground text-xs">
             After saving, press Connect to sign in on the provider's page. Leave Client ID empty
             unless the provider gave you one; add its secret when it did — pick vault items that
-            belong to this connector's home (the org, or its department), or the sign-in falls back
-            to the provider's default registration. Google also needs the parameter access_type =
-            offline, so the connection keeps a refresh token.
+            belong to this connector's home (the org, or its team), or the sign-in falls back to the
+            provider's default registration. Google also needs the parameter access_type = offline,
+            so the connection keeps a refresh token.
           </p>
         </>
       )}

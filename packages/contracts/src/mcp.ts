@@ -161,7 +161,7 @@ export const McpServerInfoSchema = Type.Intersect([
     signedIn: Type.Boolean(),
     /**
      * The home (phase 4 slice 7) the connector belongs to, as a home
-     * segment: `org`, or `dept-<department id>`. Absent on rows stored
+     * segment: `org`, or `team-<team id>`. Absent on rows stored
      * before the field existed — they read as the org (the upgrade stamps
      * them, `upgradeMcpHomes`).
      */

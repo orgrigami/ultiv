@@ -17,7 +17,7 @@ const scratch = mkdtempSync(join(tmpdir(), "spriessen-umask-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 describe("writableSharedDirs", () => {
-  it("dept VM: /home/shared only (org-shared is read-only there)", () => {
+  it("team VM: /home/shared only (org-shared is read-only there)", () => {
     expect(
       writableSharedDirs({
         name: "v",
@@ -27,18 +27,18 @@ describe("writableSharedDirs", () => {
     ).toEqual([{ dir: "/home/shared", gid: 10_005 }]);
   });
 
-  it("org VM: its /home/shared, the org-wide folder and every department store", () => {
+  it("org VM: its /home/shared, the org-wide folder and every team store", () => {
     expect(
       writableSharedDirs({
         name: "v",
         sharedGid: 10_002,
         orgShared: { hostDir: "/s", gid: 10_001, readOnly: false },
-        deptShared: { parentDir: "/d", depts: [{ id: "research", gid: 10_007 }], users: [] },
+        teamShared: { parentDir: "/d", teams: [{ id: "research", gid: 10_007 }], users: [] },
       } as never),
     ).toEqual([
       { dir: "/home/shared", gid: 10_002 },
       { dir: "/home/org-shared", gid: 10_001, audit: true },
-      { dir: "/home/dept-shared/research", gid: 10_007, audit: true },
+      { dir: "/home/team-shared/research", gid: 10_007, audit: true },
     ]);
   });
 });

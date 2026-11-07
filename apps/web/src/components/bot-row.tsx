@@ -142,12 +142,12 @@ function BotMenu({ bot, mainId, deletable, models, act, refresh }: BotRowProps) 
               {!isMain && (
                 <Menu.Item
                   className={item}
-                  disabled={Boolean(bot.departmentId)}
+                  disabled={Boolean(bot.teamId)}
                   onClick={() => void act(() => api.setMain(bot.id))}
                 >
                   Make main bot
                   <span className={sheetHint}>
-                    {bot.departmentId
+                    {bot.teamId
                       ? "The main bot lives in the org: move it to the org first."
                       : "Opens first when you start."}
                   </span>

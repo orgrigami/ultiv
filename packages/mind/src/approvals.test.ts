@@ -324,18 +324,18 @@ describe("main-bot direct creation (ownerUnlessMain)", () => {
     const approvals = makeApprovals();
     approvals.setHooks({ isMain: () => true });
     const inner = {
-      name: "department_create",
+      name: "team_create",
       description: "",
       parameters: Type.Object({ name: Type.String() }),
       execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
     };
     const gated = withApproval(approvals, inner, { ownerUnlessMain: true });
     const result = (await gated.execute(
-      { name: "Dept X" },
+      { name: "Team X" },
       { conversationId: "main", callId: "m4" } as never,
       {} as never,
     )) as { output: { text: string }[] };
-    expect(result.output[0]?.text).toContain("ran Dept X");
+    expect(result.output[0]?.text).toContain("ran Team X");
     expect(approvals.pendingFor("main")).toEqual([]);
   });
 });

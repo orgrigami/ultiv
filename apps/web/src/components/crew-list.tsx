@@ -2,8 +2,8 @@
  * The one bot list. The desktop rail, the bot-pill switcher and the Crew
  * page all render this, each in its own density (see crew-row.tsx). Order
  * is the same everywhere: the main bot first, hidden bots last and only on
- * the page. With departments, the list groups by home: the org and its own
- * bots on top, then each department, collapsible (crew-groups.tsx). With
+ * the page. With teams, the list groups by home: the org and its own
+ * bots on top, then each team, collapsible (crew-groups.tsx). With
  * none (personal mode) it is the flat list it always was.
  */
 import type { ProfileInfo } from "@spriessen/contracts";
@@ -20,8 +20,8 @@ export function CrewList({
   variant,
   activeId,
   onPick,
-  onOpenDepartment,
-  onNewDepartment,
+  onOpenTeam,
+  onNewTeam,
   now = Date.now(),
   className,
 }: {
@@ -29,10 +29,10 @@ export function CrewList({
   /** The bot whose chat or profile is on screen. */
   activeId: string | undefined;
   onPick: (id: string) => void;
-  /** Opens a department's page; the default navigates there. */
-  onOpenDepartment?: ((id: string) => void) | undefined;
-  /** Starts a new department; the default opens the dialog in place. */
-  onNewDepartment?: (() => void) | undefined;
+  /** Opens a team's page; the default navigates there. */
+  onOpenTeam?: ((id: string) => void) | undefined;
+  /** Starts a new team; the default opens the dialog in place. */
+  onNewTeam?: (() => void) | undefined;
   now?: number;
   className?: string;
 }) {
@@ -55,16 +55,16 @@ export function CrewList({
       onPick={onPick}
     />
   );
-  const departments = view?.departments ?? [];
-  if (departments.length > 0) {
+  const teams = view?.teams ?? [];
+  if (teams.length > 0) {
     return (
       <CrewGroups
         variant={variant}
-        groups={groupByHome(bots, departments, view?.org?.name ?? "Org")}
+        groups={groupByHome(bots, teams, view?.org?.name ?? "Org")}
         row={row}
         activeId={activeId}
-        onOpenDepartment={onOpenDepartment}
-        onNewDepartment={onNewDepartment}
+        onOpenTeam={onOpenTeam}
+        onNewTeam={onNewTeam}
         className={className}
       />
     );

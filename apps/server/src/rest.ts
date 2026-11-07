@@ -123,7 +123,8 @@ export const createRestHandler = (deps: RestDeps) => {
         res,
         url,
         owner: OWNER_ID,
-        path: url.pathname,
+        // Teams were departments: older clients' paths still reach the team routes.
+        path: url.pathname.replace(/^\/api\/org\/departments(?=\/|$)/, "/api/org/teams"),
         json,
         readJson,
         readBody,

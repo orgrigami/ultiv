@@ -1,6 +1,6 @@
 /**
- * Templates (slice 8): a department publishes a bot, a skill or an
- * Instructions file; another department copies it. A copy shares no memory
+ * Templates (slice 8): a team publishes a bot, a skill or an
+ * Instructions file; another team copies it. A copy shares no memory
  * or chats with the original and carries no vault items; unpublishing
  * blocks new copies and leaves existing copies running.
  */
@@ -50,8 +50,8 @@ const call = async (
   return { status: response.status, json };
 };
 
-let deptA = "";
-let deptB = "";
+let teamA = "";
+let teamB = "";
 let sourceBot = "";
 
 beforeAll(async () => {
@@ -62,12 +62,12 @@ beforeAll(async () => {
   await handle.mind.org.ensureOrg("owner", "Personal", true);
   // The first bot lives in the org and becomes the main bot (the home rules).
   await handle.mind.profiles.create("owner", { name: "Keeper", onboard: false });
-  deptA = (await handle.mind.org.createDepartment({ name: "PubA" }, "owner")).id;
-  deptB = (await handle.mind.org.createDepartment({ name: "PubB" }, "owner")).id;
+  teamA = (await handle.mind.org.createTeam({ name: "PubA" }, "owner")).id;
+  teamB = (await handle.mind.org.createTeam({ name: "PubB" }, "owner")).id;
   const bot = await handle.mind.profiles.create("owner", {
     name: "Template bot",
     persona: "Ship fast.",
-    departmentId: deptA,
+    teamId: teamA,
     onboard: false,
   });
   sourceBot = bot.id;
@@ -111,10 +111,10 @@ afterAll(async () => {
 });
 
 describe("publish and copy (slice 8)", () => {
-  it("a bot template copy lands in the other department with its own everything", async () => {
+  it("a bot template copy lands in the other team with its own everything", async () => {
     const published = await call("POST", "/api/org/templates", {
       kind: "bot",
-      departmentId: deptA,
+      teamId: teamA,
       botId: sourceBot,
     });
     expect(published.status).toBe(200);
@@ -123,11 +123,11 @@ describe("publish and copy (slice 8)", () => {
     // The payload carries no vault, memory or sessions.
     expect(JSON.stringify(template.payload)).not.toContain("secret");
     const copied = await call("POST", `/api/org/templates/${template.id}/copy`, {
-      departmentId: deptB,
+      teamId: teamB,
     });
     expect(copied.status).toBe(200);
-    const copy = copied.json as { id: string; departmentId: string | null };
-    expect(copy.departmentId).toBe(deptB);
+    const copy = copied.json as { id: string; teamId: string | null };
+    expect(copy.teamId).toBe(teamB);
     // Its own memory: empty, while the source knows the lighthouse code.
     const copyMemory = await handle.mind.memory.read("owner", "profile", copy.id);
     expect(JSON.stringify(copyMemory)).not.toContain("lighthouse");
@@ -156,44 +156,43 @@ describe("publish and copy (slice 8)", () => {
     const published = (
       await call("POST", "/api/org/templates", {
         kind: "bot",
-        departmentId: deptA,
+        teamId: teamA,
         botId: sourceBot,
       })
     ).json as { id: string };
     expect((await call("DELETE", `/api/org/templates/${published.id}`)).json).toEqual({ ok: true });
     // No longer in the publisher's list.
-    const list = (await call("GET", `/api/org/templates?department=${deptA}`)).json as {
+    const list = (await call("GET", `/api/org/templates?team=${teamA}`)).json as {
       id: string;
     }[];
     expect(list.some((row) => row.id === published.id)).toBe(false);
     // A new copy is refused; the template reads as missing.
     expect(
-      (await call("POST", `/api/org/templates/${published.id}/copy`, { departmentId: deptB }))
-        .status,
+      (await call("POST", `/api/org/templates/${published.id}/copy`, { teamId: teamB })).status,
     ).toBe(404);
   });
 
-  it("a skill template installs onto a named bot of the target department", async () => {
+  it("a skill template installs onto a named bot of the target team", async () => {
     await handle.mind.skills.write("owner", sourceBot, {
       name: "deploy-note",
-      body: "---\nname: deploy-note\ndescription: How this department ships\n---\n\nShip on green.",
+      body: "---\nname: deploy-note\ndescription: How this team ships\n---\n\nShip on green.",
       by: "owner",
     });
     const published = (
       await call("POST", "/api/org/templates", {
         kind: "skill",
-        departmentId: deptA,
+        teamId: teamA,
         botId: sourceBot,
         skill: "deploy-note",
       })
     ).json as { id: string };
     const target = await handle.mind.profiles.create("owner", {
       name: "Skill target",
-      departmentId: deptB,
+      teamId: teamB,
       onboard: false,
     });
     const copied = await call("POST", `/api/org/templates/${published.id}/copy`, {
-      departmentId: deptB,
+      teamId: teamB,
       botId: target.id,
     });
     expect(copied.status).toBe(200);

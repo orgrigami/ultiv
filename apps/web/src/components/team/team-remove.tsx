@@ -1,13 +1,13 @@
 /**
- * Removing a department warns first and offers an export: the department
+ * Removing a team warns first and offers an export: the team
  * (name, Instructions, VM size) and each of its bots' export bundles in one
  * JSON file. While bots remain it can't go; one tap moves them all to the
- * org. Removal then needs the department's name typed.
+ * org. Removal then needs the team's name typed.
  */
 import { useNavigate } from "@tanstack/react-router";
 import { DownloadIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import type { DepartmentInfo } from "@spriessen/contracts";
+import type { TeamInfo } from "@spriessen/contracts";
 import { Button } from "@/components/ui/button";
 import { RowButton } from "@/components/ui/row-button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -20,17 +20,14 @@ import { loadOrg } from "@/lib/use-org";
 const errorText = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
-/** Downloads the department and its bots as one JSON file. */
-export const exportDepartment = async (
-  department: DepartmentInfo,
-  botIds: readonly string[],
-): Promise<void> => {
+/** Downloads the team and its bots as one JSON file. */
+export const exportTeam = async (team: TeamInfo, botIds: readonly string[]): Promise<void> => {
   const bots = await Promise.all(botIds.map((id) => orgApi.exportBot(id)));
   const file = {
-    kind: "spriessen-department",
+    kind: "spriessen-team",
     version: 1,
     exportedAt: Date.now(),
-    department,
+    team,
     bots,
   };
   const url = URL.createObjectURL(
@@ -38,19 +35,19 @@ export const exportDepartment = async (
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${department.name.replace(/[^\w-]+/g, "-").toLocaleLowerCase("en") || "department"}.json`;
+  link.download = `${team.name.replace(/[^\w-]+/g, "-").toLocaleLowerCase("en") || "team"}.json`;
   link.click();
   URL.revokeObjectURL(url);
 };
 
-export function DeptRemove({ department }: { department: DepartmentInfo }) {
+export function TeamRemove({ team }: { team: TeamInfo }) {
   const { sessions, refreshAll } = useApp();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const bots = sessions.profiles.filter((bot) => bot.departmentId === department.id);
+  const bots = sessions.profiles.filter((bot) => bot.teamId === team.id);
   const step = async (label: string, run: () => Promise<void>): Promise<void> => {
     setBusy(label);
     setError(null);
@@ -64,13 +61,13 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
   };
   const moveAll = () =>
     step("move", async () => {
-      for (const bot of bots) await api.updateProfile(bot.id, { departmentId: null });
+      for (const bot of bots) await api.updateProfile(bot.id, { teamId: null });
       await refreshAll();
       void loadOrg();
     });
   const remove = () =>
     step("remove", async () => {
-      await orgApi.removeDepartment(department.id);
+      await orgApi.removeTeam(team.id);
       setOpen(false);
       void navigate({ to: "/crew", replace: true });
     });
@@ -82,7 +79,7 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
       >
         <Trash2Icon className="size-4 shrink-0" />
         <span className="flex-1">
-          Remove department…
+          Remove team…
           <span className="text-meta text-muted-foreground block">
             Warns first and offers an export. Its bots move to the org before it goes.
           </span>
@@ -97,7 +94,7 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
         }}
       >
         <DialogContent>
-          <DialogTitle>Remove {department.name}?</DialogTitle>
+          <DialogTitle>Remove {team.name}?</DialogTitle>
           <div className="mt-3 flex flex-col gap-3 text-sm">
             <p>
               Its Instructions, VM size, shared memory and templates go for good. Bots are never
@@ -109,8 +106,8 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
               disabled={busy !== null}
               onClick={() =>
                 void step("export", () =>
-                  exportDepartment(
-                    department,
+                  exportTeam(
+                    team,
                     bots.map((bot) => bot.id),
                   ),
                 )
@@ -137,7 +134,7 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
               </div>
             ) : (
               <label className="flex flex-col gap-1">
-                Type {department.name} to remove it
+                Type {team.name} to remove it
                 <Input value={typed} onChange={(event) => setTyped(event.target.value)} />
               </label>
             )}
@@ -149,10 +146,10 @@ export function DeptRemove({ department }: { department: DepartmentInfo }) {
             <div className="flex justify-end">
               <Button
                 variant="destructive"
-                disabled={busy !== null || bots.length > 0 || typed !== department.name}
+                disabled={busy !== null || bots.length > 0 || typed !== team.name}
                 onClick={() => void remove()}
               >
-                {busy === "remove" ? "Removing…" : "Remove department"}
+                {busy === "remove" ? "Removing…" : "Remove team"}
               </Button>
             </div>
           </div>

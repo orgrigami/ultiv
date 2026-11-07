@@ -1,5 +1,5 @@
 /**
- * The main bot's admin calls in owner words: departments (list, create,
+ * The main bot's admin calls in owner words: teams (list, create,
  * update, delete) and bots (details, update, move, pause, delete). Each one
  * reads as a small record card: who or what changed, and how. The argument
  * names come from the tools in `@spriessen/mind` (admin/).
@@ -10,10 +10,10 @@ import type { RecordField, ToolView } from "./tool-text.ts";
 type Words = readonly [done: string, live: string, failed: string];
 
 const WORDS: Record<string, Words> = {
-  departments_list: ["Read the departments", "Reading the departments…", "Couldn't read them"],
-  department_create: ["Created a department", "Creating a department…", "Didn't create it"],
-  department_update: ["Changed a department", "Changing a department…", "Didn't change it"],
-  department_delete: ["Removed a department", "Removing a department…", "Didn't remove it"],
+  teams_list: ["Read the teams", "Reading the teams…", "Couldn't read them"],
+  team_create: ["Created a team", "Creating a team…", "Didn't create it"],
+  team_update: ["Changed a team", "Changing a team…", "Didn't change it"],
+  team_delete: ["Removed a team", "Removing a team…", "Didn't remove it"],
   bot_details: ["Read a bot's settings", "Reading a bot's settings…", "Couldn't read them"],
   bot_update: ["Changed a bot", "Changing a bot…", "Didn't change the bot"],
   bot_move: ["Moved a bot", "Moving a bot…", "Didn't move the bot"],
@@ -24,7 +24,7 @@ const WORDS: Record<string, Words> = {
 /** The owner-facing label per argument, in the order shown. */
 const LABELS: readonly (readonly [key: string, label: string])[] = [
   ["bot", "Bot"],
-  ["department", "Department"],
+  ["team", "Team"],
   ["name", "Name"],
   ["role", "Role"],
   ["to", "To"],
@@ -65,9 +65,9 @@ export const adminFields = (input: unknown): RecordField[] => {
   return fields;
 };
 
-/** The one detail beside the title: "Ada → Research", or the bot or department. */
+/** The one detail beside the title: "Ada → Research", or the bot or team. */
 const detailOf = (input: Record<string, unknown>): string | undefined => {
-  const who = textOf(input["bot"]) ?? textOf(input["department"]) ?? textOf(input["name"]);
+  const who = textOf(input["bot"]) ?? textOf(input["team"]) ?? textOf(input["name"]);
   const to = textOf(input["to"]);
   if (who !== undefined && to !== undefined) return `${who} → ${to === "org" ? "the org" : to}`;
   return who;
@@ -103,13 +103,13 @@ export function adminView(step: ToolStep): ToolView | null {
 
 /** The approval card's words for the admin calls that ask first. */
 export const ADMIN_APPROVALS: Record<string, { action: string; risk: string; risky?: boolean }> = {
-  department_update: {
-    action: "change a department",
+  team_update: {
+    action: "change a team",
     risk: "Lower risk: its name, Instructions or VM size change for every bot in it.",
   },
-  department_delete: {
-    action: "remove a department",
-    risk: "Higher risk: the department, its Instructions and shared memory go. Its bots must be moved out first.",
+  team_delete: {
+    action: "remove a team",
+    risk: "Higher risk: the team, its Instructions and shared memory go. Its bots must be moved out first.",
     risky: true,
   },
   bot_update: {

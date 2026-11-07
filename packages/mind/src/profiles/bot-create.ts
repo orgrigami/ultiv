@@ -5,7 +5,7 @@
  * Jev judge are skipped), the proposed fields are editable on the card, and
  * the wait is generous (a form takes typing). Any other bot gets the admin
  * tools' one refusal before any card (admin/common.ts), and so does a
- * department that does not exist. The new bot's host-access switch starts
+ * team that does not exist. The new bot's host-access switch starts
  * off and is never read from the model: only the owner turns it on.
  */
 import { Duration } from "effect";
@@ -39,8 +39,8 @@ export interface BotCreateArgs {
   readonly title?: string;
   readonly persona?: string;
   readonly instructions?: string;
-  /** A department name or id; empty or "org" = an org bot. */
-  readonly department?: string;
+  /** A team name or id; empty or "org" = an org bot. */
+  readonly team?: string;
   readonly model?: string;
   readonly effort?: string;
   readonly sandbox?: boolean;
@@ -76,7 +76,7 @@ export const mainGuardOf = (deps: BotCreateDeps) => async (args: unknown, api: u
   if (refused !== undefined) return refused;
   try {
     createInputOf(args as BotCreateArgs);
-    await resolveHome(deps, (args as BotCreateArgs).department);
+    await resolveHome(deps, (args as BotCreateArgs).team);
     return undefined;
   } catch (cause) {
     return `not created: ${(cause as { reason?: string }).reason ?? String(cause)}`;
@@ -88,11 +88,11 @@ const parameters = Type.Object({
   title: Type.Optional(
     Type.String({ description: "Its one-line role, e.g. 'Researches suppliers'.", maxLength: 500 }),
   ),
-  department: Type.Optional(
+  team: Type.Optional(
     Type.String({
       description:
-        'Its home: a department name or id (departments_list shows them), or "org" / empty for ' +
-        "an org bot. It follows its department's Instructions.",
+        'Its home: a team name or id (teams_list shows them), or "org" / empty for ' +
+        "an org bot. It follows its team's Instructions.",
     }),
   ),
   persona: Type.Optional(
@@ -125,7 +125,7 @@ const toolOf = (deps: BotCreateDeps) =>
       "Create a new bot for your owner. Main bot only; it runs directly (no card), and your " +
       "owner sees the new bot in Crew and can edit every field there. Ask " +
       "the owner what the bot is for, " +
-      "then propose a name, a one-line role, its home (a department, or the org), a short " +
+      "then propose a name, a one-line role, its home (a team, or the org), a short " +
       "persona and Instructions. Host access starts off (the owner's switch). The new bot " +
       "introduces itself in its own main chat right away.",
     parameters,
@@ -134,8 +134,8 @@ const toolOf = (deps: BotCreateDeps) =>
       const me = await adminOf(deps, String(api.conversationId));
       if (typeof me === "string") return failed("created", me);
       try {
-        const departmentId = await resolveHome(deps, args.department);
-        const input = { ...createInputOf(args), departmentId };
+        const teamId = await resolveHome(deps, args.team);
+        const input = { ...createInputOf(args), teamId };
         const profile = await deps.profiles.create(me.owner, input);
         const instructions = args.instructions?.trim() ?? "";
         if (instructions !== "") {
@@ -145,7 +145,7 @@ const toolOf = (deps: BotCreateDeps) =>
           });
         }
         const view = await orgOf(deps).view();
-        const home = homeWords(departmentId, view.departments, view.org?.name ?? "Personal");
+        const home = homeWords(teamId, view.teams, view.org?.name ?? "Personal");
         return textReply(
           `created bot "${profile.name}" (id: ${profile.id}) in ${home}.` +
             " It is introducing itself in its own main chat now; tell the owner it is live.",

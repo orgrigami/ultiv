@@ -134,21 +134,21 @@ paths and links, plus the wrong owner),
 "artifact routes stay inside the artifacts folder" block in
 `apps/server/src/rest/artifacts.test.ts`.
 
-## The org: departments, roles, reach and grants
+## The org: teams, roles, reach and grants
 
 One org per install (`ultiv.org` document, `packages/mind/src/org/`): flat
-departments (no parent field), bots with exactly one home (`departmentId`
+teams (no parent field), bots with exactly one home (`teamId`
 null = org bot), members with roles, reach grants and published templates.
 The ONE permission decision stays `can(actor, action, resource, view)`
 (`apps/server/src/rest/can.ts`): the org owner passes everything; org admins
-act at org level across departments; a department admin acts only inside its
-own department; a member works their department's resources but never roles,
-membership, department settings or flags; a viewer reads. Chats stay private
+act at org level across teams; a team admin acts only inside its
+own team; a member works their team's resources but never roles,
+membership, team settings or flags; a viewer reads. Chats stay private
 to whoever started them, whatever the roles — the org level sees only a
-department summary (`GET /api/org/departments/:id/summary`: counts, bots,
+team summary (`GET /api/org/teams/:id/summary`: counts, bots,
 activity timestamps, never chat contents). A refusal anywhere answers exactly
 like a missing item. Approval cards route to their approvers
-(`approversFor`): a department bot's card to that department's admins and the
+(`approversFor`): a team bot's card to that team's admins and the
 org owner; an org bot's to the org owner and org admins — deciding never
 reads the chat.
 
@@ -159,7 +159,7 @@ each CROSS-HOME message writes a `reach` audit row (`org/reach.ts`, the
 mailbox wrapper is wired in `entity.ts`), carrying from, to and the
 `message` surface — never content. The only paths between homes are
 messaging, the org-wide `/home/org-shared` folder and the org bots'
-slice-2d department-folder mounts (both below), plus **grants** for NAMED
+slice-2d team-folder mounts (both below), plus **grants** for NAMED
 VAULT ITEMS (REST `/api/org/grants`), which name the resource, the grantee
 home and the action; creating, using and revoking are audited, and a revoke
 stops access at once (the broker's granted-credential fallback consults the
@@ -168,20 +168,20 @@ but are STORED ONLY — the enforced cross-home path for grants is vault
 items (slice 7 below). Beyond those paths, a VM is for its home's bots only
 (`bash` runs only in the bot's own home VM — the tool takes no target),
 each home's `/home/shared` is usable only by that home's bots (org bots
-reach a department's folder only through the
-`/home/dept-shared/<department id>` mounts below), and `can()` refuses
-another home's VM, shared folder and files — for DEPARTMENT BOTS, with the
-uniform "not found" answer; org bots see every department's folder under
-`/home/dept-shared` (F-D5) — and, for every bot, another bot's chats,
+reach a team's folder only through the
+`/home/team-shared/<team id>` mounts below), and `can()` refuses
+another home's VM, shared folder and files — for TEAM BOTS, with the
+uniform "not found" answer; org bots see every team's folder under
+`/home/team-shared` (F-D5) — and, for every bot, another bot's chats,
 memory or home and another home's vault items, connectors or settings, the
 same way. Messaging itself needs no grant and stays
 under the mailbox caps.
 
 **Vault items per home** (phase 4 slice 6): every vault item belongs to one
-home — a department or the org. The human create names the department
-(`departmentId` on `POST /api/vault`); without it the item is an org item.
+home — a team or the org. The human create names the team
+(`teamId` on `POST /api/vault`); without it the item is an org item.
 Rows stored before the field existed read as ORG items (the recorded
-decision: owner-level means org) — a department bot therefore no longer
+decision: owner-level means org) — a team bot therefore no longer
 sees them, which is the tightening the org model intends. A bot's reads —
 `vault_list`, `vault_contacts` and the broker's credential resolution — see
 its own profile's items plus its HOME's shared items; another home's items
@@ -196,8 +196,8 @@ and placement. Tested by `packages/ext/src/vault-home.test.ts`,
 
 **Connectors per home** (phase 4 slice 7): MCP server config is per home,
 not per owner. Storage layout: the org's file keeps its path
-(`{MCP_DIR}/{owner}/servers.json`); department D's records live at
-`{MCP_DIR}/{owner}/dept-<D>/servers.json`, both 0600. `upgradeMcpHomes`
+(`{MCP_DIR}/{owner}/servers.json`); team D's records live at
+`{MCP_DIR}/{owner}/team-<D>/servers.json`, both 0600. `upgradeMcpHomes`
 runs at boot (repeatable, like `sealWebhookTokens`): rows stored before the
 field existed are stamped as the org's — existing connectors move to the
 org in place, and a second run changes nothing. A bot's connector surface —
@@ -207,8 +207,8 @@ its home's connectors: another home's connector is absent from the list and
 a call is refused with the uniform `connector not found` (`CONNECTOR_NOT_FOUND`
 in `packages/mind/src/mcp/access.ts`, the same answer as for a connector that
 does not exist, belongs to another owner, was removed or is not assigned to
-the bot; only a host switch that is off says so); a department
-bot never sees an org connector, and an org bot never sees a department
+the bot; only a host switch that is off says so); a team
+bot never sees an org connector, and an org bot never sees a team
 connector. A bot's `connector_add` files the new connector in the bot's own
 home. The human Connectors screen (REST over the signed-in owner session)
 still lists and manages every home's connectors. Connectors stay NEVER
@@ -222,7 +222,7 @@ and `packages/mind/src/mcp/homes.test.ts`.
 connector that signs in with a PRE-REGISTERED OAuth client (Google Drive's
 remote MCP server is the case in point) takes the client id and secret from
 VAULT ITEMS of the connector's own home — the org for an org connector, the
-department for a department one. The record in `servers.json` holds only
+team for a team one. The record in `servers.json` holds only
 the item ids (`clientIdItem` / `clientSecretItem`), never the values; the
 secret is redeemed in-process at flow time (`clientSecretOf` /
 `clientIdOf` in `packages/ext/src/mcp/secrets.ts`), never logged, never
@@ -235,23 +235,23 @@ or the server's dynamic registration); a reference to an item that is gone
 entirely stays a plain-worded error. A bot naming a cross-home item for a
 connector fails validation ("no vault item …"), because `itemsOf` lists
 only the bot's home's items; a key the owner types into a secure field for
-a department connector is sealed as an item OF that department
-(`departmentId` through `askSecrets` → the secret-request store). No real
+a team connector is sealed as an item OF that team
+(`teamId` through `askSecrets` → the secret-request store). No real
 Google sign-in is verified — the flow is proven against a local mock
 authorization server (discovery, PKCE, confidential token exchange,
 refresh). Tested by `packages/ext/src/mcp/oauth-homes.test.ts`,
 `packages/mind/src/mcp/homes.test.ts` and
 `packages/mind/src/secrets/requests.test.ts`.
 
-**Department memory**: a department bot proposes one of its own facts for the
-department's shared store; only an admin of that department (or the org
+**Team memory**: a team bot proposes one of its own facts for the
+team's shared store; only an admin of that team (or the org
 level) accepts or rejects (`POST /api/memory/v2/proposals/:id/(accept|reject)
-?department=`); rejection discards; accepted facts are recalled only by the
-department's bots.
+?team=`); rejection discards; accepted facts are recalled only by the
+team's bots.
 
 **Host access** (bash's beyond-VM targets — `target: "host"` and
 `target: "node"` — and any host-running tool): effective value is
-org AND department AND bot for a department bot, org AND bot for an org bot;
+org AND team AND bot for a team bot, org AND bot for an org bot;
 only the org owner flips a switch (the `host-flag` resource in `can()`, F3);
 every change writes a `permission` audit row and approves nothing already
 queued (F6); `GET /api/org/host-access` returns the matrix with the blocking
@@ -287,33 +287,33 @@ refuses calls before any first-use card, its tools cannot be loaded, and it
 is left out of the connectors prompt section.
 
 **The main bot's admin tools** (`packages/mind/src/admin/`, plus
-`bot_create`): `departments_list`, `department_create`, `department_update`,
-`department_delete`, `bot_details`, `bot_update`, `bot_move`, `bot_pause`,
+`bot_create`): `teams_list`, `team_create`, `team_update`,
+`team_delete`, `bot_details`, `bot_update`, `bot_move`, `bot_pause`,
 `bot_delete`. Main bot only, decided by `can()` (the `bot-admin` resource,
 wired through `authz.mayAdminister`); every other bot gets one refusal,
 word for word, before any card. `bot_create`, `bot_update`,
-`department_update`, `bot_delete` and `department_delete` park an owner
-card; a department delete warns first (refused with the bots' names while
+`team_update`, `bot_delete` and `team_delete` park an owner
+card; a team delete warns first (refused with the bots' names while
 it has any). Each change writes a `permission` audit row. No admin tool
 takes a host-access switch or an approval mode from the model: new bots and
-departments start with host access off and only the owner turns it on. The
+teams start with host access off and only the owner turns it on. The
 home rules below hold for them as for REST. Tested by
 `packages/mind/src/admin/admin-tools.test.ts` and `apps/server/src/rest/can.test.ts`.
 
 **Migration** (`migrateOrg`, repeatable, dry run
 `vpr @spriessen/server#org:dry-run`): the workspace becomes the org
 "Personal" owned by the account; every existing bot is an org bot with host
-access ON (F1 — today's behaviour); no department rows are created; a second
+access ON (F1 — today's behaviour); no team rows are created; a second
 run changes nothing — it stamps bots only on the run that creates the org,
-so a bot moved to a department or a switch turned off survives a restart
+so a bot moved to a team or a switch turned off survives a restart
 (the migration runs at every boot). One repair runs every boot: a main bot
-found in a department moves back to the org.
+found in a team moves back to the org.
 
 **Home rules** (`homeRuleProblem` in `packages/mind/src/org/home-rules.ts`,
 asked by the profiles service on create, move, pause, remove and set-main,
 so REST and the main bot's tools share one check): the main bot is an org
 bot; the org always keeps at least one active bot; the first bot lives in
-the org; a department bot cannot be made main. A refusal is a 400 on a
+the org; a team bot cannot be made main. A refusal is a 400 on a
 create or move and a 409 elsewhere, with the rule's words. Tested by
 `packages/mind/src/org/home-rules.test.ts`. Rollback: rolling the code back leaves the `ultiv.org`
 document and the two profile fields, which older code ignores; nothing is
@@ -328,9 +328,9 @@ home must exist; moves audited; the home rules over REST), `apps/server/src/rest
 ## One VM per home (the sandboxed `bash`)
 
 From phase 4 the `bash` tool's microVM belongs to the bot's HOME, not the
-bot: the org's bots share the org VM, each department's bots its department
+bot: the org's bots share the org VM, each team's bots its team
 VM (`packages/mind/src/org/home-scope.ts` computes the home's scope dir,
-`{ARTIFACTS_DIR}/{owner}/_home/org` or `.../_home/<departmentId>`;
+`{ARTIFACTS_DIR}/{owner}/_home/org` or `.../_home/<teamId>`;
 `packages/ext/src/shell/sandbox-backend.ts` owns the VM, named
 `ultiv-<hash of the scope dir>` — the `ultiv-` prefix is kept on purpose).
 Each bot works in its own folder inside the shared VM (`/home/<bot>`,
@@ -371,7 +371,7 @@ between bots — on the host every file belongs to the host user.
 
 Each VM provisions `/home/shared` on boot (idempotent, as root): owned by
 `root`, group `ultiv-shared` with a fixed per-home gid from 10000 up
-(`sharedGid`, stored with the org or department and allocated at creation;
+(`sharedGid`, stored with the org or team and allocated at creation;
 rows stored before the field existed read a deterministic value from
 `normalizeOrgState`), mode 2770 (setgid). Group MEMBERSHIP is created at a
 bot's first use of that VM (`usermod -aG` in the same provisioning step) and
@@ -381,11 +381,11 @@ group-writable on purpose; treat the folder as untrusted input (F-H).
 **The org-wide folder `/home/org-shared` (slice 2c).** One host-side store
 per org — `{ARTIFACTS_DIR}/{owner}/_shared/org`, beside the `_home` scope
 dirs — is bind-mounted at `/home/org-shared` into the org VM (read-write)
-and into EVERY department VM (read-only: the mount refuses writes, so a
-department bot's write fails; F-O3 is the read-write alternative). Inside
+and into EVERY team VM (read-only: the mount refuses writes, so a
+team bot's write fails; F-O3 is the read-write alternative). Inside
 the VM it is `root:ultiv-org` mode 2775, where `ultiv-org` is one extra
 group with its own fixed gid stored with the org (`orgSharedGid`, allocated
-at creation as `sharedGid + 1` and never given to a department; legacy rows
+at creation as `sharedGid + 1` and never given to a team; legacy rows
 read `sharedGid + 1`). Every bot joins `ultiv-org` on its first use of its
 home VM, whatever its home. The folder never holds vault values or
 connector tokens — that is a docs rule and a line in the `bash` tool
@@ -406,10 +406,10 @@ enforced at the Spriessen tool path (`packages/ext/src/shell/shared-caps.ts`):
 
 - Caps: `orgSharedCapBytes` for `/home/org-shared` (default 1 GiB, the org
   owner edits it with `PATCH /api/org`), and `sharedCapBytes` per
-  department for its store — the department VM's `/home/shared` and the
-  org VM's `/home/dept-shared/<id>` (default 1 GiB, edited by the
-  department's admin or the org level with `PATCH /api/org/departments/:id`,
-  which writes a `department-shared-cap` permission row). Both have a
+  team for its store — the team VM's `/home/shared` and the
+  org VM's `/home/team-shared/<id>` (default 1 GiB, edited by the
+  team's admin or the org level with `PATCH /api/org/teams/:id`,
+  which writes a `team-shared-cap` permission row). Both have a
   minimum of 1 MiB.
 - Enforced: before and after every sandboxed `bash` call the backing host
   directory is measured (an lstat walk that never follows symlinks). Over
@@ -425,18 +425,18 @@ enforced at the Spriessen tool path (`packages/ext/src/shell/shared-caps.ts`):
   disk bounds it. Files written by host-side paths (the server itself) are
   not counted.
 - Audit: every file an ORG bot writes into `/home/org-shared` or
-  `/home/dept-shared/<id>` during a `bash` call becomes a `shared_write`
-  audit row (path inside the VM, size in bytes, area, the department whose
+  `/home/team-shared/<id>` during a `bash` call becomes a `shared_write`
+  audit row (path inside the VM, size in bytes, area, the team whose
   store it is, and the writing bot; never any content). At most 50 rows
-  per call. Department bots' writes in their own `/home/shared` are not
+  per call. Team bots' writes in their own `/home/shared` are not
   audited.
 
-**Network is off by default (slice 3).** The org VM and every department VM
+**Network is off by default (slice 3).** The org VM and every team VM
 boot with a deny-everything microsandbox `NetworkPolicy`
 (`allowlistNetwork` in `packages/ext/src/shell/net-policy.ts`): no DNS, no
 HTTP, nothing in or out — a request from the VM fails until a host is
 allowlisted. Each home stores its own allowlist of named hosts on its org or
-department row (`netAllowlist`, at most 64 entries, a hostname like
+team row (`netAllowlist`, at most 64 entries, a hostname like
 `api.example.com` or a `*.suffix` for its subdomains; legacy rows read an
 empty list). The policy is part of the VM's creation config, so a change
 reaches a VM by RECREATING it at its next use — the applied fingerprint is
@@ -445,13 +445,13 @@ and re-creates the VM when the stored list no longer matches: running
 commands die (the same tradeoff as the F-D6 mount default) and the writable
 layer (installed packages) is refilled by the boot provisioning. Who edits:
 the org owner or an org admin for the org VM (`PATCH /api/org`,
-`netAllowlist`), a department's own admin (or the org level) for that
-department's VM (`PATCH /api/org/departments/:id`); a member or a foreign
-department's admin reads as a missing department. Every change writes a
-`permission` audit row (`org-net-allowlist`, `department-net-allowlist`).
+`netAllowlist`), a team's own admin (or the org level) for that
+team's VM (`PATCH /api/org/teams/:id`); a member or a foreign
+team's admin reads as a missing team. Every change writes a
+`permission` audit row (`org-net-allowlist`, `team-net-allowlist`).
 **Full network access is an explicit per-home opt-in (`netOpen`).** When the
 owner turns it on (the same PATCH routes, audited as `org-net-open` /
-`department-net-open`), the VM's policy becomes allow-all EGRESS — every
+`team-net-open`), the VM's policy becomes allow-all EGRESS — every
 host, port and the local network are reachable, the allowlist is ignored —
 while ingress stays denied. This turns the sandbox's network isolation OFF
 for that home: treat its bots accordingly, and expect nothing in the threat
@@ -472,8 +472,8 @@ never to an arbitrary address. The VM fingerprint covers the image and the
 mount list as well as size and allowlist, so a changed mount or image
 also recreates the VM.
 
-**VM size per home (slice 4).** The org VM and each department VM are
-CREATED with the size stored on their org or department row (`vm`: `cpus`
+**VM size per home (slice 4).** The org VM and each team VM are
+CREATED with the size stored on their org or team row (`vm`: `cpus`
 and `memoryMiB`, set at creation; the defaults 1 CPU / 512 MiB are
 `DEFAULT_VM` in `@spriessen/contracts` — the old per-VM constants now only
 back legacy rows). Bounds (`vmSettingsProblem`, the dialog's words, applied
@@ -482,7 +482,7 @@ on create AND edit in the org service and again over REST): 1–8 CPUs and
 for a 16 GB-class host (half its cores and RAM), not a recorded owner
 decision. On top of the per-VM bounds, the host-capacity rule
 (`vmCapacityProblem`) refuses a create or edit that would push the SUM of
-all homes' CONFIGURED memory (the org's plus every department's, defaults
+all homes' CONFIGURED memory (the org's plus every team's, defaults
 counted) past HALF the host's physical RAM (`VM_HOST_MEMORY_FRACTION = 0.5`
 of `os.totalmem()`; tests inject a smaller host). This is a configured-sum
 HEURISTIC over stored settings — it does not measure what the host holds
@@ -500,32 +500,32 @@ loops ~4× slower than one (0.19 s vs 0.73 s, `nproc` = 1); four VMs sized
 512/256/512/1024 MiB boot in parallel in ~240 ms and each reads its own
 size.
 
-Purging a department destroys only that department's VM and mounts;
+Purging a team destroys only that team's VM and mounts;
 `/home/org-shared` is untouched. The store is destroyed only with the org.
 
-**Department shared folders in the org VM (slice 2d).** Each department's
-shared store — `{ARTIFACTS_DIR}/{owner}/_dept/<department id>` — backs BOTH
+**Team shared folders in the org VM (slice 2d).** Each team's
+shared store — `{ARTIFACTS_DIR}/{owner}/_team/<team id>` — backs BOTH
 its own VM's `/home/shared` (a bind mount; it was a writable-layer folder
-before slice 2d) and the org VM's `/home/dept-shared/<department id>` (the
+before slice 2d) and the org VM's `/home/team-shared/<team id>` (the
 STORED id, never the name): one store, two mounts, no copy. Ownership is
-`root:<department group>` mode 2770 in both, the department's stored gid
+`root:<team group>` mode 2770 in both, the team's stored gid
 used in both VMs so file groups match; the org VM names the group
-`ultiv-d<gid>`. Every org bot joins every department's group on its first
+`ultiv-d<gid>`. Every org bot joins every team's group on its first
 use of the org VM; `/etc/group` in the org VM is reconciled at start and on
-every department create or delete (`deptGroupReconcileScript` in
-`packages/ext/src/shell/dept-shared.ts`, fired through
-`reconcileDeptGroups`) — missing groups and memberships are added, a
-deleted department's group is removed. Department bots get nothing new:
+every team create or delete (`teamGroupReconcileScript` in
+`packages/ext/src/shell/team-shared.ts`, fired through
+`reconcileTeamGroups`) — missing groups and memberships are added, a
+deleted team's group is removed. Team bots get nothing new:
 they see only their own `/home/shared` plus `/home/org-shared`, never
-another department's folder and never `/home/dept-shared`. Org bots are
-READ-WRITE in the department folders by default (the alternative — one
-read-only mount for all departments — is flagged, F-D8). A department
+another team's folder and never `/home/team-shared`. Org bots are
+READ-WRITE in the team folders by default (the alternative — one
+read-only mount for all teams — is flagged, F-D8). A team
 create or delete does NOT restart the org VM: microsandbox 0.7.11 cannot
 change a running VM's mounts (`modify()` covers cpu/memory/env/labels/
 workdir/secrets/ports only), but the org VM mounts the parent DIRECTORY
 once, and virtiofs shows new host-side store subfolders live — verified by
-probe — so only the group reconcile is needed (F-D6). The department store
-is deleted with the department's purge (F-D9 default; archiving for 30
+probe — so only the group reconcile is needed (F-D6). The team store
+is deleted with the team's purge (F-D9 default; archiving for 30
 days is not decided). The group handover, the caps and the
 `shared_write` audit rows above apply to these folders.
 
@@ -540,9 +540,9 @@ retired from its old home's VM the same way — the entity wires the same
 sweep to every move (`profiles.update`, `retireUserFromHome`) — and its
 user, with the same stored uid, is provisioned in the new home on its first
 `bash` there. A bot that never ran `bash`
-has no uid and no user anywhere. Deleting a department destroys the
-department's VM — both paths (`DELETE /api/org/departments/:id` and the main
-bot's `department_delete`) go through `orgService.removeDepartment`, which
+has no uid and no user anywhere. Deleting a team destroys the
+team's VM — both paths (`DELETE /api/org/teams/:id` and the main
+bot's `team_delete`) go through `orgService.removeTeam`, which
 tears the VM down best-effort (stop, then remove; bounded 8 s, never failing
 the removal; injectable as `openMind`'s `destroyHomeVm`, so tests touch no
 runtime; the same route injects `retireBotUser`). The org VM is destroyed
@@ -569,13 +569,13 @@ and retire command construction at unit level), `packages/mind/src/org/
 bot-users.test.ts` (uid allocation, never-reuse across removal, the home
 scope carrying the user, the injected removal sweep), `packages/mind/src/org/
 home-scope.test.ts` (the resolver, gid allocation, the rerun-stable
-upgrade, the injected department teardown), `packages/mind/src/
+upgrade, the injected team teardown), `packages/mind/src/
 org/net-allowlist.test.ts` (the offline default for legacy rows, the
 patches, the home scope carrying the right list),
 `apps/server/src/rest/net-allowlist.test.ts` (who may edit, the uniform
 refusals, the audit rows) and `apps/server/src/rest/home-vm-purge.test.ts`
-(a bot purge destroys no VM; a department delete destroys the
-department's). The real-VM behaviour (colocation inside one microVM,
+(a bot purge destroys no VM; a team delete destroys the
+team's). The real-VM behaviour (colocation inside one microVM,
 per-bot prepare isolation with ownership, mode-700 homes, hidepid=2,
 `/tmp` under umask 077, idempotent `useradd` keeping the same uid,
 retirement, ownership + hidepid surviving a VM restart, and the slice-3
@@ -588,8 +588,8 @@ reports "NOT VERIFIED" then. With `SPRIESSEN_REAL_VM=1` it boots throwaway
 VMs and checks that two bots in one VM cannot read each other's files or
 see or kill each other's processes; hidepid; `/tmp` under umask 077;
 supplementary groups for the numeric uid:gid; the group handover and the
-`shared_write` rows; a new department folder appearing live; org-shared
-read-only and no `/home/dept-shared` in a department VM; no network path
+`shared_write` rows; a new team folder appearing live; org-shared
+read-only and no `/home/team-shared` in a team VM; no network path
 between VMs and no internet by default; the cap remount in both
 directions; a recreate reading as a LOST workspace that re-prepares; and
 DNS resolving through the host resolver for an allowlisted name.
@@ -621,17 +621,17 @@ optional node name, the
 takes the bot alone (`packages/mind/src/org/home-scope.test.ts`). Open reach
 stays messaging-only with its caps
 (`packages/mind/src/org/reach.test.ts`: a cross-home send writes its audit
-row and org↔department exchanges bind to the same per-pair rate and daily
+row and org↔team exchanges bind to the same per-pair rate and daily
 budgets as any pair).
 Real-VM level, throwaway probes on this host (deleted after the run)
 re-verified: bots sharing a VM cannot list, read, write or enter each
 other's homes, read each other's process environment, or see or kill each
 other's processes (hidepid=2), while root and the owner bot keep their
-positive controls; a department VM mounts only its own `/home/shared` plus a
-read-only `/home/org-shared`, has no `/home/dept-shared` and no other
-department's folder; the org reaches a department's files only through
-`/home/dept-shared/<id>` and the write lands in that department's VM at
-`/home/shared`; a department cannot write `/home/org-shared` (the read-only
+positive controls; a team VM mounts only its own `/home/shared` plus a
+read-only `/home/org-shared`, has no `/home/team-shared` and no other
+team's folder; the org reaches a team's files only through
+`/home/team-shared/<id>` and the write lands in that team's VM at
+`/home/shared`; a team cannot write `/home/org-shared` (the read-only
 mount refuses); and there is no network path between VMs — a deny-all VM
 cannot reach another VM's internal service or the outside, while the same
 service and an allowlisted host answer the VM whose policy allows them.
@@ -642,7 +642,7 @@ it returns the page's rendered text (capped at 20 000 chars) and a PNG
 screenshot. There is no clicking, typing, forms, logins or downloads — the
 tool cannot be steered to interact with a page. The chromium run happens
 INSIDE the bot's own home VM — the same microVM `bash` uses (org VM for org
-bots, department VM for department bots), as the bot's own Linux user, with
+bots, team VM for team bots), as the bot's own Linux user, with
 the same per-call bound (45 s, `timeout -k` wrapped so a hung renderer
 cannot hang the tool) — and under that VM's network policy: a page whose
 host is off the home's allowlist is unreachable BY CONSTRUCTION (the
@@ -678,7 +678,7 @@ one — same status, same body, so ids can't be probed. Under the helpers sits
 the one permission decision, `can(actor, action, resource)`
 (`apps/server/src/rest/can.ts`): routes, the approval decide path and the
 host capability all ask it, and it is the file a later change (roles,
-departments) extends. The host capability (bash's beyond-VM targets —
+teams) extends. The host capability (bash's beyond-VM targets —
 `target: "host"` and `target: "node"` — and other tools that
 run on the server's own machine) belongs to the account's bots today; the
 act consults it through `openMind`'s `authz.hostAccess`, and a refusal comes

@@ -1,10 +1,10 @@
 /**
  * Connectors per home, bot side (phase 4 slice 7): a connector configured in
  * home A is absent from home B's list and refuses B's call; an org connector
- * is absent for department bots, and a department connector is absent for
+ * is absent for team bots, and a team connector is absent for
  * org bots. Calls stay never-auto-approved (the floors unchanged).
  * Slice 8: the vault items a bot may name for a connector are its home's
- * (plus its own profile items), and the segment → department id mapping the
+ * (plus its own profile items), and the segment → team id mapping the
  * secure-field store uses.
  */
 import { mkdtempSync, rmSync } from "node:fs";
@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { makeVaultStore, type McpManager, type McpServerView } from "@spriessen/ext";
 import { accessOf, visibleServers, type McpMindDeps } from "./access.ts";
 import { findOwned, itemsOf, scopeOf } from "./manage-run.ts";
-import { departmentIdOfSegment } from "../org/model.ts";
+import { teamIdOfSegment } from "../org/model.ts";
 
 const OWNER = "owner-a";
 const CONV = "conv-1";
@@ -50,10 +50,10 @@ const view = (id: string, home: string | undefined): McpServerView =>
     signedIn: false,
   }) as unknown as McpServerView;
 
-/** A conversation whose bot lives in `home` (departmentId null = the org). */
+/** A conversation whose bot lives in `home` (teamId null = the org). */
 const depsWith = (
   views: McpServerView[],
-  bot: { readonly departmentId: string | null },
+  bot: { readonly teamId: string | null },
   profiles: Record<string, { readonly owner: string; readonly profileId: string }> = {
     [CONV]: { owner: OWNER, profileId: "bot-1" },
   },
@@ -70,61 +70,61 @@ const depsWith = (
     callTimeoutMs: 1_000,
     profiles: {
       scopeOf: (conversationId: string) => profiles[conversationId],
-      profileOf: () => ({ id: "bot-1", departmentId: bot.departmentId }),
+      profileOf: () => ({ id: "bot-1", teamId: bot.teamId }),
     } as unknown as McpMindDeps["profiles"],
   }) as McpMindDeps;
 
 describe("connector visibility is per home", () => {
-  const deptView = view("dept-connector", "dept-alpha");
+  const teamView = view("team-connector", "team-alpha");
   const orgView = view("org-connector", "org");
   const legacyView = view("legacy-connector", undefined);
 
   it("a connector configured in A is absent from B's list and refuses B's call", () => {
-    const deps = depsWith([deptView, view("dept-b-connector", "dept-beta")], {
-      departmentId: "alpha",
+    const deps = depsWith([teamView, view("team-b-connector", "team-beta")], {
+      teamId: "alpha",
     });
-    expect(visibleServers(deps, CONV).map((entry) => entry.record.id)).toEqual(["dept-connector"]);
-    const refused = accessOf(deps, CONV, OWNER, "dept-b-connector");
+    expect(visibleServers(deps, CONV).map((entry) => entry.record.id)).toEqual(["team-connector"]);
+    const refused = accessOf(deps, CONV, OWNER, "team-b-connector");
     expect(refused).toMatchObject({ ok: false, reason: "connector not found" });
-    expect(accessOf(deps, CONV, OWNER, "dept-connector")).toMatchObject({ ok: true });
+    expect(accessOf(deps, CONV, OWNER, "team-connector")).toMatchObject({ ok: true });
   });
 
-  it("an org connector is absent for department bots; a department connector is absent for org bots", () => {
-    const deptBot = depsWith([orgView, deptView], { departmentId: "alpha" });
-    expect(visibleServers(deptBot, CONV).map((entry) => entry.record.id)).toEqual([
-      "dept-connector",
+  it("an org connector is absent for team bots; a team connector is absent for org bots", () => {
+    const teamBot = depsWith([orgView, teamView], { teamId: "alpha" });
+    expect(visibleServers(teamBot, CONV).map((entry) => entry.record.id)).toEqual([
+      "team-connector",
     ]);
-    expect(accessOf(deptBot, CONV, OWNER, "org-connector")).toMatchObject({ ok: false });
-    const orgBot = depsWith([orgView, deptView], { departmentId: null });
+    expect(accessOf(teamBot, CONV, OWNER, "org-connector")).toMatchObject({ ok: false });
+    const orgBot = depsWith([orgView, teamView], { teamId: null });
     expect(visibleServers(orgBot, CONV).map((entry) => entry.record.id)).toEqual(["org-connector"]);
-    expect(accessOf(orgBot, CONV, OWNER, "dept-connector")).toMatchObject({
+    expect(accessOf(orgBot, CONV, OWNER, "team-connector")).toMatchObject({
       ok: false,
       reason: "connector not found",
     });
   });
 
   it("legacy rows (no stored home) read as the org — existing connectors keep working", () => {
-    const orgBot = depsWith([legacyView], { departmentId: null });
+    const orgBot = depsWith([legacyView], { teamId: null });
     expect(visibleServers(orgBot, CONV).map((entry) => entry.record.id)).toEqual([
       "legacy-connector",
     ]);
     expect(accessOf(orgBot, CONV, OWNER, "legacy-connector")).toMatchObject({ ok: true });
-    const deptBot = depsWith([legacyView], { departmentId: "alpha" });
-    expect(visibleServers(deptBot, CONV)).toEqual([]);
+    const teamBot = depsWith([legacyView], { teamId: "alpha" });
+    expect(visibleServers(teamBot, CONV)).toEqual([]);
   });
 
   it("the management tools resolve scope and lookups inside the bot's home only", () => {
     const deps = {
-      ...depsWith([deptView, orgView], { departmentId: "alpha" }),
+      ...depsWith([teamView, orgView], { teamId: "alpha" }),
       secrets: {},
       vault: null,
     } as unknown as Parameters<typeof scopeOf>[0];
     const scope = scopeOf(deps, CONV);
     if (typeof scope === "string") throw new Error(scope);
-    expect(scope.home).toBe("dept-alpha");
-    expect(scope.homeRef).toEqual({ kind: "department", departmentId: "alpha" });
-    expect(findOwned(deps, OWNER, "dept-connector", scope.home)).toMatchObject({
-      id: "dept-connector",
+    expect(scope.home).toBe("team-alpha");
+    expect(scope.homeRef).toEqual({ kind: "team", teamId: "alpha" });
+    expect(findOwned(deps, OWNER, "team-connector", scope.home)).toMatchObject({
+      id: "team-connector",
     });
     expect(findOwned(deps, OWNER, "org-connector", scope.home)).toMatchObject(/no connector/);
     expect(findOwned(deps, OWNER, "org-connector")).toMatchObject({ id: "org-connector" });
@@ -152,13 +152,13 @@ describe("a bot names only its home's vault items for a connector (slice 8)", ()
         kind: "note",
         name: "Alpha client id",
         note: { secret: "alpha-client.apps.googleusercontent.com" },
-        departmentId: "alpha",
+        teamId: "alpha",
       }),
       beta: vault.create(OWNER, {
         kind: "note",
         name: "Beta client id",
         note: { secret: "beta-client.apps.googleusercontent.com" },
-        departmentId: "beta",
+        teamId: "beta",
       }),
       own: vault.create(OWNER, {
         kind: "note",
@@ -170,10 +170,10 @@ describe("a bot names only its home's vault items for a connector (slice 8)", ()
     return { store: vault, items };
   };
 
-  it("a department bot sees its department's items and its own, never another home's", () => {
+  it("a team bot sees its team's items and its own, never another home's", () => {
     const { store, items } = vaultWithItems();
     const deps = {
-      ...depsWith([], { departmentId: "alpha" }),
+      ...depsWith([], { teamId: "alpha" }),
       vault: store,
     } as unknown as Parameters<typeof itemsOf>[0];
     const scope = scopeOf(deps, CONV);
@@ -188,10 +188,10 @@ describe("a bot names only its home's vault items for a connector (slice 8)", ()
     expect(itemsOf(deps, scope).find((entry) => entry.id === items.beta.id)).toBeUndefined();
   });
 
-  it("an org bot sees the org's items (and its own), never a department's", () => {
+  it("an org bot sees the org's items (and its own), never a team's", () => {
     const { store } = vaultWithItems();
     const deps = {
-      ...depsWith([], { departmentId: null }),
+      ...depsWith([], { teamId: null }),
       vault: store,
     } as unknown as Parameters<typeof itemsOf>[0];
     const scope = scopeOf(deps, CONV);
@@ -203,9 +203,9 @@ describe("a bot names only its home's vault items for a connector (slice 8)", ()
     expect(names).not.toContain("Beta client id");
   });
 
-  it("departmentIdOfSegment maps the mind's home segments to stored ids", () => {
-    expect(departmentIdOfSegment("dept-alpha")).toBe("alpha");
-    expect(departmentIdOfSegment("org")).toBeUndefined();
-    expect(departmentIdOfSegment("dept-")).toBeUndefined();
+  it("teamIdOfSegment maps the mind's home segments to stored ids", () => {
+    expect(teamIdOfSegment("team-alpha")).toBe("alpha");
+    expect(teamIdOfSegment("org")).toBeUndefined();
+    expect(teamIdOfSegment("team-")).toBeUndefined();
   });
 });

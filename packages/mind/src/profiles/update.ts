@@ -107,10 +107,9 @@ export const patchedProfile = (
   model: patch.model !== undefined ? patch.model : current.model,
   toolAllowlist: patch.toolAllowlist !== undefined ? patch.toolAllowlist : current.toolAllowlist,
   policies: { ...current.policies, ...patch.policies },
-  // Moving homes (org to department, department to org or elsewhere): the
+  // Moving homes (org to team, team to org or elsewhere): the
   // bot keeps its own flags; its effective access follows the new home.
-  departmentId:
-    patch.departmentId !== undefined ? patch.departmentId : (current.departmentId ?? null),
+  teamId: patch.teamId !== undefined ? patch.teamId : (current.teamId ?? null),
   hostAccess: patch.hostAccess ?? current.hostAccess ?? false,
 });
 

@@ -5,6 +5,7 @@
  * lines. The per-conversation ledger answers "what ran in THIS chat lately"
  * without depending on how busy every other bot has been.
  */
+import { renameLegacyTeams, renameTeamTool } from "../migrate/teams.ts";
 import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
 import type { AuditEvent } from "@spriessen/contracts";
 
@@ -49,10 +50,23 @@ export const readLastLines = (path: string, limit: number): string[] => {
   }
 };
 
+/**
+ * Teams were called departments, and the log is append-only: lines written
+ * before the rename read with the new names (keys, home kinds, the
+ * `dept-shared` area, the old team tool names and `department-…` changes).
+ */
+const withTeamNames = (event: AuditEvent): AuditEvent => {
+  const renamed = renameLegacyTeams(event);
+  const name = renamed.name;
+  if (typeof name !== "string") return renamed;
+  const next = renameTeamTool(name).replace(/^department-/, "team-");
+  return next === name ? renamed : { ...renamed, name: next };
+};
+
 export const parseLines = (lines: readonly string[]): AuditEvent[] =>
   lines.flatMap((line) => {
     try {
-      return [JSON.parse(line) as AuditEvent];
+      return [withTeamNames(JSON.parse(line) as AuditEvent)];
     } catch {
       return [];
     }

@@ -2,7 +2,7 @@
  * The host-access switch at DECIDE time (slice 10). A queued host-direct
  * call — `bash_host`, or a stdio connector's tool (its server runs as a host
  * process) — is refused when the bot's effective host access went false
- * after the card was parked: turning the org or department off acts at once,
+ * after the card was parked: turning the org or team off acts at once,
  * on calls already waiting (F6). Both decide paths (the chat card in
  * `session-methods.ts` and the inbox in `rest/approvals.ts`) ask here; the
  * request-time gates (the act's guard, the connector call gate) already
@@ -36,7 +36,7 @@ export const isHostDirectCall = (mind: MindService, name: string, input?: unknow
 /**
  * The refusal for approving a waiting host-direct call, or null when the
  * approval may stand: the call is not host-direct, or the bot's effective
- * switch (org AND department AND bot) is on. Fail-closed like the per-call
+ * switch (org AND team AND bot) is on. Fail-closed like the per-call
  * guard: a host-direct call whose conversation maps to no bot, or whose
  * org view cannot be read, is refused.
  */

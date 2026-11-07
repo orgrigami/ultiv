@@ -2,9 +2,9 @@
  * The per-VM network allowlist editor (phase 4 slice 3, UI parity with the
  * REST field): the named hosts one home's VM may reach. Everything else is
  * denied — an empty list means the VM is fully offline. Used for the org VM
- * (Settings → Organization) and each department VM (its page); the save is
+ * (Settings → Organization) and each team VM (its page); the save is
  * the same PATCH the API takes, audited server-side as org-net-allowlist /
- * department-net-allowlist. Validation is the contract's own
+ * team-net-allowlist. Validation is the contract's own
  * `netAllowlistProblem`, so the form refuses exactly what the server would.
  */
 import { useEffect, useState } from "react";

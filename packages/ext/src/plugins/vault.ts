@@ -19,7 +19,7 @@ export interface ScopeResolver {
   ) => { readonly owner: string; readonly profile: string } | undefined;
   /**
    * The conversation's HOME scope, when the embedder gives each home (an org
-   * or a department) its own sandbox instead of each bot: `dir` names the
+   * or a team) its own sandbox instead of each bot: `dir` names the
    * home's VM (a stable scope dir; the sandbox name derives from it) and
    * `sharedGid` is the home's shared-folder group id, when it provisions
    * one. ext never learns org concepts — the mind supplies both. The
@@ -40,7 +40,7 @@ export interface ScopeResolver {
   readonly homeOf?: (conversationId: string) => HomeRef | undefined;
   /**
    * Records an org bot's writes into a cross-home shared folder, seen after
-   * its `bash` call (fix 2 audit: path, size, department). The mind writes
+   * its `bash` call (fix 2 audit: path, size, team). The mind writes
    * the audit rows; ext only reports what the VM showed.
    */
   readonly sharedWrite?: (conversationId: string, rows: readonly SharedWrite[]) => void;
@@ -50,7 +50,7 @@ export interface ScopeResolver {
 export interface SharedCaps {
   readonly orgShared?: number;
   readonly shared?: number;
-  readonly dept?: Readonly<Record<string, number>>;
+  readonly team?: Readonly<Record<string, number>>;
 }
 
 /** The bot's own Linux identity inside a VM (slice 2b); the mind supplies it. */
@@ -74,9 +74,9 @@ export interface HomeScope {
   /**
    * The org-wide folder (slice 2c): one host-side store, mounted at
    * `/home/org-shared` into EVERY VM — read-write in the org VM, read-only
-   * in a department VM (enforced by the mount, never file modes alone).
+   * in a team VM (enforced by the mount, never file modes alone).
    * `gid` is the org's own org-shared group, separate from every
-   * department's group. ext never learns org concepts — the mind supplies
+   * team's group. ext never learns org concepts — the mind supplies
    * the store path and gid.
    */
   readonly orgShared?: {
@@ -84,25 +84,25 @@ export interface HomeScope {
     readonly hostDir: string;
     /** The org's org-shared group id (fixed from 10000 up, stored with the org). */
     readonly gid: number;
-    /** True for a department VM: the mount is read-only. */
+    /** True for a team VM: the mount is read-only. */
     readonly readOnly: boolean;
   };
   /**
-   * The department's own durable store (slice 2d): when set, the VM's
+   * The team's own durable store (slice 2d): when set, the VM's
    * `/home/shared` is a bind mount of this host directory — the SAME store
-   * the org VM sees at `/home/dept-shared/<department id>`.
+   * the org VM sees at `/home/team-shared/<team id>`.
    */
   readonly sharedStore?: string;
   /**
-   * The org VM's department shared folders (slice 2d), for ORG bots only:
-   * the per-org parent directory mounted at `/home/dept-shared` (its
-   * subfolders are the department stores), the stored departments (ids and
+   * The org VM's team shared folders (slice 2d), for ORG bots only:
+   * the per-org parent directory mounted at `/home/team-shared` (its
+   * subfolders are the team stores), the stored teams (ids and
    * gids) and every org bot that already has a Linux user (for group
    * reconciliation). ext never learns org concepts — the mind supplies all.
    */
-  readonly deptShared?: {
+  readonly teamShared?: {
     readonly parentDir: string;
-    readonly depts: readonly { readonly id: string; readonly gid: number }[];
+    readonly teams: readonly { readonly id: string; readonly gid: number }[];
     readonly users: readonly string[];
   };
   /**
@@ -131,8 +131,8 @@ export interface HomeScope {
   readonly vm?: { readonly cpus: number; readonly memoryMiB: number };
   /**
    * Size caps of the writable shared folders (fix 2), in bytes: the org's
-   * `/home/org-shared`, a department's own `/home/shared` (its store) and,
-   * in the org VM, each `/home/dept-shared/<id>`. Enforced at the tool path
+   * `/home/org-shared`, a team's own `/home/shared` (its store) and,
+   * in the org VM, each `/home/team-shared/<id>`. Enforced at the tool path
    * (see shell/shared-caps.ts); absent means uncapped.
    */
   readonly caps?: SharedCaps;

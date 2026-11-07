@@ -1,6 +1,6 @@
 /**
  * The `bot_create` confirmation card, inline in the chat: the proposal as a
- * small editable form. Name, title, home (a department or the org),
+ * small editable form. Name, title, home (a team or the org),
  * personality, Instructions, model + effort, and the sandbox toggle; the
  * tool list rides along as proposed. Creating sends the corrected input back through the
  * approval's override channel; denying (or letting it expire) tells the bot
@@ -10,7 +10,7 @@ import { useState } from "react";
 import type { ModelInfo } from "@spriessen/contracts";
 import type { DecideOutcome } from "@/components/approval-card";
 import { ModelFields } from "@/components/bot-fields";
-import { HomeSelect } from "@/components/department/home-select";
+import { HomeSelect } from "@/components/team/home-select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -22,8 +22,8 @@ export interface BotProposal {
   name: string;
   title: string;
   persona: string;
-  /** A department id or name as proposed; "" = an org bot. */
-  department: string;
+  /** A team id or name as proposed; "" = an org bot. */
+  team: string;
   instructions: string;
   /** Proposed tool names; empty = all installed tools. */
   tools: string[];
@@ -42,7 +42,7 @@ export const proposalOf = (input: unknown): BotProposal => {
     name: text("name"),
     title: text("title"),
     persona: text("persona"),
-    department: text("department") === "org" ? "" : text("department"),
+    team: text("team") === "org" ? "" : text("team"),
     instructions: text("instructions"),
     tools: Array.isArray(record["tools"])
       ? record["tools"].filter((tool): tool is string => typeof tool === "string")
@@ -170,9 +170,9 @@ function ProposalFields({
         placeholder="Research assistant for the workspace"
       />
       <HomeSelect
-        label="Which department?"
-        value={proposal.department}
-        onChange={(department) => setProposal({ ...proposal, department })}
+        label="Which team?"
+        value={proposal.team}
+        onChange={(team) => setProposal({ ...proposal, team })}
       />
       <TextField
         label="Personality"
@@ -240,7 +240,7 @@ export function BotCreateCard(props: {
               name: proposal.name.trim(),
               title: proposal.title.trim(),
               persona: proposal.persona,
-              department: proposal.department,
+              team: proposal.team,
               instructions: proposal.instructions,
               ...(proposal.tools.length > 0 ? { tools: proposal.tools } : {}),
               model: proposal.modelId,

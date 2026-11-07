@@ -1,6 +1,6 @@
 /**
  * Vaults per home (phase 4 slice 6): a vault item belongs to one home — a
- * department or the org — and every bot-side read (store scope, the vault
+ * team or the org — and every bot-side read (store scope, the vault
  * tools, broker resolution) refuses a bot from another home, audited at the
  * broker. Grants (Phase 3) stay the way a NAMED item crosses homes.
  */
@@ -26,15 +26,15 @@ const tempRoot = (): string => {
 };
 
 const ORG = { kind: "org" } as const;
-const DEPT_A = { kind: "department", departmentId: "dept-a" } as const;
-const DEPT_B = { kind: "department", departmentId: "dept-b" } as const;
+const TEAM_A = { kind: "team", teamId: "team-a" } as const;
+const TEAM_B = { kind: "team", teamId: "team-b" } as const;
 
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
 describe("vault items belong to a home (store)", () => {
-  it("a department item is seen by that department's bots only; an org item by org bots only", () => {
+  it("a team item is seen by that team's bots only; an org item by org bots only", () => {
     const store = makeVaultStore(tempRoot());
     const orgItem = store.create("owner-a", {
       kind: "key",
@@ -42,17 +42,17 @@ describe("vault items belong to a home (store)", () => {
       key: { secret: "org-tok" },
     });
     expect(orgItem.home).toEqual(ORG);
-    const deptItem = store.create("owner-a", {
+    const teamItem = store.create("owner-a", {
       kind: "key",
-      name: "Dept key",
-      departmentId: "dept-a",
-      key: { secret: "dept-tok" },
+      name: "Team key",
+      teamId: "team-a",
+      key: { secret: "team-tok" },
     });
-    expect(deptItem.home).toEqual(DEPT_A);
+    expect(teamItem.home).toEqual(TEAM_A);
     store.create("owner-a", {
       kind: "key",
       name: "Other key",
-      departmentId: "dept-b",
+      teamId: "team-b",
       key: { secret: "other-tok" },
     });
     store.create("owner-a", {
@@ -64,22 +64,22 @@ describe("vault items belong to a home (store)", () => {
     // An org bot (home = org): org items plus its own profile items.
     const orgBot = store.list("owner-a", { profile: "bot-org", home: ORG });
     expect(orgBot.map((item) => item.name).sort()).toEqual(["Org key"]);
-    // A department A bot: A's items, never the org's or B's.
-    const deptBot = store.list("owner-a", { profile: "bot-x", home: DEPT_A });
-    expect(deptBot.map((item) => item.name).sort()).toEqual(["Dept key"]);
-    // A department B bot sees neither the org's nor A's item.
-    expect(store.list("owner-a", { profile: "bot-y", home: DEPT_B }).map((i) => i.name)).toEqual([
+    // A team A bot: A's items, never the org's or B's.
+    const teamBot = store.list("owner-a", { profile: "bot-x", home: TEAM_A });
+    expect(teamBot.map((item) => item.name).sort()).toEqual(["Team key"]);
+    // A team B bot sees neither the org's nor A's item.
+    expect(store.list("owner-a", { profile: "bot-y", home: TEAM_B }).map((i) => i.name)).toEqual([
       "Other key",
     ]);
     // A profile-scoped item stays visible to its profile (plus that home's
     // owner-level items)...
-    expect(store.list("owner-a", { profile: "bot-a", home: DEPT_A }).map((i) => i.name)).toEqual([
+    expect(store.list("owner-a", { profile: "bot-a", home: TEAM_A }).map((i) => i.name)).toEqual([
       "Private",
-      "Dept key",
+      "Team key",
     ]);
     // ...and invisible to a sibling bot in the same home (unchanged).
-    expect(store.list("owner-a", { profile: "bot-x", home: DEPT_A }).map((i) => i.name)).toEqual([
-      "Dept key",
+    expect(store.list("owner-a", { profile: "bot-x", home: TEAM_A }).map((i) => i.name)).toEqual([
+      "Team key",
     ]);
   });
 
@@ -92,11 +92,11 @@ describe("vault items belong to a home (store)", () => {
     delete stored.info.home;
     writeFileSync(path, JSON.stringify(stored));
     expect(store.get("owner-a", item.id)?.home).toBeUndefined();
-    // Still visible to an org bot, refused to a department bot.
+    // Still visible to an org bot, refused to a team bot.
     expect(store.list("owner-a", { profile: "bot-o", home: ORG }).map((i) => i.name)).toEqual([
       "Legacy",
     ]);
-    expect(store.list("owner-a", { profile: "bot-x", home: DEPT_A }).length).toBe(0);
+    expect(store.list("owner-a", { profile: "bot-x", home: TEAM_A }).length).toBe(0);
   });
 
   it("no home in the scope keeps the pre-slice-6 behaviour (owner items visible)", () => {
@@ -105,7 +105,7 @@ describe("vault items belong to a home (store)", () => {
     expect(store.list("owner-a", { profile: "anyone" }).map((i) => i.name)).toEqual(["Shared"]);
   });
 
-  it("refuses an item that names both a profile and a department", () => {
+  it("refuses an item that names both a profile and a team", () => {
     const store = makeVaultStore(tempRoot());
     let reason: string | undefined;
     try {
@@ -113,13 +113,13 @@ describe("vault items belong to a home (store)", () => {
         kind: "key",
         name: "Both",
         profile: "bot-a",
-        departmentId: "dept-a",
+        teamId: "team-a",
         key: { secret: "tok" },
       });
     } catch (cause) {
       reason = (cause as { reason?: string }).reason;
     }
-    expect(reason).toMatch(/cannot also name a department/);
+    expect(reason).toMatch(/cannot also name a team/);
   });
 
   it("contacts are home-scoped too", () => {
@@ -127,7 +127,7 @@ describe("vault items belong to a home (store)", () => {
     store.create("owner-a", {
       kind: "contact",
       name: "Alpha lead",
-      departmentId: "dept-a",
+      teamId: "team-a",
       contact: { email: "lead@a.example" },
     });
     store.create("owner-a", {
@@ -136,7 +136,7 @@ describe("vault items belong to a home (store)", () => {
       contact: { email: "org@example.com" },
     });
     expect(
-      store.contacts("owner-a", { profile: "bot-x", home: DEPT_A }).map((c) => c.name),
+      store.contacts("owner-a", { profile: "bot-x", home: TEAM_A }).map((c) => c.name),
     ).toEqual(["Alpha lead"]);
     expect(store.contacts("owner-a", { profile: "bot-o", home: ORG }).map((c) => c.name)).toEqual([
       "Org contact",
@@ -154,6 +154,27 @@ const holderOf = (store: VaultStore, home: unknown): ScopeHolder => {
   return holder;
 };
 
+describe("items sealed when teams were departments", () => {
+  it("read as their team, by the unchanged id", () => {
+    const root = tempRoot();
+    const store = makeVaultStore(root);
+    const item = store.create("owner-a", {
+      kind: "key",
+      name: "Old team key",
+      teamId: "dept-ops",
+      key: { secret: "tok" },
+    });
+    // Rewrite the sidecar in its pre-rename shape.
+    const path = join(root, "owner-a", "items", `${item.id}.json`);
+    const stored = JSON.parse(readFileSync(path, "utf8")) as { info: Record<string, unknown> };
+    stored.info.home = { kind: "department", departmentId: "dept-ops" };
+    writeFileSync(path, JSON.stringify(stored));
+    const home = { kind: "team", teamId: "dept-ops" } as const;
+    expect(store.list("owner-a", { profile: "bot", home }).map((row) => row.home)).toEqual([home]);
+    expect(store.get("owner-a", item.id)?.home).toEqual(home);
+  });
+});
+
 describe("vault tools are home-scoped", () => {
   const listAs = async (holder: ScopeHolder, store: VaultStore): Promise<string> => {
     const plugin = vaultPlugin(store, holder);
@@ -167,17 +188,17 @@ describe("vault tools are home-scoped", () => {
     return (result.output?.[0] as { text: string } | undefined)?.text ?? "";
   };
 
-  it("vault_list shows a department bot its home's items, never the org's", async () => {
+  it("vault_list shows a team bot its home's items, never the org's", async () => {
     const store = makeVaultStore(tempRoot());
     store.create("owner-a", { kind: "key", name: "Org key", key: { secret: "o" } });
     store.create("owner-a", {
       kind: "key",
-      name: "Dept key",
-      departmentId: "dept-a",
+      name: "Team key",
+      teamId: "team-a",
       key: { secret: "d" },
     });
-    const listed = await listAs(holderOf(store, DEPT_A), store);
-    expect(JSON.parse(listed).map((item: { name: string }) => item.name)).toEqual(["Dept key"]);
+    const listed = await listAs(holderOf(store, TEAM_A), store);
+    expect(JSON.parse(listed).map((item: { name: string }) => item.name)).toEqual(["Team key"]);
     const orgListed = await listAs(holderOf(store, ORG), store);
     expect(JSON.parse(orgListed).map((item: { name: string }) => item.name)).toEqual(["Org key"]);
   });
@@ -228,19 +249,19 @@ describe("the broker refuses another home's credential, audited; a granted item 
     };
   };
 
-  it("an org bot's read of a department secret fails and writes an audit row", async () => {
+  it("an org bot's read of a team secret fails and writes an audit row", async () => {
     const rigA = await setUp(ORG);
     try {
       const item = rigA.store.create("owner-a", {
         kind: "key",
-        name: "Dept secret",
-        departmentId: "dept-a",
-        key: { secret: "«secret-dept»" },
+        name: "Team secret",
+        teamId: "team-a",
+        key: { secret: "«secret-team»" },
       });
       const refused = await rigA.run({
         method: "GET",
         url: `http://127.0.0.1:${rigA.server.port}/x`,
-        credential: "Dept secret",
+        credential: "Team secret",
       });
       expect(refused.isError).toBe(true);
       expect(refused.text).toMatch(/no credential/);
@@ -248,17 +269,17 @@ describe("the broker refuses another home's credential, audited; a granted item 
       expect(row).toMatchObject({
         kind: "credential",
         ok: false,
-        credential: { item: "Dept secret", method: "GET", status: null },
+        credential: { item: "Team secret", method: "GET", status: null },
       });
-      expect(JSON.stringify(rigA.audits)).not.toContain("«secret-dept»");
-      expect(item.name).toBe("Dept secret");
+      expect(JSON.stringify(rigA.audits)).not.toContain("«secret-team»");
+      expect(item.name).toBe("Team secret");
     } finally {
       await rigA.server.close();
     }
   });
 
-  it("a department bot's read of an org secret (and the reverse home) fails, audited", async () => {
-    const rigB = await setUp(DEPT_B);
+  it("a team bot's read of an org secret (and the reverse home) fails, audited", async () => {
+    const rigB = await setUp(TEAM_B);
     try {
       rigB.store.create("owner-a", {
         kind: "key",

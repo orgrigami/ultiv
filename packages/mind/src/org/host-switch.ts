@@ -1,6 +1,6 @@
 /**
  * Slice 10: the host-access switch as ONE seam. The effective flag (org AND
- * department AND bot, `effectiveHostAccess` in `./model.ts`) decides three
+ * team AND bot, `effectiveHostAccess` in `./model.ts`) decides three
  * things, all reading the same predicate:
  * - the per-call gates (the act's guard for beyond-VM `bash` targets —
  *   `target: "host"` / `target: "node"` — and the connector call gate for
@@ -43,8 +43,8 @@ export const isBeyondVmCall = (name: string, args: unknown): boolean =>
 export const HOST_REFUSAL =
   "this bot does not have access to this computer (the owner has not granted it)";
 
-/** The flags the switch reads: the org row and the departments. */
-export type HostFlags = Pick<OrgView, "org" | "departments">;
+/** The flags the switch reads: the org row and the teams. */
+export type HostFlags = Pick<OrgView, "org" | "teams">;
 
 /**
  * The effective answer, FAIL-CLOSED exactly like `effectiveHostAccess`: no
@@ -57,16 +57,15 @@ export type HostFlags = Pick<OrgView, "org" | "departments">;
  */
 export const switchAllows = (
   flags: HostFlags | undefined,
-  profile: Pick<ProfileInfo, "departmentId" | "hostAccess">,
-): boolean =>
-  flags !== undefined && effectiveHostAccess(flags.org, flags.departments, profile).allowed;
+  profile: Pick<ProfileInfo, "teamId" | "hostAccess">,
+): boolean => flags !== undefined && effectiveHostAccess(flags.org, flags.teams, profile).allowed;
 
 /** Which level blocks the switch for this bot, on the live view (null: none). */
 export const hostBlockedBy = (
   flags: HostFlags | undefined,
-  profile: Pick<ProfileInfo, "departmentId" | "hostAccess">,
+  profile: Pick<ProfileInfo, "teamId" | "hostAccess">,
 ): HostBlock | null =>
-  flags === undefined ? null : effectiveHostAccess(flags.org, flags.departments, profile).blockedBy;
+  flags === undefined ? null : effectiveHostAccess(flags.org, flags.teams, profile).blockedBy;
 
 /**
  * The names to drop from a bot's tool list while its effective host access
@@ -80,7 +79,7 @@ export const hostBlockedBy = (
  */
 export const hostExcludedTools = (
   flags: HostFlags | undefined,
-  profile: Pick<ProfileInfo, "departmentId" | "hostAccess">,
+  profile: Pick<ProfileInfo, "teamId" | "hostAccess">,
   stdioToolNames: readonly string[],
 ): string[] => {
   if (!switchAllows(flags, profile)) return [...stdioToolNames];
@@ -91,7 +90,7 @@ export const hostExcludedTools = (
 const signatureOf = (flags: HostFlags | undefined): string =>
   JSON.stringify([
     flags?.org?.hostAccess ?? null,
-    (flags?.departments ?? []).map((row) => [row.id, row.hostAccess]),
+    (flags?.teams ?? []).map((row) => [row.id, row.hostAccess]),
   ]);
 
 /** The conversations a profile's agent applies to: its sessions and tasks. */
@@ -137,7 +136,7 @@ export interface HostSwitchWatch {
   /** The last read org view (undefined before the first read). */
   readonly flags: () => HostFlags | undefined;
   /** The effective answer per bot on the snapshot (unknown flags: allowed). */
-  readonly allows: (profile: Pick<ProfileInfo, "departmentId" | "hostAccess">) => boolean;
+  readonly allows: (profile: Pick<ProfileInfo, "teamId" | "hostAccess">) => boolean;
   /** Read the view once (boot). */
   readonly refresh: () => Promise<void>;
   /** Fired on every org commit: refreshes, and re-applies agents on a flip. */

@@ -29,16 +29,16 @@ type MindHandle = Awaited<ReturnType<typeof openMind>>;
 let handle: MindHandle;
 let mind: MindHandle["mind"];
 let owner: string;
-let dept = "";
+let team = "";
 
 beforeAll(async () => {
   handle = await openMind({ storage: new MemoryStorage() });
   mind = handle.mind;
   owner = "owner-a";
   await mind.org.ensureOrg(owner, "Personal", true);
-  dept = (await mind.org.createDepartment({ name: "Ops" }, owner)).id;
+  team = (await mind.org.createTeam({ name: "Ops" }, owner)).id;
   await mind.profiles.create(owner, { name: "Scout", onboard: false });
-  await mind.profiles.create(owner, { name: "Digger", departmentId: dept, onboard: false });
+  await mind.profiles.create(owner, { name: "Digger", teamId: team, onboard: false });
 });
 
 const profileOf = async (name: string) => {
@@ -100,7 +100,7 @@ describe("the home scope carries the user to ext", () => {
   it("a bot's first use of its home VM resolves dir, gid and its own user", async () => {
     const digger = await profileOf("Digger");
     const scope = await homeScopeOfProfile(mind.converse, scratch)(owner, digger);
-    expect(scope?.dir).toBe(join(scratch, owner, "_home", dept));
+    expect(scope?.dir).toBe(join(scratch, owner, "_home", team));
     expect(scope?.sharedGid).toBe(10_002);
     expect(scope?.user).toBeDefined();
     expect(scope?.user?.uid).toBe(await botUidPeek(mind.converse)(digger.id));
@@ -132,7 +132,7 @@ describe("the removal sweep (org service)", () => {
     expect(swept).toEqual([{ owner, home: { kind: "org" }, profileId: scout.id }]);
   });
 
-  it("a department bot's sweep names its department home", async () => {
+  it("a team bot's sweep names its team home", async () => {
     const swept: HomeRef[] = [];
     const scoped = orgService(mind.converse, {
       retireBotUser: async (_owner, home) => {
@@ -141,6 +141,6 @@ describe("the removal sweep (org service)", () => {
     });
     const digger = await profileOf("Digger");
     await scoped.retireBotUser(owner, digger);
-    expect(swept).toEqual([{ kind: "department", departmentId: dept }]);
+    expect(swept).toEqual([{ kind: "team", teamId: team }]);
   });
 });

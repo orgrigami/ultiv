@@ -74,7 +74,7 @@ const shell = (bot: AccessInput["bot"], microvm: boolean | null): AccessLine => 
 
 const BLOCKED: Record<string, { text: string; fix: string }> = {
   org: { text: "the org switch is off", fix: "Settings › Organization" },
-  department: { text: "its team's switch is off", fix: "its team's page in Crew" },
+  team: { text: "its team's switch is off", fix: "its team's page in Crew" },
   bot: { text: "its own switch is off", fix: "the switch below" },
 };
 

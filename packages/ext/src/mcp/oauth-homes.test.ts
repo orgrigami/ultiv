@@ -1,7 +1,7 @@
 /**
- * A per-home OAuth client (phase 4 slice 8): a department connector signs in
+ * A per-home OAuth client (phase 4 slice 8): a team connector signs in
  * with ITS OWN client id and secret, redeemed at flow time from vault items
- * OF that department (never from config or tool arguments), against a local
+ * OF that team (never from config or tool arguments), against a local
  * mock endpoint. A connector whose home has no such items — including one
  * that names another home's items — falls back to today's mechanism
  * (dynamic client registration). No real Google sign-in happens here.
@@ -35,9 +35,9 @@ const approveAt = async (url: string) => {
   };
 };
 
-const DEPT_ID = "dept-x-client.apps.googleusercontent.com";
+const TEAM_ID = "team-x-client.apps.googleusercontent.com";
 const ORG_ID = "org-client.apps.googleusercontent.com";
-const DEPT_SECRET = "gocsp-dept-secret-0123456789";
+const TEAM_SECRET = "gocsp-team-secret-0123456789";
 const ORG_SECRET = "gocsp-org-secret-0123456789";
 
 /** A bare record whose home (or lack of one) the caller sets. */
@@ -53,41 +53,41 @@ const recordOf = (id: string, slug: string, home?: string): McpServerRecord =>
   }) as McpServerRecord;
 
 describe("a per-home OAuth client", () => {
-  it("a department connector signs in with ITS OWN client id and secret", async () => {
-    fake = await startHttpFake({ oauth: true, oauthRequireSecret: DEPT_SECRET });
+  it("a team connector signs in with ITS OWN client id and secret", async () => {
+    fake = await startHttpFake({ oauth: true, oauthRequireSecret: TEAM_SECRET });
     rig = makeRig();
     const { manager, vault } = rig;
     const idItem = vault.create(OWNER, {
       kind: "note",
-      name: "Drive client id (dept x)",
-      note: { secret: DEPT_ID },
-      departmentId: "x",
+      name: "Drive client id (team x)",
+      note: { secret: TEAM_ID },
+      teamId: "x",
     });
     const secretItem = vault.create(OWNER, {
       kind: "key",
-      name: "Drive client secret (dept x)",
-      key: { secret: DEPT_SECRET },
-      departmentId: "x",
+      name: "Drive client secret (team x)",
+      key: { secret: TEAM_SECRET },
+      teamId: "x",
     });
     const added = manager.add(
       OWNER,
       remoteInput(`${fake.base}/mcp`, {
         auth: { kind: "oauth", clientIdItem: idItem.id, clientSecretItem: secretItem.id },
       }),
-      // The connector belongs to department x; its client items too.
-      "dept-x",
+      // The connector belongs to team x; its client items too.
+      "team-x",
     );
     await waitFor(manager, OWNER, added.id, "needs_sign_in");
     const url = await manager.signIn(OWNER, added.id, CALLBACK);
-    // The authorization redirect carries the DEPARTMENT's client id,
+    // The authorization redirect carries the TEAM's client id,
     // redeemed from the vault at flow time.
-    expect(new URL(url ?? "").searchParams.get("client_id")).toBe(DEPT_ID);
+    expect(new URL(url ?? "").searchParams.get("client_id")).toBe(TEAM_ID);
     // A pre-registered client: no dynamic registration happened.
     expect(fake.auth.counts.registrations).toBe(0);
     const { code, state } = await approveAt(url ?? "");
     const info = await manager.finishSignIn(state, code);
     expect(info.signedIn).toBe(true);
-    // The token exchange passed the department's secret (the mock refuses
+    // The token exchange passed the team's secret (the mock refuses
     // any exchange without it); the connection is live.
     await waitFor(manager, OWNER, added.id, "connected");
   });
@@ -96,47 +96,47 @@ describe("a per-home OAuth client", () => {
     fake = await startHttpFake({ oauth: true });
     rig = makeRig();
     const { manager, vault } = rig;
-    // Department x's client items; neither home may use the other's.
+    // Team x's client items; neither home may use the other's.
     const orgItemId = vault.create(OWNER, {
       kind: "note",
       name: "Drive client id (org)",
       note: { secret: ORG_ID },
     });
-    const deptItemId = vault.create(OWNER, {
+    const teamItemId = vault.create(OWNER, {
       kind: "note",
-      name: "Drive client id (dept x)",
-      note: { secret: DEPT_ID },
-      departmentId: "x",
+      name: "Drive client id (team x)",
+      note: { secret: TEAM_ID },
+      teamId: "x",
     });
-    // A DEPARTMENT connector naming the ORG's item: the item reads as
+    // A TEAM connector naming the ORG's item: the item reads as
     // absent, so the flow falls back to the mock's registration.
-    const dept = manager.add(
+    const team = manager.add(
       OWNER,
       remoteInput(`${fake.base}/mcp`, {
-        name: "Dept drive",
+        name: "Team drive",
         auth: { kind: "oauth", clientIdItem: orgItemId.id },
       }),
-      "dept-x",
+      "team-x",
     );
-    await waitFor(manager, OWNER, dept.id, "needs_sign_in");
-    const deptUrl = await manager.signIn(OWNER, dept.id, CALLBACK);
-    expect(new URL(deptUrl ?? "").searchParams.get("client_id")).not.toBe(ORG_ID);
-    const { code, state } = await approveAt(deptUrl ?? "");
+    await waitFor(manager, OWNER, team.id, "needs_sign_in");
+    const teamUrl = await manager.signIn(OWNER, team.id, CALLBACK);
+    expect(new URL(teamUrl ?? "").searchParams.get("client_id")).not.toBe(ORG_ID);
+    const { code, state } = await approveAt(teamUrl ?? "");
     expect((await manager.finishSignIn(state, code)).signedIn).toBe(true);
-    await waitFor(manager, OWNER, dept.id, "connected");
+    await waitFor(manager, OWNER, team.id, "connected");
     expect(fake.auth.counts.registrations).toBeGreaterThanOrEqual(1);
-    // And the reverse: an ORG connector naming a DEPARTMENT's item also
+    // And the reverse: an ORG connector naming a TEAM's item also
     // falls back (the flow still completes, with the registered client).
     const org = manager.add(
       OWNER,
       remoteInput(`${fake.base}/mcp`, {
         name: "Org drive",
-        auth: { kind: "oauth", clientIdItem: deptItemId.id },
+        auth: { kind: "oauth", clientIdItem: teamItemId.id },
       }),
     );
     await waitFor(manager, OWNER, org.id, "needs_sign_in");
     const orgUrl = await manager.signIn(OWNER, org.id, CALLBACK);
-    expect(new URL(orgUrl ?? "").searchParams.get("client_id")).not.toBe(DEPT_ID);
+    expect(new URL(orgUrl ?? "").searchParams.get("client_id")).not.toBe(TEAM_ID);
     const orgApprove = await approveAt(orgUrl ?? "");
     expect((await manager.finishSignIn(orgApprove.state, orgApprove.code)).signedIn).toBe(true);
     await waitFor(manager, OWNER, org.id, "connected");
@@ -147,7 +147,7 @@ describe("a per-home OAuth client", () => {
     rig = makeRig();
     const { manager, vault } = rig;
     const org = recordOf("srv-org", "orgdrive");
-    const dept = recordOf("srv-dept", "deptdrive", "dept-x");
+    const team = recordOf("srv-team", "teamdrive", "team-x");
     const orgIdItem = vault.create(OWNER, {
       kind: "note",
       name: "Org client id",
@@ -158,17 +158,17 @@ describe("a per-home OAuth client", () => {
       name: "Org client secret",
       key: { secret: ORG_SECRET },
     });
-    const deptIdItem = vault.create(OWNER, {
+    const teamIdItem = vault.create(OWNER, {
       kind: "note",
-      name: "Dept client id",
-      note: { secret: DEPT_ID },
-      departmentId: "x",
+      name: "Team client id",
+      note: { secret: TEAM_ID },
+      teamId: "x",
     });
-    const deptSecretItem = vault.create(OWNER, {
+    const teamSecretItem = vault.create(OWNER, {
       kind: "key",
-      name: "Dept client secret",
-      key: { secret: DEPT_SECRET },
-      departmentId: "x",
+      name: "Team client secret",
+      key: { secret: TEAM_SECRET },
+      teamId: "x",
     });
     const profiledItem = vault.create(OWNER, {
       kind: "key",
@@ -176,25 +176,25 @@ describe("a per-home OAuth client", () => {
       profile: "bot-1",
       key: { secret: "profile-scoped-secret" },
     });
-    // Cross-home: a department connector vs the org's items, and an org
-    // connector vs the department's items — both read as absent (undefined,
+    // Cross-home: a team connector vs the org's items, and an org
+    // connector vs the team's items — both read as absent (undefined,
     // the fallback), never redeemed.
     expect(
-      clientIdOf(vault, { ...dept, auth: { kind: "oauth", clientIdItem: orgIdItem.id } }),
+      clientIdOf(vault, { ...team, auth: { kind: "oauth", clientIdItem: orgIdItem.id } }),
     ).toBeUndefined();
     expect(
       clientSecretOf(vault, {
-        ...dept,
+        ...team,
         auth: { kind: "oauth", clientSecretItem: orgSecretItem.id },
       }),
     ).toBeUndefined();
     expect(
-      clientIdOf(vault, { ...org, auth: { kind: "oauth", clientIdItem: deptIdItem.id } }),
+      clientIdOf(vault, { ...org, auth: { kind: "oauth", clientIdItem: teamIdItem.id } }),
     ).toBeUndefined();
     expect(
       clientSecretOf(vault, {
         ...org,
-        auth: { kind: "oauth", clientSecretItem: deptSecretItem.id },
+        auth: { kind: "oauth", clientSecretItem: teamSecretItem.id },
       }),
     ).toBeUndefined();
     // A profile-scoped item is not a home's client either.
@@ -212,14 +212,14 @@ describe("a per-home OAuth client", () => {
       }),
     ).toBe(ORG_SECRET);
     expect(
-      clientIdOf(vault, { ...dept, auth: { kind: "oauth", clientIdItem: deptIdItem.id } }),
-    ).toBe(DEPT_ID);
+      clientIdOf(vault, { ...team, auth: { kind: "oauth", clientIdItem: teamIdItem.id } }),
+    ).toBe(TEAM_ID);
     expect(
       clientSecretOf(vault, {
-        ...dept,
-        auth: { kind: "oauth", clientSecretItem: deptSecretItem.id },
+        ...team,
+        auth: { kind: "oauth", clientSecretItem: teamSecretItem.id },
       }),
-    ).toBe(DEPT_SECRET);
+    ).toBe(TEAM_SECRET);
     // A reference to an item that is gone entirely stays a plain error
     // (a broken setup, not a silent fallback), and Connect surfaces it.
     const thrown = (() => {

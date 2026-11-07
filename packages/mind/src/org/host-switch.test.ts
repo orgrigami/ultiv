@@ -1,5 +1,5 @@
 /**
- * Slice 10: the host-access switch. The matrix (org AND department AND bot,
+ * Slice 10: the host-access switch. The matrix (org AND team AND bot,
  * `blockedBy` naming the level) lives in `org.test.ts`; here: the tool-list
  * exclusion, the watch that re-applies agents on a flip, and — on a real
  * in-memory mind — yolo failing to bypass a false switch and the tools
@@ -17,31 +17,30 @@ import { hostExcludedTools, hostSwitchWatch, reapplyAgentTools } from "./host-sw
 
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 20));
 
-const flagsOf = (org: boolean | null, departments: [string, boolean][] = []) => ({
+const flagsOf = (org: boolean | null, teams: [string, boolean][] = []) => ({
   org: org === null ? null : ({ hostAccess: org } as never),
-  departments: departments.map(([id, hostAccess]) => ({ id, hostAccess })) as never,
+  teams: teams.map(([id, hostAccess]) => ({ id, hostAccess })) as never,
 });
 
-const deptBot = (hostAccess: boolean, departmentId = "dept-x") =>
-  ({ departmentId, hostAccess }) as never;
-const orgBot = (hostAccess: boolean) => ({ departmentId: null, hostAccess }) as never;
+const teamBot = (hostAccess: boolean, teamId = "team-x") => ({ teamId, hostAccess }) as never;
+const orgBot = (hostAccess: boolean) => ({ teamId: null, hostAccess }) as never;
 
 describe("hostExcludedTools", () => {
   const stdio = ["notes_search", "notes_write"];
 
   it("drops the stdio connector tools whenever one level is off — bash never leaves the list", () => {
-    expect(hostExcludedTools(flagsOf(true, [["dept-x", true]]), deptBot(true), stdio)).toEqual([]);
-    expect(hostExcludedTools(flagsOf(false, [["dept-x", true]]), deptBot(true), stdio)).toEqual([
+    expect(hostExcludedTools(flagsOf(true, [["team-x", true]]), teamBot(true), stdio)).toEqual([]);
+    expect(hostExcludedTools(flagsOf(false, [["team-x", true]]), teamBot(true), stdio)).toEqual([
       ...stdio,
     ]);
-    expect(hostExcludedTools(flagsOf(true, [["dept-x", false]]), deptBot(true), stdio)).toEqual([
+    expect(hostExcludedTools(flagsOf(true, [["team-x", false]]), teamBot(true), stdio)).toEqual([
       ...stdio,
     ]);
     expect(hostExcludedTools(flagsOf(true), orgBot(false), stdio)).toEqual([...stdio]);
   });
 
-  it("blocks a bot whose department is gone, and everything before the first read", () => {
-    expect(hostExcludedTools(flagsOf(true, []), deptBot(true), stdio)).toEqual([...stdio]);
+  it("blocks a bot whose team is gone, and everything before the first read", () => {
+    expect(hostExcludedTools(flagsOf(true, []), teamBot(true), stdio)).toEqual([...stdio]);
     // Fail-closed: before the first read (no flags yet) and with no org
     // row at all, the stdio tools are excluded too. The merged bash tool is
     // NEVER in the exclusion — its default vm target is ordinary work; the
@@ -58,7 +57,7 @@ describe("agentForProfile with the host exclusion", () => {
     model: null,
     toolAllowlist: null,
     policies: {},
-    departmentId: null,
+    teamId: null,
     hostAccess: false,
   } as never;
 
@@ -79,7 +78,7 @@ describe("agentForProfile with the host exclusion", () => {
 
 describe("hostSwitchWatch", () => {
   it("re-applies every bot's agent when a switch flips, not on other changes", async () => {
-    let state = { org: { hostAccess: true }, departments: [] };
+    let state = { org: { hostAccess: true }, teams: [] };
     const configured: (string | null)[] = [];
     const watch = hostSwitchWatch({
       view: (async () => state) as never,
@@ -104,7 +103,7 @@ describe("hostSwitchWatch", () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     // No flip: the tools are untouched.
     expect(configured).toEqual([]);
-    state = { org: { hostAccess: false }, departments: [] };
+    state = { org: { hostAccess: false }, teams: [] };
     watch.onOrgChange();
     await new Promise((resolve) => setTimeout(resolve, 10));
     // A flip re-applies: tools null means "everything but the exclusions".
@@ -116,7 +115,7 @@ describe("hostSwitchWatch", () => {
     // `message`; the boot pass re-applies the CURRENT agent (a remove filter).
     const configured: unknown[] = [];
     const watch = hostSwitchWatch({
-      view: (async () => ({ org: { hostAccess: false }, departments: [] })) as never,
+      view: (async () => ({ org: { hostAccess: false }, teams: [] })) as never,
       allProfiles: async () =>
         [
           { id: "p1", owner: "o" },

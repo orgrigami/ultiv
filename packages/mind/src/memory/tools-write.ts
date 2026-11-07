@@ -72,29 +72,29 @@ export const WriteParams = Type.Object({
   share: Type.Optional(
     Type.Boolean({
       description:
-        "Also propose this fact for your department's shared store (bots of your department " +
-        "would recall it after a department admin accepts). Your own copy is unaffected.",
+        "Also propose this fact for your team's shared store (bots of your team " +
+        "would recall it after a team admin accepts). Your own copy is unaffected.",
     }),
   ),
 });
 
-/** After a profile write with `share`, propose the fact for the department store. */
+/** After a profile write with `share`, propose the fact for the team store. */
 const maybeShare = async (
   memory: MemoryService,
   guardDeps: {
-    readonly departmentOf?: (profileId: string) => Promise<string | null>;
+    readonly teamOf?: (profileId: string) => Promise<string | null>;
   },
   scope: { readonly owner: string; readonly profileId: string },
   args: { readonly share?: boolean; readonly text: string },
   factId: string,
 ): Promise<void> => {
-  if (args.share !== true || guardDeps.departmentOf === undefined) return;
-  const departmentId = await guardDeps.departmentOf(scope.profileId);
-  if (departmentId === null) return;
+  if (args.share !== true || guardDeps.teamOf === undefined) return;
+  const teamId = await guardDeps.teamOf(scope.profileId);
+  if (teamId === null) return;
   await memory.proposeShare({
     owner: scope.owner,
     profileId: scope.profileId,
-    departmentId,
+    teamId,
     factId,
     summary: args.text.slice(0, 200),
   });
@@ -104,7 +104,7 @@ export interface GuardDeps {
   readonly converse: ConverseService;
   readonly audit?: AuditService;
   readonly untrustedTool?: (name: string) => boolean;
-  readonly departmentOf?: (profileId: string) => Promise<string | null>;
+  readonly teamOf?: (profileId: string) => Promise<string | null>;
 }
 
 /** What a guarded write takes: memory_write's arguments plus the update flags. */

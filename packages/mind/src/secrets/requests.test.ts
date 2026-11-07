@@ -1,7 +1,7 @@
 /**
  * Secure-field secrets land in the right home (phase 4 slice 8): a key the
- * owner types for a DEPARTMENT connector is sealed as a vault item OF that
- * department, so the connector's home can redeem it; without a department
+ * owner types for a TEAM connector is sealed as a vault item OF that
+ * team, so the connector's home can redeem it; without a team
  * the item stays an org item (today's behaviour). Values never pass through
  * the model — the tool learns item ids and names only.
  */
@@ -48,13 +48,13 @@ describe("secure-field items carry the connector's home", () => {
     return { secrets, vault };
   };
 
-  it("a department connector's key is sealed as an item OF that department", async () => {
+  it("a team connector's key is sealed as an item OF that team", async () => {
     const { secrets, vault } = setup();
     const pending = secrets.ask(CONV, CALL_ID, {
       label: "OAuth client secret for Drive",
       purpose: "So Drive can connect.",
       fields: [{ key: "f0", label: "Client secret" }],
-      departmentId: "alpha",
+      teamId: "alpha",
     });
     const submitted = secrets.submit(OWNER, CALL_ID, { f0: "gocsp-alpha-secret-0123456789" });
     expect(submitted.ok).toBe(true);
@@ -63,11 +63,11 @@ describe("secure-field items carry the connector's home", () => {
     expect(outcome.stored).toHaveLength(1);
     const item = vault.get(OWNER, outcome.stored[0]?.itemId ?? "");
     expect(item?.name).toBe("OAuth client secret for Drive");
-    // The stored item's HOME is the department, so only that home redeems it.
-    expect(homeOfItem(item!)).toEqual({ kind: "department", departmentId: "alpha" });
+    // The stored item's HOME is the team, so only that home redeems it.
+    expect(homeOfItem(item!)).toEqual({ kind: "team", teamId: "alpha" });
   });
 
-  it("without a department the item stays an org item", async () => {
+  it("without a team the item stays an org item", async () => {
     const { secrets, vault } = setup();
     const pending = secrets.ask(CONV, CALL_ID, {
       label: "OAuth client secret for Drive",

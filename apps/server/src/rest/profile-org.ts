@@ -1,6 +1,6 @@
 /**
  * The org rules on a bot row (slices 2, 3 and 11): a home must name a
- * department that exists (or null, the org), moving into a department
+ * team that exists (or null, the org), moving into a team
  * needs the right to change it, and a bot's host-access switch is the org
  * owner's alone (F3). Every move and every switch change is audited.
  */
@@ -25,19 +25,19 @@ export const auditedRow = (args: RouteArgs, profile: string, name: string): void
 /** Why a create or patch may not set these org fields: null when it may. */
 export const orgFieldsRefusal = async (
   args: RouteArgs,
-  fields: { departmentId?: unknown; hostAccess?: unknown },
+  fields: { teamId?: unknown; hostAccess?: unknown },
 ): Promise<{ status: 400 | 404; error: string } | null> => {
-  if (fields.departmentId !== undefined) {
-    const target = fields.departmentId;
+  if (fields.teamId !== undefined) {
+    const target = fields.teamId;
     if (target !== null && typeof target !== "string") {
-      return { status: 400, error: "departmentId is a department id or null (the org)" };
+      return { status: 400, error: "teamId is a team id or null (the org)" };
     }
     if (target !== null) {
       const view = await args.mind.org.view();
-      if (!view.departments.some((row) => row.id === target)) {
-        return { status: 400, error: "unknown department" };
+      if (!view.teams.some((row) => row.id === target)) {
+        return { status: 400, error: "unknown team" };
       }
-      if (!(await may(args, "change", { type: "department", departmentId: target }))) {
+      if (!(await may(args, "change", { type: "team", teamId: target }))) {
         return { status: 404, error: "unknown profile" };
       }
     }
@@ -52,8 +52,8 @@ export const orgFieldsRefusal = async (
 export const auditOrgFields = (
   args: RouteArgs,
   id: string,
-  fields: { departmentId?: unknown; hostAccess?: unknown },
+  fields: { teamId?: unknown; hostAccess?: unknown },
 ): void => {
-  if (fields.departmentId !== undefined) auditedRow(args, id, "bot-moved");
+  if (fields.teamId !== undefined) auditedRow(args, id, "bot-moved");
   if (fields.hostAccess !== undefined) auditedRow(args, id, "host-access-change");
 };

@@ -89,7 +89,7 @@ export const liveKindsForTool = (name: string): LiveKind[] => {
   if (/^memory_(write|save|core|forget|update)$/.test(name)) return ["memory"];
   if (/^skill_(write|edit|learn|delete|install|propose|evolve)$/.test(name)) return ["skills"];
   if (/^(schedule|sensor|webhook)_(set|create|remove)$/.test(name)) return ["routines"];
-  if (/^(bot|department)_(create|update|move|pause|delete)$/.test(name)) {
+  if (/^(bot|team)_(create|update|move|pause|delete)$/.test(name)) {
     return ["profiles", "sessions"];
   }
   return [];

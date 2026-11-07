@@ -116,7 +116,7 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
         (patch.policies as { sandbox?: unknown } | undefined)?.sandbox !== undefined ||
         patch.toolAllowlist !== undefined ||
         patch.hostAccess !== undefined ||
-        patch.departmentId !== undefined;
+        patch.teamId !== undefined;
       if (patch.model !== undefined || toolsChanged) {
         await applyAgentPreference(args, updated, toolsChanged);
       }

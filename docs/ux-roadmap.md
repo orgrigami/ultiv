@@ -198,20 +198,20 @@ card, Waiting row and Stop until the fresh state arrives.
 the wordmark are gone; it shows a muted dot while connecting and a warning
 "disconnected" only when the link is down, nothing when all is well.
 
-**Departments you can see and reach** (2026-11-01): DONE — with no
-department the app looks as before. Once there is one, the sidebar and the
-bot pill list the org first with its bots, then each department as a
+**Teams you can see and reach** (2026-11-01): DONE — with no
+team the app looks as before. Once there is one, the sidebar and the
+bot pill list the org first with its bots, then each team as a
 collapsible group (remembered per browser; opening a bot in a collapsed group
-opens it) with a gear to its page, and "New department" at the end. A
-department page (`/crew/dept/<id>`) holds its bots (New bot here, Move a bot
+opens it) with a gear to its page, and "New team" at the end. A
+team page (`/crew/team/<id>`) holds its bots (New bot here, Move a bot
 here), Instructions, VM size, host-access switch, people and the shared
 folder note, shared-memory proposals, templates, activity across
-departments, and Remove (warns, offers Export first and Move them all to the
-org; bots are never deleted with it). New bot asks "Which department?"; a
+teams, and Remove (warns, offers Export first and Move them all to the
+org; bots are never deleted with it). New bot asks "Which team?"; a
 profile's Manage starts with "Move to…" (the main bot stays in the org); the
-pill and the profile show a bot's home. The Crew page has New department and
-an "Across departments" list from the reach audit, and Cmd/Ctrl-K finds
-departments and "New department".
+pill and the profile show a bot's home. The Crew page has New team and
+an "Across teams" list from the reach audit, and Cmd/Ctrl-K finds
+teams and "New team".
 
 **The plan, always in reach** (2026-11-01): DONE — while a bot works
 through a plan, a slim strip above the composer reads "Tasks 2/4 · <the step
@@ -223,18 +223,18 @@ card in the transcript stays. The strip redraws only when the plan changes.
 **VM network you can see and set** (2026-11-01): DONE — the per-home
 network allowlist (phase 4 slice 3) is editable in the UI at every place
 the REST surface offers it: an "Org VM network" editor on Settings →
-Organization, a "Department VM network" editor on each department page, and
-an optional "Allowed hosts" field in New department. The editor shows the
+Organization, a "Team VM network" editor on each team page, and
+an optional "Allowed hosts" field in New team. The editor shows the
 hosts as removable chips, validates each entry with the contract's own
 `netAllowlistProblem` (so the form refuses exactly what the server would),
-and the department rows on Settings show "network off" or the host count.
+and the team rows on Settings show "network off" or the host count.
 Saving PATCHes the same field the API takes; the change reaches the VM at
 its next start (the VM is recreated by the fingerprint mechanic). Each
 editor also carries a "Full network access" toggle (`netOpen`, the same
 PATCH): an explicit owner opt-in that removes every egress restriction for
 that home's VM — allowlist ignored, isolation off, ingress still denied —
 with the warning spelled out in place, audited as `org-net-open` /
-`department-net-open`, and New department offers it too.
+`team-net-open`, and New team offers it too.
 
 **Bot talks in the house voice** (2026-11-04): the rooms surface had been
 rebuilt as a generic messenger (one bubble per turn, speakers seated left and

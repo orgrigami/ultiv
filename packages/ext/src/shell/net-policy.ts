@@ -1,8 +1,8 @@
 /**
  * The per-VM network policy (phase 4 slice 3). DEFAULT: NO network — the
- * org VM and every department VM boot with a deny-everything microsandbox
+ * org VM and every team VM boot with a deny-everything microsandbox
  * `NetworkPolicy`. A home's stored allowlist (named hosts, on the org or
- * department row) opens exactly those hosts: one egress allow rule per
+ * team row) opens exactly those hosts: one egress allow rule per
  * entry (`*.suffix` becomes a domain-suffix rule) plus the DNS egress the
  * names need; raw addresses, other ports' hosts and every ingress stay
  * denied. The policy is create-time-only in microsandbox 0.7.11

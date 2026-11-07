@@ -1,12 +1,14 @@
 import { Type, type Static } from "typebox";
 
 /**
- * The org: one per install, holding flat departments (also called teams) and
- * bots. Every bot has exactly one home — one department, or the org itself
- * (an "org bot"). Departments have no parent; no nesting, no depth.
+ * The org: one per install, holding flat teams and bots. Every bot has
+ * exactly one home — one team, or the org itself (an "org bot"). Teams have
+ * no parent; no nesting, no depth. Teams were called departments until
+ * 2026-11-07; the mind's docs upgrade stored rows on read
+ * (packages/mind/src/migrate/teams.ts).
  */
 
-/** A member role. Held at org level (departmentId null) or per department. */
+/** A member role. Held at org level (teamId null) or per team. */
 export const OrgRoleSchema = Type.Union([
   Type.Literal("owner"),
   Type.Literal("admin"),
@@ -16,10 +18,10 @@ export const OrgRoleSchema = Type.Union([
 
 export type OrgRole = Static<typeof OrgRoleSchema>;
 
-/** Where a bot, or a bot-owned resource, lives: the org, or one department. */
+/** Where a bot, or a bot-owned resource, lives: the org, or one team. */
 export const HomeRefSchema = Type.Union([
   Type.Object({ kind: Type.Literal("org") }),
-  Type.Object({ kind: Type.Literal("department"), departmentId: Type.String() }),
+  Type.Object({ kind: Type.Literal("team"), teamId: Type.String() }),
 ]);
 
 export type HomeRef = Static<typeof HomeRefSchema>;
@@ -47,7 +49,7 @@ export const DEFAULT_VM: VmSettings = { cpus: 1, memoryMiB: 512 };
 
 /**
  * The host-capacity rule (slice 4): the CONFIGURED memory of all homes' VMs
- * (the org's plus every department's, defaults included) may reach at most
+ * (the org's plus every team's, defaults included) may reach at most
  * this fraction of the host's physical RAM. This is a configured-sum
  * heuristic over stored settings — NOT a live measurement of what the host
  * holds right now (docs/SECURITY.md).
@@ -102,8 +104,8 @@ export const VM_CHANGE_NOTE = "The new VM size takes effect the next time this V
 /** The default size cap of the org-wide shared folder (slice 2c). */
 export const DEFAULT_ORG_SHARED_CAP_BYTES = 1_073_741_824;
 
-/** The default size cap of a department's shared folder (its store). */
-export const DEFAULT_DEPT_SHARED_CAP_BYTES = 1_073_741_824;
+/** The default size cap of a team's shared folder (its store). */
+export const DEFAULT_TEAM_SHARED_CAP_BYTES = 1_073_741_824;
 
 /** The smallest accepted shared-folder cap (1 MiB). */
 export const MIN_SHARED_CAP_BYTES = 1_048_576;
@@ -114,7 +116,7 @@ export const HostAccessSchema = Type.Boolean();
 /**
  * The per-VM network allowlist (phase 4 slice 3): named hosts the home's VM
  * may reach. Everything else is denied — the DEFAULT for both the org VM and
- * every department VM is NO network. An empty list means fully offline.
+ * every team VM is NO network. An empty list means fully offline.
  */
 export const NetAllowlistSchema = Type.Array(Type.String(), { maxItems: 64 });
 
@@ -165,7 +167,7 @@ export const OrgInfoSchema = Type.Object({
   sharedGid: Type.Optional(Type.Number()),
   /**
    * Gid of the org-wide folder's group (`/home/org-shared`, slice 2c): one
-   * extra fixed gid stored with the org, separate from the department
+   * extra fixed gid stored with the org, separate from the team
    * groups and from the org VM's `/home/shared` group. Allocated at
    * creation; legacy rows read `sharedGid + 1` on read
    * (`normalizeOrgState`).
@@ -191,45 +193,45 @@ export const OrgInfoSchema = Type.Object({
 
 export type OrgInfo = Static<typeof OrgInfoSchema>;
 
-/** One department: flat, no parent field, a home for bots and resources. */
-export const DepartmentInfoSchema = Type.Object({
+/** One team: flat, no parent field, a home for bots and resources. */
+export const TeamInfoSchema = Type.Object({
   id: Type.String(),
   name: Type.String(),
   createdAt: Type.Number(),
   vm: VmSettingsSchema,
   hostAccess: HostAccessSchema,
-  /** Standing instructions inherited by the department's bots (before their own). */
+  /** Standing instructions inherited by the team's bots (before their own). */
   instructions: Type.String(),
   /**
-   * Gid of the department VM's shared-folder group (`/home/shared`): fixed
+   * Gid of the team VM's shared-folder group (`/home/shared`): fixed
    * from 10000 up, never reused. Allocated at creation; rows stored before
    * the field existed get a deterministic value on read
    * (`normalizeOrgState`).
    */
   sharedGid: Type.Optional(Type.Number()),
   /**
-   * Named hosts the department VM may reach (slice 3); everything else is
+   * Named hosts the team VM may reach (slice 3); everything else is
    * denied, including when the field is missing (legacy rows read []).
    */
   netAllowlist: Type.Optional(NetAllowlistSchema),
   /** Full network access (no egress restrictions); legacy rows read false. */
   netOpen: Type.Optional(NetOpenSchema),
   /**
-   * Size cap of the department's shared store (its VM's `/home/shared`,
-   * the org VM's `/home/dept-shared/<id>`), default 1 GiB. Enforced the
+   * Size cap of the team's shared store (its VM's `/home/shared`,
+   * the org VM's `/home/team-shared/<id>`), default 1 GiB. Enforced the
    * same way as `orgSharedCapBytes`.
    */
   sharedCapBytes: Type.Optional(Type.Number()),
 });
 
-export type DepartmentInfo = Static<typeof DepartmentInfoSchema>;
+export type TeamInfo = Static<typeof TeamInfoSchema>;
 
-/** A person's membership: one role, at org level (departmentId null) or in one department. */
+/** A person's membership: one role, at org level (teamId null) or in one team. */
 export const MemberInfoSchema = Type.Object({
   accountId: Type.String(),
   role: OrgRoleSchema,
   /** null = the role is held at org level. */
-  departmentId: Type.Union([Type.String(), Type.Null()]),
+  teamId: Type.Union([Type.String(), Type.Null()]),
 });
 
 export type MemberInfo = Static<typeof MemberInfoSchema>;
@@ -273,13 +275,13 @@ export const TemplatePayloadSchema = Type.Union([
 
 export type TemplatePayload = Static<typeof TemplatePayloadSchema>;
 
-/** A published template (slice 8): a bot, a skill or an Instructions file another department can copy. */
+/** A published template (slice 8): a bot, a skill or an Instructions file another team can copy. */
 export const TemplateInfoSchema = Type.Object({
   id: Type.String(),
   kind: Type.Union([Type.Literal("bot"), Type.Literal("skill"), Type.Literal("instructions")]),
   name: Type.String(),
-  /** The department that published it. */
-  departmentId: Type.String(),
+  /** The team that published it. */
+  teamId: Type.String(),
   payload: TemplatePayloadSchema,
   publishedAt: Type.Number(),
   /** Set when unpublished: new copies are refused, existing copies keep working. */
@@ -288,10 +290,10 @@ export const TemplateInfoSchema = Type.Object({
 
 export type TemplateInfo = Static<typeof TemplateInfoSchema>;
 
-/** The stored org document (ultiv.org): the org, its departments, members, grants and templates. */
+/** The stored org document (ultiv.org): the org, its teams, members, grants and templates. */
 export const OrgStateSchema = Type.Object({
   org: Type.Union([OrgInfoSchema, Type.Null()]),
-  departments: Type.Array(DepartmentInfoSchema),
+  teams: Type.Array(TeamInfoSchema),
   members: Type.Array(MemberInfoSchema),
   grants: Type.Array(GrantInfoSchema),
   templates: Type.Array(TemplateInfoSchema),
@@ -300,7 +302,7 @@ export const OrgStateSchema = Type.Object({
 export type OrgState = Static<typeof OrgStateSchema>;
 
 /** REST payloads. */
-export const DepartmentCreateSchema = Type.Object({
+export const TeamCreateSchema = Type.Object({
   name: Type.String({ minLength: 1, maxLength: 80 }),
   vm: Type.Optional(VmSettingsSchema),
   hostAccess: Type.Optional(Type.Boolean()),
@@ -309,9 +311,9 @@ export const DepartmentCreateSchema = Type.Object({
   netOpen: Type.Optional(NetOpenSchema),
 });
 
-export type DepartmentCreate = Static<typeof DepartmentCreateSchema>;
+export type TeamCreate = Static<typeof TeamCreateSchema>;
 
-export const DepartmentPatchSchema = Type.Object({
+export const TeamPatchSchema = Type.Object({
   name: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
   vm: Type.Optional(VmSettingsSchema),
   hostAccess: Type.Optional(Type.Boolean()),
@@ -321,22 +323,22 @@ export const DepartmentPatchSchema = Type.Object({
   sharedCapBytes: Type.Optional(Type.Integer({ minimum: 1_048_576 })),
 });
 
-export type DepartmentPatch = Static<typeof DepartmentPatchSchema>;
+export type TeamPatch = Static<typeof TeamPatchSchema>;
 
 export const MemberPutSchema = Type.Object({
   accountId: Type.String({ minLength: 1 }),
   role: OrgRoleSchema,
-  departmentId: Type.Union([Type.String(), Type.Null()]),
+  teamId: Type.Union([Type.String(), Type.Null()]),
 });
 
 export type MemberPut = Static<typeof MemberPutSchema>;
 
 /**
- * A department summary (what the org owner or an org admin sees of a
- * department): counts, bots and recent activity — never chat contents.
+ * A team summary (what the org owner or an org admin sees of a
+ * team): counts, bots and recent activity — never chat contents.
  */
-export const DepartmentSummarySchema = Type.Object({
-  department: DepartmentInfoSchema,
+export const TeamSummarySchema = Type.Object({
+  team: TeamInfoSchema,
   bots: Type.Array(Type.Object({ id: Type.String(), name: Type.String() })),
   archivedBots: Type.Number(),
   /** The newest audit activity timestamps per kind (tool calls, approvals), no content. */
@@ -347,4 +349,4 @@ export const DepartmentSummarySchema = Type.Object({
   }),
 });
 
-export type DepartmentSummary = Static<typeof DepartmentSummarySchema>;
+export type TeamSummary = Static<typeof TeamSummarySchema>;

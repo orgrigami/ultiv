@@ -1,14 +1,14 @@
 /**
  * Crew: every bot in one list (the same list the rail and the bot pill
- * show), grouped by department once there are departments. A row opens the
- * bot's profile; New bot, New department, cross-department activity, all
+ * show), grouped by team once there are teams. A row opens the
+ * bot's profile; New bot, New team, cross-team activity, all
  * routines, bot talks and past chats live here instead of in the main nav.
  */
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CalendarClockIcon, HistoryIcon, MessagesSquareIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
-import { NewDepartmentDialog } from "@/components/department/new-department-dialog";
-import { ReachActivity } from "@/components/department/reach-activity";
+import { NewTeamDialog } from "@/components/team/new-team-dialog";
+import { ReachActivity } from "@/components/team/reach-activity";
 import { NewBotDialog } from "@/components/new-bot-dialog";
 import { CrewList } from "@/components/crew-list";
 import { Page } from "@/components/page";
@@ -28,17 +28,17 @@ function CrewPage() {
   const { refreshAll } = useApp();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
-  const [creatingDepartment, setCreatingDepartment] = useState(false);
+  const [creatingTeam, setCreatingTeam] = useState(false);
   const { view } = useOrg();
-  const hasDepartments = (view?.departments.length ?? 0) > 0;
+  const hasTeams = (view?.teams.length ?? 0) > 0;
   return (
     <Page title="Crew" lead="Your bots. Open one to see its memory, routines and access.">
       <SectionHeader
         title="Bots"
         action={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCreatingDepartment(true)}>
-              <PlusIcon /> New department
+            <Button variant="outline" size="sm" onClick={() => setCreatingTeam(true)}>
+              <PlusIcon /> New team
             </Button>
             <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
               <PlusIcon /> New bot
@@ -50,9 +50,9 @@ function CrewPage() {
         variant="page"
         activeId={undefined}
         onPick={(id) => void navigate({ to: "/crew/$botId", params: { botId: id } })}
-        onNewDepartment={() => setCreatingDepartment(true)}
+        onNewTeam={() => setCreatingTeam(true)}
       />
-      <NewDepartmentDialog open={creatingDepartment} onOpenChange={setCreatingDepartment} />
+      <NewTeamDialog open={creatingTeam} onOpenChange={setCreatingTeam} />
       <NewBotDialog
         open={creating}
         onOpenChange={setCreating}
@@ -61,9 +61,9 @@ function CrewPage() {
           void navigate({ to: "/crew/$botId", params: { botId: id } });
         }}
       />
-      {hasDepartments && (
+      {hasTeams && (
         <>
-          <SectionHeader title="Across departments" className="mt-2" />
+          <SectionHeader title="Across teams" className="mt-2" />
           <ReachActivity />
         </>
       )}

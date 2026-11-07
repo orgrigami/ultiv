@@ -26,10 +26,10 @@
  */
 import type { Sandbox } from "microsandbox";
 import {
-  DEPT_SHARED_DIR,
-  deptStoreProvisionScript,
-  deptGroupReconcileScript,
-} from "./dept-shared.ts";
+  TEAM_SHARED_DIR,
+  teamStoreProvisionScript,
+  teamGroupReconcileScript,
+} from "./team-shared.ts";
 import {
   allowlistNetwork,
   markAppliedFingerprint,
@@ -206,8 +206,8 @@ export const sandboxShellBackend =
         .memory(spec.memoryMiB)
         .workdir(HOME);
       // The org-wide folder (slice 2c): a live bind mount of one durable
-      // host directory — a department VM gets it read-only, enforced by the
-      // mount, so a department bot's write fails at the mount.
+      // host directory — a team VM gets it read-only, enforced by the
+      // mount, so a team bot's write fails at the mount.
       const orgMount = orgSharedMount(options.orgShared ?? undefined);
       if (orgMount !== undefined) {
         builder = builder.volume(orgMount.guest, (m) => {
@@ -215,18 +215,18 @@ export const sandboxShellBackend =
           return orgMount.readOnly ? bound.readonly() : bound;
         });
       }
-      // The department's own /home/shared is its durable store (slice 2d):
-      // the same directory the org VM sees under /home/dept-shared/<id>.
+      // The team's own /home/shared is its durable store (slice 2d):
+      // the same directory the org VM sees under /home/team-shared/<id>.
       if (options.sharedStore !== undefined) {
         const host = resolvedBindPath(options.sharedStore);
         builder = builder.volume(SHARED_DIR, (m) => m.bind(host));
       }
-      // The org VM's department folders (slice 2d): ONE mount of the parent
-      // directory — new stores beside it appear live, so a department
+      // The org VM's team folders (slice 2d): ONE mount of the parent
+      // directory — new stores beside it appear live, so a team
       // create or delete never restarts the VM (F-D6).
-      if (options.deptShared !== undefined) {
-        const host = resolvedBindPath(options.deptShared.parentDir);
-        builder = builder.volume(DEPT_SHARED_DIR, (m) => m.bind(host));
+      if (options.teamShared !== undefined) {
+        const host = resolvedBindPath(options.teamShared.parentDir);
+        builder = builder.volume(TEAM_SHARED_DIR, (m) => m.bind(host));
       }
       // The home's network policy (slice 3): deny by default, the stored
       // hosts allowed, TLS relayed untouched (see allowlistNetwork).
@@ -239,12 +239,12 @@ export const sandboxShellBackend =
       markAppliedFingerprint(options.name, vmSpecFingerprint(spec));
       await applyPending(vm);
       const user = options.user;
-      const depts = options.deptShared?.depts ?? [];
+      const teams = options.teamShared?.teams ?? [];
       const script = [
         bootScript(options.sharedGid, options.orgShared),
-        ...(depts.length > 0 ? [deptStoreProvisionScript(depts)] : []),
-        ...(depts.length > 0
-          ? [deptGroupReconcileScript(depts, options.deptShared?.users ?? [])]
+        ...(teams.length > 0 ? [teamStoreProvisionScript(teams)] : []),
+        ...(teams.length > 0
+          ? [teamGroupReconcileScript(teams, options.teamShared?.users ?? [])]
           : []),
         ...(user === undefined
           ? []
@@ -253,7 +253,7 @@ export const sandboxShellBackend =
                 user,
                 options.sharedGid,
                 options.orgShared,
-                depts.map((d) => d.gid),
+                teams.map((d) => d.gid),
               ),
             ]),
       ].join("\n");

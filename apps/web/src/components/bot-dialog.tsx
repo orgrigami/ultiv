@@ -200,7 +200,7 @@ export function BotDialog({
             </Select>
             <span className="text-muted-foreground text-xs">
               {form.sandbox
-                ? "The bash tool runs in this bot's home's VM — the org VM for an org bot, its department's VM otherwise — as its own Linux user; its workspace files are artifacts."
+                ? "The bash tool runs in this bot's home's VM — the org VM for an org bot, its team's VM otherwise — as its own Linux user; its workspace files are artifacts."
                 : "No bash tool for this bot — none of its targets (VM, host, node), so no shell at all."}
             </span>
           </label>
@@ -254,12 +254,12 @@ export function BotDialog({
   );
 }
 
-/** Create a bot from the form (in a department, or the org); resolves to its id. */
-export const createBot = async (form: BotForm, departmentId?: string | null): Promise<string> =>
+/** Create a bot from the form (in a team, or the org); resolves to its id. */
+export const createBot = async (form: BotForm, teamId?: string | null): Promise<string> =>
   (
     await api.createProfile({
       name: form.name.trim(),
-      ...(departmentId ? { departmentId } : {}),
+      ...(teamId ? { teamId } : {}),
       ...(form.description !== "" ? { description: form.description } : {}),
       ...(form.persona !== "" ? { persona: form.persona } : {}),
       ...modelPayload(form),

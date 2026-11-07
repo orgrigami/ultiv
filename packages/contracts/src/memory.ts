@@ -13,8 +13,8 @@ export const MemoryRecordSchema = Type.Object({
   scope: Type.Union([
     Type.Literal("profile"),
     Type.Literal("owner"),
-    /** Lives in a department's shared store (accepted from a share proposal). */
-    Type.Literal("department"),
+    /** Lives in a team's shared store (accepted from a share proposal). */
+    Type.Literal("team"),
   ]),
   /** The profile a profile-scope record belongs to; null for owner scope. */
   profile: Type.Union([Type.String(), Type.Null()]),
@@ -106,8 +106,8 @@ export const MemoryFactSchema = Type.Object({
   scope: Type.Union([
     Type.Literal("profile"),
     Type.Literal("owner"),
-    /** Lives in a department's shared store (accepted from a share proposal). */
-    Type.Literal("department"),
+    /** Lives in a team's shared store (accepted from a share proposal). */
+    Type.Literal("team"),
   ]),
   profile: Type.Union([Type.String(), Type.Null()]),
   /** Stored in the language it was said in; never translated. */
@@ -211,7 +211,7 @@ export const MemoryProposalSchema = Type.Object({
     Type.Literal("core-fix"),
     Type.Literal("archive"),
     Type.Literal("backfill"),
-    /** A bot proposes one of its own facts for the department store. */
+    /** A bot proposes one of its own facts for the team store. */
     Type.Literal("share"),
   ]),
   at: Type.Number(),

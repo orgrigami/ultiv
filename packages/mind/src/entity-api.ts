@@ -61,7 +61,7 @@ export interface MindService {
   readonly rooms: RoomsService;
   /** Inter-entity messaging on per-pair DM threads. */
   readonly mailbox: MailboxService;
-  /** The org: one per install, flat departments, members, grants, templates. */
+  /** The org: one per install, flat teams, members, grants, templates. */
   readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */
   readonly skills: SkillsService;

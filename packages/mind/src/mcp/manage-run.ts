@@ -12,7 +12,7 @@ import {
 import { validateServerInput, type VaultStore } from "@spriessen/ext";
 import type { HomeRef } from "@spriessen/contracts";
 import type { SecretRequestsService } from "../secrets/requests.ts";
-import { departmentIdOfSegment, homeOf, homeSegmentOf } from "../org/model.ts";
+import { teamIdOfSegment, homeOf, homeSegmentOf } from "../org/model.ts";
 import type { McpMindDeps } from "./access.ts";
 import type { ChangeCard, Named, SecretSlot } from "./manage.ts";
 
@@ -116,15 +116,15 @@ export const askSecrets = async (
   usedFor: string,
 ): Promise<string[] | string> => {
   if (slots.length === 0) return [];
-  // A department connector's keys are sealed as items OF that department
+  // A team connector's keys are sealed as items OF that team
   // (slice 8), so its home may redeem them; the org stays the default.
-  const departmentId = departmentIdOfSegment(scope.home);
+  const teamId = teamIdOfSegment(scope.home);
   const outcome = await deps.secrets.ask(scope.conversationId, `${callId}:key`, {
     label: slots.length === 1 ? (slots[0]?.label ?? server) : `Keys for ${server}`,
     purpose: `So ${server} can connect. Stored encrypted in your vault; the bot never sees it.`,
     usedFor,
     fields: slots.map((slot, index) => ({ key: `f${index}`, label: slot.label })),
-    ...(departmentId !== undefined ? { departmentId } : {}),
+    ...(teamId !== undefined ? { teamId } : {}),
   });
   if (!outcome.ok) return `${outcome.reason}; the connector was not added`;
   return slots.map(

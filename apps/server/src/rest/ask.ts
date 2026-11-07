@@ -1,6 +1,6 @@
 /**
  * The ask seam: how a route asks the ONE permission check. Loads the org
- * view (members, departments) and hands it to `can()`, so route code never
+ * view (members, teams) and hands it to `can()`, so route code never
  * compares roles or homes itself — it asks `may()` and answers a missing
  * item on a refusal.
  */

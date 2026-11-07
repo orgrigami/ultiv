@@ -82,10 +82,10 @@ describe("the admin tools", () => {
       ["bot_move", { bot: "Kestrel", to: "org" }],
       ["bot_pause", { bot: "Kestrel", paused: true }],
       ["bot_delete", { bot: "Kestrel" }],
-      ["departments_list", {}],
-      ["department_create", { name: "Dept X" }],
-      ["department_update", { department: "Dept X", name: "Y" }],
-      ["department_delete", { department: "Dept X" }],
+      ["teams_list", {}],
+      ["team_create", { name: "Team X" }],
+      ["team_update", { team: "Team X", name: "Y" }],
+      ["team_delete", { team: "Team X" }],
     ];
     for (const [name, args] of tries) {
       const reply = await call(other.id, name, args);
@@ -97,35 +97,35 @@ describe("the admin tools", () => {
 
   it("a host app's can() answer is the one that counts", async () => {
     const { handle, main, call } = await setup({ mayAdminister: () => false });
-    expect((await call(main.id, "departments_list", {})).text).toContain(ADMIN_REFUSAL);
+    expect((await call(main.id, "teams_list", {})).text).toContain(ADMIN_REFUSAL);
     await handle.close();
   });
 
-  it("creates a department and a bot in it; host access stays off", async () => {
+  it("creates a team and a bot in it; host access stays off", async () => {
     const { handle, main, call, asked, permissionRows } = await setup();
-    const made = await call(main.id, "department_create", {
-      name: "Dept X",
+    const made = await call(main.id, "team_create", {
+      name: "Team X",
       instructions: "Cite sources.",
       cpus: 2,
       hostAccess: true,
     });
-    expect(made.text).toContain('created department "Dept X"');
-    const dept = (await handle.mind.org.view()).departments[0];
-    expect(dept?.hostAccess).toBe(false);
-    expect(dept?.vm).toEqual({ cpus: 2, memoryMiB: 512 });
+    expect(made.text).toContain('created team "Team X"');
+    const team = (await handle.mind.org.view()).teams[0];
+    expect(team?.hostAccess).toBe(false);
+    expect(team?.vm).toEqual({ cpus: 2, memoryMiB: 512 });
     const bot = await call(main.id, "bot_create", {
       name: "Finch",
       title: "Reads papers",
-      department: "dept x",
+      team: "team x",
       instructions: "Summaries under 200 words.",
       tools: ["web_search"],
       hostAccess: true,
     });
-    expect(bot.text).toContain('in department "Dept X"');
+    expect(bot.text).toContain('in team "Team X"');
     const row = (await handle.mind.profiles.list("owner-a")).find(
       (entry) => entry.name === "Finch",
     );
-    expect(row?.departmentId).toBe(dept?.id);
+    expect(row?.teamId).toBe(team?.id);
     expect(row?.hostAccess).toBe(false);
     expect(row?.toolAllowlist).toEqual(["web_search"]);
     expect(row !== undefined && handle.mind.profiles.files?.read(row, "instructions").text).toBe(
@@ -133,35 +133,35 @@ describe("the admin tools", () => {
     );
     // The fake gate approves everything, so creation consults it (the real
     // broker skips the card for the main bot — see the real-approvals test).
-    expect(asked).toEqual(["department_create", "bot_create"]);
-    const listed = await call(main.id, "departments_list", {});
-    expect(listed.text).toContain('Department "Dept X"');
+    expect(asked).toEqual(["team_create", "bot_create"]);
+    const listed = await call(main.id, "teams_list", {});
+    expect(listed.text).toContain('Team "Team X"');
     expect(listed.text).toContain("Finch");
     expect(listed.text).toContain("Kestrel (main)");
-    expect(permissionRows()).toContain("department-created");
+    expect(permissionRows()).toContain("team-created");
     await handle.close();
   });
 
-  it("refuses an unknown department before the card, naming the real ones", async () => {
+  it("refuses an unknown team before the card, naming the real ones", async () => {
     const { handle, main, call, asked } = await setup();
-    await call(main.id, "department_create", { name: "Dept X" });
-    const reply = await call(main.id, "bot_create", { name: "Stray", department: "Nowhere" });
-    expect(reply.text).toContain('no department "Nowhere"');
-    expect(reply.text).toContain('"Dept X"');
+    await call(main.id, "team_create", { name: "Team X" });
+    const reply = await call(main.id, "bot_create", { name: "Stray", team: "Nowhere" });
+    expect(reply.text).toContain('no team "Nowhere"');
+    expect(reply.text).toContain('"Team X"');
     // The stray bot_create was refused by its guard before any card; the
-    // department_create before it consulted the gate (the fake approves all).
-    expect(asked).toEqual(["department_create"]);
+    // team_create before it consulted the gate (the fake approves all).
+    expect(asked).toEqual(["team_create"]);
     await handle.close();
   });
 
   it("moves, pauses and resumes another bot; the main bot stays put", async () => {
     const { handle, main, other, call, permissionRows } = await setup();
-    await call(main.id, "department_create", { name: "Dept X" });
-    expect((await call(main.id, "bot_move", { bot: "Kestrel", to: "Dept X" })).text).toContain(
+    await call(main.id, "team_create", { name: "Team X" });
+    expect((await call(main.id, "bot_move", { bot: "Kestrel", to: "Team X" })).text).toContain(
       "main bot lives in the org",
     );
-    expect((await call(main.id, "bot_move", { bot: "Wren", to: "Dept X" })).text).toContain(
-      'moved "Wren" to department "Dept X"',
+    expect((await call(main.id, "bot_move", { bot: "Wren", to: "Team X" })).text).toContain(
+      'moved "Wren" to team "Team X"',
     );
     expect((await call(main.id, "bot_pause", { bot: "Kestrel", paused: true })).isError).toBe(true);
     await call(main.id, "bot_pause", { bot: "Wren", paused: true });
@@ -183,13 +183,13 @@ describe("the admin tools", () => {
       instructions: "Round to cents.",
       tools: "all",
       hostAccess: !before,
-      departmentId: "dept-x",
+      teamId: "team-x",
     });
     expect(reply.text).toContain('updated bot "Wren"');
     const row = await handle.mind.profiles.get("owner-a", other.id);
     expect(row?.description).toBe("Keeps the books");
     expect(row?.hostAccess).toBe(before);
-    expect(row?.departmentId ?? null).toBeNull();
+    expect(row?.teamId ?? null).toBeNull();
     expect(asked).toEqual(["bot_update"]);
     const details = await call(main.id, "bot_details", { bot: "Wren" });
     expect(details.text).toContain("Instructions: Round to cents.");
@@ -197,7 +197,7 @@ describe("the admin tools", () => {
     await handle.close();
   });
 
-  it("deletes through a card; the main bot and a department with bots are refused first", async () => {
+  it("deletes through a card; the main bot and a team with bots are refused first", async () => {
     const purged: string[] = [];
     const { handle, main, other, call, asked } = await setup({
       purgeBot: async (owner, id) => {
@@ -208,20 +208,20 @@ describe("the admin tools", () => {
     expect((await call(main.id, "bot_delete", { bot: "Kestrel" })).text).toContain(
       "main bot cannot be removed",
     );
-    await call(main.id, "department_create", { name: "Dept X" });
-    await call(main.id, "bot_move", { bot: "Wren", to: "Dept X" });
-    const warn = await call(main.id, "department_delete", { department: "Dept X" });
+    await call(main.id, "team_create", { name: "Team X" });
+    await call(main.id, "bot_move", { bot: "Wren", to: "Team X" });
+    const warn = await call(main.id, "team_delete", { team: "Team X" });
     expect(warn.text).toContain("still has 1 bot(s): Wren");
     expect(warn.text).toContain('bot_move with to "org"');
-    expect(asked).toEqual(["department_create"]);
+    expect(asked).toEqual(["team_create"]);
     expect((await call(main.id, "bot_delete", { bot: "Wren" })).text).toContain(
       'deleted bot "Wren"',
     );
     expect(purged).toEqual([other.id]);
-    expect((await call(main.id, "department_delete", { department: "Dept X" })).text).toContain(
-      'deleted department "Dept X"',
+    expect((await call(main.id, "team_delete", { team: "Team X" })).text).toContain(
+      'deleted team "Team X"',
     );
-    expect(asked).toEqual(["department_create", "bot_delete", "department_delete"]);
+    expect(asked).toEqual(["team_create", "bot_delete", "team_delete"]);
     await handle.close();
   });
 
@@ -241,7 +241,7 @@ describe("the admin tools", () => {
       return tool.callers === undefined || tool.callers.includes("tools");
     };
     const tools = adminTools({ profiles, approvals: gate().approvals, audit, converse });
-    for (const name of ["bot_details", "departments_list"]) {
+    for (const name of ["bot_details", "teams_list"]) {
       expect(scriptCallable(name, tools)).toBe(true);
     }
     for (const name of [
@@ -250,9 +250,9 @@ describe("the admin tools", () => {
       "bot_move",
       "bot_pause",
       "bot_delete",
-      "department_create",
-      "department_update",
-      "department_delete",
+      "team_create",
+      "team_update",
+      "team_delete",
     ]) {
       expect(scriptCallable(name, tools)).toBe(false);
     }
@@ -283,15 +283,15 @@ describe("the admin tools", () => {
     };
 
     // The main bot creates directly: no card parks, the audit says why.
-    expect(await call("department_create", { name: "Dept X" }, "skip-1")).toContain(
-      'created department "Dept X"',
+    expect(await call("team_create", { name: "Team X" }, "skip-1")).toContain(
+      'created team "Team X"',
     );
     expect(approvals.pendingFor(conversationId)).toEqual([]);
     const skip = audit
       .tail(200)
       .find((event) => event.kind === "approval" && event.callId === "skip-1");
     expect(skip?.ok).toBe(true);
-    expect(skip?.name).toBe("department_create");
+    expect(skip?.name).toBe("team_create");
     expect(skip?.error).toContain("main bot");
 
     // bot_update keeps `owner: true`: the same main actor still parks a card.

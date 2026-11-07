@@ -152,12 +152,12 @@ const moveTool = (deps: AdminDeps) =>
   defineTool({
     name: BOT_MOVE,
     description:
-      'Move a bot to another home: a department (name or id) or "org". Main bot only. The bot ' +
-      "follows its new department's Instructions from its next turn. Refused for the main bot " +
+      'Move a bot to another home: a team (name or id) or "org". Main bot only. The bot ' +
+      "follows its new team's Instructions from its next turn. Refused for the main bot " +
       "(it stays in the org) and for the org's last bot.",
     parameters: Type.Object({
       bot: botParam,
-      to: Type.String({ description: 'A department name or id, or "org".' }),
+      to: Type.String({ description: 'A team name or id, or "org".' }),
     }),
     callers: ["model"],
     execute: async (args, api) => {
@@ -166,13 +166,12 @@ const moveTool = (deps: AdminDeps) =>
       try {
         const bot = await resolveBot(deps, me.owner, args.bot);
         const to = await resolveHome(deps, args.to);
-        if ((bot.departmentId ?? null) === to)
-          return textReply(`"${bot.name}" already lives there.`);
-        await deps.profiles.update(me.owner, bot.id, { departmentId: to });
+        if ((bot.teamId ?? null) === to) return textReply(`"${bot.name}" already lives there.`);
+        await deps.profiles.update(me.owner, bot.id, { teamId: to });
         auditChange(deps, bot.id, "bot-moved");
         const view = await orgOf(deps).view();
         return textReply(
-          `moved "${bot.name}" to ${homeWords(to, view.departments, view.org?.name ?? "Personal")}.`,
+          `moved "${bot.name}" to ${homeWords(to, view.teams, view.org?.name ?? "Personal")}.`,
         );
       } catch (cause) {
         return failed("moved", cause);

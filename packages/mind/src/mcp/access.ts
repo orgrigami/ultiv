@@ -53,7 +53,7 @@ const segmentOf = (view: McpServerView): string => view.record.home ?? "org";
 
 /**
  * A stdio server runs as a host process (slice 10): its tools are
- * host-direct, under the org/department/bot switch like bash's `host` and
+ * host-direct, under the org/team/bot switch like bash's `host` and
  * `node` targets. `auto`
  * never resolves to stdio (it tries HTTP, then SSE), so the stored transport
  * or the resolved one decides.

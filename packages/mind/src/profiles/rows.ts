@@ -37,12 +37,10 @@ export const guardHome = async (
   if (problem !== null) throw new InvalidInput({ reason: problem });
 };
 
-/** The home a `departmentId` names: a department, or the org for null/empty. */
-const homeRefOf = (departmentId: string | null | undefined): HomeRef | undefined => {
-  if (departmentId === undefined) return undefined;
-  return typeof departmentId === "string" && departmentId !== ""
-    ? { kind: "department", departmentId }
-    : { kind: "org" };
+/** The home a `teamId` names: a team, or the org for null/empty. */
+const homeRefOf = (teamId: string | null | undefined): HomeRef | undefined => {
+  if (teamId === undefined) return undefined;
+  return typeof teamId === "string" && teamId !== "" ? { kind: "team", teamId } : { kind: "org" };
 };
 
 const run = <A>(effect: Effect.Effect<A, unknown>): Promise<A> =>
@@ -65,29 +63,27 @@ export const rowOps = (
     create: (owner, input) => {
       // Same checks as update; `model: null` means "workspace default".
       validatePatch(input, ctx.knownModel);
-      return guardHome(ctx, owner, { kind: "create", to: input.departmentId ?? null }).then(() =>
+      return guardHome(ctx, owner, { kind: "create", to: input.teamId ?? null }).then(() =>
         createRow(ctx, owner, input),
       );
     },
     update: async (owner, id, patch, meta) => {
       validatePatch(patch, ctx.knownModel);
-      const moving = patch.departmentId !== undefined;
+      const moving = patch.teamId !== undefined;
       if (moving) {
-        await guardHome(ctx, owner, { kind: "move", id, to: patch.departmentId ?? null });
+        await guardHome(ctx, owner, { kind: "move", id, to: patch.teamId ?? null });
       }
       const before = moving ? await ctx.self().get(owner, id) : undefined;
       const next = await updateRow(ctx, owner, id, patch, meta);
       // A move between homes: retire the bot's user from the OLD home's VM
       // (its group memberships go with it); the new home provisions the
       // same stored uid on the bot's first `bash` there (slice 2).
-      const from = homeRefOf(before?.departmentId);
-      const to = homeRefOf(next.departmentId);
+      const from = homeRefOf(before?.teamId);
+      const to = homeRefOf(next.teamId);
       if (ctx.retireUserFromHome !== undefined && from !== undefined && to !== undefined) {
         const moved =
           from.kind !== to.kind ||
-          (from.kind === "department" &&
-            to.kind === "department" &&
-            from.departmentId !== to.departmentId);
+          (from.kind === "team" && to.kind === "team" && from.teamId !== to.teamId);
         if (moved) void ctx.retireUserFromHome(owner, from, id).catch(() => {});
       }
       return next;
@@ -113,7 +109,7 @@ const createRow = (
     policies: { ...defaultPolicies(), ...input.policies },
     createdAt: Date.now(),
     archivedAt: null,
-    departmentId: input.departmentId ?? null,
+    teamId: input.teamId ?? null,
     hostAccess: input.hostAccess ?? false,
   };
   return run(commitProfiles(converse, (profiles) => [...profiles, profile])).then(async () => {

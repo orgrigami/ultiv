@@ -24,9 +24,7 @@ export type ReachSurface = NonNullable<AuditEvent["reach"]>["surface"];
 /** Two homes differ: the use is cross-home and audited. */
 export const crossHome = (a: HomeRef, b: HomeRef): boolean => {
   if (a.kind !== b.kind) return true;
-  return a.kind === "department" && b.kind === "department"
-    ? a.departmentId !== b.departmentId
-    : false;
+  return a.kind === "team" && b.kind === "team" ? a.teamId !== b.teamId : false;
 };
 
 /** One reach audit row: homes and surface only, never any content. */
@@ -75,7 +73,7 @@ const homesOfSend = async (
 
 /**
  * Wrap the mailbox so a message BETWEEN HOMES writes its reach row. The
- * mailbox itself stays untouched (no department checks inside it); this is
+ * mailbox itself stays untouched (no team checks inside it); this is
  * the audit, not a gate — send behaves exactly as before.
  */
 export const auditedMailbox = (mailbox: MailboxService, deps: ReachDeps): MailboxService => {
