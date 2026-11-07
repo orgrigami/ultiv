@@ -5,7 +5,14 @@
  */
 import { Effect } from "effect";
 import type { MemoryProposal } from "@spriessen/contracts";
-import { teamKey, FactsDoc, ProposalsDoc, ownerKey, profileKey } from "@spriessen/mind";
+import {
+  decideProposal,
+  FactsDoc,
+  ownerKey,
+  profileKey,
+  ProposalsDoc,
+  teamKey,
+} from "@spriessen/mind";
 import { may } from "./ask.ts";
 import { errorOf, type RouteArgs } from "./types.ts";
 import { runTidy, tidyPush } from "../memory-tidy.ts";
@@ -76,86 +83,6 @@ const chatsOf = async (
     }),
   );
   return Object.fromEntries(entries.flat());
-};
-
-/** Apply an accepted proposal — the ONLY place proposals change facts. */
-const applyProposal = async (
-  args: RouteArgs,
-  proposal: MemoryProposal,
-  profile: string | undefined,
-): Promise<void> => {
-  const key = keyOf(args.owner, profile);
-  const setStatus = async (ids: readonly string[], status: "archived" | "forgotten") => {
-    for (const factId of ids) {
-      if (factId === undefined) continue;
-      await run(
-        args.mind.converse.docs.commit(async (tx) => {
-          const store = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
-          store.facts = store.facts.map((fact) =>
-            fact.id === factId ? { ...fact, status, expiredAt: Date.now() } : fact,
-          );
-        }),
-      );
-    }
-  };
-  if (proposal.kind === "archive" || proposal.kind === "stale") {
-    await setStatus(proposal.factIds, "archived");
-    return;
-  }
-  if (proposal.kind === "merge") {
-    // The first id survives; the rest become its history.
-    const [primary, ...others] = proposal.factIds;
-    if (primary === undefined) return;
-    for (const factId of others) {
-      if (factId === undefined) continue;
-      await run(
-        args.mind.converse.docs.commit(async (tx) => {
-          const store = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
-          store.facts = store.facts.map((fact) =>
-            fact.id === factId
-              ? {
-                  ...fact,
-                  status: "superseded" as const,
-                  supersededBy: primary,
-                  expiredAt: Date.now(),
-                }
-              : fact,
-          );
-        }),
-      );
-    }
-    return;
-  }
-  if (proposal.kind === "conflict") {
-    // [older, newer]: the newer one holds; the older one changed — kept as
-    // the past, linked forward, never forgotten (both were true once, or
-    // the owner would have chosen correct).
-    const [older, newer] = proposal.factIds;
-    if (older === undefined || newer === undefined) return;
-    await run(
-      args.mind.converse.docs.commit(async (tx) => {
-        const store = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
-        const next = store.facts.find((fact) => fact.id === newer);
-        store.facts = store.facts.map((fact) =>
-          fact.id === older && fact.status === "current"
-            ? {
-                ...fact,
-                status: "superseded" as const,
-                retired: "changed" as const,
-                supersededBy: newer,
-                validTo: next?.validFrom ?? Date.now(),
-                expiredAt: Date.now(),
-              }
-            : fact,
-        );
-      }),
-    );
-    return;
-  }
-  if (proposal.kind === "secret") {
-    await setStatus(proposal.factIds, "forgotten");
-  }
-  // core-fix, entity-merge, backfill: record-only accepts need no fact change.
 };
 
 /** The memory-v2 routes; returns false when the path is not ours. */
@@ -322,26 +249,22 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
     }
     if (proposalMatch !== null && method === "POST") {
       const [, id, verdict] = proposalMatch;
-      const key = keyOf(args.owner, profile);
-      const store = await run(args.mind.converse.docs.snapshotKeyed(ProposalsDoc, key)).then(
-        (draft) => draft?.proposals ?? [],
+      // One commit: the facts and the proposal's status change together.
+      const outcome = await decideProposal(
+        args.mind.converse,
+        keyOf(args.owner, profile),
+        id ?? "",
+        verdict === "accept" ? "accept" : "reject",
       );
-      const proposal = store.find((entry) => entry.id === id);
-      if (proposal === undefined) {
+      if (outcome.kind === "unknown") {
         json(404, { error: `proposal ${id} not found` });
         return true;
       }
-      if (verdict === "accept") await applyProposal(args, proposal, profile);
-      const status: MemoryProposal["status"] = verdict === "accept" ? "accepted" : "rejected";
-      await run(
-        args.mind.converse.docs.commit(async (tx) => {
-          const draft = await tx.doc(ProposalsDoc, key, { proposals: [] });
-          draft.proposals = draft.proposals.map((entry) =>
-            entry.id === id ? { ...entry, status, decidedAt: Date.now() } : entry,
-          );
-        }),
-      );
-      json(200, { id, status });
+      if (outcome.kind === "decided") {
+        json(409, { error: `proposal ${id} was already ${outcome.status}` });
+        return true;
+      }
+      json(200, { id, status: outcome.status, skipped: outcome.skipped });
       return true;
     }
     if (path === "/api/memory/v2/core" && method === "POST") {

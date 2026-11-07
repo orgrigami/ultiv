@@ -30,6 +30,7 @@ export * from "./memory/stopwords.ts";
 export * from "./memory/search-index.ts";
 export * from "./memory/recall.ts";
 export { detectConflicts, type Conflict } from "./memory/conflicts.ts";
+export { decideProposal, type ProposalOutcome } from "./memory/proposals.ts";
 export * from "./memory/tools.ts";
 export * from "./memory/tools-lifecycle.ts";
 export * from "./schedules/schedules.ts";

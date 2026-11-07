@@ -266,6 +266,15 @@ never return), a push "Memory tidy: N suggestions" (no fact text) that opens
 Needs you, and the badge in the Memory panel. **Nothing changes without the
 owner's accept** — `POST /api/memory/v2/proposals/:id/accept|reject`.
 
+Deciding is ONE commit (`memory/proposals.ts` `decideProposal`): the
+proposal's status and every fact it changes land together or not at all. A
+decided proposal answers 409 and is never applied again. Each fact must
+still be in the state the proposal saw (current; any state but forgotten
+for a secret; a current primary for a merge; both sides current for a
+conflict): a fact that moved on since is left alone and named in the
+response's `skipped`, so an old archive suggestion never takes a forgotten
+fact out of Purge's reach.
+
 ## Search sidecar
 
 `packages/mind/src/search/`: one SQLite file through Node's built-in

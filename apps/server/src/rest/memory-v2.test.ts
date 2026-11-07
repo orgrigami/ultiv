@@ -245,6 +245,14 @@ describe("accepting a conflict proposal", () => {
     expect(was?.retired).toBe("changed");
     expect(was?.supersededBy).toBe(newer.id);
     expect(facts.find((fact) => fact.id === newer.id)?.status).toBe("current");
+    // A decided proposal is never applied twice.
+    const again = routeArgs(mind, {
+      path: "/api/memory/v2/proposals/p-conflict/accept",
+      method: "POST",
+      profile: bot.id,
+    });
+    await memoryV2Routes(again.args);
+    expect(again.status()).toBe(409);
     await handle.close();
   });
 });
