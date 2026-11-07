@@ -46,11 +46,16 @@ export function ResultCard({ task }: { task: TaskInfo }) {
     return <p className="text-muted-foreground text-center text-sm">You stopped this task.</p>;
   if (task.status !== "done") return null;
   const text = task.result ?? "";
+  // A structured result is data: shown as a JSON block, with a note when the
+  // task's reply never matched the format it was asked for.
+  const shaped = task.resultSchema !== undefined;
+  const missed = shaped && (task.structured === null || task.structured === undefined);
+  const shown = shaped && !missed ? `\`\`\`json\n${text}\n\`\`\`` : text;
   return (
     <Tile tone="surface" render={<section aria-label="Result" />} className="p-3">
       <div className="flex items-center gap-2">
         <Heading level={3} size="sm" className="flex-1">
-          Result
+          {shaped && !missed ? "Result (JSON)" : "Result"}
         </Heading>
         {text !== "" && <CopyButton text={text} />}
       </div>
@@ -58,7 +63,12 @@ export function ResultCard({ task }: { task: TaskInfo }) {
         <p className="text-muted-foreground mt-1 text-sm">Finished without a written result.</p>
       ) : (
         <div className="prose prose-sm dark:prose-invert mt-1 max-w-none break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-          <LazyMarkdown text={text} />
+          {missed && (
+            <p className="text-muted-foreground text-sm">
+              The task's reply didn't match the format it was asked for. Its raw reply:
+            </p>
+          )}
+          <LazyMarkdown text={shown} />
         </div>
       )}
     </Tile>

@@ -189,6 +189,7 @@ export { RoomInfoSchema, RoomListSchema } from "./rooms.ts";
 export type { RoomInfo, RoomList } from "./rooms.ts";
 export { TaskInfoSchema, TaskListSchema, TaskRowSchema, TaskStatusSchema } from "./tasks.ts";
 export type {
+  Json,
   TaskInfo,
   TaskList,
   TaskRow,

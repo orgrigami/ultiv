@@ -17,7 +17,7 @@ import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { Context, Effect, Layer } from "effect";
 import { External, ownerErrorText, readEnv } from "@spriessen/core";
-import type { TaskInfo, TaskList } from "@spriessen/contracts";
+import type { Json, TaskInfo, TaskList } from "@spriessen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import {
   findTask,
@@ -31,6 +31,7 @@ import { notifyOwner, type NotifyOutcome } from "./notify.ts";
 import { recentSteps } from "./steps.ts";
 import { owed, wakeParent } from "./wake.ts";
 import type { TaskModel } from "./model.ts";
+import { schemaBrief, settleStructured } from "./structured.ts";
 
 export { TasksDoc, taskConversationKey, titleOf } from "./store.ts";
 export { TASK_UPDATE_KIND, NOTIFY_CHARS, NOTIFY_INTERVAL_MS } from "./notify.ts";
@@ -66,6 +67,8 @@ export interface TasksService {
     readonly model?: TaskModel;
     /** How the outcome reaches the spawning chat (TaskInfo.report); default "wake". */
     readonly report?: "wake" | "note";
+    /** A JSON Schema the result must match (structured.ts); checked by the caller. */
+    readonly resultSchema?: Json;
   }) => Effect.Effect<TaskInfo, External>;
   readonly get: (id: string) => Effect.Effect<TaskInfo | undefined, External>;
   readonly list: () => Effect.Effect<TaskList, External>;
@@ -226,7 +229,12 @@ const runTask = (rt: TaskRuntime, task: TaskInfo, prompt: string): void => {
     try {
       const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(task.id)));
       const first = await Effect.runPromise(converse.turn(conversation, prompt));
-      const result = { text: await drainFollowers(rt, task.id, conversation, first.text) };
+      const text = await drainFollowers(rt, task.id, conversation, first.text);
+      const shaped =
+        task.resultSchema === undefined
+          ? undefined
+          : await settleStructured(converse, conversation, task.resultSchema, text);
+      const result = { text: shaped?.result ?? text };
       await Effect.runPromise(
         updateTask(converse, task.id, (current) =>
           current.status === "cancelled"
@@ -235,6 +243,7 @@ const runTask = (rt: TaskRuntime, task: TaskInfo, prompt: string): void => {
                 ...current,
                 status: "done",
                 result: result.text,
+                ...(shaped !== undefined ? { structured: shaped.structured } : {}),
                 finishedAt: Date.now(),
                 ...owed(current),
               },
@@ -353,11 +362,13 @@ const spawnTask =
           ? { effort: input.model.effort }
           : {}),
         ...(input.report === "note" ? { report: "note" as const } : {}),
+        ...(input.resultSchema !== undefined ? { resultSchema: input.resultSchema } : {}),
       };
       yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
         writeTasks(rt.converse, [...tasks, task]),
       );
-      runTask(rt, task, `${TASK_BRIEF}\n\n${input.prompt}`);
+      const format = input.resultSchema === undefined ? "" : schemaBrief(input.resultSchema);
+      runTask(rt, task, `${TASK_BRIEF}\n\n${input.prompt}${format}`);
       return task;
     });
 

@@ -15,6 +15,10 @@ export const TaskUpdateSchema = Type.Object({ at: Type.Number(), text: Type.Stri
 
 export type TaskUpdate = Static<typeof TaskUpdateSchema>;
 
+/** Any JSON value: what a structured task result and its schema are stored as. */
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+const JsonSchema = Type.Unsafe<Json>(Type.Unknown());
+
 export const TaskInfoSchema = Type.Object({
   id: Type.String(),
   /** The app session the task belongs to (registry scoping; may be empty). */
@@ -53,6 +57,13 @@ export const TaskInfoSchema = Type.Object({
    * bot reads it with its next turn). Background routines report as notes.
    */
   report: Type.Optional(Type.Union([Type.Literal("wake"), Type.Literal("note")])),
+  /** A JSON Schema the spawn asked the result to match (structured results). */
+  resultSchema: Type.Optional(JsonSchema),
+  /**
+   * The validated result value when `resultSchema` was set; null when the
+   * task's reply never matched (the raw text stays in `result`).
+   */
+  structured: Type.Optional(JsonSchema),
   /** The latest step of a running task, as a plain line (list responses only, never stored). */
   lastStep: Type.Optional(Type.String()),
 });

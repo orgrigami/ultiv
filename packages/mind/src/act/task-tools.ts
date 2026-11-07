@@ -19,6 +19,8 @@ import {
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { messageTool, notifyTool, tasksVisibleTo, textReply } from "./task-live.ts";
 import { backgroundModelFor } from "../tasks/model.ts";
+import { resultSchemaProblem } from "../tasks/structured.ts";
+import type { Json } from "@spriessen/contracts";
 
 const SpawnParams = Type.Object({
   prompt: Type.String({
@@ -43,6 +45,18 @@ const SpawnParams = Type.Object({
   ),
   effort: Type.Optional(
     Type.String({ description: "Reasoning effort for this task only, e.g. low or high." }),
+  ),
+  result_schema: Type.Optional(
+    Type.Object(
+      {},
+      {
+        additionalProperties: true,
+        description:
+          "A JSON Schema the result must match, when you need data rather than prose (e.g. " +
+          '{"type":"object","properties":{"price":{"type":"number"}},"required":["price"]}). ' +
+          "The result then reaches you as validated JSON.",
+      },
+    ),
   ),
 });
 
@@ -100,6 +114,9 @@ const spawnTool = (
         knownModel,
       );
       if (!choice.ok) return textReply(choice.reason, true);
+      const schemaProblem =
+        args.result_schema === undefined ? null : resultSchemaProblem(args.result_schema);
+      if (schemaProblem !== null) return textReply(schemaProblem, true);
       const outside = (await outsideTurn?.(spawning).catch(() => true)) ?? false;
       const task = await Effect.runPromise(
         tasks.spawn({
@@ -110,6 +127,8 @@ const spawnTool = (
           ...(args.title !== undefined ? { title: args.title } : {}),
           ...(outside ? { outside: true } : {}),
           ...(choice.model !== undefined ? { model: choice.model } : {}),
+          // Tool arguments arrive as parsed JSON.
+          ...(args.result_schema !== undefined ? { resultSchema: args.result_schema as Json } : {}),
         }),
       );
       return {
@@ -135,6 +154,7 @@ const statusTool = (tasks: TasksService): Tool =>
       steps: Type.Array(Type.String()),
       result: Type.Union([Type.String(), Type.Null()]),
       error: Type.Union([Type.String(), Type.Null()]),
+      structured: Type.Optional(Type.Unknown()),
     }),
     execute: async (args) => {
       const task = await Effect.runPromise(tasks.get(args.id));
@@ -145,6 +165,7 @@ const statusTool = (tasks: TasksService): Tool =>
         steps: await tasks.steps(args.id),
         result: task.result,
         error: task.error,
+        ...(task.structured !== undefined ? { structured: task.structured } : {}),
       };
       return { ...textReply(JSON.stringify(status)), structuredOutput: status };
     },

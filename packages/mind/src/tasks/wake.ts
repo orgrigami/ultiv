@@ -14,11 +14,21 @@ const WAKE_RESULT_CHARS = 4_000;
 /** The entry kind a background task's report is placed as in its parent chat. */
 export const TASK_REPORT_KIND = "ultiv.task-report";
 
+/** A done task's result as the parent reads it: structured results as a JSON block. */
+const resultTextOf = (task: TaskInfo): string => {
+  const text = task.result ?? "";
+  if (task.resultSchema === undefined) return text;
+  if (task.structured === null || task.structured === undefined) {
+    return `[the result did not match the requested format; raw reply below]\n\n${text}`;
+  }
+  return `\`\`\`json\n${JSON.stringify(task.structured, null, 2)}\n\`\`\``;
+};
+
 /** The wake text for a settled task, rebuilt from its registry row. */
 export const wakeTextOf = (task: TaskInfo): string | undefined => {
   switch (task.status) {
     case "done": {
-      const text = task.result ?? "";
+      const text = resultTextOf(task);
       const digest =
         text.length > WAKE_RESULT_CHARS
           ? `${text.slice(0, WAKE_RESULT_CHARS)}\n[truncated; full result: task_status "${task.id}"]`

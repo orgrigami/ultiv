@@ -24,6 +24,7 @@ import { Value } from "typebox/value";
 import type { Static, TSchema } from "typebox";
 import { MindModels, ModelCatalog } from "../providers/models.ts";
 import { parseRef } from "../providers/refs.ts";
+import { parseJsonReply } from "../json-reply.ts";
 
 /** The seam to one model completion; tests substitute it. */
 export interface CompletionGateway {
@@ -61,18 +62,7 @@ export class Generate extends Context.Service<Generate, GenerateService>()(
 const textOf = (message: AssistantMessage): string =>
   message.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("");
 
-const parseOf = (text: string): unknown => {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-  const candidate = (fenced?.[1] ?? text).trim();
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-  const json = start >= 0 && end > start ? candidate.slice(start, end + 1) : candidate;
-  try {
-    return JSON.parse(json) as unknown;
-  } catch {
-    return undefined;
-  }
-};
+const parseOf = parseJsonReply;
 
 const schemaInstruction = (schema: TSchema): string =>
   `\n\nReply with ONLY a JSON value matching this JSON schema, with no prose and no code fence:\n${JSON.stringify(schema)}`;
