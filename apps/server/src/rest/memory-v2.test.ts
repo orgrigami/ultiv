@@ -131,6 +131,41 @@ describe("POST /api/memory/v2/facts/:id/restore", () => {
     expect(restored.map((record) => record.id)).toContain(fact.id);
     await handle.close();
   });
+
+  it("refuses a purged tombstone (409) and an unknown fact (404)", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { mind } = handle;
+    const bot = await mind.profiles.create("harry", { name: "Purged" });
+    const fact = await mind.memory.writeV2({
+      owner: "harry",
+      profileId: bot.id,
+      scope: "profile",
+      writer: bot.id,
+      text: "a fact purged for good",
+    });
+    await mind.memory.tombstone("harry", bot.id, fact.id);
+    await mind.memory.purge("harry", bot.id);
+    const purged = routeArgs(mind, {
+      path: `/api/memory/v2/facts/${fact.id}/restore`,
+      method: "POST",
+      profile: bot.id,
+    });
+    expect(await memoryV2Routes(purged.args)).toBe(true);
+    expect(purged.status()).toBe(409);
+    const unknown = routeArgs(mind, {
+      path: "/api/memory/v2/facts/nope/restore",
+      method: "POST",
+      profile: bot.id,
+    });
+    expect(await memoryV2Routes(unknown.args)).toBe(true);
+    expect(unknown.status()).toBe(404);
+    const facts = await mind.memory.readFacts("harry", bot.id);
+    expect(facts.find((entry) => entry.id === fact.id)).toMatchObject({
+      status: "forgotten",
+      text: "",
+    });
+    await handle.close();
+  });
 });
 
 describe("DELETE /api/memory/v2/facts/:id (tombstone)", () => {

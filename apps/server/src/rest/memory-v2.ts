@@ -276,11 +276,20 @@ export async function memoryV2Routes(args: RouteArgs): Promise<boolean> {
     const restoreMatch = path.match(/^\/api\/memory\/v2\/facts\/([^/]+)\/restore$/);
     if (restoreMatch !== null && method === "POST") {
       // The owner's undo of a tombstone (the "Forgotten" list in the panel).
-      await args.mind.memory.restore(
-        args.owner,
-        profile === undefined || profile === "owner" ? null : profile,
-        restoreMatch[1] ?? "",
-      );
+      // A purged tombstone has no text left: 409, never an empty fact.
+      try {
+        await args.mind.memory.restore(
+          args.owner,
+          profile === undefined || profile === "owner" ? null : profile,
+          restoreMatch[1] ?? "",
+        );
+      } catch (cause) {
+        const error = cause as { reason?: unknown; what?: unknown };
+        if (typeof error.what === "string") json(404, { error: `unknown ${error.what}` });
+        else if (typeof error.reason === "string") json(409, { error: error.reason });
+        else throw cause;
+        return true;
+      }
       args.mind.audit.record({
         at: Date.now(),
         kind: "memory",

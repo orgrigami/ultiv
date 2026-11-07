@@ -203,7 +203,11 @@ const factHashSimilar = (older: MemoryFact, newer: MemoryFact): boolean =>
   (older.text.length > 0 &&
     newer.text.startsWith(older.text.slice(0, Math.min(40, older.text.length))));
 
-/** Restore a forgotten tombstone (the owner's undo). */
+/**
+ * Restore a forgotten tombstone (the owner's undo). Only a tombstone that
+ * still has its text: a purged one has nothing left to restore, so it is
+ * refused rather than brought back as an empty current fact.
+ */
 export const restoreFact = async (
   deps: { readonly converse: ConverseService },
   owner: string,
@@ -211,16 +215,24 @@ export const restoreFact = async (
   factId: string,
 ): Promise<void> => {
   const key = profileId === null ? ownerKey(owner) : profileKey(owner, profileId);
-  await run(
-    deps.converse.docs.commit(async (tx) => {
+  // The verdict is taken under the lock; errors thrown inside a commit come
+  // back wrapped, so it is returned and thrown here.
+  const verdict = await run(
+    deps.converse.docs.commit<"restored" | "missing" | "purged">(async (tx) => {
       const facts = await tx.doc(FactsDoc, key, { facts: [], migratedAt: null });
+      const target = facts.facts.find((fact) => fact.id === factId);
+      if (target === undefined || target.status !== "forgotten") return "missing";
+      if (target.text === "") return "purged";
       facts.facts = facts.facts.map((fact) =>
-        fact.id === factId && fact.status === "forgotten"
-          ? { ...fact, status: "current" as const, expiredAt: null }
-          : fact,
+        fact.id === factId ? { ...fact, status: "current" as const, expiredAt: null } : fact,
       );
+      return "restored";
     }),
   );
+  if (verdict === "missing") throw new NotFound({ what: `forgotten fact ${factId}` });
+  if (verdict === "purged") {
+    throw new InvalidInput({ reason: "this fact was purged; its text is gone for good" });
+  }
 };
 
 /** Purge: the OWNER's irreversible delete of forgotten facts' text. */
@@ -240,11 +252,18 @@ export const purgeForgotten = async (
         if (fact.text !== "") purged += 1;
         return { ...fact, text: "", tags: [], triple: null, hash: "" };
       });
-      // Episodes are provenance: their raw input text dies with the purge —
-      // ids, links and timestamps stay.
+      // Episodes are provenance: the raw input behind a forgotten fact (and
+      // a forget's reason) dies with the purge — ids, links and timestamps
+      // stay. Episodes of facts that are still kept keep their input: the
+      // owner purged what they forgot, not the evidence for what they kept.
+      const forgotten = new Set(
+        facts.facts.filter((fact) => fact.status === "forgotten").map((fact) => fact.id),
+      );
       const episodes = await tx.doc(EpisodesDoc, key, { episodes: [] });
       episodes.episodes = episodes.episodes.map((episode) =>
-        episode.input === "" ? episode : { ...episode, input: "" },
+        episode.input !== "" && episode.facts.some((id) => forgotten.has(id))
+          ? { ...episode, input: "" }
+          : episode,
       );
       return purged;
     }),

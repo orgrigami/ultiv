@@ -57,6 +57,31 @@ Nothing is ever deleted except by **Purge** (owner-only, irreversible):
 `memory_forget` makes a restorable tombstone; change, correct and end keep
 the history.
 
+### Forget, Purge and deleting a chat
+
+Three different things, on purpose:
+
+- **Forget** (`memory_forget`, the owner's Forget in the panel) hides ONE
+  version of a fact. It stops being recalled, keeps its text, and the owner
+  can Restore it. Its earlier versions stay as history; each is forgotten
+  on its own.
+- **Purge** (`POST /api/memory/purge`, owner-only, irreversible) deletes the
+  text of every forgotten fact in one store (text, tags, triple, hash; the id,
+  dates and links stay) AND the raw input of every episode linked to a
+  forgotten fact, forget reasons included. Episodes of facts that are kept
+  keep their input: Purge removes what the owner forgot, not the evidence
+  for what they kept. The store's search rows go at once. A purged fact can't
+  be restored (REST 409), and saying the same thing again writes a NEW fact
+  (dedupe only compares current facts), never a revived tombstone. Tests:
+  `memory/purge.test.ts`.
+- **Deleting a chat** removes it from the chat list and its messages from
+  conversation search. It does not touch memory: facts learned in it, and
+  their episode input, stay. Its transcript also stays in the durable store.
+  To remove what a chat taught, Forget those facts and Purge.
+
+Purge can't reach copies outside the store: bot export bundles and backups
+of the data folder keep what they held when made.
+
 ### Handles
 
 The harness never shows a tool's structured output to the model, so every
@@ -335,10 +360,12 @@ at the next server start.
 - `POST /api/memory/v2/core[?profile=]` / `PATCH|DELETE /api/memory/v2/core/:lineId`
 - `DELETE /api/memory/v2/facts/:factId[?profile=]` — the owner's tombstone
 - `POST /api/memory/v2/facts/:factId/restore[?profile=]` — undo a tombstone
+  (409 once purged, 404 when it is not a forgotten fact)
 - `POST /api/memory/v2/proposals/:id/accept|reject[?profile=]`
 - `POST /api/memory/tidy/run`
-- `POST /api/memory/purge[?profile=]` — irreversible: forgotten facts lose
-  their text (and leave the search sidecar)
+- `POST /api/memory/purge[?profile=]` — irreversible: forgotten facts and
+  the episodes that taught them lose their text (and leave the search
+  sidecar); see [Forget, Purge and deleting a chat](#forget-purge-and-deleting-a-chat)
 - `GET /api/history/search` — see [Conversation search](#conversation-search)
 
 The web Memory panel (per bot, "What X remembers") renders core lines, facts

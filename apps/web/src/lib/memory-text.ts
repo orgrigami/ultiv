@@ -154,7 +154,7 @@ export const cancelLabel = "Cancel";
 export const purgeLabel = "Purge forgotten";
 export const purgeTitle = "Purge forgotten facts?";
 export const purgeWarning =
-  "Every forgotten fact loses its text for good. Tombstones stay, but the words are gone. This cannot be undone.";
+  "Every forgotten fact loses its text for good, along with the record of how it was saved. Facts you kept and your chats are not touched. This cannot be undone.";
 export const purgeListTitle = "These facts lose their text:";
 
 export const kvEmpty = (name: string): string =>
