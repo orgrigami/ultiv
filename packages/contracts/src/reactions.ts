@@ -1,80 +1,66 @@
 /**
- * The `react` ack vocabulary and the REST row it stores: a bot attaches one
- * emoji from this fixed 12-name list to the owner's message instead of
- * writing prose. The names are the contract; the emoji maps at render.
- * Plain-REST payload (read through GET /api/sessions/:id/reactions), never
- * a chord object.
+ * The `react` tool's vocabulary: a bot puts one of four reactions on the
+ * owner's message. The names are the contract; the emoji maps at render.
+ * Nothing is stored apart from the call itself: the web reads each
+ * reaction from the transcript (the tool step's `details`), so a chip
+ * arrives with the chat's own live updates.
  */
 import { Type, type Static } from "typebox";
 
 export const REACTIONS_TOOL = "react";
 
-/** The owner-approved ack names, in display order. The list is FIXED. */
-export const REACTION_NAMES = [
-  "ack",
-  "seen",
-  "done",
-  "working",
-  "declined",
-  "clarify",
-  "caveat",
-  "blocked",
-  "noted",
-  "recurs",
-  "shipped",
-  "agreed",
-] as const;
+/** The four reactions, in display order. The list is FIXED. */
+export const REACTION_NAMES = ["ok", "no", "looking", "done"] as const;
 export type ReactionName = (typeof REACTION_NAMES)[number];
 
-/** The emoji each name renders as. One entry per name, no aliases. */
+/** The emoji each name renders as. */
 export const REACTION_EMOJI: Readonly<Record<ReactionName, string>> = {
-  ack: "👍",
-  seen: "👀",
+  ok: "👍",
+  no: "👎",
+  looking: "👀",
   done: "✅",
-  working: "⏳",
-  declined: "❌",
-  clarify: "❓",
-  caveat: "⚠️",
-  blocked: "🚫",
-  noted: "📌",
-  recurs: "🔁",
-  shipped: "🎉",
-  agreed: "🤝",
 };
 
+/** Owner-facing words for each reaction (tooltips, screen readers). */
+export const REACTION_LABEL: Readonly<Record<ReactionName, string>> = {
+  ok: "Got it",
+  no: "Won't do",
+  looking: "Looking into it",
+  done: "Done",
+};
+
+/**
+ * The reactions that end the bot's turn: nothing follows them, so the run
+ * stops without another model request. `looking` is the early ack of work
+ * the bot is about to do in the same turn, so the turn goes on.
+ */
+export const ENDS_TURN: ReadonlySet<ReactionName> = new Set(["ok", "no", "done"]);
+
+/**
+ * No target parameter: the model never sees transcript ids, so it could
+ * only guess one. A reaction always marks the owner's latest message.
+ */
 export const ReactionParamsSchema = Type.Object({
-  emoji: Type.Union(
+  reaction: Type.Union(
     REACTION_NAMES.map((name) => Type.Literal(name)),
-    {
-      description: "One of the fixed reaction names.",
-    },
-  ),
-  target: Type.Optional(
-    Type.Number({
-      description: "Transcript id of the owner message to react to. Default: the most recent one.",
-    }),
+    { description: "ok, no, looking or done." },
   ),
 });
 export type ReactionParams = Static<typeof ReactionParamsSchema>;
 
-/** One stored reaction: joined to the web transcript by entryId. */
-export type ReactionRow = {
-  /** The transcript entry id the chip attaches to (an owner message). */
-  entryId: number;
-  emoji: ReactionName;
-  reactorProfileId: string;
-  createdAt: number;
+/** The `details` a successful react call carries: the transcript id it marks. */
+export type ReactionDetails = {
+  /** The TranscriptEntry id of the owner's message. */
+  target: number;
+  reaction: ReactionName;
 };
 
-export const ReactionRowSchema = Type.Object({
-  entryId: Type.Number(),
-  emoji: Type.Union(REACTION_NAMES.map((name) => Type.Literal(name))),
-  reactorProfileId: Type.String(),
-  createdAt: Type.Number(),
-});
+const isName = (value: unknown): value is ReactionName =>
+  typeof value === "string" && (REACTION_NAMES as readonly string[]).includes(value);
 
-/** GET /api/sessions/:sessionId/reactions. */
-export const ReactionsListSchema = Type.Object({
-  reactions: Type.Array(ReactionRowSchema),
-});
-export type ReactionsList = Static<typeof ReactionsListSchema>;
+/** A react call's details, or undefined when they are not this shape. */
+export const reactionDetailsOf = (details: unknown): ReactionDetails | undefined => {
+  if (details === null || typeof details !== "object") return undefined;
+  const { target, reaction } = details as { target?: unknown; reaction?: unknown };
+  return typeof target === "number" && isName(reaction) ? { target, reaction } : undefined;
+};

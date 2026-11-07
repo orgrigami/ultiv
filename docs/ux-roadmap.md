@@ -257,19 +257,20 @@ routes. The timeline updates live (the mind's `mailbox.listen` → the
 `mailbox` signal), a speaker's follow-up within 5 minutes continues under
 one head, dividers fall per day, and delivery problems read as sentences.
 
-## React-for-ack wave: DONE (2026-11-06)
+## React-for-ack wave: DONE (2026-11-06), reshaped 2026-11-07
 
 **Bots react instead of replying** when the owner's message needs no prose:
-a `react` mind tool attaches one emoji from a fixed 12-name ack vocabulary
-(ack, seen, done, working, declined, clarify, caveat, blocked, noted,
-recurs, shipped, agreed) to the owner's message. Reactions live in the
-`ultiv.reactions` mind doc family keyed per conversation; the owner's web
-reads them through `GET /api/sessions/:id/reactions` (owner-scoped, foreign
-sessions read as 404) and polls every 5 s, merging by transcript entry id.
-The chip renders as a small emoji badge on the bubble it acks with the
-reaction name as the tooltip; the react tool call is hidden in the
-presentation lens, so a reaction-only turn shows just the chip. One
-reaction per message per bot, replaced on re-react; no owner react button
-and no delete or edit in this wave (a bot re-reacts to replace its own).
-The tool rides the always-on registry path: every bot has it, allowlisted
-or not.
+the `react` mind tool puts one of four reactions on the owner's LATEST
+message: `ok` 👍, `no` 👎, `looking` 👀, `done` ✅. There is no target
+parameter (the model never sees transcript ids) and machinery inputs (task
+wakes, webhooks, sensors, cron, a parent's steer) are never the target.
+`ok`, `no` and `done` end the turn through `control.terminate`, so a
+reaction-only reply costs one model request instead of two; `looking` lets
+the turn go on, an early ack of the work that follows, and a later `done`
+replaces it. Nothing is stored apart from the call: the result's `details`
+(`{ target, reaction }`) ride the transcript, and the web reads chips from
+the transcript it already holds (`lib/reactions.ts`), with no REST route
+and no polling. Successful calls leave the transcript before grouping, so a
+reaction-only reply draws just the chip; a refused call shows as a normal
+trace row. The CLI prints "<bot> reacted 👍 Got it". Task conversations
+cannot react. Every bot has the tool, allowlisted or not.

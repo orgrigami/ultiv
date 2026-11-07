@@ -15,7 +15,6 @@ import type {
   ProfilePolicies,
   RoomInfo,
   RoutineEvent,
-  ReactionsList,
   SensorInfo,
   SessionInfo,
   SettingsModel,
@@ -147,9 +146,6 @@ export const api = {
         ? `/api/sessions?profile=${encodeURIComponent(profile)}`
         : "/api/sessions",
     ),
-  /** This chat's bot reactions, joined to the transcript by entry id. */
-  sessionReactions: (sessionId: string): Promise<ReactionsList> =>
-    getJson<ReactionsList>(`/api/sessions/${encodeURIComponent(sessionId)}/reactions`),
   profiles: (): Promise<ProfileInfo[]> => getJson<ProfileInfo[]>("/api/profiles"),
   rooms: (bot?: string): Promise<RoomInfo[]> =>
     getJson<RoomInfo[]>(

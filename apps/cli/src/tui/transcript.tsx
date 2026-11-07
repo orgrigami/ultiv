@@ -7,7 +7,13 @@
  * while new lines arrive; PageUp/PageDown scroll it (app.tsx).
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
-import type { TranscriptEntry } from "@spriessen/contracts";
+import {
+  REACTION_EMOJI,
+  REACTION_LABEL,
+  REACTIONS_TOOL,
+  reactionDetailsOf,
+  type TranscriptEntry,
+} from "@spriessen/contracts";
 import type { Ref } from "react";
 import { toolLine } from "../render/words.ts";
 import { THEME } from "./theme.ts";
@@ -32,6 +38,25 @@ const ToolRow = ({ entry }: { entry: Extract<TranscriptEntry, { kind: "tool" }> 
           {line.error}
         </text>
       ) : null}
+    </box>
+  );
+};
+
+/** A bot's reaction on the owner's message (the web draws it as a chip on the bubble). */
+const Reaction = ({
+  entry,
+  bot,
+}: {
+  entry: Extract<TranscriptEntry, { kind: "tool" }>;
+  bot: string;
+}) => {
+  const details = reactionDetailsOf(entry.step.details);
+  if (details === undefined) return null;
+  return (
+    <box paddingLeft={1}>
+      <text fg={THEME.faint}>
+        {bot} reacted {REACTION_EMOJI[details.reaction]} {REACTION_LABEL[details.reaction]}
+      </text>
     </box>
   );
 };
@@ -68,7 +93,11 @@ export const Entry = ({ entry, bot }: { entry: TranscriptEntry; bot: string }) =
         </box>
       );
     case "tool":
-      return <ToolRow entry={entry} />;
+      return entry.step.name === REACTIONS_TOOL && entry.step.status === "done" ? (
+        <Reaction entry={entry} bot={bot} />
+      ) : (
+        <ToolRow entry={entry} />
+      );
     case "thinking":
       return null;
   }

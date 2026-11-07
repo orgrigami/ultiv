@@ -1,39 +1,29 @@
 /**
- * The `react` tool: a bot attaches one emoji from the fixed 12-name ack
- * vocabulary to the owner's message instead of writing prose. Reactions live
- * in one durable doc per conversation (`ultiv.reactions`), keyed by the
- * transcript entry id the web renders; the web reads them through plain REST
- * and joins them to the transcript by entry id. Model-callable only
- * (`callers: ["model"]`), and it rides the registry, not the allowlist
- * catalog: every bot has it, allowlisted or not.
+ * The `react` tool: a bot puts one of four reactions on the owner's latest
+ * message. Nothing is stored apart from the call: the result's `details`
+ * carry the transcript id it marks, and the web reads the chip from the
+ * transcript it already holds. `ok`, `no` and `done` end the turn
+ * (`control.terminate`), so a reaction-only reply costs ONE model request,
+ * not two; `looking` lets the turn go on, an early ack of work the bot is
+ * about to do. Model-callable only; it rides the registry, not the allowlist
+ * catalog: every bot has it.
  */
-import { defineDocFamily, type ToolRegistration } from "@earendil-works/pi-durable";
+import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import {
+  ENDS_TURN,
   REACTION_EMOJI,
   REACTIONS_TOOL,
   ReactionParamsSchema,
-  type ReactionRow,
+  type ReactionDetails,
 } from "@spriessen/contracts";
 import { defineTool } from "@spriessen/ext";
 import { withAudit, type AuditService } from "../audit/audit.ts";
 import { textReply } from "../act/task-live.ts";
-import { stepIdOf } from "../converse/steps.ts";
+import { projectTranscript } from "../converse/steps.ts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
-import { applyReaction, isOwnerEntry } from "./reactions.ts";
-
-type ReactionsState = { rows: ReactionRow[] };
-
-/** One doc per conversation (keyed by its id); rows join the web transcript. */
-export const ReactionsDoc = defineDocFamily<ReactionsState, ReactionsState>({
-  kind: "ultiv.reactions",
-  version: 1,
-  scope: "session",
-  family: true,
-  initial: (seed) => seed,
-  checkpointWhen: () => true,
-});
+import { latestOwnerMessage } from "./reactions.ts";
 
 export interface ReactionsToolDeps {
   readonly converse: ConverseService;
@@ -41,38 +31,24 @@ export interface ReactionsToolDeps {
   readonly audit?: AuditService | undefined;
 }
 
+/** How far back the owner's latest message is looked for. */
+const SCAN = 200;
+
 export const REACT_DESCRIPTION =
-  "React INSTEAD of replying when the owner's message needs no prose: `react` attaches " +
-  "one emoji to their message and the owner sees it on their own bubble. The names are " +
-  "fixed, one fits the message: ack (understood, nothing to answer), seen (read it, " +
-  "will come back to it), done (the asked thing is complete), working (on it, will " +
-  "report when there is something to say), declined (will not do it; also say a short " +
-  "reason in text), clarify (need more input; also ask in text), caveat (done but with " +
-  "a warning or partial result; also explain in text), blocked (waiting on something " +
-  "outside my control), noted (stored to memory, no response needed), recurs (this " +
-  "repeats or is scheduled, no action needed), shipped (a milestone landed), agreed " +
-  "(commitment accepted, deal). React AND reply briefly whenever semantics demand " +
-  "words (declined, caveat, clarify). React only to the OWNER's messages. One reaction " +
-  "per message: reacting again replaces the earlier one.";
+  "Put a reaction on the owner's latest message when it needs no written reply: " +
+  "ok 👍 (understood or agreed), no 👎 (won't do it), done ✅ (the asked thing is done). " +
+  "These END your turn: write any words in the same message, before the call. " +
+  "looking 👀 = you are starting on it now; your turn goes on. " +
+  "Never react instead of an answer the owner asked for.";
 
-type EntryLike = { readonly id: number; readonly kind: string };
-
-/** The owner-message transcript ids of a conversation, oldest first. */
-const reactableIds = async (
+/** The transcript id of the owner's latest message in this conversation. */
+const latestTarget = async (
   converse: ConverseService,
   conversationId: string,
-): Promise<number[]> => {
-  const entries = (await Effect.runPromise(
-    converse.entriesOf(conversationId, 500),
-  )) as readonly EntryLike[];
-  return entries
-    .filter((entry) => isOwnerEntry(entry.kind))
-    .map((entry) => stepIdOf(entry.id))
-    .reverse();
+): Promise<number | undefined> => {
+  const newestFirst = await Effect.runPromise(converse.entriesOf(conversationId, SCAN));
+  return latestOwnerMessage(projectTranscript([...newestFirst].reverse(), undefined, false));
 };
-
-const refuseOf = (cause: unknown): string =>
-  (cause as { what?: string }).what ?? String(cause).slice(0, 200);
 
 const reactTool = (deps: ReactionsToolDeps) =>
   defineTool({
@@ -82,39 +58,18 @@ const reactTool = (deps: ReactionsToolDeps) =>
     callers: ["model"],
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
-      if (deps.profiles.profileOf(conversationId) === undefined) {
-        return textReply("this conversation belongs to no bot", true);
+      const scope = deps.profiles.scopeOf(conversationId);
+      if (scope === undefined) return textReply("this conversation belongs to no bot", true);
+      if (scope.kind === "task") {
+        return textReply("a task has no owner message to react to: report in your result", true);
       }
-      const ids = await reactableIds(deps.converse, conversationId);
-      // Default target: the most recent owner message (newest first above).
-      const target = args.target ?? ids[ids.length - 1];
-      if (target === undefined) {
-        return textReply("no owner message to react to yet", true);
-      }
-      // Unknown or foreign entries are refused before anything is written
-      // (the docs layer would wrap the kernel NotFound into an External).
-      if (!ids.includes(target)) {
-        return textReply(`no message ${String(target)} to react to here`, true);
-      }
-      const reactorProfileId = deps.profiles.profileOf(conversationId)?.id ?? "";
-      const outcome = await Effect.runPromise(
-        deps.converse.docs.commit(async (tx) => {
-          const draft = await tx.doc(ReactionsDoc, conversationId, { rows: [] });
-          const applied = applyReaction(
-            draft.rows,
-            { emoji: args.emoji, target },
-            reactorProfileId,
-            ids,
-          );
-          // A plain copy: draft values die with the transaction.
-          if (applied.ok) draft.rows = structuredClone(applied.rows);
-          return applied;
-        }),
-      ).catch((cause) => ({ ok: false as const, error: refuseOf(cause) }));
-      if (!outcome.ok) return textReply(`reaction not saved: ${outcome.error}`, true);
+      const target = await latestTarget(deps.converse, conversationId);
+      if (target === undefined) return textReply("no owner message to react to yet", true);
+      const details: ReactionDetails = { target, reaction: args.reaction };
       return {
-        ...textReply(`${REACTION_EMOJI[args.emoji]} ${args.emoji}: reaction saved.`),
-        details: { entryId: outcome.entryId, emoji: args.emoji },
+        ...textReply(`${REACTION_EMOJI[args.reaction]} shown on the owner's message.`),
+        details,
+        ...(ENDS_TURN.has(args.reaction) ? { control: { terminate: true } } : {}),
       };
     },
   });

@@ -63,7 +63,13 @@ export function humanizeToolName(name: string): string {
 }
 
 /** Tools that are inner monologue, not owner-facing work: render nothing. */
-const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now", "react"]);
+const HIDDEN = new Set(["jev", "jev_score", "jev_pick", "jev_rate", "now"]);
+
+/**
+ * A reaction shows as the chip on the owner's message, not as a trace row;
+ * only a refused one shows here, so a failure is never an empty bot turn.
+ */
+const isShownAsChip = (step: ToolStep): boolean => step.name === "react" && step.status !== "error";
 
 /** One web hit. */
 export type SearchHit = {
@@ -215,11 +221,12 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   calendar_events: ["Read the calendar", "Reading the calendar…", "routine"],
   email_send: ["Sent an email", "Sending an email…", "social"],
   send_message: ["Sent a message", "Sending a message…", "social"],
+  react: ["Reacted to your message", "Reacting…", "social"],
 };
 
 /** The owner-facing lens on one tool call. */
 export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentation {
-  if (HIDDEN.has(step.name)) return { kind: "hidden" };
+  if (HIDDEN.has(step.name) || isShownAsChip(step)) return { kind: "hidden" };
   switch (step.name) {
     case "memory_write":
       return { kind: "human", view: writeView(step) };

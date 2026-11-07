@@ -1,51 +1,25 @@
 /**
- * The rules of the `react` ack, pure so the tool and the tests read the same
- * table: vocabulary validation, last-write-wins replacement, and the refusals
- * (unknown emoji, unknown or foreign target). One reaction per entry per
- * reactor; a second react on the same entry REPLACES the earlier one.
+ * The rules of the `react` tool, pure so the tool and the tests read the
+ * same table. A reaction marks the owner's LATEST message: a real input
+ * the owner typed, never machinery placed as a user message (task wakes,
+ * webhooks, sensors, cron, a parent's steer, bot mail, which the projection
+ * turns into notes). The model never sees transcript ids, so there is no
+ * target to choose.
  */
-import { REACTION_EMOJI, type ReactionName, type ReactionRow } from "@spriessen/contracts";
-import { NotFound } from "@spriessen/core";
-import { INPUT_ENTRY_KIND } from "../converse/steps.ts";
+import type { TranscriptEntry } from "@spriessen/contracts";
 
-/** Whether an entry record kind carries an owner message a bot may react to. */
-export const isOwnerEntry = (kind: string): boolean =>
-  kind === "pi.user" || kind === INPUT_ENTRY_KIND;
+/** Bracketed inputs the app places as user messages; the web shows them as cards. */
+const MACHINERY = /^\[(task |webhook |sensor |cron |resume\]|onboarding\]|from parent\])/;
 
-export type ReactApply =
-  | { ok: true; rows: ReactionRow[]; entryId: number }
-  | { ok: false; error: string };
+/** Whether a projected step is a message the owner wrote. */
+export const isOwnerMessage = (step: TranscriptEntry): boolean =>
+  step.kind === "input" && !MACHINERY.test(step.text);
 
-/**
- * Apply one react to the rows. Throws the kernel NotFound when `target`
- * names no entry of this conversation (the caller resolves the default and
- * validates the entry BEFORE calling, so a throw here is a bad id).
- */
-export const applyReaction = (
-  rows: readonly ReactionRow[],
-  input: { emoji: string; target: number },
-  reactorProfileId: string,
-  /** The owner-message transcript ids of this conversation (the joinable shape). */
-  reactableIds: readonly number[],
-): ReactApply => {
-  if (!(input.emoji in REACTION_EMOJI)) {
-    return {
-      ok: false,
-      error: `unknown reaction "${String(input.emoji)}": use one of the fixed names`,
-    };
+/** The transcript id of the owner's latest message, or undefined when there is none. */
+export const latestOwnerMessage = (steps: readonly TranscriptEntry[]): number | undefined => {
+  for (let index = steps.length - 1; index >= 0; index--) {
+    const step = steps[index];
+    if (step !== undefined && isOwnerMessage(step)) return step.id;
   }
-  if (!reactableIds.includes(input.target)) {
-    throw new NotFound({ what: `message ${input.target} in this chat` });
-  }
-  // Last write wins: the reactor's earlier row for this entry gives way.
-  const next = rows.filter(
-    (row) => !(row.entryId === input.target && row.reactorProfileId === reactorProfileId),
-  );
-  next.push({
-    entryId: input.target,
-    emoji: input.emoji as ReactionName,
-    reactorProfileId,
-    createdAt: Date.now(),
-  });
-  return { ok: true, rows: next, entryId: input.target };
+  return undefined;
 };

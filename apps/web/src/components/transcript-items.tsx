@@ -13,7 +13,8 @@ import { ToolGroup } from "@/components/tool-trace";
 import { latestPlans } from "@/lib/chat-tool-views";
 import {
   REACTION_EMOJI,
-  type ReactionRow,
+  REACTION_LABEL,
+  type ReactionName,
   type TaskInfo,
   type ToolStep,
   type TranscriptEntry,
@@ -26,6 +27,7 @@ import { LazyMarkdown } from "@/components/lazy-markdown";
 import { ChatProse, isFoldable } from "@/components/chat-prose";
 import { MessageActions, TurnHead } from "@/components/message-parts";
 import { Trace } from "@/components/ui/trace";
+import { reactionsOf, withoutReactions } from "@/lib/reactions";
 
 // The bot speaks on the open transcript; the owner
 // writes on a quiet raised card to the right.
@@ -114,16 +116,19 @@ function groupTranscript(transcript: TranscriptEntry[]): Group[] {
 }
 
 /**
- * A bot's ack on the owner's message: the fixed vocabulary emoji as a small
- * badge on the bubble, the reaction name as the tooltip. The react tool call
- * renders nothing in the trace, so a reaction-only turn shows just this chip.
+ * The bot's reaction on the owner's message: the emoji as a small badge on
+ * the bubble, its words as the tooltip and the accessible name. The react
+ * call itself leaves the transcript (`withoutReactions`), so a
+ * reaction-only reply shows just this chip.
  */
-function ReactionChip({ reaction }: { reaction: ReactionRow }) {
-  const emoji = REACTION_EMOJI[reaction.emoji];
+function ReactionChip({ reaction }: { reaction: ReactionName | undefined }) {
+  if (reaction === undefined) return null;
   return (
     <span className="mt-1 flex">
-      <Badge variant="secondary" title={`${emoji} ${reaction.emoji}`}>
-        <span aria-hidden>{emoji}</span>
+      <Badge variant="secondary" title={REACTION_LABEL[reaction]}>
+        <span role="img" aria-label={REACTION_LABEL[reaction]}>
+          {REACTION_EMOJI[reaction]}
+        </span>
       </Badge>
     </span>
   );
@@ -157,7 +162,6 @@ export function TranscriptItems({
   jevNotices,
   onOpenMemory,
   bot,
-  reactions,
 }: {
   transcript: TranscriptEntry[];
   busy?: boolean;
@@ -169,10 +173,9 @@ export function TranscriptItems({
   onOpenMemory?: ((query: string) => void) | undefined;
   /** The chat's bot: its face and name head each of its turns. */
   bot?: { id?: string | undefined; name: string } | undefined;
-  /** The bot's reactions by transcript entry id: chips on the bubbles they ack. */
-  reactions?: ReadonlyMap<number, ReactionRow> | undefined;
 }) {
-  const groups = groupTranscript(latestPlans(transcript));
+  const reactions = reactionsOf(transcript);
+  const groups = groupTranscript(latestPlans(withoutReactions(transcript)));
   // The newest bot turn's face thinks while the bot works.
   const liveHead = busy ? lastHeadIndex(groups) : -1;
   return (
@@ -241,7 +244,7 @@ function renderGroup(
   tasks: readonly TaskInfo[],
   jevNotices?: ReadonlyMap<string, JevNotice> | undefined,
   onOpenMemory?: ((query: string) => void) | undefined,
-  reactions?: ReadonlyMap<number, ReactionRow> | undefined,
+  reactions?: ReadonlyMap<number, ReactionName> | undefined,
 ) {
   const system = "tools" in group ? undefined : systemItem(group.entry, group.key, tasks);
   if (system !== undefined) return system;
@@ -257,12 +260,7 @@ function renderGroup(
       {group.entry.attachments !== undefined && group.entry.attachments.length > 0 && (
         <AttachmentChips attachments={group.entry.attachments} />
       )}
-      {reactions === undefined
-        ? null
-        : (() => {
-            const reaction = reactions.get(group.entry.id);
-            return reaction === undefined ? null : <ReactionChip reaction={reaction} />;
-          })()}
+      <ReactionChip reaction={reactions?.get(group.entry.id)} />
     </li>
   ) : group.entry.kind === "output" ? (
     <li

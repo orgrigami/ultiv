@@ -297,8 +297,9 @@ export {
   REACTIONS_TOOL,
   REACTION_NAMES,
   REACTION_EMOJI,
+  REACTION_LABEL,
+  ENDS_TURN,
   ReactionParamsSchema,
-  ReactionRowSchema,
-  ReactionsListSchema,
+  reactionDetailsOf,
 } from "./reactions.ts";
-export type { ReactionName, ReactionParams, ReactionRow, ReactionsList } from "./reactions.ts";
+export type { ReactionDetails, ReactionName, ReactionParams } from "./reactions.ts";
