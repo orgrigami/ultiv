@@ -132,7 +132,9 @@ export const runningCapMessage = (running: readonly TaskInfo[]): string =>
 
 const RESUME_NOTE =
   "[resume] You were interrupted by a server restart. Continue the task from where the " +
-  "transcript left off and produce the final deliverable now.";
+  "transcript left off and produce the final deliverable now. Before repeating anything " +
+  "that reached outside (a message, a post, a booking, a change to files or a service), " +
+  "check whether it already happened; never do it twice.";
 
 /** Framing the task sees once, above its brief (the row keeps the raw prompt). */
 export const TASK_BRIEF =
