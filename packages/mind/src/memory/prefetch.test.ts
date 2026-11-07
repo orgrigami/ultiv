@@ -8,6 +8,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "../entity.ts";
+import { teamOfProfile } from "../org/team-of.ts";
 import { prefetchExtension } from "./prefetch-section.ts";
 import { MAX_FACTS, REPEAT_INPUTS, shownLedger } from "./prefetch.ts";
 
@@ -69,6 +70,75 @@ describe("recall before each turn", () => {
     await remember("Harry's passport expires in March 2027");
     expect(await say("when does my passport expire?")).toContain("passport");
     expect(await say("and the passport renewal fee?")).toBeUndefined();
+    await handle.close();
+  });
+
+  it("each line says where it came from and points at its evidence", async () => {
+    const { handle, remember, say } = await setup();
+    await remember("Harry's bike is a Brompton");
+    const block = await say("is my Brompton bike due for a service?");
+    expect(block).toMatch(/Brompton \(since \d{4}-\d{2}-\d{2} · from the owner\)/);
+    expect(block).toContain("memory_history #handle");
+    await handle.close();
+  });
+
+  it("recalls the team's shared facts for a team bot, never for an org bot", async () => {
+    const handle = await openMind({ storage: new MemoryStorage() });
+    const { converse, profiles, memory, org } = handle.mind;
+    await org.ensureOrg(OWNER, "Personal", true);
+    const team = await org.createTeam({ name: "Ops" }, OWNER);
+    const loner = await profiles.create(OWNER, { name: "Loner", onboard: false });
+    const sharer = await profiles.create(OWNER, {
+      name: "Sharer",
+      onboard: false,
+      teamId: team.id,
+    });
+    const reader = await profiles.create(OWNER, {
+      name: "Reader",
+      onboard: false,
+      teamId: team.id,
+    });
+    const fact = await memory.writeV2({
+      owner: OWNER,
+      scope: "profile",
+      profileId: sharer.id,
+      writer: sharer.id,
+      text: "The staging server for Ops is stag.internal",
+    });
+    const proposal = await memory.proposeShare({
+      owner: OWNER,
+      profileId: sharer.id,
+      teamId: team.id,
+      factId: fact.id,
+      summary: "staging host",
+    });
+    await memory.decideShare({
+      owner: OWNER,
+      teamId: team.id,
+      proposalId: proposal.id,
+      accept: true,
+    });
+    const section = prefetchExtension({
+      memory,
+      profiles,
+      converse,
+      teamOf: teamOfProfile(converse),
+    }).sections?.[0];
+    const ask = async (botId: string): Promise<string | undefined> => {
+      const main = await profiles.ensureMain(OWNER, botId);
+      const conversation = await Effect.runPromise(
+        converse.ensure(await profiles.keyForSession(OWNER, main.id)),
+      );
+      await Effect.runPromise(converse.interrupt(conversation));
+      await Effect.runPromise(
+        converse.submit(conversation, "which staging server does Ops use?", "followUp"),
+      );
+      return section?.render({ conversationId: conversation.id } as never, {} as never) as Promise<
+        string | undefined
+      >;
+    };
+    expect(await ask(reader.id)).toContain("stag.internal");
+    expect((await ask(loner.id)) ?? "").not.toContain("stag.internal");
     await handle.close();
   });
 

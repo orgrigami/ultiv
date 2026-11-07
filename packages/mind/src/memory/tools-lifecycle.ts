@@ -8,6 +8,7 @@ import { Type } from "typebox";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { MemoryService } from "./memory.ts";
 import { causeText, dayOf, handleOf } from "./handles.ts";
+import { evidenceLine } from "./evidence.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 const refusal = (reason: string) => ({
@@ -56,9 +57,11 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
     name: "memory_history",
     description:
       "Show one fact's version chain: every version with its validity window, what changed " +
-      "(created, refined, superseded, corrected, ended, forgotten) and where it came from. Use it to check " +
-      "whether a fact changed over time before relying on it, or to find the #handle for memory_update. History stays until the owner purges, so " +
-      "forgetting is reversible.",
+      "(created, refined, superseded, corrected, ended, forgotten) and its evidence: who it came " +
+      "from, the day and chat it was learned in, and the note it was saved from. Use it before " +
+      "relying on a fact for something consequential or historical (the note is the evidence; " +
+      "history_search on that day finds the conversation), or to find the #handle for " +
+      "memory_update. History stays until the owner purges, so forgetting is reversible.",
     parameters: Type.Object({
       id: Type.String({ description: "The fact's #handle to trace." }),
     }),
@@ -89,7 +92,16 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
                   (entry) =>
                     `${handleOf(entry.id)} ${entry.text} [${entry.status}, ${entry.change}, ` +
                     `from ${entry.validFrom === null ? "?" : dayOf(entry.validFrom)} ` +
-                    `to ${entry.validTo === null ? "now" : dayOf(entry.validTo)}]`,
+                    `to ${entry.validTo === null ? "now" : dayOf(entry.validTo)}]\n  ` +
+                    evidenceLine({
+                      source: entry.source,
+                      learnedAt: entry.learnedAt,
+                      chat:
+                        entry.source.conversation === null
+                          ? null
+                          : (profiles.scopeOf(entry.source.conversation)?.kind ?? null),
+                      note: entry.note,
+                    }),
                 )
                 .join("\n"),
             },

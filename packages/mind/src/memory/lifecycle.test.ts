@@ -12,6 +12,7 @@ import { openMind } from "../entity.ts";
 import { writeFactV2 } from "./consolidate.ts";
 import { handleOf, resolveFactRef } from "./handles.ts";
 import { parseWhen } from "./dates.ts";
+import { historyTool } from "./tools-lifecycle.ts";
 
 const OWNER = "harry";
 const DAY = 86_400_000;
@@ -43,8 +44,34 @@ describe("fact handles", () => {
     // forget and history take the handle, not only the full id.
     const chain = await memory.history(OWNER, bot.id, handleOf(written.id));
     expect(chain[0]?.id).toBe(written.id);
+    // The evidence: the note it was saved from, and when.
+    expect(chain[0]?.note).toBe("Harry's cat is called Mochi");
+    expect(chain[0]?.learnedAt).toBeGreaterThan(0);
     await memory.forget(OWNER, bot.id, handleOf(written.id), "wrong cat", null);
     expect((await memory.recallV2(OWNER, bot.id, { query: "cat" })).facts).toHaveLength(0);
+    await handle.close();
+  });
+
+  it("memory_history shows the model each version's evidence", async () => {
+    const { handle, bot, memory, write } = await setup();
+    const { converse, profiles } = handle.mind;
+    const written = await write("Harry's cat is called Mochi", {
+      origin: "owner",
+      conversation: "elsewhere",
+    });
+    const main = await profiles.ensureMain(OWNER, bot.id);
+    const conversation = await Effect.runPromise(
+      converse.ensure(await profiles.keyForSession(OWNER, main.id)),
+    );
+    const tool = historyTool(memory, profiles);
+    const result = await tool.execute(
+      { id: handleOf(written.id) },
+      { conversationId: String(conversation.id) } as never,
+      {} as never,
+    );
+    const text = (result.output as { text: string }[])[0]?.text ?? "";
+    expect(text).toContain(`${handleOf(written.id)} Harry's cat is called Mochi`);
+    expect(text).toMatch(/learned \d{4}-\d{2}-\d{2} from the owner: "Harry's cat is called Mochi"/);
     await handle.close();
   });
 

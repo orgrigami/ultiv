@@ -161,6 +161,14 @@ Sections are written into the transcript and stay in context, so a fact
 shown for one of the last 6 inputs is not shown again. `MEMORY_PREFETCH=off`
 turns the section off.
 
+It reads the same stores `memory_recall` reads: the bot's own, the owner
+store and, for a team bot, its team's accepted shared facts. Each line is a
+summary with a source cue (`memory/evidence.ts` `sourceCue`: who it came
+from — the owner, a routine, a webhook, another bot… — and the day learned
+when it differs from the line's "since" day), and the block tells the bot
+to expand a fact with `memory_history #handle` before relying on it for
+something consequential or historical.
+
 ## Writes
 
 Pipeline: **guard → extract → resolve entities → decide → apply**.
@@ -226,7 +234,10 @@ Pipeline: **guard → extract → resolve entities → decide → apply**.
 - `memory_related` — `entity`, `depth` 1–2; the entity card: current facts
   (with handles) and graph neighbours.
 - `memory_history` — `id`; the version chain with days, change type
-  (`created|refined|superseded|corrected|ended|forgotten`) and source.
+  (`created|refined|superseded|corrected|ended|forgotten`) and, under each
+  version, its evidence (`evidenceLine`): who it came from, the day and the
+  kind of chat it was learned in, and the note it was saved from (its
+  episode's input; "gone" once Purge or the episode ring cleared it).
 - `memory_core` — add / replace / remove / list core lines, returns words
   remaining. Owner scope is keeper-only; bots cannot edit pinned lines.
 - `history_search` — see [Conversation search](#conversation-search).

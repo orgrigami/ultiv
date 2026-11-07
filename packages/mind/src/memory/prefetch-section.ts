@@ -12,6 +12,7 @@ import type { ConverseService } from "../converse/converse.ts";
 import { ATTACHMENTS_MARK } from "../converse/steps.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { MemoryService } from "./memory.ts";
+import { teamKey } from "./model.ts";
 import { gateFacts, renderPrefetch, shownLedger } from "./prefetch.ts";
 import { indexTerms } from "./text.ts";
 
@@ -42,6 +43,8 @@ export const prefetchExtension = (deps: {
   readonly memory: MemoryService;
   readonly profiles: ProfilesService;
   readonly converse: ConverseService;
+  /** The bot's team, whose accepted shared facts memory_recall reads too. */
+  readonly teamOf?: ((profileId: string) => Promise<string | null>) | undefined;
 }): Extension => {
   const ledger = shownLedger();
   const rendered = new Map<string, { input: string; text: string | undefined }>();
@@ -62,20 +65,24 @@ export const prefetchExtension = (deps: {
   const compute = async (conversationId: string, input: { id: string; text: string }) => {
     const scope = deps.profiles.scopeOf(conversationId);
     if (scope === undefined || input.text === "") return undefined;
-    const [recalled, own, shared, ownEntities, sharedEntities] = await Promise.all([
+    // The same stores memory_recall reads: own, owner, and the team's.
+    const teamId = (await deps.teamOf?.(scope.profileId).catch(() => null)) ?? null;
+    const [recalled, own, shared, team, ownEntities, sharedEntities] = await Promise.all([
       deps.memory.recallV2(scope.owner, scope.profileId, {
         query: input.text.slice(0, QUERY_CHARS),
         limit: 12,
+        ...(teamId !== null ? { extraStores: [teamKey(scope.owner, teamId)] } : {}),
       }),
       deps.memory.readFacts(scope.owner, scope.profileId),
       deps.memory.readFacts(scope.owner, null),
+      teamId === null ? Promise.resolve([]) : deps.memory.teamFacts(scope.owner, teamId),
       deps.memory.entities(scope.owner, scope.profileId),
       deps.memory.entities(scope.owner, null),
     ]);
     const facts = gateFacts({
       message: input.text,
       candidates: recalled.facts,
-      pool: [...own, ...shared].filter((fact) => fact.status === "current"),
+      pool: [...own, ...shared, ...team].filter((fact) => fact.status === "current"),
       entities: [...ownEntities, ...sharedEntities],
       termsOf,
       exclude: ledger.recent(conversationId, input.id),

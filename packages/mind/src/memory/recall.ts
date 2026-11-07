@@ -291,12 +291,17 @@ const dateOf = (at: number): string => new Date(at).toISOString().slice(0, 10);
  * sees — memory_update/forget/history take it), then the text and the
  * bits that change how far to lean on it.
  */
-export const factLine = (fact: MemoryFact, successor: string | null = null): string => {
+export const factLine = (
+  fact: MemoryFact,
+  successor: string | null = null,
+  extra: readonly string[] = [],
+): string => {
   const bits = [`since ${dateOf(fact.validFrom ?? fact.createdAt)}`];
   if (fact.validTo !== null) bits.push(`until ${dateOf(fact.validTo)}`);
   if (fact.confirmedAt !== fact.createdAt) bits.push(`confirmed ${dateOf(fact.confirmedAt)}`);
   if (fact.trust === "untrusted") bits.push(`unverified, from ${fact.source.via}`);
   else if (fact.basis === "inferred") bits.push("inferred, unconfirmed");
+  bits.push(...extra);
   const past = successor !== null ? ` [superseded by: ${successor}]` : "";
   return `${handleOf(fact.id)} ${fact.text}${past} (${bits.join(" · ")})`;
 };

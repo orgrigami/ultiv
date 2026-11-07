@@ -133,6 +133,10 @@ export interface HistoryEntry {
   readonly change: "created" | "superseded" | "refined" | "forgotten" | "corrected" | "ended";
   readonly source: MemoryFact["source"];
   readonly supersededBy: string | null;
+  /** When it was learned (system time), for the evidence line. */
+  readonly learnedAt: number;
+  /** The note it was saved from (its episode's input), when still kept. */
+  readonly note: string | null;
 }
 
 /** Walk one fact's version chain: the fact, its ancestors, its successors. */
@@ -147,11 +151,13 @@ export const historyOf = async (
     profileId === null ? [ownerKey(owner)] : [profileKey(owner, profileId), ownerKey(owner)];
   let facts: readonly MemoryFact[] = [];
   let anchorId: string | undefined;
+  let storeKey: string | undefined;
   for (const key of keys) {
     facts = await run(deps.converse.docs.snapshotKeyed(FactsDoc, key)).then(
       (store) => store?.facts ?? [],
     );
     anchorId = resolveFactRef(factId, facts);
+    storeKey = key;
     if (anchorId !== undefined) break;
   }
   const byId = new Map(facts.map((fact) => [fact.id, fact]));
@@ -177,6 +183,12 @@ export const historyOf = async (
     chain.push(next);
     cursor = next;
   }
+  // The evidence: the raw note each version was saved from (Purge and the
+  // 1,000-episode ring clear it; then there is none to show).
+  const episodes = await run(deps.converse.docs.snapshotKeyed(EpisodesDoc, storeKey ?? "")).then(
+    (store) => new Map((store?.episodes ?? []).map((episode) => [episode.id, episode.input])),
+    () => new Map<string, string>(),
+  );
   return chain.map((fact, index) => ({
     id: fact.id,
     text: fact.text,
@@ -195,6 +207,8 @@ export const historyOf = async (
               : "superseded",
     source: fact.source,
     supersededBy: fact.supersededBy,
+    learnedAt: fact.createdAt,
+    note: fact.source.episode === null ? null : episodes.get(fact.source.episode) || null,
   }));
 };
 
