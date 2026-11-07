@@ -7,6 +7,7 @@
  * (the server's check reports set/unset). Exits 1 when a step fails.
  */
 import { existsSync } from "node:fs";
+import { nodeVersionProblem } from "@spriessen/core";
 import { stringFlag, type Parsed } from "../args.ts";
 import type { Api, ServerCheck } from "../client/http.ts";
 import { serverOf } from "../config.ts";
@@ -33,9 +34,17 @@ const info = (text: string, fix?: string): Step => ({
 const isLocal = (server: string): boolean =>
   /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/.test(server);
 
-/** What the server's own check says: models first, then the extras. */
+/** Node 26 is the one supported line, here and on the server. */
+export const nodeStep = (where: string, version: string): Step => {
+  const problem = nodeVersionProblem(version);
+  if (problem === undefined) return ok(`${where} runs on Node ${version}`);
+  const fix = "run it through vp (it reads .node-version), or reinstall: sh scripts/install-cli.sh";
+  return problem.fatal ? fail(`${where}: ${problem.text}`, fix) : info(`${where}: ${problem.text}`);
+};
+
+/** What the server's own check says: Node, models, then the extras. */
 export const checkSteps = (check: ServerCheck): Step[] => {
-  const steps: Step[] = [];
+  const steps: Step[] = check.node !== undefined ? [nodeStep("The server", check.node)] : [];
   if (check.models.count > 0) {
     steps.push(ok(`${check.models.count} models from ${check.models.providers.join(", ")}`));
   } else {
@@ -119,6 +128,7 @@ const localSteps = async (server: string): Promise<Step[]> => {
 export const doctor = async (parsed: Parsed): Promise<number> => {
   const api = apiFor(parsed);
   const steps = [
+    nodeStep("This command", process.versions.node),
     ...(await serverSteps(api)),
     ...(await localSteps(serverOf(stringFlag(parsed, "server")))),
   ];

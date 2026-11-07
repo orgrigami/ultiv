@@ -2,6 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Node 26 is the one supported line (.node-version, mise.toml, engines):
+# installing on any other Node fails instead of half-working.
+engineStrict: true
+
 # Vetted 2026-10-24: @google/genai preinstall is a literal no-op echo; protobufjs
 # postinstall is non-essential. Never flip one of these to true without reading
 # the script first.

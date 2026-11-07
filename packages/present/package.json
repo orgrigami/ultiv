@@ -10,5 +10,8 @@
   },
   "dependencies": {
     "@spriessen/contracts": "workspace:*"
+  },
+  "engines": {
+    "node": "^26.0.0"
   }
 }

@@ -9,6 +9,7 @@
  *   vp node apps/agent/src/main.ts --url http://server:8787 --token-file ~/.spriessen-node
  * Env: SPRIESSEN_SERVER_URL, SPRIESSEN_NODE_TOKEN_FILE, SPRIESSEN_NODE_TOKEN (flags win).
  */
+import { nodeVersionProblem } from "@spriessen/core";
 import { connectAgent } from "./agent.ts";
 import { resolveToken } from "./token.ts";
 
@@ -27,6 +28,12 @@ const numberFlag = (name: string): number | undefined => {
 const usage = (): string =>
   "usage: vp node apps/agent/src/main.ts --url <server-origin> --token-file <path>\n" +
   "  env: SPRIESSEN_SERVER_URL, SPRIESSEN_NODE_TOKEN_FILE (or SPRIESSEN_NODE_TOKEN)";
+
+const nodeProblem = nodeVersionProblem();
+if (nodeProblem !== undefined) {
+  console.error(`agent: ${nodeProblem.text}`);
+  if (nodeProblem.fatal) process.exit(1);
+}
 
 const url = flagOf("url") ?? process.env["SPRIESSEN_SERVER_URL"];
 let resolved: ReturnType<typeof resolveToken>;

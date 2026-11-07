@@ -8,6 +8,7 @@ const base = {
   hasKvm: false,
   catalog: { providers: ["kenari"], models: 3, source: "cache" },
   defaultModel: "kenari/some-model",
+  node: "26.13.0",
   meaning: {
     model: null,
     remote: false,
@@ -19,6 +20,10 @@ const base = {
 };
 
 describe("serverCheck", () => {
+  it("reports the Node version the server runs on", () => {
+    expect(serverCheck(base).node).toBe("26.13.0");
+  });
+
   it("reports keys as set or not, never their values", () => {
     const secret = "do-not-leak-0123456789";
     const out = serverCheck({

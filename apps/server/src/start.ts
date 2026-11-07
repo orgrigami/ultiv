@@ -5,6 +5,7 @@
  * defaults; unset HOST binds every interface, IPv4 AND IPv6 (Node's
  * dual-stack `::`), so localhost, the LAN and the tailnet all reach it.
  */
+import { assertNodeVersion } from "@spriessen/core";
 import { acquireDataLock, type DataLock } from "./data-lock.ts";
 import { reachableUrls } from "./listen.ts";
 // Type-only: main.ts imports this file (a runtime cycle would deadlock its top-level await).
@@ -35,6 +36,7 @@ export const startServer = async (
   build: typeof buildStack,
   options: StartOptions = {},
 ): Promise<RunningServer> => {
+  assertNodeVersion(options.log);
   const port = options.port ?? Number(process.env["PORT"] ?? 8787);
   const host = options.host ?? envHost();
   const lock: DataLock | undefined =

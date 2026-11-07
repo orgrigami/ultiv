@@ -20,6 +20,8 @@ export interface KeyCheck {
 }
 
 export interface ServerCheck {
+  /** The Node version the server runs on (26.x is the supported line). */
+  node: string;
   keys: KeyCheck[];
   models: { providers: string[]; count: number; default: string; source: string };
   microvm: { available: boolean; detail: string };
@@ -67,6 +69,7 @@ export function serverCheck(input: {
   catalog: { providers: readonly string[]; models: number; source: string };
   defaultModel: string;
   meaning: MeaningStatus;
+  node: string;
 }): ServerCheck {
   const { env } = input;
   const host = isSet(env.HOST) ? env.HOST?.trim() : undefined;
@@ -85,6 +88,7 @@ export function serverCheck(input: {
             detail: "The microVM sandbox needs macOS on Apple silicon or Linux with KVM.",
           };
   return {
+    node: input.node,
     keys: KEYS.map((key) => ({ ...key, set: key.names.every((name) => isSet(env[name])) })),
     models: {
       providers: [...input.catalog.providers],
@@ -119,6 +123,7 @@ export async function serverCheckRoutes(args: RouteArgs): Promise<boolean> {
       catalog: status,
       defaultModel: args.mind.models.defaultRef(),
       meaning: args.mind.meaning(),
+      node: process.versions.node,
     }),
   );
   return true;

@@ -29,5 +29,8 @@
     "@earendil-works/pi-durable": "catalog:",
     "@types/react": "catalog:",
     "@types/ws": "^8.18.2"
+  },
+  "engines": {
+    "node": "^26.0.0"
   }
 }

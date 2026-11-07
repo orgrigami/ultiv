@@ -14,5 +14,8 @@
     "@earendil-works/chord": "catalog:",
     "typebox": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "engines": {
+    "node": "^26.0.0"
+  }
 }

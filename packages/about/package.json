@@ -9,5 +9,8 @@
   },
   "scripts": {
     "test": "vp test"
+  },
+  "engines": {
+    "node": "^26.0.0"
   }
 }

@@ -12,5 +12,8 @@
   },
   "dependencies": {
     "effect": "catalog:"
+  },
+  "engines": {
+    "node": "^26.0.0"
   }
 }

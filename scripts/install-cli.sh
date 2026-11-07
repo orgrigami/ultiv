@@ -54,6 +54,15 @@ step "1/4 Installing dependencies..." "${VP}" install --frozen-lockfile
 step "2/4 Building the web app..." "${VP}" -C apps/web build
 step "3/4 Building the spriessen command..." "${VP}" -C apps/cli build
 NODE=$("${VP}" node -e 'process.stdout.write(process.execPath)')
+NODE_VERSION=$("${NODE}" -p 'process.versions.node')
+case "${NODE_VERSION}" in
+26.*) ;;
+*)
+	echo "install-cli: vp resolved Node ${NODE_VERSION}; Spriessen runs on Node 26 (.node-version)." >&2
+	echo "install-cli: run 'vp env install' in ${REPO}, then try again." >&2
+	exit 1
+	;;
+esac
 
 echo "4/4 Writing ${TARGET}..."
 mkdir -p "${PREFIX}"

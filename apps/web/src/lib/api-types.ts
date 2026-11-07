@@ -54,6 +54,8 @@ export interface PendingApprovalRow {
 
 /** GET /api/server/check — which keys are set (never their values) and how the server runs. */
 export interface ServerCheck {
+  /** The server's Node version (absent on servers older than the Node 26 lock). */
+  node?: string;
   keys: { names: string[]; set: boolean; enables: string; group: "models" | "features" }[];
   models: { providers: string[]; count: number; default: string; source: string };
   microvm: { available: boolean; detail: string };

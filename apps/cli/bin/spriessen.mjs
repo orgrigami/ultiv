@@ -11,6 +11,17 @@ const emitWarning = process.emitWarning.bind(process);
 process.emitWarning = (warning, ...rest) =>
   String(warning).includes("FFI is an experimental") ? undefined : emitWarning(warning, ...rest);
 
+// Node 26 is the one supported line (@spriessen/core NODE_MAJOR): refuse an
+// older one before anything loads, so the failure is a sentence, not a stack.
+const major = Number.parseInt(process.versions.node, 10);
+if (major < 26) {
+  console.error(
+    `spriessen needs Node 26; this is Node ${process.versions.node}. ` +
+      "Reinstall with `sh scripts/install-cli.sh` (it pins the Node `vp node` resolves).",
+  );
+  process.exit(1);
+}
+
 const bundle = new URL("../dist/spriessen.mjs", import.meta.url);
 const entry = existsSync(bundle) ? bundle : new URL("../src/main.ts", import.meta.url);
 try {

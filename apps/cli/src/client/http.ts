@@ -56,6 +56,8 @@ export interface MemoryStore {
 
 /** GET /api/server/check: names and switches only, never a value. */
 export interface ServerCheck {
+  /** The server's Node version (absent on servers older than the Node 26 lock). */
+  readonly node?: string;
   readonly keys: readonly {
     readonly names: readonly string[];
     readonly set: boolean;
