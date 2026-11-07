@@ -32,13 +32,8 @@ export const onRoutineReply = (fn: ReplyListener): (() => void) => {
   return () => void replyListeners.delete(fn);
 };
 
-export const deliverToSession = async (
-  mind: MindService,
-  sessionId: string,
-  text: string,
-  whenBusy: WhenBusy = "followUp",
-  source?: DeliverySource,
-): Promise<void> => {
+/** A session's durable conversation, and the owner its registry row names. */
+const conversationOfSession = async (mind: MindService, sessionId: string) => {
   const row = await mind.profiles.rowOf(sessionId);
   const owner = row?.owner;
   const key =
@@ -47,7 +42,32 @@ export const deliverToSession = async (
       : owner !== undefined
         ? await mind.profiles.keyForSession(owner, sessionId)
         : sessionId; // pre-registry ids: the raw key, exactly as before
-  const conversation = await Effect.runPromise(mind.converse.ensure(key));
+  return { owner, conversation: await Effect.runPromise(mind.converse.ensure(key)) };
+};
+
+/**
+ * Context for a session that must not start a turn: a note the bot reads
+ * with its next turn (a webhook payload from a sender who may not ask for
+ * work, on a thread that already has a chat). No turn, no push.
+ */
+export const noteToSession = async (
+  mind: MindService,
+  sessionId: string,
+  kind: string,
+  text: string,
+): Promise<void> => {
+  const { conversation } = await conversationOfSession(mind, sessionId);
+  await Effect.runPromise(mind.converse.note(conversation, kind, {}, text));
+};
+
+export const deliverToSession = async (
+  mind: MindService,
+  sessionId: string,
+  text: string,
+  whenBusy: WhenBusy = "followUp",
+  source?: DeliverySource,
+): Promise<void> => {
+  const { owner, conversation } = await conversationOfSession(mind, sessionId);
   const submission = await Effect.runPromise(mind.converse.submit(conversation, text, whenBusy));
   await mind.profiles.touchSession(owner ?? "guest", sessionId, {
     at: Date.now(),

@@ -103,6 +103,9 @@ function NewToken({ hook, onChanged }: { hook: WebhookInfo; onChanged: () => Pro
   );
 }
 
+const threadCount = (count: number): string =>
+  count === 0 ? "No threads yet" : count === 1 ? "1 thread" : `${count} threads`;
+
 export function WebhookRow({
   hook,
   bot,
@@ -123,10 +126,27 @@ export function WebhookRow({
       onDelete={onDelete}
     >
       <p className="text-sm font-medium">{hook.name ?? "Webhook"}</p>
-      <p className="text-sm">Runs when a webhook is called</p>
+      <p className="text-sm">
+        {hook.threadKey != null
+          ? "Runs when a webhook is called; each thread gets its own chat"
+          : "Runs when a webhook is called"}
+      </p>
       <Meta>
         <span>{bot}</span>
         {hook.schema !== null && <Badge variant="outline">Checks format</Badge>}
+        {hook.threadKey != null && (
+          <Badge variant="outline" title={`Thread id at ${hook.threadKey}`}>
+            {threadCount(hook.threads?.length ?? 0)}
+          </Badge>
+        )}
+        {hook.senders != null && (
+          <Badge
+            variant="outline"
+            title={`Only ${hook.senders.allow.join(", ")} can ask for work. Others only add context to a thread's chat.`}
+          >
+            Allowed senders only
+          </Badge>
+        )}
         {hook.whenBusy !== undefined && hook.whenBusy !== "steer" && (
           <Badge variant="outline">{BUSY_LABEL[hook.whenBusy] ?? hook.whenBusy}</Badge>
         )}

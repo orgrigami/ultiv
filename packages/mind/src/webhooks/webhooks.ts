@@ -16,7 +16,8 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import { Value } from "typebox/value";
-import type { WebhookInfo, WebhookList, WebhookReject } from "@spriessen/contracts";
+import type { WebhookInfo, WebhookList, WebhookReject, WebhookSenders } from "@spriessen/contracts";
+import { routingProblem } from "./route.ts";
 import type { ConverseService } from "../converse/converse.ts";
 
 /** Payload cap enforced before the ack — oversize is a 413, never a silent drop. */
@@ -281,6 +282,12 @@ export interface WebhookCreate {
   readonly schema?: Record<string, unknown> | null;
   /** Mid-turn policy for its wakes (default steer). */
   readonly whenBusy?: "steer" | "followUp" | "reject";
+  /** One chat per outside thread (threads.ts): the thread id's dotted path in the payload. */
+  readonly threadKey?: string | null;
+  /** The thread title's dotted path, naming the thread's chat. */
+  readonly threadTitle?: string | null;
+  /** Who may start work (threads.ts); others only add context to a thread's chat. */
+  readonly senders?: WebhookSenders | null;
 }
 
 /** A webhook as handed back at creation or rotation: the only time its token exists. */
@@ -293,6 +300,8 @@ export const createWebhook = async (
 ): Promise<WebhookWithToken> => {
   const schemaCheck = validateWebhookSchema(input.schema ?? null);
   if (!schemaCheck.ok) throw new Error(schemaCheck.reason ?? "invalid schema");
+  const routing = routingProblem(input);
+  if (routing !== null) throw new Error(routing);
   const row = await profiles.rowOf(input.sessionId);
   const webhook: WebhookInfo = {
     id: randomUUID(),
@@ -312,6 +321,16 @@ export const createWebhook = async (
     lastRejectReason: null,
     recentRejects: [],
     ...(input.whenBusy !== undefined ? { whenBusy: input.whenBusy } : {}),
+    ...(input.threadKey != null ? { threadKey: input.threadKey.trim() } : {}),
+    ...(input.threadTitle != null ? { threadTitle: input.threadTitle.trim() } : {}),
+    ...(input.senders != null
+      ? {
+          senders: {
+            path: input.senders.path.trim(),
+            allow: input.senders.allow.map((name) => name.trim()).filter((name) => name !== ""),
+          },
+        }
+      : {}),
   };
   const token = randomUUID();
   await Effect.runPromise(

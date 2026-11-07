@@ -25,7 +25,7 @@ export function systemLine(message: SystemMessage): string | null {
     case "task-update":
       return withText("Task update", message.text);
     case "webhook":
-      return `Webhook ${message.webhookId}${message.event !== null ? ` (${message.event})` : ""} arrived`;
+      return `Webhook ${message.webhookId}${message.event !== null ? ` (${message.event})` : ""} arrived${message.contextOnly ? ", context only" : ""}`;
     case "cron":
       return withText("Routine ran", message.text);
     case "sensor":

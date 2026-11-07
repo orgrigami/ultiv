@@ -200,8 +200,22 @@ export type {
 } from "./tasks.ts";
 export { ArtifactInfoSchema, ArtifactListSchema } from "./artifacts.ts";
 export type { ArtifactInfo, ArtifactList } from "./artifacts.ts";
-export { WebhookInfoSchema, WebhookListSchema, WebhookRejectSchema } from "./webhooks.ts";
-export type { WebhookInfo, WebhookList, WebhookReject, JsonSchemaObject } from "./webhooks.ts";
+export {
+  MAX_WEBHOOK_THREADS,
+  WebhookInfoSchema,
+  WebhookListSchema,
+  WebhookRejectSchema,
+  WebhookSendersSchema,
+  WebhookThreadSchema,
+} from "./webhooks.ts";
+export type {
+  WebhookInfo,
+  WebhookList,
+  WebhookReject,
+  WebhookSenders,
+  WebhookThread,
+  JsonSchemaObject,
+} from "./webhooks.ts";
 export {
   NodeInfoSchema,
   NodePairResponseSchema,

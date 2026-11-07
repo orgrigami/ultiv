@@ -55,6 +55,9 @@ export async function webhookRoutes(
       sessionId?: string;
       name?: string;
       schema?: Record<string, unknown> | null;
+      threadKey?: string | null;
+      threadTitle?: string | null;
+      senders?: { path?: unknown; allow?: unknown } | null;
     }>(req);
     if (body.sessionId === undefined || body.sessionId.trim() === "") {
       json(400, { error: "sessionId is required" });
@@ -70,6 +73,18 @@ export async function webhookRoutes(
         sessionId: target,
         ...(body.name !== undefined ? { name: body.name } : {}),
         ...(body.schema !== undefined ? { schema: body.schema } : {}),
+        ...(typeof body.threadKey === "string" ? { threadKey: body.threadKey } : {}),
+        ...(typeof body.threadTitle === "string" ? { threadTitle: body.threadTitle } : {}),
+        ...(body.senders != null
+          ? {
+              senders: {
+                path: typeof body.senders.path === "string" ? body.senders.path : "",
+                allow: Array.isArray(body.senders.allow)
+                  ? body.senders.allow.filter((name): name is string => typeof name === "string")
+                  : [],
+              },
+            }
+          : {}),
       });
       json(200, webhook);
     } catch (cause) {

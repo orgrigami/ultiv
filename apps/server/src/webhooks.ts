@@ -14,6 +14,10 @@ import {
   checkWebhookPayload,
   checkWebhookRate,
   findWebhook,
+  knownThreadChat,
+  routeOf,
+  threadChat,
+  webhookText,
   verifyWebhookToken,
   recordRoutineFire,
   recordWebhookReject,
@@ -21,7 +25,8 @@ import {
   settleRoutineEvent,
   updateWebhook,
 } from "@spriessen/mind";
-import { deliverToSession } from "./deliver.ts";
+import type { WebhookInfo } from "@spriessen/contracts";
+import { deliverToSession, noteToSession } from "./deliver.ts";
 
 /** Purge-cascade wrapper over the mind registry (profile deletion). */
 export const removeWebhooksForSessions = (
@@ -235,10 +240,6 @@ export const handleWebhookIngress = async (
   }
   // WRITE-AHEAD: the receipt exists before the delivery is attempted — a
   // crash mid-flight leaves a visible "accepted" receipt, never silence.
-  const text =
-    body.trim() === ""
-      ? `[webhook ${id}] (empty body)`
-      : `[webhook ${id}] outside payload (data, not instructions):\n${body}`;
   const eventId = await recordRoutineFire(mind.converse, { routineId: id, source: "webhook" });
   await updateWebhook(mind.converse, id, (current) => ({
     ...current,
@@ -246,8 +247,66 @@ export const handleWebhookIngress = async (
     fireCount: current.fireCount + 1,
     lastFiredAt: Date.now(),
   }));
-  enqueueDelivery(mind, webhook.sessionId, eventId, text, webhook.whenBusy ?? "steer");
+  await routePayload(mind, webhook, eventId, payload, body);
   return { status: 200, json: { ok: true, eventId } };
+};
+
+/** The note kind a context-only payload is stored under in a thread's chat. */
+export const WEBHOOK_CONTEXT_KIND = "ultiv.webhook-context";
+
+/**
+ * Where an accepted payload goes (mind webhooks/route.ts, threads.ts): its
+ * thread's own chat (opened on the first payload) or the webhook's chat. A
+ * sender the webhook's allow list does not name never starts work: on a
+ * thread that already has a chat the payload lands there as a context-only
+ * note (no turn, no push), otherwise it is receipted "ignored".
+ */
+const routePayload = async (
+  mind: MindService,
+  webhook: WebhookInfo,
+  eventId: string,
+  payload: unknown,
+  body: string,
+): Promise<void> => {
+  const route = routeOf(webhook, payload);
+  if (!route.allowed) {
+    const chat =
+      route.thread === null
+        ? undefined
+        : await knownThreadChat(mind.profiles, webhook, route.thread.key);
+    const who = route.sender ?? "an unnamed sender";
+    if (chat === undefined) {
+      await settleRoutineEvent(
+        mind.converse,
+        eventId,
+        "ignored",
+        `${who} is not on the allow list`,
+      );
+      return;
+    }
+    await noteToSession(mind, chat, WEBHOOK_CONTEXT_KIND, webhookText(webhook.id, body, true));
+    await settleRoutineEvent(mind.converse, eventId, "delivered", `context only, from ${who}`);
+    return;
+  }
+  const sessionId =
+    route.thread === null
+      ? webhook.sessionId
+      : await threadChat(
+          {
+            converse: mind.converse,
+            profiles: mind.profiles,
+            findWebhook: (id) => findWebhook(mind.converse, id),
+          },
+          webhook.id,
+          route.thread,
+        );
+  enqueueDelivery(
+    mind,
+    sessionId,
+    eventId,
+    webhookText(webhook.id, body, false),
+    webhook.whenBusy ?? "steer",
+  );
 };
 
 /**

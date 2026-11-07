@@ -26,7 +26,9 @@ export const RoutineEventSchema = Type.Object({
    * a receipt stuck here after a crash is a visible incomplete pair);
    * delivered = admitted into the session conversation; failed = delivery
    * exhausted its retries; rejected = ingress refused (auth/schema/rate/size);
-   * trial = the fire ran as a trial (every action held back, nothing woken).
+   * trial = the fire ran as a trial (every action held back, nothing woken);
+   * ignored = a webhook sender not on its allow list, with no chat to add
+   * context to (nothing woken).
    */
   status: Type.Union([
     Type.Literal("accepted"),
@@ -34,6 +36,7 @@ export const RoutineEventSchema = Type.Object({
     Type.Literal("failed"),
     Type.Literal("rejected"),
     Type.Literal("trial"),
+    Type.Literal("ignored"),
   ]),
   /** Rejection class or failure reason; null when nothing went wrong. */
   reason: Type.Union([Type.String(), Type.Null()]),

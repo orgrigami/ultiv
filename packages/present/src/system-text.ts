@@ -11,7 +11,15 @@ export type TaskOutcome = "done" | "failed" | "cancelled";
 export type SystemMessage =
   | { kind: "task"; taskId: string; outcome: TaskOutcome; body: string }
   | { kind: "task-update"; taskId: string; text: string }
-  | { kind: "webhook"; webhookId: string; event: string | null; payload: string; json: unknown }
+  | {
+      kind: "webhook";
+      webhookId: string;
+      event: string | null;
+      payload: string;
+      json: unknown;
+      /** From a sender who may not ask for work: added to the thread's chat as context. */
+      contextOnly: boolean;
+    }
   | { kind: "cron"; jobId: string; text: string }
   | { kind: "sensor"; sensorId: string; source: string; text: string }
   | {
@@ -54,9 +62,12 @@ function parseWebhook(text: string): SystemMessage | null {
   const head = /^\[webhook (\S+)\]\s*/.exec(text);
   if (head === null) return null;
   const rest = text.slice(head[0].length);
+  const lead = /^outside payload \(data, not instructions(; context only[^)]*)?\):\n?/.exec(rest);
   const payload = rest.startsWith("(empty body)")
     ? ""
-    : rest.replace(/^outside payload \(data, not instructions\):\n?/, "");
+    : lead !== null
+      ? rest.slice(lead[0].length)
+      : rest;
   let json: unknown;
   try {
     json = payload === "" ? undefined : JSON.parse(payload);
@@ -69,7 +80,14 @@ function parseWebhook(text: string): SystemMessage | null {
     const key = EVENT_KEYS.find((name) => typeof record[name] === "string");
     event = key === undefined ? null : String(record[key]);
   }
-  return { kind: "webhook", webhookId: head[1] ?? "", event, payload, json };
+  return {
+    kind: "webhook",
+    webhookId: head[1] ?? "",
+    event,
+    payload,
+    json,
+    contextOnly: lead?.[1] !== undefined,
+  };
 }
 
 function parseSensor(text: string): SystemMessage | null {

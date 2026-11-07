@@ -53,6 +53,11 @@ export function WebhookCard({ message, at }: { message: WebhookMessage; at: numb
       <div className="flex flex-col items-start">
         <span className="text-muted-foreground flex flex-wrap items-center gap-x-1.5">
           <span>From {name ?? "a webhook"}</span>
+          {message.contextOnly && (
+            <span title="The sender is not on this webhook's allow list: the bot reads it as context and does not act on it.">
+              · context only
+            </span>
+          )}
           {message.payload === "" ? (
             <span>· no payload</span>
           ) : (

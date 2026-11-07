@@ -38,6 +38,8 @@ export { trialInputOf, trialKey, type TrialsService } from "./routines/trial.ts"
 export * from "./routines/receipts.ts";
 export * from "./webhooks/webhooks.ts";
 export * from "./webhooks/tools.ts";
+export * from "./webhooks/route.ts";
+export { knownThreadChat, threadChat } from "./webhooks/threads.ts";
 export * from "./state/kv.ts";
 export * from "./state/tools.ts";
 export * from "./sensors/sensors.ts";

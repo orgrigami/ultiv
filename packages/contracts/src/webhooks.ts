@@ -13,6 +13,29 @@ export const WebhookRejectSchema = Type.Object({
 
 export type WebhookReject = Static<typeof WebhookRejectSchema>;
 
+/** Who may start work through a webhook: the sender's place in the payload and the allowed ones. */
+export const WebhookSendersSchema = Type.Object({
+  /** Dotted path to the sender in the payload, e.g. "sender.login". */
+  path: Type.String(),
+  /** Allowed senders, compared exactly (case-insensitive). */
+  allow: Type.Array(Type.String()),
+});
+
+export type WebhookSenders = Static<typeof WebhookSendersSchema>;
+
+/** One outside thread and the chat its payloads continue. */
+export const WebhookThreadSchema = Type.Object({
+  key: Type.String(),
+  sessionId: Type.String(),
+  /** When the thread last received a payload. */
+  at: Type.Number(),
+});
+
+export type WebhookThread = Static<typeof WebhookThreadSchema>;
+
+/** Threads a webhook remembers; the least recently active is forgotten first. */
+export const MAX_WEBHOOK_THREADS = 200;
+
 /**
  * A JSON-safe value: the recursive shape a JSON Schema document actually
  * has (objects, arrays, primitives — nothing host-language-typed), so a
@@ -69,6 +92,24 @@ export const WebhookInfoSchema = Type.Object({
   whenBusy: Type.Optional(
     Type.Union([Type.Literal("steer"), Type.Literal("followUp"), Type.Literal("reject")]),
   ),
+  /**
+   * One chat per outside thread: where the thread's id sits in the payload,
+   * as a dotted path ("issue.number", "event.thread_ts"). Payloads with the
+   * same id continue the same chat; a payload without one goes to the
+   * webhook's own chat. Absent or null: every payload goes there.
+   */
+  threadKey: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /** Where a thread's title sits (dotted path); it names the thread's chat. */
+  threadTitle: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  /**
+   * Who may start work: where the sender sits in the payload (dotted path)
+   * and the senders allowed. Anyone else's payload only adds context to a
+   * thread that already has a chat, and is ignored otherwise. Absent or
+   * null: anyone holding the token.
+   */
+  senders: Type.Optional(Type.Union([WebhookSendersSchema, Type.Null()])),
+  /** Each outside thread's chat, oldest first (at most MAX_WEBHOOK_THREADS). */
+  threads: Type.Optional(Type.Array(WebhookThreadSchema)),
 });
 
 export type WebhookInfo = Omit<Static<typeof WebhookInfoSchema>, "schema"> & {
