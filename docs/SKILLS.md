@@ -95,9 +95,10 @@ Because it isn't gated, the refusals are the safety:
   An outside task can't `skill_learn`; its `skill_write` asks the owner. An
   unreadable task registry counts as outside;
 - nothing copied from outside content this turn: any 8-word run from a web
-  page, search, request, mail, calendar, room, document
-  (`extract_document_text`), file, artifact, history, skill file, shell
-  output or MCP tool result, and any address, link, handle or long number
+  page, search, request, browser page, calendar, connector resource, room,
+  document (`extract_document_text`), file, artifact, history, skill file,
+  shell output or MCP tool result (the same `OUTSIDE_TOOLS` list memory's
+  guard reads, `memory/guard.ts`), and any address, link, handle or long number
   from it that the owner didn't type themselves. If an outside tool ran but
   its result can't be read back, the save is refused (fails closed);
 - a compaction summary or handoff note is never the owner's text: it isn't

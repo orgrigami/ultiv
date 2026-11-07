@@ -14,17 +14,40 @@ import { normalize } from "./text.ts";
 /** Where a write's content came from — read off the transcript, never trusted. */
 export type Origin = "owner" | "cron" | "task" | "webhook" | "sensor" | "bot" | "unknown";
 
-/** Tools whose results are outside content: hitting one taints the turn. */
-export const BASE_UNTRUSTED_TOOLS: readonly string[] = [
+/**
+ * Tools whose results are outside content, for memory AND skill learning:
+ * one list, so the two guards can never disagree about what a page, a file
+ * or a shell said. Running one taints the turn. Installed MCP tools join
+ * through the `untrustedTool` hook. `outside.test.ts` fails when a name
+ * here is not a shipped tool.
+ */
+export const OUTSIDE_TOOLS: readonly string[] = [
+  // The web and outside services.
   "web_fetch",
   "web_search",
   "http_request",
+  "browser_open",
+  "calendar_events",
+  "connector_resources",
+  // Other bots.
   "room",
-  "mail_read",
-  "mail_search",
-  "calendar_list",
-  "calendar_read",
+  // Stored content that may have come from anywhere.
+  "extract_document_text",
+  "file_read",
+  "file_search",
+  "artifact_read",
+  "history_search",
+  "skill_file",
+  "skill_install",
+  // Shell output (a script can fetch anything).
+  "bash",
 ];
+
+/** Whether a tool's result is outside content: the shared list or the hook. */
+export const isOutsideTool = (
+  name: string,
+  extra?: ((name: string) => boolean) | undefined,
+): boolean => OUTSIDE_TOOLS.includes(name) || (extra?.(name) ?? false);
 
 export const originOfPrefix = (content: string): Origin => {
   const text = content.trimStart();
@@ -83,15 +106,16 @@ export const contextOf = async (
     inputAt = user.timestamp || 0;
     break;
   }
-  const isUntrusted = (name: string): boolean =>
-    BASE_UNTRUSTED_TOOLS.includes(name) || (deps.untrustedTool?.(name) ?? false);
   // This conversation's own trail: a global tail would let a busy crew push
   // this turn's web_fetch out of the window and read the turn as clean.
   const tainted =
     deps.audit
       ?.ofConversation(conversationId)
       .some(
-        (event) => typeof event.name === "string" && isUntrusted(event.name) && event.at >= inputAt,
+        (event) =>
+          typeof event.name === "string" &&
+          isOutsideTool(event.name, deps.untrustedTool) &&
+          event.at >= inputAt,
       ) === true;
   return { origin, tainted, ownerInput };
 };
@@ -226,8 +250,10 @@ export const looksLikeInstruction = (text: string): boolean =>
   INSTRUCTION_SHAPES.some((pattern) => pattern.test(text.trim()));
 
 /**
- * The tainted-instruction exception: an owner-turn instruction survives
- * taint only when its text appears in the owner's own message.
+ * The tainted-owner exception: on an owner turn that also read outside
+ * content, a write keeps the owner's rights (instructions, the owner store)
+ * only when its text appears in the owner's own message — a page's words
+ * repeated by the bot never become the owner's.
  */
 export const appearsInOwnerInput = (text: string, ownerInput: string | null): boolean => {
   if (ownerInput === null) return false;

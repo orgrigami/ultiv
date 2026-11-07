@@ -143,12 +143,17 @@ Pipeline: **guard → extract → resolve entities → decide → apply**.
 - **Guard** (`memory/guard.ts`): origin from the last admitted input's
   bracket prefix (`[cron …]`, `[webhook …]`, `[sensor …]`, `[message from …]`,
   `[task …]` = automated; a plain message or `[owner]` = the owner; anything
-  else unknown). A turn that ran an untrusted-content tool (`web_fetch`,
-  `web_search`, `http_request`, `room`, mail/calendar reads, MCP tools) is
-  tainted; the check reads that conversation's own audit trail
-  (`audit.ofConversation`), so other bots' traffic can never push the call
-  out of view. Owner+untainted → trust up to owner; owner+tainted → derived, no
-  instructions unless the text appears in the owner's own words; cron/task →
+  else unknown). A turn that ran an outside-content tool is tainted. The
+  list is ONE list shared with skill learning (`OUTSIDE_TOOLS`: the web,
+  `http_request`, `browser_open`, `calendar_events`, `connector_resources`,
+  `room`, documents, files, artifacts, `history_search`, skill files and
+  installs, `bash`; installed MCP tools through the `untrustedTool` hook), and
+  `memory/outside.test.ts` fails when a name on it is not a shipped tool. The
+  check reads that conversation's own audit trail (`audit.ofConversation`),
+  so other bots' traffic can never push the call out of view. Owner+untainted
+  → trust up to owner; owner+tainted → derived, no instructions, no owner
+  store — unless the written text appears in the owner's own message, which
+  keeps the owner's rights (a page's words repeated by the bot never do); cron/task →
   self, no instructions; webhook/sensor/bot/unknown → untrusted, profile
   scope only. Secrets (API keys, JWTs, private keys, Luhn-valid cards, NIK,
   OTPs) are refused with `vault:<item>` pointer advice. `memory_write` and

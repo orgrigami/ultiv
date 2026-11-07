@@ -31,12 +31,7 @@ import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
 import type { TasksService } from "../tasks/tasks.ts";
 import type { ConverseService } from "../converse/converse.ts";
-import {
-  BASE_UNTRUSTED_TOOLS,
-  checkContent,
-  originOfPrefix,
-  type Origin,
-} from "../memory/guard.ts";
+import { checkContent, isOutsideTool, originOfPrefix, type Origin } from "../memory/guard.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { parseSkillDoc, serializeSkillDoc } from "./frontmatter.ts";
 import { MAX_SKILL_CHARS, secretIn, slugOk } from "./guard.ts";
@@ -55,19 +50,6 @@ export const MAX_LESSON_CHARS = 120;
 const COPY_RUN = 8;
 /** Words in a run that counts as a copied vault value. */
 const VAULT_RUN = 4;
-
-/** Tools whose results are outside content for learning, beyond memory's set. */
-export const LEARN_UNTRUSTED_TOOLS: readonly string[] = [
-  ...BASE_UNTRUSTED_TOOLS,
-  "extract_document_text",
-  "file_read",
-  "file_search",
-  "artifact_read",
-  "history_search",
-  "skill_file",
-  "skill_install",
-  "bash",
-];
 
 /** Tools whose results are vault data: never copied into a skill. */
 export const VAULT_TOOLS: readonly string[] = ["vault_list", "vault_contacts"];
@@ -162,8 +144,7 @@ export const turnContext = async (
       records as readonly { readonly kind?: string; readonly model?: readonly Message[] }[],
     () => [] as const,
   );
-  const isOutside = (name: string): boolean =>
-    LEARN_UNTRUSTED_TOOLS.includes(name) || (deps.untrustedTool?.(name) ?? false);
+  const isOutside = (name: string): boolean => isOutsideTool(name, deps.untrustedTool);
   const outside: string[] = [];
   const vault: string[] = [];
   const derived: string[] = [];

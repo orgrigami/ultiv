@@ -143,31 +143,39 @@ export const guardedWrite = async (
       guardDeps.audit === undefined ? null : await contextOf(guardDeps, conversationId);
     const policy = context === null ? null : policyFor(context);
     const requestedScope = args.scope ?? "profile";
-    if (policy !== null && requestedScope === "owner" && !policy.allowOwnerScope) {
+    // The owner's own words keep the owner's rights on a tainted owner turn.
+    const ownerWords =
+      context?.tainted === true &&
+      context.origin === "owner" &&
+      appearsInOwnerInput(args.text, context.ownerInput);
+    if (policy !== null && requestedScope === "owner" && !policy.allowOwnerScope && !ownerWords) {
       return refuse(
         `refused: this turn's content is outside (${context?.origin ?? "unknown"}${
           context?.tainted === true ? ", tainted" : ""
-        }); only owner-voiced turns may write the owner store.`,
+        }); only the owner's own words may write the owner store.`,
       );
     }
-    if (policy !== null && !policy.allowInstructions && looksLikeInstruction(args.text)) {
-      const excepted =
-        context?.tainted === true &&
-        context.origin === "owner" &&
-        appearsInOwnerInput(args.text, context.ownerInput);
-      if (!excepted) {
-        return refuse(
-          "refused: standing instructions are only recorded from the owner's own words; " +
-            "note the request in your reply instead.",
-        );
-      }
+    if (
+      policy !== null &&
+      !policy.allowInstructions &&
+      !ownerWords &&
+      looksLikeInstruction(args.text)
+    ) {
+      return refuse(
+        "refused: standing instructions are only recorded from the owner's own words; " +
+          "note the request in your reply instead.",
+      );
     }
     const trust =
       policy === null
         ? undefined
-        : requestedScope === "owner"
-          ? trustFor("owner", policy)
-          : trustFor("self", policy);
+        : ownerWords
+          ? requestedScope === "owner"
+            ? "owner"
+            : "self"
+          : requestedScope === "owner"
+            ? trustFor("owner", policy)
+            : trustFor("self", policy);
     const writeInput = {
       owner: scope.owner,
       writer: scope.profileId,
