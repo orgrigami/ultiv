@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import type { TaskInfo } from "@spriessen/contracts";
 import { vapidConfig } from "./config.ts";
 import { isPushEndpoint } from "./endpoint.ts";
-import { approvalPayload, routinePayload, taskPayload } from "./events.ts";
+import { approvalPayload, routinePayload, taskEarnsPush, taskPayload } from "./events.ts";
 import { COLLAPSE_WINDOW_MS, MAX_PER_MINUTE, makeNotifier, topicOf } from "./notifier.ts";
 import { makePresence, PRESENCE_WINDOW_MS } from "./presence.ts";
 import { makePushStore, type PushSubscriptionRecord } from "./store.ts";
@@ -178,5 +178,27 @@ describe("vapid config", () => {
       VAPID_SUBJECT: "x",
     });
     expect(config?.subject).toMatch(/^mailto:/);
+  });
+});
+
+describe("quiet check-ins", () => {
+  const task = (status: "done" | "failed", result: string | null) =>
+    ({
+      id: "t",
+      sessionId: "s",
+      owner: "o",
+      conversationId: null,
+      prompt: "check prices",
+      status,
+      result,
+      error: null,
+      createdAt: 0,
+      finishedAt: 1,
+    }) as const;
+
+  it("a routine task with nothing to report sends no push", () => {
+    expect(taskEarnsPush(task("done", "[nothing to report]"))).toBe(false);
+    expect(taskEarnsPush(task("done", "Prices dropped 12%."))).toBe(true);
+    expect(taskEarnsPush(task("failed", null))).toBe(true);
   });
 });

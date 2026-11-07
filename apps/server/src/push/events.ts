@@ -4,7 +4,7 @@
  * URLs a bot fetched. A tap opens the chat the event belongs to.
  */
 import { Effect } from "effect";
-import type { MailboxEntry, TaskInfo } from "@spriessen/contracts";
+import { isNothingToReport, type MailboxEntry, type TaskInfo } from "@spriessen/contracts";
 import type { MindService } from "@spriessen/mind";
 import { approversFor, homeOf } from "@spriessen/mind";
 import type { DeliverySource } from "../deliver.ts";
@@ -77,7 +77,12 @@ export const routinePayload = (bot: string, source: RoutineSource, sessionId: st
 const logged = (what: string) => (cause: unknown) =>
   console.error(`push (${what}) failed:`, String(cause).slice(0, 200));
 
+/** A settled task earns a push unless it is a quiet check-in (nothing to report). */
+export const taskEarnsPush = (task: TaskInfo): boolean =>
+  !(task.status === "done" && isNothingToReport(task.result));
+
 const onTask = async (mind: MindService, notifier: Notifier, task: TaskInfo): Promise<void> => {
+  if (!taskEarnsPush(task)) return;
   const bot = task.bot !== undefined ? await botName(mind, task.owner, task.bot.profileId) : "";
   await notifier.notify(task.owner, taskPayload(task, bot === "" ? "Your bot" : bot));
 };

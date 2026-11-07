@@ -37,6 +37,20 @@ Agents may rely on the registry and the receipt log. They may NOT treat
 indistinguishable from inside; the receipt log exists so they never have to
 guess.
 
+## Quiet check-ins: no news costs no attention
+
+A routine run reaches the owner as a push (a webhook, cron or sensor turn
+that settles with a reply; a background routine task that finishes). Most
+runs find nothing new, so a bot ends such a run with exactly
+`[nothing to report]` (`NOTHING_TO_REPORT`, `@spriessen/contracts`
+`quiet.ts`; `isNothingToReport` tolerates case, backticks and a full stop).
+The server sends no push for it (`deliver.ts` reply listeners,
+`push/events.ts` `taskEarnsPush`), and both clients draw it as one quiet
+line, "Checked in: nothing to report", instead of a reply or a result card.
+The rule lives in the bot's identity rules (`act/identity.ts`) and in every
+background routine task's brief (`tasks/background.ts` `QUIET_ROUTINE`).
+The run still leaves its fire receipt: quiet is not silent.
+
 ## Fire receipts (write-ahead)
 
 Every fire writes a receipt BEFORE delivery is attempted, then settles it:

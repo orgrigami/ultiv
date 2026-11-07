@@ -5,7 +5,13 @@
  * card's "Wren wants to …" with its hint and risk. Line mode prints these;
  * the TUI colours them.
  */
-import type { PendingApproval, ToolStep, TranscriptEntry } from "@spriessen/contracts";
+import {
+  isNothingToReport,
+  NOTHING_TO_REPORT_WORDS,
+  type PendingApproval,
+  type ToolStep,
+  type TranscriptEntry,
+} from "@spriessen/contracts";
 import {
   alwaysAllowText,
   canAlwaysAllow,
@@ -102,6 +108,8 @@ export const entryLines = (entry: TranscriptEntry, bot: string): string[] => {
     case "input":
       return [`you ${time(entry.at)}`, ...entry.text.split("\n").map((line) => `  ${line}`)];
     case "output":
+      if (entry.streaming !== true && isNothingToReport(entry.text))
+        return [`· ${bot}: ${NOTHING_TO_REPORT_WORDS.toLowerCase()}`];
       return [
         `${bot}${entry.interrupted === true ? " (cut short)" : ""}`,
         ...entry.text.split("\n").map((line) => `  ${line}`),

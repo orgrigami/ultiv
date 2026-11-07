@@ -20,7 +20,8 @@ import {
   type TranscriptEntry,
 } from "@spriessen/contracts";
 import { Badge } from "@/components/ui/badge";
-import { CircleSlashIcon } from "lucide-react";
+import { CheckIcon, CircleSlashIcon } from "lucide-react";
+import { isNothingToReport, NOTHING_TO_REPORT_WORDS } from "@spriessen/contracts";
 import { ThinkingTrace } from "@/components/thinking-trace";
 import type { JevNotice } from "@/lib/jev-text";
 import { LazyMarkdown } from "@/components/lazy-markdown";
@@ -63,6 +64,7 @@ const Output = memo(function Output({
 }) {
   // Cut while thinking: nothing was said, so only the marker shows.
   const empty = text === "" && !streaming;
+  if (!streaming && isNothingToReport(text)) return <QuietCheckIn />;
   return (
     <>
       {!empty && <ChatProse text={text} streaming={streaming} foldable={isFoldable(text)} />}
@@ -83,6 +85,16 @@ const Output = memo(function Output({
     </>
   );
 });
+
+/** A routine's "[nothing to report]": one quiet line, not a reply. */
+function QuietCheckIn() {
+  return (
+    <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+      <CheckIcon className="size-3" aria-hidden />
+      {NOTHING_TO_REPORT_WORDS}
+    </p>
+  );
+}
 
 /** A machinery note: small caption + markdown body, in owner-facing words. */
 const Note = memo(function Note({ text }: { text: string }) {

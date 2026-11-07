@@ -4,6 +4,7 @@
  * Wren: …". The web draws the same messages as cards; null means the
  * message is hidden (resume notes, the onboarding seed).
  */
+import { isNothingToReport, NOTHING_TO_REPORT_WORDS } from "@spriessen/contracts";
 import { firstLine, type SystemMessage } from "./system-text.ts";
 
 const TASK_WORDS = { done: "Task finished", failed: "Task failed", cancelled: "Task stopped" };
@@ -18,6 +19,8 @@ export function systemLine(message: SystemMessage): string | null {
     case "hidden":
       return null;
     case "task":
+      if (message.outcome === "done" && isNothingToReport(message.body))
+        return NOTHING_TO_REPORT_WORDS;
       return withText(TASK_WORDS[message.outcome], message.body);
     case "task-update":
       return withText("Task update", message.text);

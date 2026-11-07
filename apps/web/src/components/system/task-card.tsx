@@ -4,7 +4,7 @@
  * Failed and stopped tasks read differently at a glance.
  */
 import { useId, useState } from "react";
-import type { TaskInfo } from "@spriessen/contracts";
+import { isNothingToReport, NOTHING_TO_REPORT_WORDS, type TaskInfo } from "@spriessen/contracts";
 import { LazyMarkdown } from "@/components/lazy-markdown";
 import { TaskStatusIcon } from "@/components/task-status-icon";
 import { CodeBlockCopyButton } from "@/components/ui/code-block";
@@ -83,9 +83,15 @@ export function TaskCard({
       at={at}
       tone={tone}
     >
-      {message.outcome === "done" && (
-        <FullResult text={task?.result ?? cleanDigest(message.body)} ran={duration} />
-      )}
+      {message.outcome === "done" &&
+        (isNothingToReport(task?.result ?? message.body) ? (
+          <p className="text-muted-foreground">
+            {NOTHING_TO_REPORT_WORDS}
+            {duration !== undefined ? ` · ran ${duration}` : ""}
+          </p>
+        ) : (
+          <FullResult text={task?.result ?? cleanDigest(message.body)} ran={duration} />
+        ))}
       {message.outcome === "failed" && (
         <p className="text-destructive break-words">
           {firstLine(task?.error ?? message.body, 280)}

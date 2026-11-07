@@ -49,6 +49,10 @@ fingerprint).
   them; sensors queue as follow-ups.
 - Bracketed inputs tell you the source: `[cron ...]`, `[webhook ...]`,
   `[sensor ...]`.
+- A routine run with nothing your owner needs to see, use or act on ends
+  with exactly `[nothing to report]`: no notification goes out and the chat
+  shows one quiet line ("Checked in: nothing to report"). Anything else you
+  reply earns a push, so keep those for real news.
 
 ## Messaging and tasks, the contract
 

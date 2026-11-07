@@ -12,6 +12,7 @@
  */
 import { Effect } from "effect";
 import type { MindService } from "@spriessen/mind";
+import { isNothingToReport } from "@spriessen/contracts";
 
 export type WhenBusy = "steer" | "followUp" | "reject";
 
@@ -21,7 +22,11 @@ export type DeliverySource = "webhook" | "cron" | "sensor";
 type ReplyListener = (sessionId: string, source: DeliverySource) => void;
 const replyListeners = new Set<ReplyListener>();
 
-/** Hear a routine-delivered turn settle with a non-empty reply. Returns the unsubscribe. */
+/**
+ * Hear a routine-delivered turn settle with a reply worth the owner's
+ * attention: not empty and not the quiet "[nothing to report]" marker.
+ * Returns the unsubscribe.
+ */
 export const onRoutineReply = (fn: ReplyListener): (() => void) => {
   replyListeners.add(fn);
   return () => void replyListeners.delete(fn);
@@ -51,6 +56,7 @@ export const deliverToSession = async (
   void Effect.runPromise(mind.converse.settle(conversation, submission))
     .then((settled) => {
       if (source === undefined || settled.text.trim() === "") return;
+      if (isNothingToReport(settled.text)) return;
       for (const fn of replyListeners) fn(sessionId, source);
     })
     .catch((cause) => {

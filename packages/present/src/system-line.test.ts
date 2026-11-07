@@ -15,4 +15,8 @@ describe("systemLine", () => {
     expect(line("[resume] carry on")).toBeNull();
     expect(line("just words")).toBeUndefined();
   });
+
+  it("a routine task with nothing to report reads as a quiet check-in", () => {
+    expect(line("[task t1 finished]\n\n[nothing to report]")).toBe("Checked in: nothing to report");
+  });
 });

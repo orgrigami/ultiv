@@ -7,7 +7,11 @@
  * while new lines arrive; PageUp/PageDown scroll it (app.tsx).
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
-import type { TranscriptEntry } from "@spriessen/contracts";
+import {
+  isNothingToReport,
+  NOTHING_TO_REPORT_WORDS,
+  type TranscriptEntry,
+} from "@spriessen/contracts";
 import type { Ref } from "react";
 import { machineryLine, reactionLine, toolLine } from "../render/words.ts";
 import { THEME } from "./theme.ts";
@@ -64,6 +68,14 @@ export const Entry = ({ entry, bot }: { entry: TranscriptEntry; bot: string }) =
         </box>
       );
     case "output":
+      if (!entry.streaming && isNothingToReport(entry.text))
+        return (
+          <box paddingLeft={1}>
+            <text fg={THEME.faint}>
+              · {bot}: {NOTHING_TO_REPORT_WORDS.toLowerCase()}
+            </text>
+          </box>
+        );
       return (
         <box flexDirection="column" marginTop={1} paddingLeft={1}>
           <text fg={THEME.faint}>

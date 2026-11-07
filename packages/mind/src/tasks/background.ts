@@ -6,13 +6,16 @@
  * stays short; the bot still reads the result with its next turn.
  */
 import { Effect } from "effect";
-import type { TaskInfo } from "@spriessen/contracts";
+import { NOTHING_TO_REPORT, type TaskInfo } from "@spriessen/contracts";
 import { InvalidInput, NotFound } from "@spriessen/core";
 import type { ConverseService } from "../converse/converse.ts";
 import type { ModelCatalogService } from "../providers/models.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { backgroundModelFor } from "./model.ts";
 import type { TasksService } from "./tasks.ts";
+
+/** How a routine task says it found nothing worth its owner's attention (no push). */
+export const QUIET_ROUTINE = `(A routine run: if nothing changed that your owner needs to see, use or act on, your whole result is exactly ${NOTHING_TO_REPORT}.)`;
 
 /** Background tasks a routine starts are filed under the agent owner label. */
 const ROUTINE_TASK_OWNER = "agent";
@@ -48,7 +51,7 @@ export const spawnBackgroundRoutine = async (
       sessionId: input.sessionId,
       owner: ROUTINE_TASK_OWNER,
       conversationId: String(conversation.id),
-      prompt: input.prompt,
+      prompt: `${input.prompt}\n\n${QUIET_ROUTINE}`,
       title: input.title,
       report: "note",
       ...(choice.model !== undefined ? { model: choice.model } : {}),
