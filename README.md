@@ -10,6 +10,8 @@ A fresh install starts with no bots. The first one you create becomes your main 
 
 ## Quick start
 
+With a coding agent, the easy way: ask it to "read SETUP.md and set up Spriessen with me". It asks one short question at a time, never asks for a key in the chat, and shows the whole plan before it changes anything.
+
 You need [Vite+](https://viteplus.dev/) (`vp`), which brings Node 24 and pnpm with it. It's the only toolchain this repo uses.
 
 ```sh
@@ -37,7 +39,8 @@ Open http://localhost:5173 and create your first bot. **Settings** shows a quick
 - **One bash tool, three targets.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM by default — a real Linux box with python, network off unless you allowlist hosts for the bot's home; files it writes end up in the bot's file store. `target: "host"` runs directly on your computer, `target: "node"` on another machine you've paired (Settings → Nodes). Each target has its own approval rules — a rule for one target never approves another — and only bots you've granted host access can use either beyond-VM target.
 - **A vault for credentials.** Items are sealed with AES-256-GCM, and bots only see names and masked hints. When a bot needs to use a secret, the credential broker makes the HTTP request itself, only to the hosts, methods and paths that secret is bound to. Responses are scrubbed before the bot sees them.
 - **Routines.** Bots can wake on cron schedules, on webhooks they set up themselves, or on sensors (RSS, a calendar ICS feed, watched URLs). Schedules respect time zones. Webhooks are validated against a schema, retried, and dead-lettered if they keep failing.
-- **Background tasks.** A bot can hand long work to a sub-agent and keep chatting. The task runs in its own conversation and reports back when it's done. If the server restarts, tasks pick up where they left off.
+- **Routines that cost little attention.** A schedule can start as a trial: each run shows what it would have done (the tools it tried and what it would have said) while nothing actually runs, until you press Go live; Try now runs one trial on demand. A routine with nothing new ends with "nothing to report", which shows as one quiet line and sends no notification. A webhook can give each outside thread (a GitHub issue, a Slack thread) its own chat, and take work only from the senders you list: anyone else's post only adds context to a thread's chat and never wakes the bot.
+- **Background tasks.** A bot can hand long work to a sub-agent and keep chatting. The task runs in its own conversation and reports back when it's done. If the server restarts, tasks pick up where they left off, checking first that nothing they already sent goes out twice. Background work never crowds out your chats: at the model concurrency limit (`MODEL_MAX_CONCURRENCY`) your messages go first, and one slot always stays free for them.
 - **Approvals.** Tools with side effects wait on an approval card. Each bot can instead let Jev judge its calls or run them without asking; see [Approval modes](#approval-modes). "Always allow" saves a rule for that tool, and it never covers the calls that always ask. You get a push notification when a bot is waiting on you.
 - **Queued messages never send by themselves after a failed turn.** If a turn fails or is cut off while you have messages waiting, they stay in the queue marked "Not sent", with a Retry chip that sends them in order (or take any back with its ×).
 - **Restarts don't drop a reply.** A turn the server's restart cut off carries on when it comes back, and the chat shows the bot working again. A turn cut off too many times in a row stops and shows in Needs you, with Retry.
