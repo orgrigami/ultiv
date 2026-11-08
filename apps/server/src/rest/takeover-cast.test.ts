@@ -72,10 +72,7 @@ beforeAll(async () => {
       await registry.open({
         conversationId,
         reason: "the sign-in needs you",
-        shot: async () => "",
         act: async () => ({ ok: true, png: "", url: "", title: "", text: "", error: null }),
-        readPage: async () => "the page",
-        onFinished: (_conversationId, wake) => wakes.push(wake),
       })
     ).id;
   mine.row = await ask(mine.conversationId);

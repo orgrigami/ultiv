@@ -406,27 +406,9 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   // through the task wiring.
   const jobKiller = new JobKiller();
   // Browser takeovers: the session plugin's registry, driven by the owner's
-  // REST; a finished takeover wakes the asking bot's conversation.
-  const browserSession = browserSessionFacility({
-    holder,
-    onTakeoverFinished: (conversationId, wake) => {
-      void (async () => {
-        const converse = wiring.converseRef.current;
-        if (converse === undefined) return;
-        const chat = await Effect.runPromise(converse.open(conversationId)).catch(() => undefined);
-        if (chat === undefined) return;
-        const submission = await Effect.runPromise(
-          converse.submit(
-            chat,
-            wake,
-            "followUp",
-            `browser-takeover:${conversationId}:${Date.now()}`,
-          ),
-        );
-        void Effect.runPromise(converse.settle(chat, submission)).catch(() => undefined);
-      })();
-    },
-  });
+  // REST. The asking tool call itself waits (a blocking takeover), so there
+  // is no wake to route — the turn that asked gets the page as its result.
+  const browserSession = browserSessionFacility({ holder });
   const wiring: MindWiring = {
     jobKiller: (conversations) => jobKiller.killConversations(conversations),
     holder,

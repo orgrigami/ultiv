@@ -3,9 +3,10 @@
  * identity wall in its browser session asks (browser_session op takeover);
  * its ask appears here the moment it happens (the "takeovers" live signal).
  * Each ask opens as a LIVE view of the bot's browser that the owner drives
- * directly — clicks, typing, the wheel, the url bar (takeover-live-card);
- * Finish hands the controls back and the bot is woken with the page. While
- * a takeover is open the bot's own acts (and page opens) are refused.
+ * directly — clicks, typing, the wheel, the url bar (takeover-live-card).
+ * The bot's call BLOCKS while you drive; Finish hands the page straight
+ * back to it, mid-task. While a takeover is open the bot's own acts (and
+ * page opens) are refused.
  */
 import { useCallback, useEffect, useState } from "react";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -45,9 +46,9 @@ export function BrowserTakeoverTab() {
         rows.map((row) => <TakeoverLiveCard key={row.id} row={row} onGone={reload} />)
       )}
       <p className="text-muted-foreground text-xs">
-        While you hold the controls, the bot's own browser acts (even opening a page) are refused;
-        Finish wakes it with the page as it stands. The view is the bot's browser, live — click the
-        page and type as if it were yours.
+        While you hold the controls, the bot's own browser acts (even opening a page) are refused
+        and its takeover call waits; Finish hands the page straight back to it. The view is the
+        bot's browser, live — click the page and type as if it were yours.
       </p>
     </section>
   );

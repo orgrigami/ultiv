@@ -59,10 +59,7 @@ beforeAll(async () => {
   const row = await mind.browserTakeovers.open({
     conversationId,
     reason: "the sign-in needs you",
-    shot: async () => "",
     act: async () => ({ ok: true, png: "", url: "", title: "", text: "", error: null }),
-    readPage: async () => "the page",
-    onFinished: () => undefined,
   });
   rowId = row.id;
 }, T);

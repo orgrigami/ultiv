@@ -100,39 +100,78 @@ describe("the browser session tool (fake driver)", () => {
     expect(text(closed)).toContain("closed");
   });
 
-  it("a takeover holds the bot's acts, takes the owner's, and wakes on finish", async () => {
-    const wakes: { conversationId: string; wake: string }[] = [];
-    const facility = browserSessionFacility({
-      root: scratch,
-      backend: () => fakeBackend(),
-      onTakeoverFinished: (conversationId, wake) => wakes.push({ conversationId, wake }),
-    });
+  it("a takeover BLOCKS: the bot's acts are held off, finish returns the page in the same call", async () => {
+    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
     const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
     if (capability?.kind !== "tool") throw new Error("no browser_session tool");
     const tool = capability.tool;
-    const asked = await tool.execute(
+    // The ask blocks, so it runs as a floating promise the test settles.
+    const call = tool.execute(
       { op: "takeover", reason: "the sign-in needs you" },
       api,
       {} as never,
     );
-    expect(text(asked)).toContain("asked to take the controls");
-    // While the owner holds: the bot's acts are refused.
+    // It registers the ask promptly (the owner's list shows it).
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const rowId = facility.takeovers.list()[0]?.id ?? "";
+    expect(rowId).not.toBe("");
+    // While the owner holds: the bot's acts (and opens) are refused.
     const refused = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
     expect(refused.isError).toBe(true);
     expect(text(refused)).toContain("holds the controls");
-    // The owner drives, one act at a time, and each answer carries the shot.
-    const after = await facility.takeovers.act(facility.takeovers.list()[0]?.id ?? "", {
-      kind: "click",
-      selector: "#signin",
-    });
-    expect(after.ok).toBe(true);
-    expect(after.png).not.toBe("");
-    // Finish: the bot is woken with the page, and the hold is gone.
-    const row = await facility.takeovers.finish(facility.takeovers.list()[0]?.id ?? "");
-    expect(row?.conversationId).toBe("conv-1");
-    expect(wakes).toHaveLength(1);
-    expect(wakes[0]?.wake).toContain("takeover is finished");
+    const refusedOpen = await tool.execute(
+      { op: "open", url: "https://example.test/move" },
+      api,
+      {} as never,
+    );
+    expect(text(refusedOpen)).toContain("holds the controls");
+    // The owner finishes: the SAME tool call returns the page as it stands.
+    await facility.takeovers.finish(rowId);
+    const reply = await call;
+    expect(reply.isError).toBeUndefined();
+    expect(text(reply)).toContain("finished");
+    expect(text(reply)).toContain("just the field");
+    expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "finished" });
+    // The hold lifted with the close.
     const again = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
     expect(again.isError).toBeUndefined();
+  });
+
+  it("step-away resolves the blocked call plainly, without a page", async () => {
+    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
+    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    const call = capability.tool.execute(
+      { op: "takeover", reason: "a code needs you" },
+      api,
+      {} as never,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await facility.takeovers.cancel(facility.takeovers.list()[0]?.id ?? "");
+    const reply = await call;
+    expect(reply.isError).toBeUndefined();
+    expect(text(reply)).toContain("stepped away");
+    expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "stepped-away" });
+  });
+
+  it("an abandoned ask closes at its cap and never pins the turn", async () => {
+    const facility = browserSessionFacility({
+      root: scratch,
+      backend: () => fakeBackend(),
+      takeoverMaxMs: 40,
+    });
+    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    const reply = await capability.tool.execute(
+      { op: "takeover", reason: "the sign-in needs you" },
+      api,
+      {} as never,
+    );
+    expect(reply.isError).toBeUndefined();
+    expect(text(reply)).toContain("did not take the controls");
+    expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "timed-out" });
+    // The hold went with the close.
+    expect(facility.takeovers.list()).toEqual([]);
+    expect(facility.takeovers.holds("conv-1")).toBe(false);
   });
 });

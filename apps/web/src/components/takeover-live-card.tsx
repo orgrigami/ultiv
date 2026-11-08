@@ -42,6 +42,13 @@ export function TakeoverLiveCard({
     if (urlDraft === null && cast.frame !== null) setUrlDraft(cast.frame.url);
   }, [cast.frame, urlDraft]);
 
+  // A stream that ended may mean the ASK closed off-REST (the 30-minute
+  // cap): refetch the list — the card unmounts if the row is gone, and
+  // remounts fresh (reconnecting) if the row lives.
+  useEffect(() => {
+    if (cast.status === "ended") void onGone();
+  }, [cast.status, onGone]);
+
   const at = (event: MouseEvent): { x: number; y: number } => {
     const box = frameBox.current?.getBoundingClientRect();
     return box === undefined
