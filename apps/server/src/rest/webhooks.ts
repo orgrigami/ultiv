@@ -159,9 +159,14 @@ export async function webhookRoutes(
     const { body, over } = await readCapped(req, MAX_WEBHOOK_BODY_BYTES + 1);
     const reply = await handleWebhookIngress(mind, segment("/hooks/"), String(token), body);
     if (over) {
-      // The rest of the upload is never read; close instead of draining it.
-      args.res.setHeader("connection", "close");
-      args.res.once("finish", () => req.destroy());
+      // The rest of the upload is never read. Hold the socket open just long
+      // enough for the 413 to reach the caller: closing while the flood is
+      // still arriving races an RST past the answer, and the caller then
+      // sees ECONNRESET instead of the 413.
+      req.pause();
+      args.res.once("finish", () => {
+        setTimeout(() => req.destroy(), 250).unref();
+      });
     }
     json(reply.status, reply.json);
     return true;

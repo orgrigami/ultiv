@@ -36,8 +36,8 @@ const holderOf = (path: string): number | undefined => {
 };
 
 /** The data folder the server writes into: where HARNESS_DB lives (default: core's dataDir). */
-export const dataDirOf = (env: NodeJS.ProcessEnv = process.env): string =>
-  resolve(env["HARNESS_DB"] ? dirname(env["HARNESS_DB"]) : dataDir(env));
+export const dataDirOf = (env: NodeJS.ProcessEnv = process.env, cwd = process.cwd()): string =>
+  resolve(env["HARNESS_DB"] ? dirname(env["HARNESS_DB"]) : dataDir(env, cwd));
 
 const tryTake = (path: string): boolean => {
   try {

@@ -48,8 +48,11 @@ describe("the data-folder lock", () => {
   });
 
   it("finds the data folder: HARNESS_DB's, else the home's data", () => {
-    expect(dataDirOf({ SPRIESSEN_HOME: "/h" })).toBe("/h/data");
-    expect(dataDirOf({ SPRIESSEN_DATA_DIR: "/d" })).toBe("/d");
-    expect(dataDirOf({ HARNESS_DB: "/srv/data/harness.sqlite" })).toBe("/srv/data");
+    // A cwd without ./var: a leftover var/ folder beside a workspace would
+    // (by design, for un-migrated installs) win over the home.
+    const nowhere = join(root, "nowhere");
+    expect(dataDirOf({ SPRIESSEN_HOME: "/h" }, nowhere)).toBe("/h/data");
+    expect(dataDirOf({ SPRIESSEN_DATA_DIR: "/d" }, nowhere)).toBe("/d");
+    expect(dataDirOf({ HARNESS_DB: "/srv/data/harness.sqlite" }, nowhere)).toBe("/srv/data");
   });
 });
