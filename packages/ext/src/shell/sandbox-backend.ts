@@ -33,6 +33,7 @@ import {
 import {
   allowlistNetwork,
   markAppliedFingerprint,
+  readAppliedFingerprint,
   specDrift,
   vmSpecFingerprint,
 } from "./net-policy.ts";
@@ -185,6 +186,15 @@ export const sandboxShellBackend =
       // start": the next `ensureVm` after the edit.
       const spec = vmSpecOf(options);
       if (specDrift(options.name, spec)) {
+        // Loud on purpose: a silent drift recreate spent a whole afternoon
+        // invisible while two tools' specs fought over one home VM
+        // (8 Nov 2026). The fingerprints say which side changed.
+        logSetupWarnings(
+          options.name,
+          `${SETUP_WARN} spec drift: recreating the VM ` +
+            `(applied ${readAppliedFingerprint(options.name) ?? "none"}, ` +
+            `now ${vmSpecFingerprint(spec)})`,
+        );
         await destroySandbox(options.name).catch(() => {});
         bumpVmGeneration(options.name);
         vm = null;

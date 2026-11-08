@@ -10,7 +10,7 @@ import { describe, expect, it, afterAll } from "vite-plus/test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { bashPlugin, homeWorldOf, localShellBackend } from "./bash.ts";
+import { bashPlugin, homeWorldOf, localShellBackend, sandboxOptionsOf } from "./bash.ts";
 import { scopeHash, sandboxNameOf } from "../shell/sandbox-backend.ts";
 import {
   createScopeHolder,
@@ -88,6 +88,53 @@ describe("homeWorldOf (the pure bot dir + home scope -> VM mapping)", () => {
       `/home/${scopeHash("/h/owner-a/bad name")}`,
     );
     expect(homeWorldOf("/h/owner-a/bot-1", home).guestRoot).toBe("/home/bot-1");
+  });
+});
+
+describe("sandboxOptionsOf (one builder, every world field, for every tool)", () => {
+  const root = join(scratch, "opt-root");
+  const full: HomeScope = {
+    dir: join(root, "owner-a", "_home", "org"),
+    sharedGid: 10_900,
+    orgShared: { hostDir: "/h/o", gid: 10_901, readOnly: false },
+    teamShared: { parentDir: "/h/t", teams: [{ id: "d1", gid: 10_902 }], users: ["bot-a"] },
+    user: { name: "bot-a", uid: 20_101, gid: 20_101, home: "/home/bot-a" },
+    netAllowlist: ["example.com"],
+    netOpen: true,
+    caps: { orgShared: 1024 },
+    vm: { cpus: 2, memoryMiB: 1024 },
+  };
+
+  it("carries EVERY field the world carries — the tools resolve the same home identically", () => {
+    const options = sandboxOptionsOf(homeWorldOf(join(root, "owner-a", "bot-a"), full));
+    expect(options.name).toBe(sandboxNameOf(full.dir));
+    expect(options.guestRoot).toBe("/home/bot-a");
+    expect(options.sharedGid).toBe(10_900);
+    expect(options.user?.uid).toBe(20_101);
+    expect(options.netAllowlist).toEqual(["example.com"]);
+    expect(options.netOpen).toBe(true);
+    expect(options.caps).toEqual({ orgShared: 1024 });
+    expect(options.vm).toEqual({ cpus: 2, memoryMiB: 1024 });
+  });
+
+  it("the regression of 8 Nov 2026: a world's netOpen MUST reach the options", () => {
+    const withOpen = sandboxOptionsOf(homeWorldOf(join(root, "owner-a", "bot-a"), full));
+    const closed = sandboxOptionsOf(
+      homeWorldOf(join(root, "owner-a", "bot-a"), { ...full, netOpen: false }),
+    );
+    expect(withOpen.netOpen).toBe(true);
+    expect(closed.netOpen).toBe(false);
+    // Different specs, different fingerprints: a tool dropping a field would
+    // drift-recreate the home's VM with the weaker spec.
+    expect(JSON.stringify(withOpen)).not.toBe(JSON.stringify(closed));
+  });
+
+  it("a fallback world (no home scope) yields the bare per-bot options, undefined fields absent", () => {
+    const options = sandboxOptionsOf(homeWorldOf(join(root, "owner-a", "bot-a"), undefined));
+    expect(options.name).toBe(sandboxNameOf(join(root, "owner-a", "bot-a")));
+    expect(options.guestRoot).toBe("/home");
+    expect("netOpen" in options).toBe(false);
+    expect("user" in options).toBe(false);
   });
 });
 

@@ -17,8 +17,8 @@ import { defineTool, type Tool } from "../tool.ts";
 import { scopeDir, type ScopeHolder } from "./vault.ts";
 import { artifactsDir, MAX_IMAGE_BASE64 } from "./artifacts.ts";
 import { pathForName, putFile } from "../fs/tree.ts";
-import { homeWorldOf } from "./bash.ts";
-import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
+import { homeWorldOf, sandboxOptionsOf } from "./bash.ts";
+import { sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 import { join } from "node:path";
 import type { ShellBackend } from "../shell/backend.ts";
 import { BROWSER_TIMEOUT_MS } from "../browser/command.ts";
@@ -108,34 +108,40 @@ export const browserSessionFacility = (
   const holder = options.holder;
   const dirOf = (conversationId: string): string =>
     holder === undefined ? root : scopeDir(holder, conversationId, root);
-  const cache = new Map<string, Promise<{ backend: ShellBackend; guestRoot: string }>>();
-  const resolveOf = (conversationId: string) => {
+  // Backends keyed by the RESOLVED WORLD and re-resolved on every call: a
+  // dir-keyed cache pinned the first resolution for the process lifetime,
+  // and the browser path once carried a world without netOpen (or a
+  // transiently degraded home scope), drift-recreated the home's VM CLOSED,
+  // and then kept serving that broken VM forever (8 Nov 2026). A recovered
+  // resolution now builds a fresh backend and the drift check recreates the
+  // VM with the home's real spec.
+  const backends = new Map<string, { backend: ShellBackend; guestRoot: string }>();
+  const resolveOf = async (conversationId: string) => {
     const dir = dirOf(conversationId);
-    const existing = cache.get(dir);
+    const home = await holder?.get()?.homeScopeOf?.(conversationId);
+    const world = homeWorldOf(dir, home);
+    const key = JSON.stringify([
+      world.vmDir,
+      world.guestRoot,
+      world.sharedGid ?? null,
+      world.orgShared ?? null,
+      world.sharedStore ?? null,
+      world.teamShared ?? null,
+      world.user ?? null,
+      world.netAllowlist ?? null,
+      world.netOpen ?? null,
+      world.vm ?? null,
+    ]);
+    const existing = backends.get(key);
     if (existing !== undefined) return existing;
-    const building = (async () => {
-      const home = await holder?.get()?.homeScopeOf?.(conversationId);
-      const world = homeWorldOf(dir, home);
-      const staging = join(root, "..", "bash-home", scopeHash(dir));
-      const backend =
-        options.backend !== undefined
-          ? options.backend(dir, staging, world.guestRoot)
-          : sandboxShellBackend({
-              name: sandboxNameOf(world.vmDir),
-              guestRoot: world.guestRoot,
-              ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
-              ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
-              ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-              ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
-              ...(world.user === undefined ? {} : { user: world.user }),
-              ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
-              ...(world.vm === undefined ? {} : { vm: world.vm }),
-            })(staging);
-      return { backend, guestRoot: world.guestRoot };
-    })();
-    building.catch(() => cache.delete(dir));
-    cache.set(dir, building);
-    return building;
+    const staging = join(root, "..", "bash-home", scopeHash(dir));
+    const backend =
+      options.backend !== undefined
+        ? options.backend(dir, staging, world.guestRoot)
+        : sandboxShellBackend(sandboxOptionsOf(world))(staging);
+    const entry = { backend, guestRoot: world.guestRoot };
+    backends.set(key, entry);
+    return entry;
   };
 
   const command = async (

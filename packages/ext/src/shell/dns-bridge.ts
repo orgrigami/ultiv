@@ -114,7 +114,12 @@ export const dnsBridgeBootSteps = (): string[] => [
   DNSD_SOURCE,
   "__SPRIESSEN_DNSD__",
   "fi",
-  `pgrep -f spriessen-dnsd.py >/dev/null 2>&1 || nohup python3 ${DNSD_PATH} >/dev/null 2>&1 &`,
+  // The bracket pattern is load-bearing: a plain pattern matches this very
+  // script's own wrapper shell and the launch is skipped every time (the
+  // daemon file existed with no process running, 8 Nov 2026). setsid
+  // detaches the daemon from the provisioning exec's session.
+  `pgrep -f '[s]priessen-dnsd' >/dev/null 2>&1 || ` +
+    `setsid nohup python3 ${DNSD_PATH} >/dev/null 2>&1 < /dev/null &`,
   `grep -q '^nameserver 127\\.0\\.0\\.1' /etc/resolv.conf 2>/dev/null ` +
     `|| sed -i '1i nameserver 127.0.0.1' /etc/resolv.conf 2>/dev/null ` +
     `|| echo '${SETUP_WARN} dns bridge resolv.conf pin' >&2`,

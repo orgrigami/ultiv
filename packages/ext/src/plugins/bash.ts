@@ -50,7 +50,7 @@ import {
   type NodeShellTransport,
 } from "../shell/node-backend.ts";
 
-import { HOME, homeWorldOf, load, openSession } from "./bash-session.ts";
+import { HOME, homeWorldOf, load, openSession, sandboxOptionsOf } from "./bash-session.ts";
 import {
   EXEC_TIMEOUT_MS,
   HOST_TIMEOUT_MS,
@@ -81,7 +81,7 @@ import {
   type BashJobHost,
 } from "./bash-jobs.ts";
 import type { ResolvedWorld, SandboxSession } from "./bash-session.ts";
-export { botFolderName, homeWorldOf } from "./bash-session.ts";
+export { botFolderName, homeWorldOf, sandboxOptionsOf } from "./bash-session.ts";
 export type { HomeWorld } from "./bash-session.ts";
 
 export interface BashOptions {
@@ -396,20 +396,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
     const home = await holder?.get()?.homeScopeOf?.(conversationId);
     const world = homeWorldOf(dir, home);
     const staging = stagingOf(dir);
-    const sandboxOptions = {
-      name: sandboxNameOf(world.vmDir),
-      ...(options.image === undefined ? {} : { image: options.image }),
-      guestRoot: world.guestRoot,
-      ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
-      ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
-      ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-      ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
-      ...(world.user === undefined ? {} : { user: world.user }),
-      ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
-      ...(world.netOpen === undefined ? {} : { netOpen: world.netOpen }),
-      ...(world.vm === undefined ? {} : { vm: world.vm }),
-      ...(world.caps === undefined ? {} : { caps: world.caps }),
-    };
+    const sandboxOptions = sandboxOptionsOf(world, options.image);
     return {
       key: JSON.stringify(sandboxOptions),
       make: () => ({

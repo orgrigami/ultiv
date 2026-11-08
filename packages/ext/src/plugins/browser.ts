@@ -22,8 +22,8 @@ import { defineTool, type Tool } from "../tool.ts";
 import { scopeDir, type ScopeHolder } from "./vault.ts";
 import { artifactsDir, MAX_IMAGE_BASE64 } from "./artifacts.ts";
 import { pathForName, putFile } from "../fs/tree.ts";
-import { homeWorldOf } from "./bash.ts";
-import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
+import { homeWorldOf, sandboxOptionsOf } from "./bash.ts";
+import { sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 import { join } from "node:path";
 import type { ShellBackend } from "../shell/backend.ts";
 import {
@@ -261,36 +261,25 @@ export const browserPlugin = (options: BrowserOptions = {}): Plugin => {
   const holder = options.holder;
   const dirOf = (conversationId: string): string =>
     holder === undefined ? root : scopeDir(holder, conversationId, root);
-  // Keyed by scope dir, like bash's sessions: one backend per bot, so the
-  // VM boot provisioning (idempotent) runs once, not per call.
-  const cache = new Map<string, Promise<{ backend: ShellBackend; guestRoot: string }>>();
-  const resolveOf = (conversationId: string) => {
+  // Keyed by the RESOLVED WORLD, re-resolved per call (like the session
+  // tool's): a dir-keyed cache pins a transiently degraded first resolution
+  // for the process lifetime; a recovered one must rebuild and drift-heal.
+  const backends = new Map<string, { backend: ShellBackend; guestRoot: string }>();
+  const resolveOf = async (conversationId: string) => {
     const dir = dirOf(conversationId);
-    const existing = cache.get(dir);
+    const home = await holder?.get()?.homeScopeOf?.(conversationId);
+    const world = homeWorldOf(dir, home);
+    const key = JSON.stringify(sandboxOptionsOf(world));
+    const existing = backends.get(key);
     if (existing !== undefined) return existing;
-    const building = (async () => {
-      const home = await holder?.get()?.homeScopeOf?.(conversationId);
-      const world = homeWorldOf(dir, home);
-      const staging = join(root, "..", "bash-home", scopeHash(dir));
-      const backend =
-        options.backend !== undefined
-          ? options.backend(dir, staging, world.guestRoot)
-          : sandboxShellBackend({
-              name: sandboxNameOf(world.vmDir),
-              guestRoot: world.guestRoot,
-              ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
-              ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
-              ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
-              ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
-              ...(world.user === undefined ? {} : { user: world.user }),
-              ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
-              ...(world.vm === undefined ? {} : { vm: world.vm }),
-            })(staging);
-      return { backend, guestRoot: world.guestRoot };
-    })();
-    building.catch(() => cache.delete(dir));
-    cache.set(dir, building);
-    return building;
+    const staging = join(root, "..", "bash-home", scopeHash(dir));
+    const backend =
+      options.backend !== undefined
+        ? options.backend(dir, staging, world.guestRoot)
+        : sandboxShellBackend(sandboxOptionsOf(world))(staging);
+    const entry = { backend, guestRoot: world.guestRoot };
+    backends.set(key, entry);
+    return entry;
   };
   return definePlugin({
     id: "ultiv.browser",

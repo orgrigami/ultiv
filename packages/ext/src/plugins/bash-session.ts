@@ -10,7 +10,8 @@ import { DurableFs } from "../fs/durable-fs.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
 import type { HomeScope, SandboxUser } from "./vault.ts";
 import type { ShellBackend } from "../shell/backend.ts";
-import { scopeHash } from "../shell/sandbox-backend.ts";
+import { sandboxNameOf, scopeHash } from "../shell/sandbox-backend.ts";
+import type { SandboxBackendOptions } from "../shell/sandbox-options.ts";
 
 /** Where the bot's folder is mounted inside its VM. */
 export const HOME = "/home";
@@ -73,6 +74,29 @@ export const homeWorldOf = (botDir: string, home: HomeScope | undefined): HomeWo
     ...(home.vm === undefined ? {} : { vm: home.vm }),
   };
 };
+
+/**
+ * The backend options for one resolved world: EVERY field the world carries,
+ * nothing dropped. One shared builder because the tools resolve the same home
+ * independently — a field missed by one copy (the browser paths once dropped
+ * `netOpen`) made that tool's spec mismatch the home's, and its next use
+ * drift-recreated the home's VM with the weaker spec (8 Nov 2026: the org VM
+ * recreated closed, browser DNS dead, all afternoon).
+ */
+export const sandboxOptionsOf = (world: HomeWorld, image?: string): SandboxBackendOptions => ({
+  name: sandboxNameOf(world.vmDir),
+  guestRoot: world.guestRoot,
+  ...(image === undefined ? {} : { image }),
+  ...(world.sharedGid === undefined ? {} : { sharedGid: world.sharedGid }),
+  ...(world.orgShared === undefined ? {} : { orgShared: world.orgShared }),
+  ...(world.sharedStore === undefined ? {} : { sharedStore: world.sharedStore }),
+  ...(world.teamShared === undefined ? {} : { teamShared: world.teamShared }),
+  ...(world.user === undefined ? {} : { user: world.user }),
+  ...(world.netAllowlist === undefined ? {} : { netAllowlist: world.netAllowlist }),
+  ...(world.netOpen === undefined ? {} : { netOpen: world.netOpen }),
+  ...(world.caps === undefined ? {} : { caps: world.caps }),
+  ...(world.vm === undefined ? {} : { vm: world.vm }),
+});
 
 export const sha256 = (bytes: Uint8Array): string =>
   createHash("sha256").update(bytes).digest("hex");

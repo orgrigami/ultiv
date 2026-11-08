@@ -98,6 +98,10 @@ describe("bootScript (root, per boot)", () => {
     const script = bootScript(undefined, undefined, true);
     expect(script).toContain(".spriessen-dnsd.py");
     expect(script).toContain("dns-query");
+    // The launch guard must not match its own wrapper shell (the bracket
+    // pattern), and the daemon must be detached so it outlives provisioning.
+    expect(script).toContain("pgrep -f '[s]priessen-dnsd'");
+    expect(script).toContain("setsid nohup python3");
     // Pinned FIRST in resolv.conf; a failed pin warns instead of failing the boot.
     expect(script).toContain("sed -i '1i nameserver 127.0.0.1' /etc/resolv.conf");
     expect(script).toContain("|| echo 'spriessen-setup-warn: dns bridge resolv.conf pin' >&2");
