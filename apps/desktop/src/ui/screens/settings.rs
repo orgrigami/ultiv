@@ -27,6 +27,7 @@ pub fn view(s: &App, dark: bool) -> El {
         .child(model_setting(s, dark))
         .child(task_setting(s, dark))
         .child(pause_setting(s, dark))
+        .child(nodes_section(s, dark))
         .child(appearance_words(dark));
     if let Some(check) = &s.check {
         page = page.child(
@@ -170,6 +171,66 @@ fn pause_setting(s: &App, dark: bool) -> El {
                         .build(&k),
                 ),
         )
+}
+
+/// Nodes: the paired machines, and the Pair button whose token shows once.
+fn nodes_section(s: &App, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    let k = crate::theme::kit(dark);
+    let mut rows: Vec<El> = Vec::new();
+    if let Some(nodes) = s.nodes.as_ref() {
+        for node in nodes {
+            let name = crate::net::types::row_str(node, "name");
+            let connected = crate::net::types::row_bool(node, "connected").unwrap_or(false);
+            rows.push(
+                el()
+                    .key(format!("node:{}", crate::net::types::row_str(node, "id")))
+                    .w_full()
+                    .min_h(44.0)
+                    .px(space::S3)
+                    .py(space::S2)
+                    .gap(space::S2)
+                    .center_y()
+                    .child(el().key("dot").size(8.0, 8.0).radius(4.0).fill(if connected { t.success } else { t.muted_fg }))
+                    .child(text(if name.is_empty() { "A node".into() } else { name }).font(ty::UI).color(t.fg).grow(1.0))
+                    .child(text(if connected { "connected" } else { "offline" }.to_string()).font(ty::META).color(t.muted_fg)),
+            );
+        }
+    }
+    let mut section = col()
+        .key("sec-nodes")
+        .gap(space::S2)
+        .child(common::section_label("Nodes", dark))
+        .child(if rows.is_empty() {
+            common::empty_state("No machines paired.", dark)
+        } else {
+            common::list_card(dark).children(rows)
+        })
+        .child(
+            rune_kit::Button::new("Pair a machine")
+                .variant(rune_kit::ButtonVariant::Outline)
+                .on_press(|s: &mut App| {
+                    s.net.mutate(crate::net::endpoints::Mutation::PairNode("A desktop pair".into()), "pair-node");
+                })
+                .build(&k),
+        );
+    if let Some(token) = &s.node_token {
+        section = section.child(
+            el()
+                .key("node-token")
+                .w_full()
+                .padding(space::S3)
+                .radius(10.0)
+                .fill(t.live.alpha(0.12))
+                .child(
+                    col()
+                        .gap(2.0)
+                        .child(text("This token is shown once:".to_string()).font(ty::META_MED).color(t.fg))
+                        .child(text(token.clone()).font(ty::MONO).color(t.fg)),
+                ),
+        );
+    }
+    section
 }
 
 fn appearance_words(dark: bool) -> El {

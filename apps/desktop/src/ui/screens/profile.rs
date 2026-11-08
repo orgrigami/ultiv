@@ -103,12 +103,76 @@ fn tab_body(s: &App, bot_id: &str, tab: ProfileTab, dark: bool) -> El {
         ProfileTab::Memory => memory_tab(s, bot_id, dark),
         ProfileTab::Projects => rows_tab(&s.projects, "projects", "No goals yet.", dark),
         ProfileTab::Tables => rows_tab(&s.audit, "tables", "No tables yet.", dark),
-        ProfileTab::Browser => browser_tab(dark),
+        ProfileTab::Browser => browser_tab(s, dark),
         ProfileTab::Routines => crate::ui::screens::routines::bot_routines(s, bot_id, dark),
         ProfileTab::Access => access_tab(s, bot_id, dark),
         ProfileTab::Activity => rows_tab(&s.audit, "activity", "No activity yet.", dark),
         ProfileTab::Tests => common::empty_state("Evals load with the tests panel.", dark),
     }
+}
+
+/// The memory v2 panel: what the bot remembers — core lines, facts, and the
+/// open proposal count, with the tidy words. Read-only here; the lifecycle
+/// buttons live on the web client for now.
+fn memory_tab(s: &App, bot_id: &str, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    let Some(memory) = s.memories.get(bot_id) else {
+        return common::empty_state("Memory loads with the tab…", dark);
+    };
+    let mut rows: Vec<El> = Vec::new();
+    if let Some(core) = memory.get("core") {
+        for (i, side) in ["owner", "profile"].into_iter().enumerate() {
+            if let Some(lines) = core.get(side).and_then(serde_json::Value::as_array) {
+                for (j, line) in lines.iter().enumerate() {
+                    let words = crate::net::types::row_str(line, "text");
+                    if words.is_empty() {
+                        continue;
+                    }
+                    rows.push(
+                        el()
+                            .key(format!("core:{i}:{j}"))
+                            .w_full()
+                            .px(space::S3)
+                            .py(space::S2)
+                            .gap(space::S2)
+                            .center_y()
+                            .child(text("core".to_string()).font(ty::META_MED).color(t.live).w(52.0))
+                            .child(text(words).font(ty::UI).color(t.fg).max_lines(2).grow(1.0)),
+                    );
+                }
+            }
+        }
+    }
+    if let Some(facts) = memory.get("facts").and_then(serde_json::Value::as_array) {
+        for (j, fact) in facts.iter().take(50).enumerate() {
+            let words = crate::net::types::row_str(fact, "text");
+            if words.is_empty() {
+                continue;
+            }
+            rows.push(
+                el()
+                    .key(format!("fact:{j}"))
+                    .w_full()
+                    .px(space::S3)
+                    .py(space::S2)
+                    .gap(space::S2)
+                    .center_y()
+                    .child(text(words).font(ty::UI).color(t.fg).max_lines(3).grow(1.0)),
+            );
+        }
+    }
+    let open = memory.get("proposals").and_then(serde_json::Value::as_array).map(Vec::len).unwrap_or(0);
+    let proposals = (open > 0).then(|| {
+        text(format!("{open} proposal{} waiting for a verdict", if open == 1 { "" } else { "s" }))
+            .font(ty::META)
+            .color(t.live)
+    });
+    let body = if rows.is_empty() {
+        common::empty_state("This bot remembers nothing yet.", dark)
+    } else {
+        common::list_card(dark).children(rows)
+    };
+    col().key("memory-tab").gap(space::S3).children(proposals).child(body)
 }
 
 fn overview(s: &App, bot_id: &str, dark: bool) -> El {
@@ -161,22 +225,71 @@ fn detail_line(label: &str, value: &str, dark: bool) -> El {
         .child(text(value.to_string()).font(ty::UI).color(t.fg).max_lines(1))
 }
 
+/// The bot's files: the two owner-editable files (Persona, Instructions)
+/// render as editors with Save; versions stay on the web client for now.
 fn files_tab(s: &App, bot_id: &str, kind: &str, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    let which = if kind == "instructions" { "Persona and Instructions live in the bot's file tree." } else { "The bot's files." };
-    let mut card = common::list_card(dark);
-    card = if s.has("profiles") {
-        card.child(common::empty_state(which, dark))
-    } else {
-        card.child(common::skeleton(280.0, 40.0, dark))
+    let k = crate::theme::kit(dark);
+    let which: &str = if kind == "instructions" { "Instructions" } else { "Persona" };
+    let key = format!("{bot_id}:{kind}");
+    let loaded_key = format!("bot-file:{key}");
+    if !s.has(&loaded_key) {
+        return col()
+            .key("files-tab")
+            .gap(space::S3)
+            .child(text(which.to_string()).font(ty::UI_MED).color(t.fg))
+            .child(common::skeleton(320.0, 80.0, dark));
+    }
+    let saved = s.bot_files_saved.get(&key).cloned().unwrap_or_default();
+    let draft = s.bot_files.get(&key);
+    let dirty = draft.map(|d| d.text != saved).unwrap_or(false);
+    let editor = match draft {
+        Some(edit) => {
+            let edit_key = key.clone();
+            rune_kit::TextArea::new(edit)
+                .placeholder(format!(
+                    "Its {}.",
+                    if kind == "instructions" { "instructions" } else { "persona" }
+                ))
+                .on_edit(move |s: &mut App| {
+                    s.bot_files.get_mut(&edit_key).unwrap_or(&mut s.scratch_edit)
+                })
+                .build(&k)
+        }
+        None => rune_kit::TextArea::new(&s.scratch_edit).build(&k),
     };
-    let _ = bot_id;
-    col().key("files-tab").gap(space::S3).child(text(kind.to_string()).font(ty::UI_MED).color(t.fg)).child(card)
+    let save_key = key.clone();
+    let save_kind = kind.to_string();
+    let save_profile = bot_id.to_string();
+    col()
+        .key("files-tab")
+        .gap(space::S3)
+        .child(
+            rune::row()
+                .key("file-head")
+                .gap(space::S2)
+                .center_y()
+                .child(text(which.to_string()).font(ty::UI_MED).color(t.fg))
+                .children(dirty.then(|| text("Unsaved".to_string()).font(ty::META).color(t.live)))
+                .child(el().key("space").grow(1.0))
+                .child(
+                    rune_kit::Button::new("Save")
+                        .variant(rune_kit::ButtonVariant::Submit)
+                        .disabled(!dirty)
+                        .on_press(move |s: &mut App| save_file(s, &save_profile, &save_kind, &save_key))
+                        .build(&k),
+                ),
+        )
+        .child(editor)
 }
 
-fn memory_tab(s: &App, bot_id: &str, dark: bool) -> El {
-    let _ = (s, bot_id);
-    common::empty_state("Memory loads from /api/memory/v2 with the profile scope.", dark)
+fn save_file(s: &mut App, profile: &str, kind: &str, key: &str) {
+    let Some(edit) = s.bot_files.get(key) else { return };
+    let text = edit.text.clone();
+    s.net.mutate(
+        crate::net::endpoints::Mutation::SaveBotFile { profile: profile.to_string(), file: kind.to_string(), text },
+        &format!("bot-file:{key}"),
+    );
 }
 
 fn rows_tab(rows: &[crate::net::types::Row], key: &str, words: &str, dark: bool) -> El {
@@ -207,8 +320,42 @@ fn rows_tab(rows: &[crate::net::types::Row], key: &str, words: &str, dark: bool)
     col().key(key).gap(space::S3).child(list)
 }
 
-fn browser_tab(dark: bool) -> El {
-    common::empty_state("Browser takeover asks appear here, live.", dark)
+/// The Browser tab: the bot's open takeover asks (the live cast drives from
+/// the web client; the ask list keeps the desktop honest about them).
+fn browser_tab(s: &App, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    if !s.has("takeovers") {
+        return common::empty_state("Checking for takeover asks…", dark);
+    }
+    if s.takeovers.is_empty() {
+        return common::empty_state("No takeover asks right now.", dark);
+    }
+    let rows: Vec<El> = s
+        .takeovers
+        .iter()
+        .map(|ask| {
+            let why = crate::net::types::row_str(ask, "reason");
+            let url = crate::net::types::row_str(ask, "url");
+            el()
+                .key(format!("take:{}", crate::net::types::row_str(ask, "id")))
+                .w_full()
+                .min_h(56.0)
+                .px(space::S3)
+                .py(space::S2)
+                .gap(space::S2)
+                .center_y()
+                .child(
+                    col()
+                        .gap(2.0)
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .child(text(if why.is_empty() { "It wants the browser".into() } else { why }).font(ty::UI_MED).color(t.fg).max_lines(1))
+                        .children((!url.is_empty()).then(|| text(url).font(ty::MONO).color(t.muted_fg).max_lines(1))),
+                )
+                .child(text("waiting".to_string()).font(ty::META).color(t.live))
+        })
+        .collect();
+    common::list_card(dark).children(rows)
 }
 
 fn access_tab(s: &App, bot_id: &str, dark: bool) -> El {

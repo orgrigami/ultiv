@@ -75,72 +75,234 @@ fn stop_button(s: &App, k: &rune_kit::Kit) -> Option<El> {
     )
 }
 
-/// The chat's own gated call, as a decision card at the transcript's end:
-/// "<who> wants to <action>", the reason, then Deny / Approve / Always allow.
+/// The chat's own gated call, as its card at the transcript's end: the
+/// generic decision card, the secret card (fields straight to the vault),
+/// or the question card (options answer at once, or the owner types one).
 fn pending_card(s: &App, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
     let Some(pending) = &s.chat_pending else { return vec![] };
+    let name = pending.get("name").and_then(serde_json::Value::as_str).unwrap_or("");
+    match name {
+        "secret_request" => secret_card(s, pending, dark, k),
+        "ask_user_question" => question_card(s, pending, dark, k),
+        _ => decision_card(s, pending, dark, k),
+    }
+}
+
+/// The card's shared head: "<who> wants to <action>".
+fn pending_head(s: &App, pending: &serde_json::Value, dark: bool) -> (El, String, Option<El>) {
     let t = crate::theme::tokens(dark);
     let call = pending.get("callId").and_then(serde_json::Value::as_str).unwrap_or("").to_string();
+    let name = pending.get("name").and_then(serde_json::Value::as_str).unwrap_or("a tool");
+    let who = s.current_bot().map(|b| b.name.clone()).unwrap_or_else(|| "The bot".into());
+    let risky = pending.get("risky").and_then(serde_json::Value::as_bool).unwrap_or(false);
+    let head = rune::row()
+        .key("pending-head")
+        .gap(space::S2)
+        .center_y()
+        .child(el().key("mark").size(8.0, 8.0).radius(4.0).fill(if risky { t.signal } else { t.live }))
+        .child(
+            text(format!("{who} wants to {}", crate::ui::screens::now::tool_words(name)))
+                .font(ty::UI_MED)
+                .color(t.fg),
+        );
+    (head, call, None)
+}
+
+fn card_shell(_s: &App, dark: bool, edge: rune::Color, head: El, body: Vec<El>) -> El {
+    let t = crate::theme::tokens(dark);
+    col()
+        .key("pending-card")
+        .w_full()
+        .padding(space::S3)
+        .gap(space::S2)
+        .radius(15.0)
+        .fill(t.card)
+        .border(1.0, edge)
+        .child(head)
+        .children(body)
+}
+
+fn decision_card(s: &App, pending: &serde_json::Value, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
+    let t = crate::theme::tokens(dark);
+    let (head, call, _) = pending_head(s, pending, dark);
     if call.is_empty() {
         return vec![];
     }
-    let name = pending.get("name").and_then(serde_json::Value::as_str).unwrap_or("a tool");
-    let who = s.current_bot().map(|b| b.name.clone()).unwrap_or_else(|| "The bot".into());
     let reason = pending.get("reason").and_then(serde_json::Value::as_str);
     let risky = pending.get("risky").and_then(serde_json::Value::as_bool).unwrap_or(false);
-    let edge = if risky { t.signal } else { t.hairline };
     let deny_call = call.clone();
     let approve_call = call.clone();
-    vec![
-        col()
-            .key("pending-card")
-            .w_full()
-            .padding(space::S3)
+    let always_call = call.clone();
+    vec![card_shell(
+        s,
+        dark,
+        if risky { t.signal } else { t.hairline },
+        head,
+        vec![
+            reason
+                .map(|r| {
+                    el()
+                        .key("pending-reason")
+                        .w_full()
+                        .pl(space::S3)
+                        .border(2.0, t.hairline)
+                        .child(text(r.to_string()).font(ty::UI).color(t.muted_fg))
+                })
+                .unwrap_or_else(|| el().key("no-reason")),
+            rune::row()
+                .key("pending-actions")
+                .gap(space::S2)
+                .child(
+                    Button::new("Deny").variant(ButtonVariant::Outline).on_press(move |s: &mut App| {
+                        decide_here(s, deny_call.clone(), false, false);
+                    }).build(k),
+                )
+                .child(
+                    Button::new("Approve").variant(ButtonVariant::Submit).on_press(move |s: &mut App| {
+                        decide_here(s, approve_call.clone(), true, false);
+                    }).build(k),
+                )
+                .child(
+                    Button::new("Always allow").variant(ButtonVariant::Ghost).on_press(move |s: &mut App| {
+                        decide_here(s, always_call.clone(), true, true);
+                    }).build(k),
+                ),
+        ],
+    )]
+}
+
+/// The secret card: one masked editor per asked field, straight to the vault.
+fn secret_card(s: &App, pending: &serde_json::Value, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
+    let t = crate::theme::tokens(dark);
+    let (head, call, _) = pending_head(s, pending, dark);
+    if call.is_empty() {
+        return vec![];
+    }
+    let fields = pending["input"]["fields"].as_array().cloned().unwrap_or_default();
+    let mut body: Vec<El> = Vec::new();
+    let mut values: Vec<(String, String)> = Vec::new();
+    for (i, field) in fields.iter().enumerate() {
+        let key = crate::net::types::row_str(field, "key");
+        let label = crate::net::types::row_str(field, "label");
+        let edit = s
+            .secret_edits
+            .get(&call)
+            .and_then(|edits| edits.iter().find(|(k2, _)| k2 == &key))
+            .map(|(_, e)| e.clone())
+            .unwrap_or_default();
+        values.push((key, edit.text.clone()));
+        let edit_key = call.clone();
+        body.push(
+            rune_kit::TextInput::new(&edit)
+                .placeholder(label)
+                .secure()
+                .on_edit(move |s: &mut App| {
+                    let edits = s.secret_edits.entry(edit_key.clone()).or_default();
+                    let idx = i.min(edits.len().saturating_sub(1));
+                    edits.get_mut(idx).map(|(_, e)| e).unwrap_or(&mut s.scratch_edit)
+                })
+                .build(k),
+        );
+    }
+    let ready = !values.is_empty() && values.iter().all(|(_, v)| !v.trim().is_empty());
+    let submit_call = call.clone();
+    let cancel_call = call.clone();
+    body.push(
+        rune::row()
+            .key("secret-actions")
             .gap(space::S2)
-            .radius(15.0)
-            .fill(t.card)
-            .border(1.0, edge)
             .child(
-                rune::row()
-                    .key("pending-head")
-                    .gap(space::S2)
-                    .center_y()
-                    .child(el().key("mark").size(8.0, 8.0).radius(4.0).fill(if risky { t.signal } else { t.live }))
-                    .child(
-                        text(format!("{who} wants to {}", crate::ui::screens::now::tool_words(name)))
-                            .font(ty::UI_MED)
-                            .color(t.fg),
-                    ),
+                Button::new("Step away").variant(ButtonVariant::Outline).on_press(move |s: &mut App| {
+                    let call = cancel_call.clone();
+                    s.net.mutate(crate::net::endpoints::Mutation::SecretCancel(call.clone()), &format!("secret:{call}"));
+                }).build(k),
             )
-            .children(reason.map(|r| {
-                el()
-                    .key("pending-reason")
-                    .w_full()
-                    .pl(space::S3)
-                    .border(2.0, t.hairline)
-                    .child(text(r.to_string()).font(ty::UI).color(t.muted_fg))
-            }))
             .child(
-                rune::row()
-                    .key("pending-actions")
-                    .gap(space::S2)
-                    .child(
-                        Button::new("Deny").variant(ButtonVariant::Outline).on_press(move |s: &mut App| {
-                            decide_here(s, deny_call.clone(), false, false);
-                        }).build(k),
-                    )
-                    .child(
-                        Button::new("Approve").variant(ButtonVariant::Submit).on_press(move |s: &mut App| {
-                            decide_here(s, approve_call.clone(), true, false);
-                        }).build(k),
-                    )
-                    .child(
-                        Button::new("Always allow").variant(ButtonVariant::Ghost).on_press(move |s: &mut App| {
-                            decide_here(s, call.clone(), true, true);
-                        }).build(k),
-                    ),
+                Button::new("Save to the vault").variant(ButtonVariant::Submit).disabled(!ready).on_press(move |s: &mut App| {
+                    let (call, values) = (submit_call.clone(), values.clone());
+                    let map: serde_json::Map<String, serde_json::Value> = values
+                        .into_iter()
+                        .map(|(k2, v)| (k2, serde_json::Value::String(v)))
+                        .collect();
+                    s.net.mutate(
+                        crate::net::endpoints::Mutation::SecretSubmit { call: call.clone(), values: map.into() },
+                        &format!("secret:{call}"),
+                    );
+                }).build(k),
             ),
-    ]
+    );
+    vec![card_shell(s, dark, t.signal, head, body)]
+}
+
+/// The question card: options answer at once; or the owner types their own.
+fn question_card(s: &App, pending: &serde_json::Value, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
+    let t = crate::theme::tokens(dark);
+    let (head, call, _) = pending_head(s, pending, dark);
+    if call.is_empty() {
+        return vec![];
+    }
+    let input = &pending["input"];
+    let question = crate::net::types::row_str(input, "question");
+    let options = input.get("options").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+    let mut body: Vec<El> = vec![text(question).font(ty::UI).color(t.fg)];
+    for (i, option) in options.iter().enumerate() {
+        let label = crate::net::types::row_str(option, "label");
+        let detail = crate::net::types::row_str(option, "detail");
+        let answer_call = call.clone();
+        let answer = label.clone();
+        body.push(
+            el()
+                .key(format!("opt:{i}"))
+                .w_full()
+                .px(space::S3)
+                .py(space::S2)
+                .gap(space::S2)
+                .center_y()
+                .radius(9.0)
+                .hover(t.wash(0.05))
+                .focusable(true)
+                .on_press(move |s: &mut App| {
+                    let (call, answer) = (answer_call.clone(), answer.clone());
+                    s.net.mutate(
+                        crate::net::endpoints::Mutation::AnswerQuestion { conversation: s.chat_session.clone().unwrap_or_default(), call: call.clone(), answer },
+                        &format!("decide:{call}"),
+                    );
+                })
+                .child(
+                    col()
+                        .gap(2.0)
+                        .grow(1.0)
+                        .child(text(label).font(ty::UI_MED).color(t.fg))
+                        .children((!detail.is_empty()).then(|| text(detail).font(ty::META).color(t.muted_fg))),
+                ),
+        );
+    }
+    let own = rune_kit::TextArea::new(&s.question_edit)
+        .placeholder("Or answer in your own words")
+        .on_edit(|s: &mut App| &mut s.question_edit)
+        .build(k);
+    let own_call = call.clone();
+    body.push(own);
+    body.push(
+        rune::row()
+            .key("question-actions")
+            .gap(space::S2)
+            .child(
+                Button::new("Send the answer").variant(ButtonVariant::Submit).on_press(move |s: &mut App| {
+                    let call = own_call.clone();
+                    let answer = s.question_edit.text.trim().to_string();
+                    if answer.is_empty() {
+                        return;
+                    }
+                    s.question_edit = rune::TextEdit::new(String::new());
+                    s.net.mutate(
+                        crate::net::endpoints::Mutation::AnswerQuestion { conversation: s.chat_session.clone().unwrap_or_default(), call: call.clone(), answer },
+                        &format!("decide:{call}"),
+                    );
+                }).build(k),
+            ),
+    );
+    vec![card_shell(s, dark, t.live, head, body)]
 }
 
 fn decide_here(s: &mut App, call: String, approved: bool, always: bool) {
@@ -176,8 +338,8 @@ fn transcript_rows(s: &App, dark: bool) -> Vec<El> {
     for (i, m) in s.chat.iter().enumerate() {
         let key = format!("msg:{i}");
         match m.role.as_str() {
-            "user" | "owner" => rows.push(owner_row(key, m, dark)),
-            "tool" => rows.push(tool_row(key, m, dark)),
+            "user" | "owner" => rows.push(owner_row(s, key, m, dark)),
+            "tool" | "tool-error" => rows.push(tool_row(key, m, dark)),
             "note" | "thinking" => rows.push(quiet_row(key, m, dark)),
             _ => rows.push(bot_row(key, m, dark)),
         }
@@ -185,21 +347,55 @@ fn transcript_rows(s: &App, dark: bool) -> Vec<El> {
     rows
 }
 
-fn owner_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn owner_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    el().key(key).w_full().child(
+    let chip = m.id.as_deref().and_then(|id| s.chat_reactions.get(id)).map(|emoji| {
         el()
-            .key("owner-card")
-            .max_w(560.0)
-            .ml(24.0)
-            .padding(space::S3)
-            .radius(20.0)
-            .fill(t.muted.alpha(0.7))
-            .child(text(m.text.clone()).font(ty::CHAT).color(t.fg)),
+            .key("reaction")
+            .px(8.0)
+            .py(2.0)
+            .radius(10.0)
+            .fill(t.card)
+            .border(1.0, t.hairline)
+            .child(text(emoji.to_string()).font(ty::UI))
+    });
+    let branch = m.id.as_deref().map(|id| {
+        let (session, at) = (s.chat_session.clone().unwrap_or_default(), id.to_string());
+        Button::new("Branch")
+            .variant(ButtonVariant::Ghost)
+            .on_press(move |s: &mut App| {
+                let (session, at) = (session.clone(), at.clone());
+                s.net.mutate(
+                    crate::net::endpoints::Mutation::Branch { session: session.clone(), at },
+                    &format!("branch:{session}"),
+                );
+            })
+            .build(&crate::theme::kit(dark))
+    });
+    el().key(key).w_full().child(
+        col()
+            .key("owner-wrap")
+            .gap(4.0)
+            .child(
+                el()
+                    .key("owner-card")
+                    .max_w(560.0)
+                    .padding(space::S3)
+                    .radius(20.0)
+                    .fill(t.muted.alpha(0.7))
+                    .child(text(m.text.clone()).font(ty::CHAT).color(t.fg)),
+            )
+            .child(
+                rune::row()
+                    .key("owner-actions")
+                    .gap(space::S2)
+                    .children(chip)
+                    .children(branch),
+            ),
     )
 }
 
-fn bot_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn bot_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
     el().key(key).w_full().child(
         col()
@@ -212,9 +408,15 @@ fn bot_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
 
 /// A tool row through the lens: the working mark or the family dot, the
 /// owner-worded title, its detail, and a tabular duration past 3 s.
-fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    let dot = if m.streaming { t.live } else { t.success };
+    let dot = if m.streaming {
+        t.live
+    } else if m.role == "tool-error" {
+        t.deny
+    } else {
+        t.success
+    };
     rune::row()
         .key(key)
         .w_full()
@@ -229,7 +431,7 @@ fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
 }
 
 /// The quiet lines: thinking and progress notes.
-fn quiet_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn quiet_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
     el().key(key).w_full().child(
         text(m.text.clone()).font(ty::META).color(t.muted_fg).max_lines(6),

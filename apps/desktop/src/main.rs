@@ -22,6 +22,7 @@ fn setup(s: &mut App, waker: rune::Waker) {
     s.net.spawn(waker.clone(), rx);
     s.net.set_auth(auth);
     s.net.fetch(Fetch::AuthStatus);
+    s.img_cache = Some(std::sync::Arc::new(rune::ImageCache::new(waker.clone())));
     s.bridge.spawn(waker, &s.server, s.cookie.as_deref().unwrap_or(""));
 }
 

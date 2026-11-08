@@ -19,6 +19,8 @@ use std::sync::{Arc, Mutex};
 pub enum Event {
     /// A fetch's payload arrived (the app maps it into its caches).
     Payload(Fetch, serde_json::Value),
+    /// A raw-bytes fetch arrived (image previews).
+    Bytes(String, Arc<Vec<u8>>),
     /// A mutation finished: tag names the caller, ok whether it landed,
     /// and the message carries a failure's words (or the sign-in cookie).
     Done(String, bool, Option<String>),
@@ -116,7 +118,29 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
                 client.auth = auth;
                 shared.generation.store(true, Ordering::Relaxed);
             }
-            Job::Fetch(f) => match endpoints::run_fetch(&client, &f) {
+            Job::Fetch(f) => {
+                if let Some(bytes) = endpoints::run_fetch_bytes(&client, &f) {
+                    match bytes {
+                        Ok(b) => {
+                            let id = match &f {
+                                endpoints::Fetch::ArtifactBytes(id) => id.clone(),
+                                _ => String::new(),
+                            };
+                            shared.deliver(Event::Bytes(id, Arc::new(b)));
+                            waker();
+                        }
+                        Err(ApiError::Expired) => {
+                            shared.deliver(Event::Expired);
+                            waker();
+                        }
+                        Err(ApiError::Failed(m)) => {
+                            shared.deliver(Event::Done(f.tag(), false, Some(m)));
+                            waker();
+                        }
+                    }
+                    continue;
+                }
+                match endpoints::run_fetch(&client, &f) {
                 Ok(v) => {
                     if trace {
                         eprintln!("net: fetch ok {}", f.tag());
@@ -131,14 +155,15 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
                     shared.deliver(Event::Expired);
                     waker();
                 }
-                Err(ApiError::Failed(m)) => {
-                    if trace {
-                        eprintln!("net: fetch failed {} {m}", f.tag());
+                    Err(ApiError::Failed(m)) => {
+                        if trace {
+                            eprintln!("net: fetch failed {} {m}", f.tag());
+                        }
+                        shared.deliver(Event::Done(f.tag(), false, Some(m)));
+                        waker();
                     }
-                    shared.deliver(Event::Done(f.tag(), false, Some(m)));
-                    waker();
                 }
-            },
+            }
             Job::Mutate(m, tag) => match endpoints::run_mutation(&client, &m) {
                 Ok(v) => {
                     shared.deliver(Event::Done(tag, true, cookie_of(&v)));
@@ -157,9 +182,14 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
     }
 }
 
-/// A sign-in's answer carries the cookie for the UI to store.
+/// The one-time secrets some answers carry: the sign-in cookie, the paired
+/// node's token, and a branch's new session id (each shown or acted on once).
 fn cookie_of(v: &serde_json::Value) -> Option<String> {
-    v.get("cookie").and_then(serde_json::Value::as_str).map(String::from)
+    v.get("cookie")
+        .or_else(|| v.get("token"))
+        .and_then(serde_json::Value::as_str)
+        .map(String::from)
+        .or_else(|| v.get("id").and_then(serde_json::Value::as_str).map(String::from))
 }
 
 impl Fetch {

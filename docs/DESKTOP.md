@@ -60,19 +60,25 @@ Scenes: `now`, `crew`, `settings`, `routines`, `history`, `rooms`, `tools`,
 ## Parity status
 
 Working: sign-in gate (bootstrap and sign-in), rail with roster and Recents,
-Chats with the live chord transcript, send via the composer (steer/queue
-semantics follow the Session object), Needs you with approve/deny and parked
-retry, Now (working/finished/goals/files), Crew and bot profiles with pill
-tabs, Settings (server check, default model, task default, pause, theme,
-sign out), Routines (enable/trial, webhook test), Past chats with the words
-said, Bot talks with the owner composer, Tools tabs, the work dock (max five
-tabs), the quick switcher (Cmd/Ctrl-K, N).
+Chats with the live chord transcript, send via the composer, the tool-call
+lens rows (the web's owner words through `@spriessen/present` in the
+sidecar), the reaction chips and the Branch button on the owner's messages,
+the decision / secret / question approval cards in the chat, Stop while the
+bot works, Needs you with approve/deny and parked retry, Now
+(working/finished/goals/files), Crew and bot profiles with pill tabs
+including the Persona/Instructions editors, the memory v2 panel, and the
+browser-takeover ask list, Settings (server check, default model, task
+default, pause, nodes pairing with the one-time token, theme, sign out),
+Routines (enable/trial, webhook test), Past chats with the words said, Bot
+talks with the owner composer, Tools tabs, the work dock (max five tabs,
+task timelines, file previews: images decode through the rune cache, CSV/TSV
+draw tables, text renders mono), and the quick switcher (Cmd/Ctrl-K, N).
 
-Behind the web, in order: the tool-call lens inside the transcript (tool rows
-carry plain words today, not the per-kind bodies), task-sheet timelines, file
-preview bodies per kind (text previews render; images/PDF/CSV/table views
-don't yet), the profile file editors, the memory v2 panel, org admin, nodes
-pairing, the browser takeover cast (SSE), reactions and branching, the
-approval-card variants (secret/question/bot-create). The Web Push story is
-replaced by the OS; `docs/WEB.md` remains the behavior authority for
-everything both clients share.
+Behind the web: the lens's expanded per-kind bodies (shaped search/HTTP/
+terminal views — rows carry titles and details only), file previews' toolbar
+(source/wrap/copy/download/fullscreen), skill panels' bodies and proposals,
+org admin (teams, grants, templates), evals/tests panels, the takeover live
+cast (SSE; the desktop lists asks), reactions the owner sets (the web only
+shows the bot's), message-level reactions beyond the bot chips, and the
+bot-create approval variant. Web Push is replaced by the OS; `docs/WEB.md`
+remains the behavior authority for everything both clients share.

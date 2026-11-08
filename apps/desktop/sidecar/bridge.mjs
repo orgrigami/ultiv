@@ -116,12 +116,24 @@ async function loadLens() {
 }
 
 // Project one transcript entry for the Rust side: tool steps carry the
-// presentation (hidden ones drop out), everything else passes as is.
+// presentation (hidden ones drop out), `react` becomes a reaction chip,
+// everything else passes as is.
 function project(entries) {
   if (!Array.isArray(entries)) return entries;
   return entries
     .map((entry) => {
       if (entry?.kind !== "tool") return entry;
+      if (entry.step?.name === "react") {
+        const details = entry.step?.details;
+        if (details && typeof details === "object") {
+          return {
+            kind: "reaction",
+            id: entry.id,
+            reaction: details.reaction ?? details.name ?? "ok",
+          };
+        }
+        return null;
+      }
       if (presentationOf === null) return entry;
       const presentation = presentationOf(entry.step);
       if (presentation.kind === "hidden") return null;

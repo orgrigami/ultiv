@@ -240,6 +240,30 @@ pub struct App {
     pub history_query: rune::TextEdit,
     /// Text previews the dock has loaded, by artifact id.
     pub previews: HashMap<String, String>,
+    /// Task timelines the dock has loaded, by task id (the projected tail).
+    pub activities: HashMap<String, Vec<ChatMessage>>,
+    /// The rune image cache (built once in setup) and the decoded previews.
+    pub img_cache: Option<std::sync::Arc<rune::ImageCache>>,
+    pub images: HashMap<String, rune::Image>,
+    /// Memory v2 payloads by profile id.
+    pub memories: HashMap<String, Row>,
+    /// The paired node's one-time token (Settings shows it once).
+    pub node_token: Option<String>,
+    /// The paired machines (GET /api/nodes).
+    pub nodes: Option<Vec<Row>>,
+    /// The open browser takeover asks.
+    pub takeovers: Vec<Row>,
+    /// The bot file editors' drafts, keyed "profile:file".
+    pub bot_files: HashMap<String, rune::TextEdit>,
+    /// The bot files' saved text, so Save knows whether anything changed.
+    pub bot_files_saved: HashMap<String, String>,
+    /// The bot's reaction on each owner message (the `react` tool's chips).
+    pub chat_reactions: HashMap<String, String>,
+    /// The chat's own gated call waiting on the owner (Session.pending).
+    /// The secret card's field editors, by call id (field key + editor).
+    pub secret_edits: HashMap<String, Vec<(String, rune::TextEdit)>>,
+    /// The question card's own-answer editor.
+    pub question_edit: rune::TextEdit,
     /// The quick switcher's query field.
     pub switcher_edit: rune::TextEdit,
     /// The onboarding card's bot-name field.
@@ -255,6 +279,8 @@ pub struct ChatMessage {
     /// Tool rows: the lens's one-line detail, and the duration word.
     pub detail: Option<String>,
     pub duration: Option<String>,
+    /// The transcript id (owner messages carry their reaction chip).
+    pub id: Option<String>,
 }
 
 impl ChatMessage {
@@ -263,6 +289,11 @@ impl ChatMessage {
     /// without its presentation passes as plain words.
     pub fn of(entry: &serde_json::Value) -> Option<ChatMessage> {
         let kind = entry.get("kind")?.as_str()?;
+        let id = entry.get("id").map(|i| match i {
+            serde_json::Value::Number(n) => n.to_string(),
+            serde_json::Value::String(s) => s.clone(),
+            _ => String::new(),
+        });
         let plain = |role: &str, words: &str, streaming: bool| {
             Some(ChatMessage {
                 role: role.into(),
@@ -270,6 +301,7 @@ impl ChatMessage {
                 streaming,
                 detail: None,
                 duration: None,
+                id: id.clone(),
             })
         };
         match kind {
@@ -281,28 +313,40 @@ impl ChatMessage {
             ),
             "note" => plain("note", entry.get("text")?.as_str()?, false),
             "thinking" => plain("thinking", entry.get("text")?.as_str()?, false),
-            "tool" => tool_message(entry),
+            "tool" => tool_message(entry, id),
             _ => None,
         }
     }
 }
 
 /// A tool row from the lens's view: title by status, detail, duration word.
-fn tool_message(entry: &serde_json::Value) -> Option<ChatMessage> {
-    let view = entry.get("presentation")?;
+/// Without a presentation (the lens lives in the sidecar; REST activity steps
+/// arrive raw) the row falls back to plain owner words for the name.
+fn tool_message(entry: &serde_json::Value, id: Option<String>) -> Option<ChatMessage> {
     let running = entry["step"]["status"] == "running";
-    let title = if running { view.get("live")? } else { view.get("done")? }.as_str()?.to_string();
-    let detail = view.get("detail").and_then(serde_json::Value::as_str).map(String::from);
+    let failed = entry["step"]["status"] == "error";
+    let name = entry["step"]["name"].as_str().unwrap_or("a tool");
+    let (title, detail) = match entry.get("presentation") {
+        Some(view) => {
+            let title_field = if running { view.get("live")? } else { view.get("done")? };
+            (title_field.as_str()?.to_string(), view.get("detail").and_then(serde_json::Value::as_str).map(String::from))
+        }
+        None => {
+            let words = crate::ui::screens::now::tool_words(name);
+            (if running { format!("{}…", words) } else { words }, None)
+        }
+    };
     let duration = entry["step"]["durationMs"]
         .as_f64()
         .filter(|ms| *ms >= 3000.0)
         .map(|ms| format!("{:.0}s", (ms / 1000.0).round()));
     Some(ChatMessage {
-        role: "tool".into(),
+        role: if failed { "tool-error".into() } else { "tool".into() },
         text: title,
         streaming: running,
         detail,
         duration,
+        id,
     })
 }
 
@@ -366,6 +410,18 @@ impl Default for App {
             room_draft: rune::TextEdit::new(String::new()),
             history_query: rune::TextEdit::new(String::new()),
             previews: HashMap::new(),
+            activities: HashMap::new(),
+            img_cache: None,
+            images: HashMap::new(),
+            memories: HashMap::new(),
+            node_token: None,
+            nodes: None,
+            takeovers: Vec::new(),
+            bot_files: HashMap::new(),
+            bot_files_saved: HashMap::new(),
+            chat_reactions: HashMap::new(),
+            secret_edits: HashMap::new(),
+            question_edit: rune::TextEdit::new(String::new()),
             switcher_edit: rune::TextEdit::new(String::new()),
             onboard_name: rune::TextEdit::new(String::new()),
         }
@@ -455,4 +511,14 @@ impl App {
 
 fn tidy_count(n: &NeedsYou) -> usize {
     n.tidy.as_ref().map(|t| t.get("count").and_then(serde_json::Value::as_f64).unwrap_or(0.0) as usize).unwrap_or(0)
+}
+
+/// The emoji each reaction renders as (`REACTION_EMOJI`; the list is fixed).
+pub fn reaction_emoji(name: &str) -> &'static str {
+    match name {
+        "no" => "👎",
+        "looking" => "👀",
+        "done" => "✅",
+        _ => "👍",
+    }
 }

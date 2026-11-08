@@ -117,6 +117,13 @@ pub fn get_text(client: &Client, path: &str) -> ApiResult<String> {
     resp.body_mut().read_to_string().map_err(|e| ApiError::Failed(e.to_string()))
 }
 
+/// GET a body as bytes (image previews).
+pub fn get_bytes(client: &Client, path: &str) -> ApiResult<Vec<u8>> {
+    let mut resp = client.request(Verb::Get, path, None)?;
+    guard(&mut resp)?;
+    resp.body_mut().read_to_vec().map_err(|e| ApiError::Failed(e.to_string()))
+}
+
 /// A bodyful verb with a JSON payload; DELETE goes bodyless.
 pub fn send_value(client: &Client, verb: Verb, path: &str, body: serde_json::Value) -> ApiResult<serde_json::Value> {
     let payload = match verb {

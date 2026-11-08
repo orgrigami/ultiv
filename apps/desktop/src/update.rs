@@ -48,7 +48,20 @@ fn apply_bridge(app: &mut App) -> bool {
                 if app.chat_session.as_deref() == Some(id.as_str()) {
                     app.chat_loaded = loaded;
                     let entries = state.get("transcript").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
-                    app.chat = entries.iter().filter_map(crate::state::ChatMessage::of).collect();
+                    app.chat_reactions.clear();
+                    app.chat = entries
+                        .iter()
+                        .filter_map(|entry| {
+                            // Reaction chips project separately from messages.
+                            if entry.get("kind").and_then(serde_json::Value::as_str) == Some("reaction") {
+                                let mid = entry.get("id").map(|i| i.to_string()).unwrap_or_default();
+                                let name = entry.get("reaction").and_then(serde_json::Value::as_str).unwrap_or("ok");
+                                app.chat_reactions.insert(mid.trim_matches('"').to_string(), crate::state::reaction_emoji(name).to_string());
+                                return None;
+                            }
+                            crate::state::ChatMessage::of(entry)
+                        })
+                        .collect();
                     app.chat_phase = state.get("phase").and_then(serde_json::Value::as_str).unwrap_or("idle").to_string();
                     app.chat_pending = state.get("pending").filter(|p| !p.is_null()).cloned();
                     changed = true;
@@ -71,6 +84,15 @@ fn apply_bridge(app: &mut App) -> bool {
 fn apply_one(app: &mut App, e: Event) -> bool {
     match e {
         Event::Payload(f, v) => payload(app, f, v),
+        Event::Bytes(id, bytes) => {
+            let key = format!("img:{id}");
+            if let Some(cache) = app.img_cache.clone() {
+                let image = cache.load(bytes.as_ref().clone());
+                app.images.insert(id, image);
+                app.mark_loaded(&key);
+            }
+            true
+        }
         Event::Done(tag, ok, msg) => {
             done(app, tag, ok, msg);
             true
@@ -234,17 +256,39 @@ fn payload(app: &mut App, f: Fetch, v: serde_json::Value) -> bool {
         }
         Fetch::TaskActivity(id) => {
             let tag = format!("activity:{id}");
-            app.loaded.insert(tag);
+            let entries = v.get("steps").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+            app.activities.insert(id, entries.iter().filter_map(crate::state::ChatMessage::of).collect());
+            app.mark_loaded(&tag);
         }
         Fetch::ArtifactText(id) => {
             let tag = format!("file:{id}");
             app.previews.insert(id, v.get("text").and_then(serde_json::Value::as_str).unwrap_or("").to_string());
             app.mark_loaded(&tag);
         }
+        // Bytes ride Event::Bytes instead; this arm only keeps the match whole.
+        Fetch::ArtifactBytes(_) => {}
+        Fetch::Takeovers => {
+            app.takeovers = rows(v);
+            app.mark_loaded("takeovers");
+        }
+        Fetch::Memory(profile) => {
+            let tag = format!("memory:{profile}");
+            app.memories.insert(profile, v);
+            app.mark_loaded(&tag);
+        }
+        Fetch::BotFile { profile, file } => {
+            let key = format!("{profile}:{file}");
+            let text = v.get("text").and_then(serde_json::Value::as_str).unwrap_or("").to_string();
+            let loaded = rune::TextEdit::new(text.clone());
+            app.bot_files.entry(key.clone()).or_insert(loaded);
+            app.bot_files_saved.insert(key.clone(), text);
+            app.mark_loaded(&format!("bot-file:{key}"));
+        }
         Fetch::Usage(_) => {
             app.mark_loaded("usage");
         }
         Fetch::Nodes | Fetch::PushConfig => {
+            app.nodes = rows_opt(&v);
             app.mark_loaded("nodes");
         }
         Fetch::Org => {
@@ -282,6 +326,15 @@ fn rows(v: serde_json::Value) -> Vec<Row> {
             .map(|(_, v2)| v2.as_array().unwrap().clone())
             .unwrap_or_default(),
         _ => vec![],
+    }
+}
+
+/// `rows`, but None when the payload names no array at all.
+fn rows_opt(v: &serde_json::Value) -> Option<Vec<Row>> {
+    match v {
+        serde_json::Value::Array(_) => Some(rows(v.clone())),
+        serde_json::Value::Object(o) => o.values().find(|v2| v2.is_array()).map(|a| rows(a.clone())),
+        _ => None,
     }
 }
 
@@ -324,6 +377,20 @@ fn done(app: &mut App, tag: String, ok: bool, msg: Option<String>) {
         } else if tag.starts_with("decide:") {
             app.net.fetch(Fetch::Approvals);
             app.net.fetch(Fetch::NeedsYou);
+        } else if tag.starts_with("pair-node:") {
+            // The answer carries the token; the one time it is ever visible.
+            app.node_token = msg.clone();
+            app.net.fetch(Fetch::Nodes);
+        } else if tag.starts_with("bot-file:") {
+            let key = tag.trim_start_matches("bot-file:").to_string();
+            app.bot_files_saved.insert(key, msg.clone().unwrap_or_default());
+        } else if let Some(new_id) = tag.strip_prefix("branch:") {
+            // The answer's id is the new chat; open it.
+            if let Some(new_id) = msg.clone() {
+                app.net.fetch(Fetch::Sessions);
+                app.route = Route::Chat(new_id);
+            }
+            let _ = new_id;
         }
         return;
     }
@@ -381,7 +448,20 @@ pub fn refresh_route(app: &mut App) {
     let f: Vec<Fetch> = match &app.route {
         Route::Now => vec![Fetch::Projects, Fetch::Artifacts(8)],
         Route::Crew => vec![Fetch::Org],
-        Route::Profile(_, _) => vec![Fetch::Audit("limit=50".into())],
+        Route::Profile(id, tab) => {
+            let mut f = vec![Fetch::Audit("limit=50".into())];
+            if *tab == crate::state::ProfileTab::Memory {
+                f.push(Fetch::Memory(id.clone()));
+            }
+            if *tab == crate::state::ProfileTab::Instructions || *tab == crate::state::ProfileTab::Files {
+                f.push(Fetch::BotFile { profile: id.clone(), file: "persona".into() });
+                f.push(Fetch::BotFile { profile: id.clone(), file: "instructions".into() });
+            }
+            if *tab == crate::state::ProfileTab::Browser {
+                f.push(Fetch::Takeovers);
+            }
+            f
+        }
         Route::Routines => vec![Fetch::Cron, Fetch::Webhooks, Fetch::Sensors],
         Route::Rooms => vec![Fetch::Rooms],
         Route::Tools(_) => vec![Fetch::McpServers, Fetch::Skills, Fetch::Vault, Fetch::VaultBindings],

@@ -42,6 +42,14 @@ pub enum Fetch {
     AuthStatus,
     /// A file's bytes as text (previewable kinds only).
     ArtifactText(String),
+    /// A file's raw bytes (image previews).
+    ArtifactBytes(String),
+    /// A profile's memory v2 payload.
+    Memory(String),
+    /// One of the bot's files (persona, instructions).
+    BotFile { profile: String, file: String },
+    /// The open browser takeover asks.
+    Takeovers,
 }
 
 /// The mutations, tagged at the call site so `Event::Done` routes the answer.
@@ -65,6 +73,12 @@ pub enum Mutation {
     TryCron(String),
     TestWebhook(String),
     CreateProfile { name: String, description: Option<String> },
+    PairNode(String),
+    SaveBotFile { profile: String, file: String, text: String },
+    SecretSubmit { call: String, values: serde_json::Value },
+    SecretCancel(String),
+    AnswerQuestion { conversation: String, call: String, answer: String },
+    Branch { session: String, at: String },
 }
 
 fn path_of(f: &Fetch) -> String {
@@ -98,11 +112,16 @@ fn path_of(f: &Fetch) -> String {
         Fetch::Org => "/api/org".into(),
         Fetch::AuthStatus => "/api/auth/status".into(),
         Fetch::ArtifactText(id) => format!("/api/artifacts/{id}"),
+        Fetch::ArtifactBytes(id) => format!("/api/artifacts/{id}"),
+        Fetch::Memory(profile) => format!("/api/memory/v2?profile={profile}"),
+        Fetch::BotFile { profile, file } => format!("/api/profiles/{profile}/files/{file}"),
+        Fetch::Takeovers => "/api/browser/takeover".into(),
     }
 }
 
 /// Run one fetch. `Fetch::Settings` composes the three settings endpoints;
-/// `ArtifactText` reads bytes as text (the only non-JSON GET).
+/// `ArtifactText` reads bytes as text and `ArtifactBytes` reads them raw
+/// (the two non-JSON GETs); everything else parses JSON.
 pub fn run_fetch(client: &Client, f: &Fetch) -> ApiResult<serde_json::Value> {
     if let Fetch::Settings = f {
         let pause = super::api::get_value(client, "/api/settings/pause")?;
@@ -115,7 +134,20 @@ pub fn run_fetch(client: &Client, f: &Fetch) -> ApiResult<serde_json::Value> {
         let _ = id;
         return Ok(json!({ "text": text }));
     }
+    if let Fetch::ArtifactBytes(id) = f {
+        // Bytes ride their own event variant; this arm never returns JSON.
+        let _ = id;
+        return Ok(json!({}));
+    }
     super::api::get_value(client, &path_of(f))
+}
+
+/// The raw bytes for the byte fetches (run after `run_fetch`'s guard pass).
+pub fn run_fetch_bytes(client: &Client, f: &Fetch) -> Option<ApiResult<Vec<u8>>> {
+    if let Fetch::ArtifactBytes(_) = f {
+        return Some(super::api::get_bytes(client, &path_of(f)));
+    }
+    None
 }
 
 /// A short tag for `Event::Done` routing.
@@ -139,6 +171,12 @@ pub fn tag_of(m: &Mutation) -> String {
         Mutation::TryCron(id) => format!("cron-try:{id}"),
         Mutation::TestWebhook(id) => format!("hook-test:{id}"),
         Mutation::CreateProfile { name, .. } => format!("create-profile:{name}"),
+        Mutation::PairNode(name) => format!("pair-node:{name}"),
+        Mutation::SaveBotFile { profile, file, .. } => format!("bot-file:{profile}:{file}"),
+        Mutation::SecretSubmit { call, .. } => format!("secret:{call}"),
+        Mutation::SecretCancel(call) => format!("secret:{call}"),
+        Mutation::AnswerQuestion { call, .. } => format!("decide:{call}"),
+        Mutation::Branch { session, .. } => format!("branch:{session}"),
     }
 }
 
@@ -201,6 +239,33 @@ pub fn run_mutation(client: &Client, m: &Mutation) -> ApiResult<serde_json::Valu
             Verb::Post,
             "/api/profiles",
             json!({ "name": name, "description": description }),
+        ),
+        Mutation::PairNode(name) => {
+            super::api::send_value(client, Verb::Post, "/api/nodes", json!({ "name": name, "roots": [] }))
+        }
+        Mutation::SaveBotFile { profile, file, text } => super::api::send_value(
+            client,
+            Verb::Put,
+            &format!("/api/profiles/{profile}/files/{file}"),
+            json!({ "text": text, "reason": "edited on the desktop" }),
+        ),
+        Mutation::SecretSubmit { call, values } => {
+            super::api::send_value(client, Verb::Post, &format!("/api/secrets/{call}"), json!({ "values": values }))
+        }
+        Mutation::SecretCancel(call) => {
+            super::api::send_value(client, Verb::Post, &format!("/api/secrets/{call}"), json!({ "cancel": true }))
+        }
+        Mutation::AnswerQuestion { conversation, call, answer } => super::api::send_value(
+            client,
+            Verb::Post,
+            &format!("/api/approvals/{conversation}/{call}"),
+            json!({ "approved": true, "input": { "answer": answer } }),
+        ),
+        Mutation::Branch { session, at } => super::api::send_value(
+            client,
+            Verb::Post,
+            &format!("/api/sessions/{session}/branch"),
+            json!({ "at": at, "mode": "from" }),
         ),
     }
 }
