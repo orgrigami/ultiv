@@ -1,95 +1,124 @@
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  lit,
+  nul,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  type Static,
+} from "@earendil-works/pi-schema";
 import { ModelInfoSchema } from "./session.ts";
 
-export const SessionKindSchema = Type.Union([
-  Type.Literal("main"),
-  Type.Literal("session"),
-  Type.Literal("dm"),
-  Type.Literal("room"),
+export const SessionKindSchema = union([
+  lit("main"),
+  lit("session"),
+  lit("dm"),
+  lit("room"),
   /** A background task conversation — inherits its spawner's bot scope. */
-  Type.Literal("task"),
+  lit("task"),
 ]);
 
 export type SessionKind = Static<typeof SessionKindSchema>;
 
-export const SessionInfoSchema = Type.Object({
-  id: Type.String(),
-  /** Registry owner the session belongs to (header-scoped; "guest" unauthenticated). */
-  owner: Type.String(),
-  /** The profile (entity workspace) this session lives under. */
-  profile: Type.String(),
-  /** `main` = the profile's persistent chat; `dm` = one thread per entity pair. */
-  kind: SessionKindSchema,
-  /** For DM threads: the two participating profile ids; else null. */
-  participants: Type.Union([Type.Array(Type.String()), Type.Null()]),
-  title: Type.String(),
-  createdAt: Type.Number(),
-  lastMessageAt: Type.Number(),
-  /**
-   * A chat branched off another one: the source session and the transcript
-   * id of the message it branched at (an edited owner message, or the bot
-   * reply it continues from).
-   */
-  branchOf: Type.Optional(Type.Object({ sessionId: Type.String(), at: Type.Number() })),
-});
+export const SessionInfoSchema = obj(
+  {
+    id: str(),
+    /** Registry owner the session belongs to (header-scoped; "guest" unauthenticated). */
+    owner: str(),
+    /** The profile (entity workspace) this session lives under. */
+    profile: str(),
+    /** `main` = the profile's persistent chat; `dm` = one thread per entity pair. */
+    kind: SessionKindSchema,
+    /** For DM threads: the two participating profile ids; else null. */
+    participants: union([arr(str()), nul()]),
+    title: str(),
+    createdAt: num(),
+    lastMessageAt: num(),
+    /**
+     * A chat branched off another one: the source session and the transcript
+     * id of the message it branched at (an edited owner message, or the bot
+     * reply it continues from).
+     */
+    branchOf: opt(obj({ sessionId: str(), at: num() }, { open: true })),
+  },
+  { open: true },
+);
 
 export type SessionInfo = Static<typeof SessionInfoSchema>;
 
 /** The longest edited message a branch accepts (POST /api/sessions/:id/branch). */
 export const MAX_EDIT_CHARS = 20_000;
 
-export const SessionListSchema = Type.Array(SessionInfoSchema);
+export const SessionListSchema = arr(SessionInfoSchema);
 
 export type SessionList = Static<typeof SessionListSchema>;
 
-export const ModelListSchema = Type.Array(ModelInfoSchema);
+export const ModelListSchema = arr(ModelInfoSchema);
 
 export type Models = Static<typeof ModelListSchema>;
 
 /** The workspace default model and where it is set (`GET /api/settings/model`). */
-export const WorkspaceDefaultModelSchema = Type.Object({
-  ref: Type.String(),
-  /** Thinking effort; "" = the model's default. */
-  effort: Type.String(),
-  /** "db" = the stored setting; "env" = the SPRIESSEN_MODEL environment. */
-  source: Type.Union([Type.Literal("db"), Type.Literal("env")]),
-});
+export const WorkspaceDefaultModelSchema = obj(
+  {
+    ref: str(),
+    /** Thinking effort; "" = the model's default. */
+    effort: str(),
+    /** "db" = the stored setting; "env" = the SPRIESSEN_MODEL environment. */
+    source: oneOf(["db", "env"]),
+  },
+  { open: true },
+);
 
 export type WorkspaceDefaultModel = Static<typeof WorkspaceDefaultModelSchema>;
 
 /** `GET /api/settings/model`; null = no default exists (db and env unset). */
-export const SettingsModelSchema = Type.Object({
-  defaultModel: Type.Union([WorkspaceDefaultModelSchema, Type.Null()]),
-});
+export const SettingsModelSchema = obj(
+  {
+    defaultModel: union([WorkspaceDefaultModelSchema, nul()]),
+  },
+  { open: true },
+);
 
 export type SettingsModel = Static<typeof SettingsModelSchema>;
 
 /** `GET /api/models`: the picker list plus the effective workspace default. */
-export const ModelsPayloadSchema = Type.Object({
-  models: ModelListSchema,
-  workspaceDefault: Type.Union([WorkspaceDefaultModelSchema, Type.Null()]),
-});
+export const ModelsPayloadSchema = obj(
+  {
+    models: ModelListSchema,
+    workspaceDefault: union([WorkspaceDefaultModelSchema, nul()]),
+  },
+  { open: true },
+);
 
 export type ModelsPayload = Static<typeof ModelsPayloadSchema>;
 
 /** The model catalog's state (`GET /api/models/catalog`, `POST /api/models/refresh`). */
-export const ModelCatalogStatusSchema = Type.Object({
-  source: Type.Union([Type.Literal("network"), Type.Literal("cache"), Type.Literal("none")]),
-  fetchedAt: Type.Union([Type.Number(), Type.Null()]),
-  providers: Type.Array(Type.String()),
-  models: Type.Number(),
-  error: Type.Union([Type.String(), Type.Null()]),
-  /** The kenari live listing (the gateway runs ahead of models.dev). */
-  kenari: Type.Optional(
-    Type.Object({
-      source: Type.Union([Type.Literal("network"), Type.Literal("cache"), Type.Literal("none")]),
-      fetchedAt: Type.Union([Type.Number(), Type.Null()]),
-      models: Type.Number(),
-    }),
-  ),
-  /** The model new conversations start on (`provider/model`). */
-  default: Type.String(),
-});
+export const ModelCatalogStatusSchema = obj(
+  {
+    source: oneOf(["network", "cache", "none"]),
+    fetchedAt: union([num(), nul()]),
+    providers: arr(str()),
+    models: num(),
+    error: union([str(), nul()]),
+    /** The kenari live listing (the gateway runs ahead of models.dev). */
+    kenari: opt(
+      obj(
+        {
+          source: oneOf(["network", "cache", "none"]),
+          fetchedAt: union([num(), nul()]),
+          models: num(),
+        },
+        { open: true },
+      ),
+    ),
+    /** The model new conversations start on (`provider/model`). */
+    default: str(),
+  },
+  { open: true },
+);
 
 export type ModelCatalogStatus = Static<typeof ModelCatalogStatusSchema>;
 

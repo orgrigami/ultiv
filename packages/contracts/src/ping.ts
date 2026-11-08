@@ -1,14 +1,14 @@
 import { hostNamed, method, remote } from "@earendil-works/chord";
-import { Type } from "typebox";
+import { num, obj, str } from "@earendil-works/pi-schema";
 
 export const Ping = remote("ultiv.ping", {
   version: 1,
-  input: Type.Object({ name: Type.String() }),
+  input: obj({ name: str() }, { open: true }),
   host: hostNamed("server"),
   variants: {
     default: {
-      state: { count: Type.Number() },
-      methods: { increment: method(Type.Object({ by: Type.Number() })) },
+      state: { count: num() },
+      methods: { increment: method(obj({ by: num() }, { open: true })) },
     },
   },
 });

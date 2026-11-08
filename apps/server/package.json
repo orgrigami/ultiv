@@ -22,15 +22,15 @@
     "@earendil-works/chord": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
-    "@simplewebauthn/server": "^14.0.3",
+    "@earendil-works/pi-schema": "catalog:",
+    "@simplewebauthn/server": "^14.1.0",
     "@spriessen/contracts": "workspace:*",
     "@spriessen/core": "workspace:*",
     "@spriessen/ext": "workspace:*",
     "@spriessen/mind": "workspace:*",
     "croner": "catalog:",
     "effect": "catalog:",
-    "typebox": "catalog:",
-    "web-push": "3.6.7",
+    "web-push": "4.0.0",
     "ws": "catalog:"
   },
   "devDependencies": {

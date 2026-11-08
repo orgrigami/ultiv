@@ -95,13 +95,11 @@ describe("bash's target never names another home's VM (phase 6 merge)", () => {
   it("the target parameter is the three-VALUE enum only — no VM-, home- or team-naming argument", () => {
     const bash = toolOf(bashPlugin({ root: join(scratch, "schema") }), "bash");
     const properties = (bash.parameters as { properties?: Record<string, unknown> }).properties;
-    const union = ((properties?.target as { anyOf?: { const?: string }[] })?.anyOf ?? []).map(
-      (arm) => arm.const,
-    );
+    const values = (properties?.target as { enum?: string[] })?.enum ?? [];
     // `background` is a yes/no (a background job), never a place.
     expect(Object.keys(properties ?? {})).toEqual(["script", "target", "node", "background"]);
     expect((properties?.background as { type?: string })?.type).toBe("boolean");
-    expect(union).toEqual(["vm", "host", "node"]);
+    expect(values).toEqual(["vm", "host", "node"]);
   });
 
   it("a target value outside the enum is refused and never forwarded anywhere", async () => {

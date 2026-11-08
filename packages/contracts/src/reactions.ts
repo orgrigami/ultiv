@@ -5,7 +5,7 @@
  * reaction from the transcript (the tool step's `details`), so a chip
  * arrives with the chat's own live updates.
  */
-import { Type, type Static } from "typebox";
+import { obj, oneOf, type Static } from "@earendil-works/pi-schema";
 
 export const REACTIONS_TOOL = "react";
 
@@ -40,12 +40,14 @@ export const ENDS_TURN: ReadonlySet<ReactionName> = new Set(["ok", "no", "done"]
  * No target parameter: the model never sees transcript ids, so it could
  * only guess one. A reaction always marks the owner's latest message.
  */
-export const ReactionParamsSchema = Type.Object({
-  reaction: Type.Union(
-    REACTION_NAMES.map((name) => Type.Literal(name)),
-    { description: "ok, no, looking or done." },
-  ),
-});
+export const ReactionParamsSchema = obj(
+  {
+    reaction: oneOf(REACTION_NAMES, {
+      description: "ok, no, looking or done.",
+    }),
+  },
+  { open: true },
+);
 export type ReactionParams = Static<typeof ReactionParamsSchema>;
 
 /** The `details` a successful react call carries: the transcript id it marks. */

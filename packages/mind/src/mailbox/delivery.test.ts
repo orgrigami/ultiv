@@ -1,6 +1,5 @@
 import { expect, it } from "vite-plus/test";
 import { MemoryStorage } from "@earendil-works/pi-durable";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
 import { openMind } from "../entity.ts";
 import { HOP_CAP, PAIR_RATE_PER_HOUR, mailboxService } from "./mailbox.ts";
@@ -10,6 +9,7 @@ import { HOP_CAP, PAIR_RATE_PER_HOUR, mailboxService } from "./mailbox.ts";
 process.env.MAILBOX_WAKE_DEBOUNCE_MS = "20";
 
 import { messageTools } from "./tools.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 /** A mailbox with zero retry delay, for dead-letter tests. */
 const fastMailbox = (handle: Awaited<ReturnType<typeof openMind>>) =>
@@ -56,8 +56,8 @@ it("tunnels: delivery lands on the counterpart's MAIN thread, the room tool read
   const bMain = await Effect.runPromise(
     converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", b.id))),
   );
-  const bView = await bMain.viewState(BACKGROUND_CONTEXT);
-  expect(JSON.stringify(bView.value?.entries ?? [])).toContain("[message from One");
+  const bView = await readView(bMain, TRANSCRIPT_WINDOW);
+  expect(JSON.stringify(bView.entries ?? [])).toContain("[message from One");
 
   // The room tool reads the full tunnel transcript from an endpoint.
   const roomTool = tools.find((tool) => tool.name === "room");
@@ -235,13 +235,13 @@ it("dead-letters after retries; NACK signals the sender's main thread (offline: 
   const bMain = await Effect.runPromise(
     handle.mind.converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", b.id))),
   );
-  const bView = await bMain.viewState(BACKGROUND_CONTEXT);
-  expect(JSON.stringify(bView.value?.entries ?? [])).toContain("[message from CoS");
+  const bView = await readView(bMain, TRANSCRIPT_WINDOW);
+  expect(JSON.stringify(bView.entries ?? [])).toContain("[message from CoS");
   // …and the NACK signal wakes the SENDER's main thread (the origin endpoint).
   const aMain = await Effect.runPromise(
     handle.mind.converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", a.id))),
   );
-  const aView = await aMain.viewState(BACKGROUND_CONTEXT);
-  expect(JSON.stringify(aView.value?.entries ?? [])).toContain("[nack from Researcher");
+  const aView = await readView(aMain, TRANSCRIPT_WINDOW);
+  expect(JSON.stringify(aView.entries ?? [])).toContain("[nack from Researcher");
   await handle.close();
 });

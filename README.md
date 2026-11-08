@@ -167,7 +167,7 @@ apps/agent          the node agent that runs bash's node target on a paired mach
 packages/core       the home and data folder, tagged errors, the bridge between promises and Effect
 packages/ext        tools, plugins, registry, vault, credential broker, shells, each bot's file tree
 packages/mind       the bots themselves: models, converse, decide, act, generate, tasks, profiles, routines, memory
-packages/contracts  TypeBox contracts shared by server, web and CLI
+packages/contracts  JSON Schema contracts shared by server, web and CLI
 packages/present    the owner-facing words both clients share (tool calls, approval cards)
 packages/about      the built-in skills every bot gets: Spriessen's own docs, as Agent Skills
 ```

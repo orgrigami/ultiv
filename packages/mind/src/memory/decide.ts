@@ -19,7 +19,7 @@ import type { DecideService } from "../decide/decide.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { MemoryFact } from "@spriessen/contracts";
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { nul, obj, oneOf, str, union } from "@earendil-works/pi-schema";
 import { factHash } from "./model.ts";
 import { indexTerms } from "./text.ts";
 import { isFunctional, normalizeTriple, sameTerm } from "./predicates.ts";
@@ -90,10 +90,13 @@ const functionalSupersede = (input: DecideInput): MemoryFact | null => {
   );
 };
 
-const MergeSchema = Type.Object({
-  op: Type.Union([Type.Literal("supersede"), Type.Literal("refine"), Type.Literal("add")]),
-  mergedText: Type.Union([Type.Null(), Type.String()]),
-});
+const MergeSchema = obj(
+  {
+    op: oneOf(["supersede", "refine", "add"]),
+    mergedText: union([nul(), str()]),
+  },
+  { open: true },
+);
 
 const askJev = async (
   deps: DecideDeps,

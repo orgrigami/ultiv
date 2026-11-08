@@ -6,11 +6,17 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import {
+  createRegistry,
+  Harness,
+  MemoryStorage,
+  type Conversation,
+} from "@earendil-works/pi-durable";
 import { createModels, fauxAssistantMessage, fauxProvider, fauxText } from "@earendil-works/pi-ai";
 import { newJob } from "@spriessen/ext";
 import { converseService, type ConverseService } from "../converse/converse.ts";
 import { BashJobsDoc, bashJobHost, recoverBashJobs } from "./bash-jobs.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -38,8 +44,8 @@ const rig = async () => {
 const recorded = async (converse: ConverseService) =>
   (await Effect.runPromise(converse.docs.snapshot(BashJobsDoc)))?.jobs ?? [];
 
-const transcript = async (chat: { viewState: (c: typeof ctx) => Promise<{ value?: unknown }> }) =>
-  JSON.stringify((await chat.viewState(ctx)).value ?? {});
+const transcript = async (chat: Conversation) =>
+  JSON.stringify(await readView(chat, TRANSCRIPT_WINDOW));
 
 const until = async (probe: () => Promise<boolean>): Promise<void> => {
   for (let n = 0; n < 100 && !(await probe()); n += 1)

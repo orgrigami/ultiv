@@ -5,7 +5,7 @@
  * messages kept (unlike Stop).
  */
 import { describe, expect, it } from "vite-plus/test";
-import { Type } from "typebox";
+import { bool, obj, opt } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
@@ -29,6 +29,7 @@ import { converseService } from "./converse.ts";
 import { redirectStep, redirectTurn } from "./redirect.ts";
 import { projectTranscript } from "./steps.ts";
 import { isStopped } from "./stop.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -60,7 +61,7 @@ const rig = async (first: "stream" | "tool", approvals: ApprovalsService = makeA
       defineTool({
         name: "wait",
         description: "Waits until released, or asks approval with gated: true.",
-        parameters: Type.Object({ gated: Type.Optional(Type.Boolean()) }),
+        parameters: obj({ gated: opt(bool()) }, { open: true }),
         execute: async (args) => {
           started();
           if (args.gated === true) {
@@ -97,7 +98,7 @@ const rig = async (first: "stream" | "tool", approvals: ApprovalsService = makeA
   });
   const chat = await Effect.runPromise(converse.ensure("redirect-test"));
   chatId = String(chat.id);
-  const view = async () => (await chat.viewState(ctx)).value;
+  const view = async () => await readView(chat, TRANSCRIPT_WINDOW);
   return { harness, converse, chat, approvals, release, toolStarted, seen, view };
 };
 

@@ -33,9 +33,11 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { External } from "@spriessen/core";
 import { harnessDb } from "../config.ts";
 import { asEffect } from "./as-effect.ts";
-import { controlOps, type ParkedTask } from "./control.ts";
+import { conversationIdFrom, textOf } from "./ids.ts";
+import { controlOps, interruptedRuns, type InterruptedRuns, type ParkedTask } from "./control.ts";
 import { forkOps } from "./fork.ts";
-export type { ParkedTask } from "./control.ts";
+export { interruptedRuns, type InterruptedRuns, type ParkedTask } from "./control.ts";
+export { conversationIdFrom } from "./ids.ts";
 import { selectionOps, workspaceDefaultRefOf } from "./selection.ts";
 import { SettingsDoc } from "../profiles/docs.ts";
 import { PiRegistry } from "./pi-registry.ts";
@@ -119,9 +121,12 @@ export interface ConverseService {
    * entity calls this at boot, after every tool is installed (slice 8).
    */
   readonly resume: () => void;
-  /** Tasks the engine parked after too many restarts in a row, across all conversations. */
+  /**
+   * Chat turns restarts cut off (reported `task_interrupted` since boot) whose
+   * run failure still stands, across all conversations.
+   */
   readonly parked: () => Effect.Effect<readonly ParkedTask[], External>;
-  /** Run one parked task again; "not_parked" when it is not parked (any more). */
+  /** Run one such turn again (a continue); "not_parked" when its failure no longer stands. */
   readonly retryParked: (taskId: string) => Effect.Effect<"retried" | "not_parked", External>;
 
   /** Take back one queued submission before a boundary places it. */
@@ -299,28 +304,14 @@ const settleOf = (
     return { text: textOf(message?.content) };
   });
 
-function textOf(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content.map((block) => String((block as { text?: string }).text ?? "")).join("");
-  }
-  return JSON.stringify(content);
-}
-
-/** Conversation ids are numeric today; accept any string form losslessly. */
-export const conversationIdFrom = (id: string): ConversationId => {
-  const numeric = Number(id);
-  return (Number.isSafeInteger(numeric) && numeric >= 0
-    ? numeric
-    : id) as unknown as ConversationId;
-};
-
 /** Exported for engine-level tests (faux models, MemoryStorage). */
 export const converseService = (
   harness: Harness,
   agent: AgentChange,
   /** The catalog lookup selection reads efforts from; none in engine tests. */
   findModel: (ref: string) => ModelSpec | undefined = () => undefined,
+  /** The turns the harness reported interrupted (its `onReport`); none in most engine tests. */
+  interrupted?: InterruptedRuns,
 ): ConverseService => {
   // The workspace default can change while the server runs (Settings, `spriessen models default`).
   let base = agent;
@@ -336,7 +327,7 @@ export const converseService = (
         "conversation open",
         harness.conversation(conversationIdFrom(id), BACKGROUND_CONTEXT),
       ),
-    ...controlOps(harness),
+    ...controlOps(harness, interrupted),
     ...forkOps(harness),
     conversationIdOf: (key) =>
       Effect.map(
@@ -457,6 +448,7 @@ export const converseLayer = (
       const piRegistry = yield* PiRegistry;
       const catalog = yield* ModelCatalog;
       const resolvedStorage = yield* storage !== undefined ? Effect.succeed(storage) : openSqlite;
+      const interrupted = interruptedRuns();
       const harness = yield* Effect.acquireRelease(
         asEffect(
           "open harness",
@@ -473,6 +465,7 @@ export const converseLayer = (
                 },
                 steeringMode: "all",
               },
+              onReport: interrupted.onReport,
             },
             BACKGROUND_CONTEXT,
           ),
@@ -490,6 +483,7 @@ export const converseLayer = (
         harness,
         ref !== null ? { model: parseRef(ref) } : {},
         catalog.find,
+        interrupted,
       );
       return {
         ...service,

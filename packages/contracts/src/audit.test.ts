@@ -9,7 +9,8 @@ import { AuditEventSchema } from "./audit.ts";
 
 describe("the reach surface is messaging only", () => {
   it("the surface is exactly the `message` literal — no union, no other surface", () => {
-    const reach = AuditEventSchema.properties.reach as {
+    const reach = (AuditEventSchema as unknown as { properties: { reach: unknown } }).properties
+      .reach as {
       properties: { surface: { const?: string; anyOf?: unknown[] } };
     };
     const surface = reach.properties.surface;

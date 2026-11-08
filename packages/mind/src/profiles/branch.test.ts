@@ -10,6 +10,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "../entity.ts";
 import { INPUT_ENTRY_KIND, projectTranscript } from "../converse/steps.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const OWNER = "owner";
 
@@ -56,15 +57,15 @@ const setup = async () => {
   };
   const textsOf = async (sessionId: string): Promise<string[]> => {
     const conversation = await conversationOf(sessionId);
-    const state = await conversation.viewState(BACKGROUND_CONTEXT);
-    return projectTranscript(state.value?.entries ?? [], undefined, false).flatMap((step) =>
+    const state = await readView(conversation, TRANSCRIPT_WINDOW);
+    return projectTranscript(state.entries ?? [], undefined, false).flatMap((step) =>
       step.kind === "input" || step.kind === "output" ? [step.text] : [],
     );
   };
   const idOf = async (sessionId: string, text: string): Promise<number> => {
     const conversation = await conversationOf(sessionId);
-    const state = await conversation.viewState(BACKGROUND_CONTEXT);
-    const step = projectTranscript(state.value?.entries ?? [], undefined, false).find(
+    const state = await readView(conversation, TRANSCRIPT_WINDOW);
+    const step = projectTranscript(state.entries ?? [], undefined, false).find(
       (candidate) =>
         (candidate.kind === "input" || candidate.kind === "output") && candidate.text === text,
     );

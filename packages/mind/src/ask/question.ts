@@ -15,7 +15,7 @@
  * rather than waiting a day behind the card.
  */
 import { Duration, Effect } from "effect";
-import { Type } from "typebox";
+import { arr, bool, obj, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { defineTool } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
@@ -70,12 +70,13 @@ export const releaseQuestions = (
   return waiting.length;
 };
 
-const Option = Type.Object({
-  label: Type.String({ minLength: 1, maxLength: 80, description: "What the owner taps." }),
-  detail: Type.Optional(
-    Type.String({ maxLength: 200, description: "One line under the option, if it helps." }),
-  ),
-});
+const Option = obj(
+  {
+    label: str({ minLength: 1, maxLength: 80, description: "What the owner taps." }),
+    detail: opt(str({ maxLength: 200, description: "One line under the option, if it helps." })),
+  },
+  { open: true },
+);
 
 const toolOf = (deps: QuestionDeps) =>
   defineTool({
@@ -86,13 +87,16 @@ const toolOf = (deps: QuestionDeps) =>
       "allow_other is false); the answer comes back as this tool's result and you continue. " +
       "Keep options short and distinct. Not for approvals of your own actions (those ask by " +
       "themselves) and never for keys or passwords (use secret_request).",
-    parameters: Type.Object({
-      question: Type.String({ minLength: 1, maxLength: 300 }),
-      options: Type.Array(Option, { minItems: 2, maxItems: 6 }),
-      allow_other: Type.Optional(
-        Type.Boolean({ description: "Let the owner type their own answer (default true)." }),
-      ),
-    }),
+    parameters: obj(
+      {
+        question: str({ minLength: 1, maxLength: 300 }),
+        options: arr(Option, { minItems: 2, maxItems: 6 }),
+        allow_other: opt(
+          bool({ description: "Let the owner type their own answer (default true)." }),
+        ),
+      },
+      { open: true },
+    ),
     // Script-callable (codemode): a script may ask mid-flight and branch on
     // the answer — the card parks the script and resumes on reply.
     // Asking has no side effect: after a restart the call runs again and the

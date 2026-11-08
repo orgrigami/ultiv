@@ -7,7 +7,7 @@
  * lands, and it lands with its source stamped on it. Until the owner
  * approves the call, outside content stays data.
  */
-import { Type } from "typebox";
+import { num, obj, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { fetchBytes } from "./fetch.ts";
@@ -29,22 +29,23 @@ export const installTool = (skills: SkillsService, profiles: ProfilesService): T
       "several folders). Multi-file skills keep their references, scripts and assets. " +
       "Installed skills carry their source URL, so reinstalling from the same URL updates " +
       "in place.",
-    parameters: Type.Object({
-      url: Type.String({
-        description: "https URL: raw SKILL.md text, or a .tar.gz of a skill folder.",
-      }),
-      name: Type.Optional(
-        Type.String({ description: "Install under this name instead of the file's own." }),
-      ),
-      path: Type.Optional(
-        Type.String({
-          description:
-            'For archives: the folder inside holding SKILL.md (e.g. "my-skill", "skills/one"). ' +
-            "Default: the shallowest folder containing SKILL.md.",
+    parameters: obj(
+      {
+        url: str({
+          description: "https URL: raw SKILL.md text, or a .tar.gz of a skill folder.",
         }),
-      ),
-    }),
-    structuredOutputSchema: Type.Object({ name: Type.String(), version: Type.Number() }),
+        name: opt(str({ description: "Install under this name instead of the file's own." })),
+        path: opt(
+          str({
+            description:
+              'For archives: the folder inside holding SKILL.md (e.g. "my-skill", "skills/one"). ' +
+              "Default: the shallowest folder containing SKILL.md.",
+          }),
+        ),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ name: str(), version: num() }, { open: true }),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {

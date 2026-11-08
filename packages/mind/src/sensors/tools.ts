@@ -4,7 +4,7 @@
  * remove are gated (they shape future attention); listing is a read. The
  * source's own event ids dedup fires — each real-world event wakes once.
  */
-import { Type } from "typebox";
+import { arr, bool, num, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { SensorInfo } from "@spriessen/contracts";
 import type { SensorsService } from "./sensors.ts";
@@ -33,35 +33,36 @@ const setTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
       "each time its content CHANGES (edge-triggered: the first poll is the baseline). Each " +
       "event/change wakes you exactly once, even across restarts. The owner approves each " +
       "sensor: first say in a sentence what it watches and when it will wake you.",
-    parameters: Type.Object({
-      kind: Type.Optional(
-        Type.Union([Type.Literal("calendar"), Type.Literal("rss"), Type.Literal("watch")], {
-          description: "Source family (default calendar).",
-        }),
-      ),
-      url: Type.Optional(
-        Type.String({ description: "rss/watch only: the URL to poll (http/https)." }),
-      ),
-      match: Type.Optional(
-        Type.String({
-          description:
-            "Case-insensitive substring filter: event/item title (calendar/rss) or page text (watch). Empty = everything.",
-        }),
-      ),
-      leadMinutes: Type.Optional(
-        Type.Number({
-          description: "calendar only: minutes before the event to wake (default 10, max 1440).",
-        }),
-      ),
-      trial: Type.Optional(
-        Type.Boolean({
-          description:
-            "Start as a trial: each event runs with every action held back and only records " +
-            "what you would have done, until your owner turns it live under Routines.",
-        }),
-      ),
-    }),
-    structuredOutputSchema: Type.Object({ id: Type.String() }),
+    parameters: obj(
+      {
+        kind: opt(
+          oneOf(["calendar", "rss", "watch"], {
+            description: "Source family (default calendar).",
+          }),
+        ),
+        url: opt(str({ description: "rss/watch only: the URL to poll (http/https)." })),
+        match: opt(
+          str({
+            description:
+              "Case-insensitive substring filter: event/item title (calendar/rss) or page text (watch). Empty = everything.",
+          }),
+        ),
+        leadMinutes: opt(
+          num({
+            description: "calendar only: minutes before the event to wake (default 10, max 1440).",
+          }),
+        ),
+        trial: opt(
+          bool({
+            description:
+              "Start as a trial: each event runs with every action held back and only records " +
+              "what you would have done, until your owner turns it live under Routines.",
+          }),
+        ),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ id: str() }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -114,10 +115,8 @@ const listTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "sensor_list",
     description: "List YOUR sensors with their fire counts and last errors.",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({ id: Type.String(), fireCount: Type.Number() }),
-    ),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(obj({ id: str(), fireCount: num() }, { open: true })),
     execute: async (_args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -141,10 +140,13 @@ const removeTool = (sensors: SensorsService, profiles: ProfilesService): Tool =>
     name: "sensor_remove",
     gated: true,
     description: "Cancel one of YOUR sensors by id. The owner approves each removal.",
-    parameters: Type.Object({
-      id: Type.String({ description: "The sensor id (see sensor_list)." }),
-    }),
-    structuredOutputSchema: Type.Object({ removed: Type.Boolean() }),
+    parameters: obj(
+      {
+        id: str({ description: "The sensor id (see sensor_list)." }),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ removed: bool() }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {

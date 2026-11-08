@@ -30,7 +30,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { BASH_TARGETS, bashNodeNameOf, bashTargetOf } from "@spriessen/contracts";
-import { Type, type Static } from "typebox";
+import { bool, num, obj, oneOf, opt, str, type Static } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { workspaceEpoch } from "../fs/workspace-epoch.ts";
@@ -113,39 +113,39 @@ export interface BashOptions {
 
 // ---- mode 1: the durable workspace in a microVM -------------------------
 
-const TARGET_SCHEMA = Type.Union(BASH_TARGETS.map((target) => Type.Literal(target)));
+const TARGET_SCHEMA = oneOf(BASH_TARGETS);
 
-const BashParams = Type.Object({
-  script: Type.String({
-    description: "The bash script to run. Files persist in your workspace as artifacts.",
-  }),
-  target: Type.Optional(
-    Type.Union(
-      BASH_TARGETS.map((target) => Type.Literal(target)),
-      {
+const BashParams = obj(
+  {
+    script: str({
+      description: "The bash script to run. Files persist in your workspace as artifacts.",
+    }),
+    target: opt(
+      oneOf(BASH_TARGETS, {
         description:
           'Where to run: "vm" (default) in your home\'s sandboxed microVM, "host" directly on the ' +
           'server computer (privileged), or "node" on a node your owner paired. Each target needs ' +
           "its own approval: a rule for one target never approves another.",
-      },
+      }),
     ),
-  ),
-  node: Type.Optional(
-    Type.String({
-      description:
-        'For target "node": the paired node\'s name. Leave it empty when your owner has ' +
-        "exactly one paired node; naming it is required once there is more than one.",
-    }),
-  ),
-  background: Type.Optional(
-    Type.Boolean({
-      description:
-        "Run it as a background job (up to 30 min, at most 3 at once): the call answers at " +
-        "once with a job id and you are woken with the result. Use it for builds, test runs, " +
-        "downloads, anything over a minute; keep quick commands in the foreground.",
-    }),
-  ),
-});
+    node: opt(
+      str({
+        description:
+          'For target "node": the paired node\'s name. Leave it empty when your owner has ' +
+          "exactly one paired node; naming it is required once there is more than one.",
+      }),
+    ),
+    background: opt(
+      bool({
+        description:
+          "Run it as a background job (up to 30 min, at most 3 at once): the call answers at " +
+          "once with a job id and you are woken with the result. Use it for builds, test runs, " +
+          "downloads, anything over a minute; keep quick commands in the foreground.",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 type BashArgs = Static<typeof BashParams>;
 type ToolReply = Awaited<ReturnType<Tool["execute"]>>;
@@ -340,15 +340,18 @@ const sandboxTool = (
       "what the script will change and where it will run. Never delete or overwrite files you " +
       "did not create for the current task without asking.",
     parameters: BashParams,
-    structuredOutputSchema: Type.Object({
-      stdout: Type.String(),
-      stderr: Type.String(),
-      exitCode: Type.Number(),
-      target: TARGET_SCHEMA,
-      node: Type.Optional(Type.String()),
-      nodeId: Type.Optional(Type.String()),
-      job: Type.Optional(Type.String()),
-    }),
+    structuredOutputSchema: obj(
+      {
+        stdout: str(),
+        stderr: str(),
+        exitCode: num(),
+        target: TARGET_SCHEMA,
+        node: opt(str()),
+        nodeId: opt(str()),
+        job: opt(str()),
+      },
+      { open: true },
+    ),
     execute: async (args, api, context) => {
       const conversationId = String(api.conversationId);
       if (args.background === true) return startJob(args, conversationId);

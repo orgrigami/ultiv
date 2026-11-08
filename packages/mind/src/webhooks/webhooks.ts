@@ -15,10 +15,14 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { Value } from "typebox/value";
+import { compile, type Schema } from "@earendil-works/pi-schema";
+import { formats } from "@earendil-works/pi-schema/formats";
 import type { WebhookInfo, WebhookList, WebhookReject, WebhookSenders } from "@spriessen/contracts";
 import { routingProblem } from "./route.ts";
 import type { ConverseService } from "../converse/converse.ts";
+
+/** A caller-supplied webhook schema, with formats checked; a dangling $ref throws. */
+const payloadValidator = (schema: object) => compile(schema as Schema, { formats });
 
 /** Payload cap enforced before the ack — oversize is a 413, never a silent drop. */
 export const MAX_WEBHOOK_BODY_BYTES = 64 * 1024;
@@ -171,7 +175,7 @@ export const updateWebhook = async (
 
 /**
  * Validate that a caller-supplied JSON Schema is USABLE (a well-formed
- * object TypeBox's validator accepts). Refused at creation, so a broken
+ * object pi-schema's validator compiles). Refused at creation, so a broken
  * schema never reaches the ingress.
  */
 export const validateWebhookSchema = (schema: unknown): { ok: boolean; reason?: string } => {
@@ -179,9 +183,9 @@ export const validateWebhookSchema = (schema: unknown): { ok: boolean; reason?: 
   if (typeof schema !== "object" || Array.isArray(schema))
     return { ok: false, reason: "schema must be a JSON object (or null to accept any payload)" };
   try {
-    // A schema no value can ever satisfy (or that TypeBox cannot compile)
-    // surfaces here; {} is the smallest probe.
-    Value.Check(schema as never, {});
+    // A schema pi-schema cannot compile (a bad pattern, a dangling $ref)
+    // throws here.
+    payloadValidator(schema);
     return { ok: true };
   } catch (cause) {
     return {
@@ -198,13 +202,12 @@ export const checkWebhookPayload = (
 ): { ok: true } | { ok: false; detail: string } => {
   if (schema === null) return { ok: true };
   try {
-    if (Value.Check(schema as never, payload)) return { ok: true };
-    const first = Value.Errors(schema as never, payload)
-      [Symbol.iterator]?.()
-      .next();
+    const validator = payloadValidator(schema);
+    if (validator.check(payload)) return { ok: true };
+    const [first] = validator.errors(payload);
     const detail =
-      first !== undefined && !first.done && first.value !== undefined
-        ? JSON.stringify(first.value).slice(0, 300)
+      first !== undefined
+        ? JSON.stringify(first).slice(0, 300)
         : "payload does not match the webhook schema";
     return { ok: false, detail };
   } catch (cause) {

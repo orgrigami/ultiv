@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import { Duration } from "effect";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import { adjudicationOf, makeApprovals, withApproval } from "./approvals.ts";
 import { textReply } from "./act/task-live.ts";
 
@@ -192,7 +192,7 @@ describe("editable and owner-only gates", () => {
     const inner = {
       name: "thing",
       description: "",
-      parameters: Type.Object({ name: Type.String() }),
+      parameters: obj({ name: str() }, { open: true }),
       execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
     };
     const gated = withApproval(approvals, inner, {
@@ -214,7 +214,7 @@ describe("editable and owner-only gates", () => {
     const inner = {
       name: "bot_create",
       description: "",
-      parameters: Type.Object({ name: Type.String() }),
+      parameters: obj({ name: str() }, { open: true }),
       execute: async (args: { name: string }) => {
         seen = args;
         return textReply(`ran ${args.name}`);
@@ -238,7 +238,7 @@ describe("editable and owner-only gates", () => {
     const inner = {
       name: "send_thing",
       description: "",
-      parameters: Type.Object({ name: Type.String() }),
+      parameters: obj({ name: str() }, { open: true }),
       execute: async (args: { name: string }) => {
         seen = args;
         return textReply("ran");
@@ -326,7 +326,7 @@ describe("main-bot direct creation (ownerUnlessMain)", () => {
     const inner = {
       name: "team_create",
       description: "",
-      parameters: Type.Object({ name: Type.String() }),
+      parameters: obj({ name: str() }, { open: true }),
       execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
     };
     const gated = withApproval(approvals, inner, { ownerUnlessMain: true });

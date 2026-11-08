@@ -11,7 +11,7 @@
     "smoke": "vp run --filter @spriessen/server smoke"
   },
   "devDependencies": {
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:"
   },

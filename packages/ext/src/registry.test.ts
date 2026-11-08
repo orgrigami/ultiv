@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect, Exit } from "effect";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import { Duplicate } from "@spriessen/core";
 import {
   connectorCapability,
@@ -15,7 +15,7 @@ import {
 const echo = defineTool({
   name: "echo",
   description: "Echo the input.",
-  parameters: Type.Object({ text: Type.String() }),
+  parameters: obj({ text: str() }, { open: true }),
   execute: async () => ({ output: [{ type: "text", text: "echo" }] }),
 });
 

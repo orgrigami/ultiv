@@ -8,7 +8,7 @@
  * Deletes are gated like artifact deletes.
  * skill_install and skill_evolve live beside this file.
  */
-import { Type } from "typebox";
+import { arr, bool, num, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import type { ConversationScope } from "../profiles/docs.ts";
@@ -34,15 +34,18 @@ const listTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
     description:
       "List your skills (name, description, origin, version). Your skill list also rides in " +
       "your prompt; use this when you need the full sheet or the ones beyond it.",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        name: Type.String(),
-        description: Type.String(),
-        origin: Type.String(),
-        version: Type.Number(),
-        enabled: Type.Boolean(),
-      }),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          name: str(),
+          description: str(),
+          origin: str(),
+          version: num(),
+          enabled: bool(),
+        },
+        { open: true },
+      ),
     ),
     execute: async (_args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
@@ -70,9 +73,12 @@ const loadTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
     description:
       "Load a skill's full instructions into context when a task matches its description. " +
       "Follow what it says; it is a procedure written for exactly this kind of work.",
-    parameters: Type.Object({
-      name: Type.String({ description: "The skill's name, as the skill list shows it." }),
-    }),
+    parameters: obj(
+      {
+        name: str({ description: "The skill's name, as the skill list shows it." }),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {
@@ -99,10 +105,13 @@ const fileTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "skill_file",
     description: "Read one file that ships inside a skill (a reference doc or template).",
-    parameters: Type.Object({
-      name: Type.String({ description: "The skill's name." }),
-      path: Type.String({ description: "Path relative to the skill folder (see skill_load)." }),
-    }),
+    parameters: obj(
+      {
+        name: str({ description: "The skill's name." }),
+        path: str({ description: "Path relative to the skill folder (see skill_load)." }),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {
@@ -120,14 +129,17 @@ const fileTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
   });
 
 /** Reference files riding along a write: the skill's COMPLETE set. */
-const FilesSchema = Type.Array(
-  Type.Object({
-    path: Type.String({
-      description:
-        "Path relative to the skill folder: references/, scripts/, assets/, or any layout.",
-    }),
-    content: Type.String({ description: "The file's UTF-8 text content." }),
-  }),
+const FilesSchema = arr(
+  obj(
+    {
+      path: str({
+        description:
+          "Path relative to the skill folder: references/, scripts/, assets/, or any layout.",
+      }),
+      content: str({ description: "The file's UTF-8 text content." }),
+    },
+    { open: true },
+  ),
   {
     description:
       "The skill's COMPLETE reference set (references, templates, scripts): these are " +
@@ -136,21 +148,24 @@ const FilesSchema = Type.Array(
   },
 );
 
-const WriteParams = Type.Object({
-  name: Type.String({
-    description: "The skill's name: lowercase-and-hyphens, at most 64 chars (create or update).",
-  }),
-  body: Type.String({
-    description: `The full SKILL.md text (frontmatter with name and description, then markdown), up to ${MAX_SKILL_CHARS} chars.`,
-  }),
-  description: Type.Optional(
-    Type.String({
-      description:
-        "One-line description for the skill list; used when the body has no frontmatter.",
+const WriteParams = obj(
+  {
+    name: str({
+      description: "The skill's name: lowercase-and-hyphens, at most 64 chars (create or update).",
     }),
-  ),
-  files: Type.Optional(FilesSchema),
-});
+    body: str({
+      description: `The full SKILL.md text (frontmatter with name and description, then markdown), up to ${MAX_SKILL_CHARS} chars.`,
+    }),
+    description: opt(
+      str({
+        description:
+          "One-line description for the skill list; used when the body has no frontmatter.",
+      }),
+    ),
+    files: opt(FilesSchema),
+  },
+  { open: true },
+);
 
 /** Refusal text, or undefined to go ahead (it may wait on the owner first). */
 export type SkillWriteGuard = (
@@ -189,7 +204,7 @@ const writeTool = (
       "`files` as the complete set and read them back with skill_file. Never put secrets in " +
       "skill text. Updating keeps the previous version, so an edit is reversible.",
     parameters: WriteParams,
-    structuredOutputSchema: Type.Object({ name: Type.String(), version: Type.Number() }),
+    structuredOutputSchema: obj({ name: str(), version: num() }, { open: true }),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {
@@ -235,25 +250,31 @@ const writeTool = (
 /** The bot-facing batch tool: creates and updates only, all-or-nothing. */
 export const SKILL_EDIT = "skill_edit";
 
-const EditParams = Type.Object({
-  ops: Type.Array(
-    Type.Object({
-      op: Type.Union([Type.Literal("create"), Type.Literal("update"), Type.Literal("remove")]),
-      name: Type.String({
-        description: "The skill's name: lowercase-and-hyphens, at most 64 chars.",
-      }),
-      body: Type.Optional(
-        Type.String({
-          description: `The full SKILL.md text (frontmatter required), up to ${MAX_SKILL_CHARS} chars; required for create and update.`,
-        }),
+const EditParams = obj(
+  {
+    ops: arr(
+      obj(
+        {
+          op: oneOf(["create", "update", "remove"]),
+          name: str({
+            description: "The skill's name: lowercase-and-hyphens, at most 64 chars.",
+          }),
+          body: opt(
+            str({
+              description: `The full SKILL.md text (frontmatter required), up to ${MAX_SKILL_CHARS} chars; required for create and update.`,
+            }),
+          ),
+          files: opt(FilesSchema),
+        },
+        { open: true },
       ),
-      files: Type.Optional(FilesSchema),
-    }),
-    {
-      description: `The changes, in order: at most ${MAX_SKILL_OPS} ops, each naming a different skill.`,
-    },
-  ),
-});
+      {
+        description: `The changes, in order: at most ${MAX_SKILL_OPS} ops, each naming a different skill.`,
+      },
+    ),
+  },
+  { open: true },
+);
 
 const editTool = (
   skills: SkillsService,
@@ -270,13 +291,16 @@ const editTool = (
       "complete reference set, never secrets. Removing a skill is not a batch op: use " +
       "skill_delete for that.",
     parameters: EditParams,
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        op: Type.String(),
-        name: Type.String(),
-        version: Type.Optional(Type.Number()),
-        removed: Type.Optional(Type.Boolean()),
-      }),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          op: str(),
+          name: str(),
+          version: opt(num()),
+          removed: opt(bool()),
+        },
+        { open: true },
+      ),
     ),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
@@ -331,10 +355,13 @@ const deleteTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
     description:
       "Delete one of your skills by name. Your owner approves each deletion: first say which " +
       "skill and why. Built-in skills cannot be deleted (disable them instead).",
-    parameters: Type.Object({
-      name: Type.String({ description: "The skill's name." }),
-    }),
-    structuredOutputSchema: Type.Object({ name: Type.String(), deleted: Type.Boolean() }),
+    parameters: obj(
+      {
+        name: str({ description: "The skill's name." }),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ name: str(), deleted: bool() }, { open: true }),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {
@@ -361,14 +388,17 @@ const proposeTool = (skills: SkillsService, profiles: ProfilesService): Tool =>
       "for automatic evolution and for any change you are not certain of. The current " +
       "version stays live until your owner accepts. Use skill_write when your owner asked " +
       "for the change directly.",
-    parameters: Type.Object({
-      skill: Type.String({ description: "The skill's name." }),
-      body: Type.String({
-        description: `The proposed full SKILL.md text (same rules as skill_write), up to ${MAX_SKILL_CHARS} chars.`,
-      }),
-      note: Type.String({ description: "One line: what changed and why." }),
-    }),
-    structuredOutputSchema: Type.Object({ id: Type.String(), skill: Type.String() }),
+    parameters: obj(
+      {
+        skill: str({ description: "The skill's name." }),
+        body: str({
+          description: `The proposed full SKILL.md text (same rules as skill_write), up to ${MAX_SKILL_CHARS} chars.`,
+        }),
+        note: str({ description: "One line: what changed and why." }),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ id: str(), skill: str() }, { open: true }),
     execute: async (args, api) => {
       const resolved = skillsScope(profiles, String(api.conversationId));
       if ("refused" in resolved) {

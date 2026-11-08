@@ -6,6 +6,7 @@ import { openMind, projectTranscript } from "@spriessen/mind";
 import type { EvalCase, EvalRun } from "@spriessen/contracts";
 import type { RouteArgs } from "./types.ts";
 import { evalRoutes } from "./evals.ts";
+import { readView, TRANSCRIPT_WINDOW } from "@spriessen/mind";
 
 type Mind = Awaited<ReturnType<typeof openMind>>["mind"];
 
@@ -47,8 +48,8 @@ const setup = async () => {
     },
     BACKGROUND_CONTEXT,
   );
-  const state = await conversation.viewState(BACKGROUND_CONTEXT);
-  const at = projectTranscript(state.value?.entries ?? [], undefined, false)[0]?.id ?? -1;
+  const state = await readView(conversation, TRANSCRIPT_WINDOW);
+  const at = projectTranscript(state.entries ?? [], undefined, false)[0]?.id ?? -1;
   return { handle, mind, chat, at };
 };
 

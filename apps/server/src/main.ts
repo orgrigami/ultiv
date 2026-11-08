@@ -7,7 +7,7 @@ import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
 import { acceptWebSockets, createHost } from "@earendil-works/chord";
 import type { Storage } from "@earendil-works/pi-durable";
-import { Type } from "typebox";
+import { num } from "@earendil-works/pi-schema";
 import { WebSocketServer, type WebSocket } from "ws";
 import { Ping } from "@spriessen/contracts";
 import {
@@ -231,7 +231,7 @@ export async function buildStack(options?: {
   const memoryTidy = startMemoryTidy({ mind, notify: tidyPush(push.notifier) });
   const host = createHost<Principal>({ name: "server", self: { kind: "server" } });
   host.serve(Ping, (_input, _principal, self) => {
-    const count = self.state("count", Type.Number(), 0);
+    const count = self.state("count", num(), 0);
     return {
       variant: "default",
       count,

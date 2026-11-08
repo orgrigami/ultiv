@@ -8,7 +8,7 @@
  * symlink on the way, and a chat that maps to no bot (there is no "own
  * area" to confine to, so nothing is read or written).
  */
-import { Type } from "typebox";
+import { int, obj, opt, str } from "@earendil-works/pi-schema";
 import { isPathEscape, resolveInside } from "@spriessen/core";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
@@ -157,11 +157,14 @@ const readTool = (root: string, holder: ScopeHolder): Tool =>
       'Read one of your own files by its path, e.g. "notes/plan.md" (what bash shows under ' +
       "/home). Returns numbered lines; use start_line and line_count for big files. PDF or " +
       "Word files: use extract_document_text.",
-    parameters: Type.Object({
-      path: Type.String({ description: 'A path inside your files, e.g. "notes/plan.md".' }),
-      start_line: Type.Optional(Type.Integer({ minimum: 1, description: "First line (1-based)." })),
-      line_count: Type.Optional(Type.Integer({ minimum: 1, description: "How many lines." })),
-    }),
+    parameters: obj(
+      {
+        path: str({ description: 'A path inside your files, e.g. "notes/plan.md".' }),
+        start_line: opt(int({ minimum: 1, description: "First line (1-based)." })),
+        line_count: opt(int({ minimum: 1, description: "How many lines." })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const found = await locate(root, holder, String(api.conversationId), args.path);
       if (isResult(found)) return found;
@@ -196,10 +199,13 @@ const searchTool = (root: string, holder: ScopeHolder): Tool =>
     description:
       "Search your own files: names and text lines containing the query (case-insensitive), " +
       "optionally only under one folder. Returns paths and matching line numbers.",
-    parameters: Type.Object({
-      query: Type.String({ description: "Text to find in file names and contents." }),
-      folder: Type.Optional(Type.String({ description: 'Only under this folder, e.g. "notes".' })),
-    }),
+    parameters: obj(
+      {
+        query: str({ description: "Text to find in file names and contents." }),
+        folder: opt(str({ description: 'Only under this folder, e.g. "notes".' })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const area = safeAreaOf(root, holder, String(api.conversationId));
       if (typeof area === "string") return fail(`refused: ${area}`);
@@ -245,13 +251,16 @@ const findTool = (root: string, holder: ScopeHolder): Tool =>
       'Find your own files by name pattern (a glob): "*.py", "report*", or with folders in it ' +
       '"src/**/*.md". Optionally search only under one folder. Nothing in skipped folders ' +
       "(node_modules, .git, dist, build, caches) is listed.",
-    parameters: Type.Object({
-      pattern: Type.String({
-        description:
-          'A glob: * within a name, ** across folders, ? one character, e.g. "*.py" or "src/**/*.md".',
-      }),
-      path: Type.Optional(Type.String({ description: 'Only under this folder, e.g. "notes".' })),
-    }),
+    parameters: obj(
+      {
+        pattern: str({
+          description:
+            'A glob: * within a name, ** across folders, ? one character, e.g. "*.py" or "src/**/*.md".',
+        }),
+        path: opt(str({ description: 'Only under this folder, e.g. "notes".' })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const pattern = args.pattern.trim();
       if (pattern === "") return fail("a pattern is required");
@@ -293,13 +302,16 @@ const editTool = (root: string, holder: ScopeHolder): Tool =>
       "Change one of your own files. With old_text, replaces that exact text (it must appear " +
       "exactly once); without it, writes new_text as the whole file (creating it and its " +
       "folders). Your owner's approval mode applies: say in a sentence what you'll change first.",
-    parameters: Type.Object({
-      path: Type.String({ description: 'A path inside your files, e.g. "notes/plan.md".' }),
-      new_text: Type.String({
-        description: "The replacement, or the whole file without old_text.",
-      }),
-      old_text: Type.Optional(Type.String({ description: "Exact text to replace, once." })),
-    }),
+    parameters: obj(
+      {
+        path: str({ description: 'A path inside your files, e.g. "notes/plan.md".' }),
+        new_text: str({
+          description: "The replacement, or the whole file without old_text.",
+        }),
+        old_text: opt(str({ description: "Exact text to replace, once." })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const found = await locate(root, holder, String(api.conversationId), args.path);
       if (isResult(found)) return found;
@@ -347,9 +359,12 @@ const deleteTool = (root: string, holder: ScopeHolder): Tool =>
     description:
       "Delete one of your own files by path (not folders). It can't be undone and your " +
       "owner's approval mode applies: name the file and say why first.",
-    parameters: Type.Object({
-      path: Type.String({ description: 'A path inside your files, e.g. "notes/old.md".' }),
-    }),
+    parameters: obj(
+      {
+        path: str({ description: 'A path inside your files, e.g. "notes/old.md".' }),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const found = await locate(root, holder, String(api.conversationId), args.path);
       if (isResult(found)) return found;
@@ -372,17 +387,14 @@ const extractTool = (root: string, holder: ScopeHolder): Tool =>
       "Get the text of a PDF or Word (.docx) file: one of your files by path, or a file the " +
       "owner shared by its artifact id. Scanned pages have no text (there is no OCR). Long " +
       "documents come in parts: pass start_char to read on.",
-    parameters: Type.Object({
-      path: Type.Optional(
-        Type.String({ description: 'A path inside your files, e.g. "in/report.pdf".' }),
-      ),
-      artifact_id: Type.Optional(
-        Type.String({ description: "An artifact id from artifact_list." }),
-      ),
-      start_char: Type.Optional(
-        Type.Integer({ minimum: 0, description: "Where to read on from." }),
-      ),
-    }),
+    parameters: obj(
+      {
+        path: opt(str({ description: 'A path inside your files, e.g. "in/report.pdf".' })),
+        artifact_id: opt(str({ description: "An artifact id from artifact_list." })),
+        start_char: opt(int({ minimum: 0, description: "Where to read on from." })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
       if ((args.path === undefined) === (args.artifact_id === undefined))

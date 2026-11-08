@@ -13,6 +13,7 @@ import { MemoryStorage } from "@earendil-works/pi-durable";
 import { openMind } from "../entity.ts";
 import { INPUT_ENTRY_KIND, projectTranscript } from "../converse/steps.ts";
 import { changeEvals } from "./store.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const OWNER = "owner";
 
@@ -55,8 +56,8 @@ const setup = async () => {
   await write(INPUT_ENTRY_KIND, user("summarise my inbox"));
   await write("test.reply", assistant([{ type: "text", text: "You have 3 new emails." }]));
   await write(INPUT_ENTRY_KIND, user("thanks"));
-  const state = await conversation.viewState(BACKGROUND_CONTEXT);
-  const steps = projectTranscript(state.value?.entries ?? [], undefined, false);
+  const state = await readView(conversation, TRANSCRIPT_WINDOW);
+  const steps = projectTranscript(state.entries ?? [], undefined, false);
   const at = steps.find((step) => step.kind === "input")?.id ?? -1;
   return { handle, evals, chat, at, botId: bot.id };
 };

@@ -6,7 +6,7 @@
  * Jev's answer.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { Type } from "typebox";
+import { obj } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
@@ -24,6 +24,7 @@ import type { ProfilesService } from "../profiles/profiles.ts";
 import { gradeCase } from "./grade.ts";
 import { REPLAY_BLOCK, replayGuard, replayGuardExtension, type ReplayGuard } from "./guard.ts";
 import { replayCase } from "./replay.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -45,7 +46,7 @@ const rig = async () => {
       defineTool({
         name: "delete_files",
         description: "Deletes files.",
-        parameters: Type.Object({}),
+        parameters: obj({}, { open: true }),
         execute: async () => {
           executed += 1;
           return { output: [{ type: "text", text: "deleted" }] };
@@ -118,8 +119,8 @@ describe("eval replay (faux model)", () => {
     });
     expect(executed()).toBe(0);
     const fork = await Effect.runPromise(converse.ensure("eval:run-1:case-1"));
-    const state = await fork.viewState(ctx);
-    expect(JSON.stringify(state.value?.entries)).toContain("[dry run]");
+    const state = await readView(fork, TRANSCRIPT_WINDOW);
+    expect(JSON.stringify(state.entries)).toContain("[dry run]");
     expect(REPLAY_BLOCK).toContain("Tools do not run");
     // A fresh guard (a restart) still knows the replay from the doc.
     expect(await replayGuard(converse).isReplay(String(fork.id))).toBe(true);

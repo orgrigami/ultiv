@@ -46,14 +46,17 @@ const plan = (listId: string, statuses: string[]) => ({
   items: statuses.map((status, index) => ({ text: `Step ${index + 1}`, status })),
 });
 
+/** The property names of an object schema (pi-schema types `properties` as unknown). */
+const propertiesOf = (schema: object): object => (schema as { properties: object }).properties;
+
 describe("the arguments the plan and diagram tools take", () => {
   it("are the contracts schemas, and both tools are built on them", () => {
-    expect(Object.keys(ChecklistParamsSchema.properties).sort()).toEqual([
+    expect(Object.keys(propertiesOf(ChecklistParamsSchema)).sort()).toEqual([
       "items",
       "title",
       "update",
     ]);
-    expect(Object.keys(GraphParamsSchema.properties).sort()).toEqual(["source", "title"]);
+    expect(Object.keys(propertiesOf(GraphParamsSchema)).sort()).toEqual(["source", "title"]);
     expect(packageSource("mind/src/checklist/tools.ts")).toMatch(
       /name: CHECKLIST_TOOL,[\s\S]*parameters: ChecklistParamsSchema/,
     );

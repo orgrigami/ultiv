@@ -7,75 +7,101 @@
  * first, then Jev comparing it with the reference. Plain REST, never a
  * chord object.
  */
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  bool,
+  nul,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  type Static,
+} from "@earendil-works/pi-schema";
 
 /** Cases one run replays at most (each is a real model turn). */
 export const EVAL_RUN_MAX_CASES = 25;
 
-export const EvalExpectSchema = Type.Object({
-  /** Tools the reply must call. */
-  tools: Type.Optional(Type.Array(Type.String())),
-  /** Tools the reply must not call. */
-  notTools: Type.Optional(Type.Array(Type.String())),
-  /** Phrases the reply must contain (case-insensitive). */
-  contains: Type.Optional(Type.Array(Type.String())),
-  /** A plain-language rule Jev checks the reply against. */
-  rubric: Type.Optional(Type.String()),
-});
+export const EvalExpectSchema = obj(
+  {
+    /** Tools the reply must call. */
+    tools: opt(arr(str())),
+    /** Tools the reply must not call. */
+    notTools: opt(arr(str())),
+    /** Phrases the reply must contain (case-insensitive). */
+    contains: opt(arr(str())),
+    /** A plain-language rule Jev checks the reply against. */
+    rubric: opt(str()),
+  },
+  { open: true },
+);
 export type EvalExpect = Static<typeof EvalExpectSchema>;
 
-export const EvalCaseSchema = Type.Object({
-  id: Type.String(),
-  owner: Type.String(),
-  profileId: Type.String(),
-  title: Type.String(),
-  /** The chat the message came from, and its transcript id there. */
-  sessionId: Type.String(),
-  at: Type.Number(),
-  /** The durable conversation and the entry the replay forks after (null: from scratch). */
-  conversationId: Type.String(),
-  forkAt: Type.Union([Type.Number(), Type.Null()]),
-  /** The owner's message, replayed as is. */
-  input: Type.String(),
-  /** What the bot did when the message was real. */
-  reference: Type.Object({ reply: Type.String(), tools: Type.Array(Type.String()) }),
-  expect: EvalExpectSchema,
-  createdAt: Type.Number(),
-});
+export const EvalCaseSchema = obj(
+  {
+    id: str(),
+    owner: str(),
+    profileId: str(),
+    title: str(),
+    /** The chat the message came from, and its transcript id there. */
+    sessionId: str(),
+    at: num(),
+    /** The durable conversation and the entry the replay forks after (null: from scratch). */
+    conversationId: str(),
+    forkAt: union([num(), nul()]),
+    /** The owner's message, replayed as is. */
+    input: str(),
+    /** What the bot did when the message was real. */
+    reference: obj({ reply: str(), tools: arr(str()) }, { open: true }),
+    expect: EvalExpectSchema,
+    createdAt: num(),
+  },
+  { open: true },
+);
 export type EvalCase = Static<typeof EvalCaseSchema>;
 
-export const EvalCheckSchema = Type.Object({
-  name: Type.String(),
-  ok: Type.Boolean(),
-  detail: Type.String(),
-});
+export const EvalCheckSchema = obj(
+  {
+    name: str(),
+    ok: bool(),
+    detail: str(),
+  },
+  { open: true },
+);
 export type EvalCheck = Static<typeof EvalCheckSchema>;
 
-export const EvalResultSchema = Type.Object({
-  caseId: Type.String(),
-  ok: Type.Boolean(),
-  reply: Type.String(),
-  /** Tools the replay tried to call (blocked, never run). */
-  tools: Type.Array(Type.String()),
-  checks: Type.Array(EvalCheckSchema),
-  /** Jev's probability that the reply is at least as good as the reference; null without Jev. */
-  score: Type.Union([Type.Number(), Type.Null()]),
-  error: Type.Union([Type.String(), Type.Null()]),
-});
+export const EvalResultSchema = obj(
+  {
+    caseId: str(),
+    ok: bool(),
+    reply: str(),
+    /** Tools the replay tried to call (blocked, never run). */
+    tools: arr(str()),
+    checks: arr(EvalCheckSchema),
+    /** Jev's probability that the reply is at least as good as the reference; null without Jev. */
+    score: union([num(), nul()]),
+    error: union([str(), nul()]),
+  },
+  { open: true },
+);
 export type EvalResult = Static<typeof EvalResultSchema>;
 
-export const EvalRunSchema = Type.Object({
-  id: Type.String(),
-  owner: Type.String(),
-  /** The model replayed on; null = each bot's own chat model. */
-  model: Type.Union([Type.String(), Type.Null()]),
-  status: Type.Union([Type.Literal("running"), Type.Literal("done"), Type.Literal("failed")]),
-  caseIds: Type.Array(Type.String()),
-  results: Type.Array(EvalResultSchema),
-  startedAt: Type.Number(),
-  finishedAt: Type.Union([Type.Number(), Type.Null()]),
-  error: Type.Union([Type.String(), Type.Null()]),
-});
+export const EvalRunSchema = obj(
+  {
+    id: str(),
+    owner: str(),
+    /** The model replayed on; null = each bot's own chat model. */
+    model: union([str(), nul()]),
+    status: oneOf(["running", "done", "failed"]),
+    caseIds: arr(str()),
+    results: arr(EvalResultSchema),
+    startedAt: num(),
+    finishedAt: union([num(), nul()]),
+    error: union([str(), nul()]),
+  },
+  { open: true },
+);
 export type EvalRun = Static<typeof EvalRunSchema>;
 
 /** POST /api/evals: save a message of a chat as a case. */

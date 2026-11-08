@@ -7,7 +7,7 @@
  * bot sees only its own tasks.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { arr, bool, nul, obj, opt, str, union, unknown } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
 import { defineTool } from "@spriessen/ext";
 import { titleOf, type TasksService } from "../tasks/tasks.ts";
@@ -18,52 +18,51 @@ import { resultSchemaProblem } from "../tasks/structured.ts";
 import type { ProjectRef } from "../projects/links.ts";
 import type { Json } from "@spriessen/contracts";
 
-const SpawnParams = Type.Object({
-  prompt: Type.String({
-    description:
-      "The full, self-contained instruction for the background task: the goal, the steps " +
-      "and what to report back.",
-  }),
-  title: Type.Optional(
-    Type.String({
+const SpawnParams = obj(
+  {
+    prompt: str({
       description:
-        "A short title your owner sees in the task list, ≤40 chars (e.g. 'Flight prices').",
+        "The full, self-contained instruction for the background task: the goal, the steps " +
+        "and what to report back.",
     }),
-  ),
-  sessionId: Type.Optional(
-    Type.String({ description: "App session to file the task under; optional." }),
-  ),
-  model: Type.Optional(
-    Type.String({
-      description:
-        "A provider/model id for this task only. Omit it: tasks run on your background model.",
-    }),
-  ),
-  effort: Type.Optional(
-    Type.String({ description: "Reasoning effort for this task only, e.g. low or high." }),
-  ),
-  project: Type.Optional(
-    Type.String({
-      description:
-        "The #handle of your open project this task works toward; the project's show then " +
-        "lists it.",
-    }),
-  ),
-  result_schema: Type.Optional(
-    Type.Object(
-      {},
-      {
-        additionalProperties: true,
+    title: opt(
+      str({
         description:
-          "A JSON Schema the result must match, when you need data rather than prose (e.g. " +
-          '{"type":"object","properties":{"price":{"type":"number"}},"required":["price"]}). ' +
-          "The result then reaches you as validated JSON.",
-      },
+          "A short title your owner sees in the task list, ≤40 chars (e.g. 'Flight prices').",
+      }),
     ),
-  ),
-});
+    sessionId: opt(str({ description: "App session to file the task under; optional." })),
+    model: opt(
+      str({
+        description:
+          "A provider/model id for this task only. Omit it: tasks run on your background model.",
+      }),
+    ),
+    effort: opt(str({ description: "Reasoning effort for this task only, e.g. low or high." })),
+    project: opt(
+      str({
+        description:
+          "The #handle of your open project this task works toward; the project's show then " +
+          "lists it.",
+      }),
+    ),
+    result_schema: opt(
+      obj(
+        {},
+        {
+          open: true,
+          description:
+            "A JSON Schema the result must match, when you need data rather than prose (e.g. " +
+            '{"type":"object","properties":{"price":{"type":"number"}},"required":["price"]}). ' +
+            "The result then reaches you as validated JSON.",
+        },
+      ),
+    ),
+  },
+  { open: true },
+);
 
-const StatusParams = Type.Object({ id: Type.String({ description: "The task id." }) });
+const StatusParams = obj({ id: str({ description: "The task id." }) }, { open: true });
 
 /** Agent-spawned tasks are filed under their own owner label. Reserved: a principal may not NAME itself this. */
 export const AGENT_OWNER = "agent";
@@ -125,7 +124,7 @@ const spawnTool = (
       "starts by itself. For a follow-up on the same work, continue the task with " +
       "task_message instead of spawning a new one. Do NOT poll task_status in a loop.",
     parameters: SpawnParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
+    structuredOutputSchema: obj({ id: str(), status: str() }, { open: true }),
     execute: async (args, api) => {
       const spawning = String(api.conversationId);
       if (await Effect.runPromise(tasks.isTaskConversation(spawning))) {
@@ -194,14 +193,17 @@ const statusTool = (tasks: TasksService): Tool =>
       "result automatically; use this only for an on-demand check, never to poll in a loop. " +
       "Shows its last few steps.",
     parameters: StatusParams,
-    structuredOutputSchema: Type.Object({
-      status: Type.String(),
-      title: Type.String(),
-      steps: Type.Array(Type.String()),
-      result: Type.Union([Type.String(), Type.Null()]),
-      error: Type.Union([Type.String(), Type.Null()]),
-      structured: Type.Optional(Type.Unknown()),
-    }),
+    structuredOutputSchema: obj(
+      {
+        status: str(),
+        title: str(),
+        steps: arr(str()),
+        result: union([str(), nul()]),
+        error: union([str(), nul()]),
+        structured: opt(unknown()),
+      },
+      { open: true },
+    ),
     execute: async (args) => {
       const task = await Effect.runPromise(tasks.get(args.id));
       if (task === undefined) return textReply(`unknown task: ${args.id}`, true);
@@ -224,7 +226,7 @@ const cancelTool = (tasks: TasksService): Tool =>
       "Stop a running or queued background task by id: its conversation is aborted and the " +
       "task is marked cancelled. Your owner can also stop tasks from the app.",
     parameters: StatusParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), cancelled: Type.Boolean() }),
+    structuredOutputSchema: obj({ id: str(), cancelled: bool() }, { open: true }),
     execute: async (args) => {
       const cancelled = await Effect.runPromise(tasks.cancel(args.id));
       return {
@@ -240,10 +242,8 @@ const listTool = (tasks: TasksService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "task_list",
     description: "List your recent background tasks with their ids, titles and statuses.",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({ id: Type.String(), title: Type.String(), status: Type.String() }),
-    ),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(obj({ id: str(), title: str(), status: str() }, { open: true })),
     execute: async (_args, api) => {
       const all = await Effect.runPromise(tasks.list());
       const recent = tasksVisibleTo(profiles, String(api.conversationId), all)

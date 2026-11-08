@@ -6,7 +6,7 @@
  */
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import webpush from "web-push";
+import { generateVAPIDKeys } from "web-push";
 
 const envPath = resolve(import.meta.dirname, "../../../.env");
 
@@ -22,7 +22,7 @@ if (havePublic && havePrivate) {
   console.error("Only one VAPID key is set in .env; fix it by hand (remove both to regenerate).");
   process.exitCode = 1;
 } else {
-  const keys = webpush.generateVAPIDKeys();
+  const keys = generateVAPIDKeys();
   const lead = current === "" || current.endsWith("\n") ? "" : "\n";
   appendFileSync(
     envPath,

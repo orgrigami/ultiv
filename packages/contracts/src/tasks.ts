@@ -1,110 +1,126 @@
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  bool,
+  lit,
+  nul,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  unknown,
+  type Schema,
+  type Static,
+} from "@earendil-works/pi-schema";
 
 /**
  * One background task: an agent turn the entity runs in its own conversation.
  * "queued" waits for a free slot (the bot's running limit); it starts by itself.
  */
-export const TaskStatusSchema = Type.Union([
-  Type.Literal("queued"),
-  Type.Literal("running"),
-  Type.Literal("done"),
-  Type.Literal("failed"),
-  Type.Literal("cancelled"),
-]);
+export const TaskStatusSchema = oneOf(["queued", "running", "done", "failed", "cancelled"]);
 
 export type TaskStatus = Static<typeof TaskStatusSchema>;
 
 /** One progress line a running task posted for its owner. */
-export const TaskUpdateSchema = Type.Object({ at: Type.Number(), text: Type.String() });
+export const TaskUpdateSchema = obj({ at: num(), text: str() }, { open: true });
 
 export type TaskUpdate = Static<typeof TaskUpdateSchema>;
 
 /** Any JSON value: what a structured task result and its schema are stored as. */
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-const JsonSchema = Type.Unsafe<Json>(Type.Unknown());
+const JsonSchema = unknown() as Schema<Json>;
 
-export const TaskInfoSchema = Type.Object({
-  id: Type.String(),
+const TaskInfoProperties = {
+  id: str(),
   /** The app session the task belongs to (registry scoping; may be empty). */
-  sessionId: Type.String(),
+  sessionId: str(),
   /** Registry owner the task was spawned under (see /api/sessions owner scoping). */
-  owner: Type.String(),
+  owner: str(),
   /** The durable conversation that spawned the task; woken when it settles. Null for REST spawns. */
-  conversationId: Type.Union([Type.String(), Type.Null()]),
-  prompt: Type.String(),
+  conversationId: union([str(), nul()]),
+  prompt: str(),
   status: TaskStatusSchema,
-  result: Type.Union([Type.String(), Type.Null()]),
-  error: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.Number(),
+  result: union([str(), nul()]),
+  error: union([str(), nul()]),
+  createdAt: num(),
   /** When the current run started (a queued task waits first); absent on older rows = createdAt. */
-  startedAt: Type.Optional(Type.Number()),
-  finishedAt: Type.Union([Type.Number(), Type.Null()]),
+  startedAt: opt(num()),
+  finishedAt: union([num(), nul()]),
   /**
    * How many runs the task has had: a finished task continued with
    * task_message runs again in its own conversation, with its context.
    * Absent = 1.
    */
-  runs: Type.Optional(Type.Number()),
+  runs: opt(num()),
   /**
    * The model lane the task's requests ride: "owner" when the owner's own
    * message started (or continued) it, so it is served like a chat; absent =
    * background (routines, mail, wakes).
    */
-  lane: Type.Optional(Type.Literal("owner")),
+  lane: opt(lit("owner")),
   /** The input a queued task runs when its slot frees (queued rows only). */
-  next: Type.Optional(Type.String()),
+  next: opt(str()),
   /** false = the spawning conversation has not been told the outcome yet (re-sent on boot). */
-  notified: Type.Optional(Type.Boolean()),
+  notified: opt(bool()),
   /** A short title the bot chose (≤40 chars); absent on older rows — fall back to the prompt. */
-  title: Type.Optional(Type.String()),
+  title: opt(str()),
   /** The bot the task runs as, kept on the row so the link survives a restart. */
-  bot: Type.Optional(Type.Object({ owner: Type.String(), profileId: Type.String() })),
+  bot: opt(obj({ owner: str(), profileId: str() }, { open: true })),
   /**
    * True when the turn that spawned or steered the task had outside content
    * (or wasn't the owner's or a routine's): the whole task counts as outside,
    * so it can't learn skills on its own. Sticky; absent = clean.
    */
-  outside: Type.Optional(Type.Boolean()),
+  outside: opt(bool()),
   /** Progress updates the task posted for the owner (notify_owner), oldest first. */
-  updates: Type.Optional(Type.Array(TaskUpdateSchema)),
+  updates: opt(arr(TaskUpdateSchema)),
   /** The `provider/model` the task runs on, when it differs from its bot's chat model. */
-  model: Type.Optional(Type.String()),
+  model: opt(str()),
   /** The effort the task runs at; absent = the model's default. */
-  effort: Type.Optional(Type.String()),
+  effort: opt(str()),
   /**
    * How the outcome reaches the spawning chat: "wake" (default) starts a turn
    * there with it; "note" posts it into the chat without waking the bot (the
    * bot reads it with its next turn). Background routines report as notes.
    */
-  report: Type.Optional(Type.Union([Type.Literal("wake"), Type.Literal("note")])),
+  report: opt(oneOf(["wake", "note"])),
   /** A JSON Schema the spawn asked the result to match (structured results). */
-  resultSchema: Type.Optional(JsonSchema),
+  resultSchema: opt(JsonSchema),
   /**
    * The validated result value when `resultSchema` was set; null when the
    * task's reply never matched (the raw text stays in `result`).
    */
-  structured: Type.Optional(JsonSchema),
+  structured: opt(JsonSchema),
   /** The bot's project this task works toward (task_spawn `project`, or its routine's). */
-  projectId: Type.Optional(Type.String()),
+  projectId: opt(str()),
   /** The latest step of a running task, as a plain line (list responses only, never stored). */
-  lastStep: Type.Optional(Type.String()),
-});
+  lastStep: opt(str()),
+};
+
+export const TaskInfoSchema = obj(TaskInfoProperties, { open: true });
 
 export type TaskInfo = Static<typeof TaskInfoSchema>;
 
 /** The projections GET /api/tasks adds to a stored task row (never stored on the doc). */
-export const TaskRowSchema = Type.Object({
-  ...TaskInfoSchema.properties,
-  taskConversationId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-  waitingApproval: Type.Optional(
-    Type.Object({
-      callId: Type.String(),
-      name: Type.String(),
-      input: Type.Unknown(),
-      reason: Type.Union([Type.String(), Type.Null()]),
-    }),
-  ),
-});
+export const TaskRowSchema = obj(
+  {
+    ...TaskInfoProperties,
+    taskConversationId: opt(union([str(), nul()])),
+    waitingApproval: opt(
+      obj(
+        {
+          callId: str(),
+          name: str(),
+          input: unknown(),
+          reason: union([str(), nul()]),
+        },
+        { open: true },
+      ),
+    ),
+  },
+  { open: true },
+);
 
 /**
  * One row of GET /api/tasks: the stored task plus response-only projections.
@@ -129,13 +145,16 @@ export const TASK_LIMIT_DEFAULT = 3;
  * tasks a bot runs at once, and where it comes from ("db" = stored in
  * Settings, "env" = SPRIESSEN_MAX_RUNNING_TASKS, "default" = built in).
  */
-export const TaskSettingsSchema = Type.Object({
-  maxRunningTasks: Type.Number(),
-  source: Type.Union([Type.Literal("db"), Type.Literal("env"), Type.Literal("default")]),
-});
+export const TaskSettingsSchema = obj(
+  {
+    maxRunningTasks: num(),
+    source: oneOf(["db", "env", "default"]),
+  },
+  { open: true },
+);
 
 export type TaskSettings = Static<typeof TaskSettingsSchema>;
 
-export const TaskListSchema = Type.Array(TaskRowSchema);
+export const TaskListSchema = arr(TaskRowSchema);
 
 export type TaskList = Static<typeof TaskListSchema>;

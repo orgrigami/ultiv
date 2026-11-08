@@ -38,6 +38,7 @@ import { projectTranscript } from "./steps.ts";
 import { isStopped } from "./stop.ts";
 import { validatePatch } from "../profiles/update.ts";
 import { defaultPolicies } from "../profiles/docs.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -76,7 +77,7 @@ const rig = async (
   const harness = await Harness.open(new MemoryStorage(), { models, registry }, ctx);
   converse = converseService(harness, { model: { provider: model.provider, modelId: model.id } });
   const chat = await Effect.runPromise(converse.ensure("deadline-test"));
-  const view = async () => (await chat.viewState(ctx)).value;
+  const view = async () => await readView(chat, TRANSCRIPT_WINDOW);
   const close = async () => {
     deadlines.stop();
     await harness.close(ctx);

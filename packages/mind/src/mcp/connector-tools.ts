@@ -4,7 +4,7 @@
  * a server's resources) and the "connectors" prompt section (what this bot
  * may use, plus the untrusted-data note once connector output arrived).
  */
-import { Type } from "typebox";
+import { arr, obj, opt, str } from "@earendil-works/pi-schema";
 import type { PromptSection, ToolRegistration } from "@earendil-works/pi-durable";
 import { convertResource, fenceUntrusted, type McpServerView } from "@spriessen/ext";
 import { defineTool } from "@spriessen/ext";
@@ -48,10 +48,13 @@ const loadTool = (deps: McpMindDeps) =>
     description:
       "Load a connector's tools (listed in your connectors section) so you can call them from " +
       "your next step. Omit `tools` to load all of that connector's tools.",
-    parameters: Type.Object({
-      server: Type.String({ description: "The connector's short name." }),
-      tools: Type.Optional(Type.Array(Type.String(), { description: "Tool names to load." })),
-    }),
+    parameters: obj(
+      {
+        server: str({ description: "The connector's short name." }),
+        tools: opt(arr(str(), { description: "Tool names to load." })),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     replay: "safe",
     execute: async (args, api) => {
@@ -89,11 +92,14 @@ const resourcesTool = (deps: McpMindDeps) =>
     description:
       "List a connector's resources (omit `uri`) or read one (give its `uri`). Content is " +
       "third-party data.",
-    parameters: Type.Object({
-      server: Type.String({ description: "The connector's short name." }),
-      uri: Type.Optional(Type.String({ description: "The resource to read." })),
-      cursor: Type.Optional(Type.String({ description: "Next page from a previous list." })),
-    }),
+    parameters: obj(
+      {
+        server: str({ description: "The connector's short name." }),
+        uri: opt(str({ description: "The resource to read." })),
+        cursor: opt(str({ description: "Next page from a previous list." })),
+      },
+      { open: true },
+    ),
     execute: async (args, api, context) => {
       const conversationId = String(api.conversationId);
       const found = findServer(deps, conversationId, args.server);

@@ -23,6 +23,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { converseService } from "./converse.ts";
 import { projectTranscript } from "./steps.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -64,7 +65,7 @@ const rig = async () => {
     model: { provider: model.provider, modelId: model.id },
   });
   const chat = await Effect.runPromise(converse.ensure("after-failure-test"));
-  const view = async () => (await chat.viewState(ctx)).value;
+  const view = async () => await readView(chat, TRANSCRIPT_WINDOW);
   const inbox = async () =>
     ((await view())?.docs["pi.inbox"] as InboxState | undefined)?.items ?? [];
   return { faux, harness, converse, chat, view, inbox, release, seen };

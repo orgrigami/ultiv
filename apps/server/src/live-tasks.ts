@@ -22,11 +22,10 @@ export const watchRunningTasks = (mind: MindService, signal: () => void): TaskWa
       const conversation = await Effect.runPromise(
         mind.converse.ensure(taskConversationKey(taskId)),
       );
-      const view = await conversation.viewState(BACKGROUND_CONTEXT);
-      if (view === undefined) return;
-      const unsubscribe = view.subscribe(() => signal());
+      const watch = await conversation.watch(BACKGROUND_CONTEXT);
+      watch.start(async () => signal());
       watching.set(taskId, () => {
-        unsubscribe();
+        void watch.stop();
         watching.delete(taskId);
       });
       // Already settled between the list read and the attach: let go.

@@ -12,7 +12,6 @@
  */
 import { Context, Deferred, Duration, Effect, Exit, Layer } from "effect";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import type { TSchema } from "typebox";
 import type { ProfileApprovalMode } from "@spriessen/contracts";
 
 export interface ApprovalRequest {
@@ -371,7 +370,7 @@ export interface ApprovalOptions {
  * first. This is the ONLY way a tool should gate: one seam, applied at the
  * act. Reads must not be wrapped.
  */
-export const withApproval = <TParameters extends TSchema>(
+export const withApproval = <TParameters extends object>(
   approvals: ApprovalsService,
   tool: ToolRegistration<TParameters>,
   options?: ApprovalOptions,

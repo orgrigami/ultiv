@@ -9,7 +9,7 @@
  * off and is never read from the model: only the owner turns it on.
  */
 import { Duration } from "effect";
-import { Type } from "typebox";
+import { arr, bool, obj, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { InvalidInput } from "@spriessen/core";
 import type { ProfileCreate } from "@spriessen/contracts";
@@ -83,40 +83,37 @@ export const mainGuardOf = (deps: BotCreateDeps) => async (args: unknown, api: u
   }
 };
 
-const parameters = Type.Object({
-  name: Type.String({ description: "The new bot's name.", minLength: 1, maxLength: 80 }),
-  title: Type.Optional(
-    Type.String({ description: "Its one-line role, e.g. 'Researches suppliers'.", maxLength: 500 }),
-  ),
-  team: Type.Optional(
-    Type.String({
-      description:
-        'Its home: a team name or id (teams_list shows them), or "org" / empty for ' +
-        "an org bot. It follows its team's Instructions.",
-    }),
-  ),
-  persona: Type.Optional(
-    Type.String({ description: "Who it is: personality and voice, free text.", maxLength: 8_000 }),
-  ),
-  instructions: Type.Optional(
-    Type.String({ description: "How it works: standing rules for its job.", maxLength: 16_000 }),
-  ),
-  model: Type.Optional(
-    Type.String({ description: 'Model ref "provider/model"; empty = workspace default.' }),
-  ),
-  effort: Type.Optional(
-    Type.String({ description: "Thinking effort for the model; empty = the model default." }),
-  ),
-  sandbox: Type.Optional(
-    Type.Boolean({ description: "Own sandbox (bash in a microVM)? Default true." }),
-  ),
-  tools: Type.Optional(
-    Type.Array(Type.String(), {
-      maxItems: 200,
-      description: "Tool names it may use; leave out for all installed tools.",
-    }),
-  ),
-});
+const parameters = obj(
+  {
+    name: str({ description: "The new bot's name.", minLength: 1, maxLength: 80 }),
+    title: opt(
+      str({ description: "Its one-line role, e.g. 'Researches suppliers'.", maxLength: 500 }),
+    ),
+    team: opt(
+      str({
+        description:
+          'Its home: a team name or id (teams_list shows them), or "org" / empty for ' +
+          "an org bot. It follows its team's Instructions.",
+      }),
+    ),
+    persona: opt(
+      str({ description: "Who it is: personality and voice, free text.", maxLength: 8_000 }),
+    ),
+    instructions: opt(
+      str({ description: "How it works: standing rules for its job.", maxLength: 16_000 }),
+    ),
+    model: opt(str({ description: 'Model ref "provider/model"; empty = workspace default.' })),
+    effort: opt(str({ description: "Thinking effort for the model; empty = the model default." })),
+    sandbox: opt(bool({ description: "Own sandbox (bash in a microVM)? Default true." })),
+    tools: opt(
+      arr(str(), {
+        maxItems: 200,
+        description: "Tool names it may use; leave out for all installed tools.",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 const toolOf = (deps: BotCreateDeps) =>
   defineTool({

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { taskTools } from "../act/task-tools.ts";
 import { projectTranscript } from "../converse/steps.ts";
 import { openMind } from "../entity.ts";
 import { TASK_UPDATE_KIND, TasksDoc, taskConversationKey } from "./tasks.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 describe("notify_owner", () => {
   it("posts a passive update into the parent chat, rate-limited, without waking it", async () => {
@@ -42,7 +42,7 @@ describe("notify_owner", () => {
     expect(JSON.stringify(await call(taskChat.id, "again"))).toContain("one update per 2 minutes");
     expect(JSON.stringify(await call(main.id, "hi"))).toContain("only inside a background task");
 
-    const view = (await main.viewState(BACKGROUND_CONTEXT)).value;
+    const view = await readView(main, TRANSCRIPT_WINDOW);
     const entries = view?.entries ?? [];
     // Only the passive entry: no input was admitted, so no turn was woken.
     expect(entries.map((entry) => entry.kind)).toEqual([TASK_UPDATE_KIND]);

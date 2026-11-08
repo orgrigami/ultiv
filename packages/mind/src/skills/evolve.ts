@@ -7,7 +7,7 @@
  * improvement. The task runs as the bot, so the loop uses the same tools the
  * bot has, and the parent is woken with the result instead of polling.
  */
-import { Type } from "typebox";
+import { obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -64,18 +64,21 @@ export const evolveTool = (
     name: "skill_evolve",
     description:
       'Start a background task that improves one of your skills from evidence: it mines your past runs, drafts candidate revisions, judges them (Jev when available) and lands the best one. mode "propose" (default) parks the result for your owner; "apply" is only for when your owner explicitly asked for this improvement. End your turn after starting; you are woken with the result.',
-    parameters: Type.Object({
-      skill: Type.String({ description: "The skill's name." }),
-      focus: Type.Optional(
-        Type.String({ description: "One line narrowing this run: what to improve or watch for." }),
-      ),
-      mode: Type.Optional(
-        Type.Union([Type.Literal("propose"), Type.Literal("apply")], {
-          description: '"propose" (default) or "apply" (owner asked directly).',
-        }),
-      ),
-    }),
-    structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
+    parameters: obj(
+      {
+        skill: str({ description: "The skill's name." }),
+        focus: opt(
+          str({ description: "One line narrowing this run: what to improve or watch for." }),
+        ),
+        mode: opt(
+          oneOf(["propose", "apply"], {
+            description: '"propose" (default) or "apply" (owner asked directly).',
+          }),
+        ),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ id: str(), status: str() }, { open: true }),
     execute: async (args, api) => {
       const spawning = String(api.conversationId);
       if (await tasks.isTaskConversation(spawning)) {

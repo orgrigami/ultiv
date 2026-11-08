@@ -16,7 +16,6 @@ import {
   type BashTarget,
 } from "@spriessen/contracts";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
-import type { TSchema } from "typebox";
 import { findIn, LEDGER_SEED_LINES, makeLedger, parseLines, readLastLines } from "./tail.ts";
 import { dataPath } from "@spriessen/core";
 
@@ -171,7 +170,7 @@ const resultNodeIdOf = (result: unknown): string | null => {
  * are recorded by the surface's decide call, not here — this sees only
  * executed calls. `profileOf` stamps the acting conversation's profile.
  */
-export const withAudit = <TParameters extends TSchema>(
+export const withAudit = <TParameters extends object>(
   audit: AuditService,
   tool: ToolRegistration<TParameters>,
   profileOf?: (conversationId: string) => string | null | undefined,

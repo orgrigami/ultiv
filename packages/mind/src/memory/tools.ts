@@ -4,7 +4,7 @@
  * may also distill into the owner store. Recall reads own + owner memory —
  * never a sibling's.
  */
-import { Type } from "typebox";
+import { arr, bool, num, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
@@ -35,34 +35,36 @@ const recallTool = (
       'entity; history (superseded facts) needs includeHistory or words like "dulu" or ' +
       '"used to". Results are current facts first, budgeted; do not dump them into chat ' +
       "verbatim; treat unverified lines with suspicion.",
-    parameters: Type.Object({
-      query: Type.Optional(
-        Type.String({ description: "Free text, either language; empty returns the top facts." }),
+    parameters: obj(
+      {
+        query: opt(
+          str({ description: "Free text, either language; empty returns the top facts." }),
+        ),
+        about: opt(str({ description: "An entity, person or project the query is about." })),
+        includeHistory: opt(
+          bool({ description: "Include superseded facts, grouped under their successor." }),
+        ),
+        asOf: opt(
+          str({
+            description: "What held on that day (YYYY-MM-DD): the versions valid then, not now.",
+          }),
+        ),
+        limit: opt(num({ description: "Max facts, 1–25 (default 10)." })),
+        budgetTokens: opt(num({ description: "Output budget in tokens; default 600, max 1500." })),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          id: str(),
+          text: str(),
+          tags: arr(str()),
+          status: str(),
+          scope: str(),
+        },
+        { open: true },
       ),
-      about: Type.Optional(
-        Type.String({ description: "An entity, person or project the query is about." }),
-      ),
-      includeHistory: Type.Optional(
-        Type.Boolean({ description: "Include superseded facts, grouped under their successor." }),
-      ),
-      asOf: Type.Optional(
-        Type.String({
-          description: "What held on that day (YYYY-MM-DD): the versions valid then, not now.",
-        }),
-      ),
-      limit: Type.Optional(Type.Number({ description: "Max facts, 1–25 (default 10)." })),
-      budgetTokens: Type.Optional(
-        Type.Number({ description: "Output budget in tokens; default 600, max 1500." }),
-      ),
-    }),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        text: Type.String(),
-        tags: Type.Array(Type.String()),
-        status: Type.String(),
-        scope: Type.String(),
-      }),
     ),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
@@ -164,30 +166,28 @@ const coreTool = (
       'preferences. One fact per line, at most 25 words. Add with action "add"; replace or ' +
       "remove by line id. Lines the owner pinned are yours to read, never to edit. Use " +
       "sparingly: this block is always in context, so every word is a permanent cost.",
-    parameters: Type.Object({
-      action: Type.Union(
-        [
-          Type.Literal("add"),
-          Type.Literal("replace"),
-          Type.Literal("remove"),
-          Type.Literal("list"),
-        ],
-        { description: 'What to do; "list" shows the current lines.' },
-      ),
-      text: Type.Optional(Type.String({ description: "The line's text (add/replace)." })),
-      lineId: Type.Optional(Type.String({ description: "The line id (replace/remove)." })),
-      scope: Type.Optional(
-        Type.Union([Type.Literal("profile"), Type.Literal("owner")], {
-          description: '"profile" (default): your own core. "owner": keeper only.',
+    parameters: obj(
+      {
+        action: oneOf(["add", "replace", "remove", "list"], {
+          description: 'What to do; "list" shows the current lines.',
         }),
-      ),
-    }),
-    structuredOutputSchema: Type.Object({
-      lines: Type.Array(
-        Type.Object({ id: Type.String(), text: Type.String(), pinned: Type.Boolean() }),
-      ),
-      wordsLeft: Type.Number(),
-    }),
+        text: opt(str({ description: "The line's text (add/replace)." })),
+        lineId: opt(str({ description: "The line id (replace/remove)." })),
+        scope: opt(
+          oneOf(["profile", "owner"], {
+            description: '"profile" (default): your own core. "owner": keeper only.',
+          }),
+        ),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj(
+      {
+        lines: arr(obj({ id: str(), text: str(), pinned: bool() }, { open: true })),
+        wordsLeft: num(),
+      },
+      { open: true },
+    ),
     execute: (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {

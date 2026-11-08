@@ -4,60 +4,77 @@
  * decisions; single-primitive tools live in `decision-tools.ts`.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { arr, lit, map, num, obj, oneOf, opt, str, union } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { DecideService, JevAnswer, JevQuestionSpec } from "../decide/decide.ts";
 
-const QuestionParams = Type.Object({
-  name: Type.String({ description: "Key this answer is reported under." }),
-  type: Type.Union([Type.Literal("noul"), Type.Literal("choice"), Type.Literal("score")], {
-    description: "noul = yes/no probability, choice = pick one of options, score = rubric rating.",
-  }),
-  instruction: Type.Optional(Type.String({ description: "What to decide for this question." })),
-  options: Type.Optional(
-    Type.Array(Type.String(), { minItems: 2, description: "choice only: the allowed answers." }),
-  ),
-  rubric: Type.Optional(
-    Type.Array(Type.String(), {
-      minItems: 2,
-      description: "score only: ordered level descriptions, index = score.",
+const QuestionParams = obj(
+  {
+    name: str({ description: "Key this answer is reported under." }),
+    type: oneOf(["noul", "choice", "score"], {
+      description:
+        "noul = yes/no probability, choice = pick one of options, score = rubric rating.",
     }),
-  ),
-});
+    instruction: opt(str({ description: "What to decide for this question." })),
+    options: opt(arr(str(), { minItems: 2, description: "choice only: the allowed answers." })),
+    rubric: opt(
+      arr(str(), {
+        minItems: 2,
+        description: "score only: ordered level descriptions, index = score.",
+      }),
+    ),
+  },
+  { open: true },
+);
 
-const AskParams = Type.Object({
-  state: Type.String({ description: "The subject all questions judge." }),
-  questions: Type.Array(QuestionParams, {
-    minItems: 1,
-    maxItems: 8,
-    description: "One entry per decision; noul/score need an instruction, choice needs options.",
-  }),
-});
+const AskParams = obj(
+  {
+    state: str({ description: "The subject all questions judge." }),
+    questions: arr(QuestionParams, {
+      minItems: 1,
+      maxItems: 8,
+      description: "One entry per decision; noul/score need an instruction, choice needs options.",
+    }),
+  },
+  { open: true },
+);
 
-const AskOutput = Type.Object({
-  answers: Type.Array(
-    Type.Union([
-      Type.Object({
-        name: Type.String(),
-        type: Type.Literal("noul"),
-        probability: Type.Number(),
-      }),
-      Type.Object({
-        name: Type.String(),
-        type: Type.Literal("choice"),
-        choice: Type.String(),
-        confidence: Type.Number(),
-      }),
-      Type.Object({
-        name: Type.String(),
-        type: Type.Literal("score"),
-        score: Type.Number(),
-        confidence: Type.Number(),
-        probabilities: Type.Record(Type.String(), Type.Number()),
-      }),
-    ]),
-  ),
-});
+const AskOutput = obj(
+  {
+    answers: arr(
+      union([
+        obj(
+          {
+            name: str(),
+            type: lit("noul"),
+            probability: num(),
+          },
+          { open: true },
+        ),
+        obj(
+          {
+            name: str(),
+            type: lit("choice"),
+            choice: str(),
+            confidence: num(),
+          },
+          { open: true },
+        ),
+        obj(
+          {
+            name: str(),
+            type: lit("score"),
+            score: num(),
+            confidence: num(),
+            probabilities: map(num()),
+          },
+          { open: true },
+        ),
+      ]),
+    ),
+  },
+  { open: true },
+);
 
 type RawQuestion = {
   name: string;

@@ -5,8 +5,7 @@
  * artifact_delete. The store itself is artifacts.ts; paths go through
  * fs/tree.ts.
  */
-import { Type } from "typebox";
-import type { Static } from "typebox";
+import { arr, bool, obj, oneOf, opt, str, type Static } from "@earendil-works/pi-schema";
 import { ArtifactInfoSchema } from "@spriessen/contracts";
 import type { ArtifactInfo } from "@spriessen/contracts";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
@@ -27,16 +26,19 @@ import { scopeDir, type ScopeHolder } from "./vault.ts";
 
 const MAX_WRITE_CHARS = 1_000_000;
 
-const WriteParams = Type.Object({
-  name: Type.String({
-    description:
-      'Where the file goes in your files, e.g. "report.md" or "reports/board.md"; the ' +
-      "extension sets the type. Writing a path that exists replaces that file.",
-  }),
-  content: Type.String({
-    description: `The file's UTF-8 content, up to ${MAX_WRITE_CHARS} chars.`,
-  }),
-});
+const WriteParams = obj(
+  {
+    name: str({
+      description:
+        'Where the file goes in your files, e.g. "report.md" or "reports/board.md"; the ' +
+        "extension sets the type. Writing a path that exists replaces that file.",
+    }),
+    content: str({
+      description: `The file's UTF-8 content, up to ${MAX_WRITE_CHARS} chars.`,
+    }),
+  },
+  { open: true },
+);
 
 const fail = (text: string) => ({
   output: [{ type: "text" as const, text }],
@@ -55,12 +57,15 @@ const artifactWriteTool = (dirOf: (conversationId: string) => string, holder?: S
       "write; to share a file made earlier (by you or bash), link it in your reply as a " +
       "markdown link, [name](/api/artifacts/<id>); a bare path in plain text shows no card.",
     parameters: WriteParams,
-    structuredOutputSchema: Type.Object({
-      id: Type.String(),
-      name: Type.String(),
-      path: Type.String(),
-      replaced: Type.Boolean(),
-    }),
+    structuredOutputSchema: obj(
+      {
+        id: str(),
+        name: str(),
+        path: str(),
+        replaced: bool(),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       if (args.content.length > MAX_WRITE_CHARS)
         return fail(`content exceeds ${MAX_WRITE_CHARS} chars`);
@@ -115,7 +120,7 @@ const artifactReadTool = (dirOf: (conversationId: string) => string): Tool =>
     description:
       "Read a workspace artifact by id: text files return their UTF-8 content (capped); " +
       "images attach to your context as viewable images.",
-    parameters: Type.Object({ id: Type.String({ description: "The artifact id." }) }),
+    parameters: obj({ id: str({ description: "The artifact id." }) }, { open: true }),
     execute: (args, api) => {
       const dir = dirOf(String(api.conversationId));
       const info = readArtifactInfo(dir, args.id);
@@ -139,18 +144,19 @@ const artifactReadTool = (dirOf: (conversationId: string) => string): Tool =>
     },
   });
 
-const ListParams = Type.Object({
-  query: Type.Optional(
-    Type.String({ description: "Search artifact names and text content (case-insensitive)." }),
-  ),
-  scope: Type.Optional(
-    Type.Union([Type.Literal("session"), Type.Literal("all")], {
-      description:
-        '"session" (default): only this conversation\'s artifacts. "all": search the whole ' +
-        "workspace; use it when the file was not written in this conversation.",
-    }),
-  ),
-});
+const ListParams = obj(
+  {
+    query: opt(str({ description: "Search artifact names and text content (case-insensitive)." })),
+    scope: opt(
+      oneOf(["session", "all"], {
+        description:
+          '"session" (default): only this conversation\'s artifacts. "all": search the whole ' +
+          "workspace; use it when the file was not written in this conversation.",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 const artifactListTool = (dirOf: (conversationId: string) => string): Tool =>
   defineTool({
@@ -160,7 +166,7 @@ const artifactListTool = (dirOf: (conversationId: string) => string): Tool =>
       'THIS conversation\'s artifacts; widen with scope "all" when needed, which searches this ' +
       "profile's whole workspace.",
     parameters: ListParams,
-    structuredOutputSchema: Type.Array(ArtifactInfoSchema),
+    structuredOutputSchema: arr(ArtifactInfoSchema),
     execute: (args, api) => {
       const scopeAll = args.scope === "all";
       const items = searchArtifacts(dirOf(String(api.conversationId)), {
@@ -183,7 +189,7 @@ const artifactDeleteTool = (dirOf: (conversationId: string) => string): Tool =>
       "Delete one of your files by artifact id, from every path it sits at, with its earlier " +
       "versions. It can't be undone and your owner approves each call: first name the file " +
       "and say so.",
-    parameters: Type.Object({ id: Type.String({ description: "The artifact id." }) }),
+    parameters: obj({ id: str({ description: "The artifact id." }) }, { open: true }),
     execute: async (args, api) => {
       if (!(await removeFile(dirOf(String(api.conversationId)), args.id)))
         return fail(`unknown artifact: ${args.id}`);

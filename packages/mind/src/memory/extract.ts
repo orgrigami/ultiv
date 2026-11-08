@@ -9,7 +9,7 @@
  * fallback inside a few seconds.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { arr, nul, obj, oneOf, str, union } from "@earendil-works/pi-schema";
 import type { GenerateService } from "../generate/generate.ts";
 import type { FactKind } from "@spriessen/contracts";
 import { flags } from "./model.ts";
@@ -108,25 +108,25 @@ const fallback = (text: string, known: readonly string[]): ExtractedFact => {
   };
 };
 
-const ExtractSchema = Type.Object({
-  text: Type.String({ description: "The fact, one self-contained sentence." }),
-  kind: Type.Union([
-    Type.Literal("fact"),
-    Type.Literal("preference"),
-    Type.Literal("instruction"),
-    Type.Literal("event"),
-    Type.Literal("note"),
-  ]),
-  entities: Type.Array(Type.String(), { maxItems: 6 }),
-  triple: Type.Union([
-    Type.Null(),
-    Type.Object({
-      s: Type.String({ description: "subject entity name" }),
-      p: Type.String({ description: "snake_case active-voice predicate" }),
-      o: Type.String({ description: "object entity name or value" }),
-    }),
-  ]),
-});
+const ExtractSchema = obj(
+  {
+    text: str({ description: "The fact, one self-contained sentence." }),
+    kind: oneOf(["fact", "preference", "instruction", "event", "note"]),
+    entities: arr(str(), { maxItems: 6 }),
+    triple: union([
+      nul(),
+      obj(
+        {
+          s: str({ description: "subject entity name" }),
+          p: str({ description: "snake_case active-voice predicate" }),
+          o: str({ description: "object entity name or value" }),
+        },
+        { open: true },
+      ),
+    ]),
+  },
+  { open: true },
+);
 
 /**
  * Extract one fact from raw text. `known` are the store's entity names

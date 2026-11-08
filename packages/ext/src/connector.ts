@@ -1,12 +1,12 @@
 /**
  * Connectors are the standardized seam to external services: identity, auth
- * (env-backed today, OAuth tomorrow), and TypeBox-typed actions whose
- * `perform`s are Effects. The schema language at this boundary is TypeBox, so
+ * (env-backed today, OAuth tomorrow), and JSON-Schema-typed actions whose
+ * `perform`s are Effects. The schema language at this boundary is JSON Schema
+ * (pi-schema builders), so
  * connector capabilities can cross the wire later without reshaping.
  */
 import { Config, Effect, Option } from "effect";
-import type { Static, TSchema } from "typebox";
-import { Value } from "typebox/value";
+import { compile, type Schema, type Static } from "@earendil-works/pi-schema";
 import { AuthMissing, External, InvalidInput, NotFound } from "@spriessen/core";
 
 export type ActionError = AuthMissing | External | InvalidInput;
@@ -27,7 +27,7 @@ export interface AuthSource {
   readonly resolveItem: (itemId: string) => { readonly apiKey?: string } | undefined;
 }
 
-export interface Action<Input extends TSchema = TSchema, Output extends TSchema = TSchema> {
+export interface Action<Input extends Schema = Schema, Output extends Schema = Schema> {
   readonly name: string;
   readonly description: string;
   readonly input: Input;
@@ -47,7 +47,7 @@ export interface Connector {
   readonly actions: readonly Action[];
 }
 
-export const defineAction = <const Input extends TSchema, const Output extends TSchema>(
+export const defineAction = <const Input extends Schema, const Output extends Schema>(
   action: Action<Input, Output>,
 ): Action<Input, Output> => action;
 
@@ -92,7 +92,7 @@ export const invoke = (
     if (action === undefined) {
       return yield* new NotFound({ what: `${connector.id}.${actionName}` });
     }
-    if (!Value.Check(action.input, input)) {
+    if (!compile(action.input).check(input)) {
       return yield* new InvalidInput({
         reason: `${connector.id}.${actionName}: input does not match the action schema`,
       });

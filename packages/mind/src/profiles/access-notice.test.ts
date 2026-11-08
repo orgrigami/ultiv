@@ -18,6 +18,7 @@ import {
 import type { ProfileInfo } from "@spriessen/contracts";
 import { converseService } from "../converse/converse.ts";
 import { accessChangeText, noticeRunningWork, type AgentTools } from "./access-notice.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -108,7 +109,7 @@ describe("noticeRunningWork (faux model)", () => {
     await turn;
     const idle = await Effect.runPromise(converse.ensure("idle"));
     const textOf = async (c: typeof running) =>
-      JSON.stringify((await c.viewState(ctx)).value ?? {});
+      JSON.stringify((await readView(c, TRANSCRIPT_WINDOW)) ?? {});
     expect(await textOf(running)).toContain("[access changed]");
     expect(await textOf(idle)).not.toContain("[access changed]");
     await harness.close(ctx);

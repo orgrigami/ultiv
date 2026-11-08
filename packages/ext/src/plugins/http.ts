@@ -4,28 +4,29 @@
  * integrations start from. No auth: whatever a target needs goes in headers.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { map, num, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { External } from "@spriessen/core";
 import type { Connector } from "../connector.ts";
 import { defineAction, defineConnector } from "../connector.ts";
 import { connectorCapability, definePlugin } from "../plugin.ts";
 
-const RequestInput = Type.Object({
-  method: Type.Union(
-    [Type.Literal("GET"), Type.Literal("POST"), Type.Literal("PUT"), Type.Literal("DELETE")],
-    { description: "HTTP method." },
-  ),
-  url: Type.String({ description: "Absolute URL to request." }),
-  headers: Type.Optional(
-    Type.Record(Type.String(), Type.String(), { description: "Request headers." }),
-  ),
-  body: Type.Optional(Type.String({ description: "Request body, sent as-is." })),
-});
+const RequestInput = obj(
+  {
+    method: oneOf(["GET", "POST", "PUT", "DELETE"], { description: "HTTP method." }),
+    url: str({ description: "Absolute URL to request." }),
+    headers: opt(map(str(), { description: "Request headers." })),
+    body: opt(str({ description: "Request body, sent as-is." })),
+  },
+  { open: true },
+);
 
-const RequestOutput = Type.Object({
-  status: Type.Number(),
-  body: Type.String(),
-});
+const RequestOutput = obj(
+  {
+    status: num(),
+    body: str(),
+  },
+  { open: true },
+);
 
 const request = defineAction({
   name: "request",

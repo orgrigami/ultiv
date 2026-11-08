@@ -11,7 +11,7 @@
  * Host-access switches are never read from the model.
  */
 import { Duration } from "effect";
-import { Type } from "typebox";
+import { int, obj, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { TeamInfo, ProfileInfo } from "@spriessen/contracts";
 import { defineTool } from "@spriessen/ext";
@@ -81,7 +81,7 @@ const listTool = (deps: AdminDeps) =>
       "host-access state and first line of Instructions. Main bot only. Use it before " +
       "creating, moving or deleting so you name the right team.",
     // Read-only, so script-callable: main-bot-only stays in execute (adminOf).
-    parameters: Type.Object({}),
+    parameters: obj({}, { open: true }),
     replay: "safe",
     execute: async (_args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -100,22 +100,23 @@ const createTool = (deps: AdminDeps) =>
       "Create a team: a home for bots with its own Instructions (every bot in it follows " +
       "them, before its own) and VM size. Main bot only. Host access starts off; only the " +
       "owner can turn it on. Then move or create bots into it.",
-    parameters: Type.Object({
-      name: Type.String({ minLength: 1, maxLength: 80, description: "The team's name." }),
-      instructions: Type.Optional(
-        Type.String({ maxLength: 16_000, description: "Standing Instructions for its bots." }),
-      ),
-      cpus: Type.Optional(
-        Type.Integer({ minimum: 1, maximum: 64, description: "VM CPUs (default 1)." }),
-      ),
-      memoryMiB: Type.Optional(
-        Type.Integer({
-          minimum: 128,
-          maximum: 65_536,
-          description: "VM memory in MiB (default 512).",
-        }),
-      ),
-    }),
+    parameters: obj(
+      {
+        name: str({ minLength: 1, maxLength: 80, description: "The team's name." }),
+        instructions: opt(
+          str({ maxLength: 16_000, description: "Standing Instructions for its bots." }),
+        ),
+        cpus: opt(int({ minimum: 1, maximum: 64, description: "VM CPUs (default 1)." })),
+        memoryMiB: opt(
+          int({
+            minimum: 128,
+            maximum: 65_536,
+            description: "VM memory in MiB (default 512).",
+          }),
+        ),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -151,15 +152,18 @@ const updateTool = (deps: AdminDeps) =>
       "Change a team: rename it, replace its Instructions, or resize its VM. Main bot " +
       "only; the owner confirms on a card. Give only the fields to change. Instructions " +
       "replace the old text entirely, so include what should stay. Host access is the owner's.",
-    parameters: Type.Object({
-      team: Type.String({ description: "The team's name or id." }),
-      name: Type.Optional(Type.String({ minLength: 1, maxLength: 80, description: "A new name." })),
-      instructions: Type.Optional(
-        Type.String({ maxLength: 16_000, description: "The full new Instructions text." }),
-      ),
-      cpus: Type.Optional(Type.Integer({ minimum: 1, maximum: 64 })),
-      memoryMiB: Type.Optional(Type.Integer({ minimum: 128, maximum: 65_536 })),
-    }),
+    parameters: obj(
+      {
+        team: str({ description: "The team's name or id." }),
+        name: opt(str({ minLength: 1, maxLength: 80, description: "A new name." })),
+        instructions: opt(
+          str({ maxLength: 16_000, description: "The full new Instructions text." }),
+        ),
+        cpus: opt(int({ minimum: 1, maximum: 64 })),
+        memoryMiB: opt(int({ minimum: 128, maximum: 65_536 })),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -206,9 +210,12 @@ const deleteTool = (deps: AdminDeps) =>
       "Delete an empty team. Main bot only; the owner confirms on a card. A team " +
       "that still has bots is refused with their names: move them to the org with bot_move " +
       "first (nothing is deleted with it but its Instructions, members and grants).",
-    parameters: Type.Object({
-      team: Type.String({ description: "The team's name or id." }),
-    }),
+    parameters: obj(
+      {
+        team: str({ description: "The team's name or id." }),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));

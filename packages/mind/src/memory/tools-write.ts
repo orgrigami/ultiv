@@ -4,7 +4,17 @@
  * instruction-shaped outside content or aimed at the owner store from an
  * outside turn, then consolidated (memory.writeV2).
  */
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  bool,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  type Static,
+} from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { AuditService } from "../audit/audit.ts";
 import type { ConverseService } from "../converse/converse.ts";
@@ -22,61 +32,57 @@ import {
   trustFor,
 } from "./guard.ts";
 
-export const WriteParams = Type.Object({
-  text: Type.String({ description: "The durable fact to remember, self-contained." }),
-  tags: Type.Optional(Type.Array(Type.String(), { description: "Short retrieval hints." })),
-  scope: Type.Optional(
-    Type.Union([Type.Literal("profile"), Type.Literal("owner")], {
-      description:
-        '"profile" (default): your own memory. "owner": your owner\'s cross-profile store, ' +
-        "only allowed if you are the designated memory keeper.",
-    }),
-  ),
-  kind: Type.Optional(
-    Type.Union(
-      [
-        Type.Literal("fact"),
-        Type.Literal("preference"),
-        Type.Literal("instruction"),
-        Type.Literal("event"),
-        Type.Literal("note"),
-      ],
-      { description: "The fact's kind; note (default) fits most writes." },
+export const WriteParams = obj(
+  {
+    text: str({ description: "The durable fact to remember, self-contained." }),
+    tags: opt(arr(str(), { description: "Short retrieval hints." })),
+    scope: opt(
+      oneOf(["profile", "owner"], {
+        description:
+          '"profile" (default): your own memory. "owner": your owner\'s cross-profile store, ' +
+          "only allowed if you are the designated memory keeper.",
+      }),
     ),
-  ),
-  importance: Type.Optional(
-    Type.Number({ description: "1–5; 3 by default. Use 5 sparingly (identity, standing rules)." }),
-  ),
-  basis: Type.Optional(
-    Type.Union([Type.Literal("owner_said"), Type.Literal("observed"), Type.Literal("inferred")], {
-      description: "How you know it: owner_said (highest confidence), observed, inferred.",
-    }),
-  ),
-  replaces: Type.Optional(
-    Type.String({
-      description:
-        "The #handle of an outdated fact this one replaces (from memory_recall); never duplicate.",
-    }),
-  ),
-  validFrom: Type.Optional(
-    Type.Union([Type.String(), Type.Number()], {
-      description: "The day it became true, YYYY-MM-DD (default: now).",
-    }),
-  ),
-  validTo: Type.Optional(
-    Type.Union([Type.String(), Type.Number()], {
-      description:
-        "The day it stops holding, when already known (YYYY-MM-DD), e.g. on leave until the 10th.",
-    }),
-  ),
-  share: Type.Optional(
-    Type.Boolean({
-      description:
-        "Also propose this fact for your team's shared store (bots of your team " +
-        "would recall it after a team admin accepts). Your own copy is unaffected.",
-    }),
-  ),
-});
+    kind: opt(
+      oneOf(["fact", "preference", "instruction", "event", "note"], {
+        description: "The fact's kind; note (default) fits most writes.",
+      }),
+    ),
+    importance: opt(
+      num({ description: "1–5; 3 by default. Use 5 sparingly (identity, standing rules)." }),
+    ),
+    basis: opt(
+      oneOf(["owner_said", "observed", "inferred"], {
+        description: "How you know it: owner_said (highest confidence), observed, inferred.",
+      }),
+    ),
+    replaces: opt(
+      str({
+        description:
+          "The #handle of an outdated fact this one replaces (from memory_recall); never duplicate.",
+      }),
+    ),
+    validFrom: opt(
+      union([str(), num()], {
+        description: "The day it became true, YYYY-MM-DD (default: now).",
+      }),
+    ),
+    validTo: opt(
+      union([str(), num()], {
+        description:
+          "The day it stops holding, when already known (YYYY-MM-DD), e.g. on leave until the 10th.",
+      }),
+    ),
+    share: opt(
+      bool({
+        description:
+          "Also propose this fact for your team's shared store (bots of your team " +
+          "would recall it after a team admin accepts). Your own copy is unaffected.",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 /** After a profile write with `share`, propose the fact for the team store. */
 const maybeShare = async (
@@ -236,7 +242,7 @@ export const writeTool = (
       "writing a duplicate. Write about yourself and your work; the owner store is reserved " +
       "to the designated memory keeper.",
     parameters: WriteParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), scope: Type.String() }),
+    structuredOutputSchema: obj({ id: str(), scope: str() }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) return refuse("refused: this conversation belongs to no profile.");

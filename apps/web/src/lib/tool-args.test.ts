@@ -34,20 +34,20 @@ const viewOf = (over: Partial<ToolStep>) => {
 describe("the arguments the tools take", () => {
   it("the shell tool takes `script` and the target enum", () => {
     const bash = source("bash.ts");
-    expect(bash).toMatch(/const BashParams = Type\.Object\(\{\s*script: Type\.String/);
-    expect(bash).toMatch(/BASH_TARGETS\.map\(\(target\) => Type\.Literal\(target\)\)/);
+    expect(bash).toMatch(/const BashParams = obj\(\s*\{\s*script: str\(/);
+    expect(bash).toMatch(/oneOf\(BASH_TARGETS\b/);
   });
 
   it("web_fetch takes `urls` and answers `pages`", () => {
     const web = source("tinyfish.ts");
-    expect(web).toMatch(/const FetchInput = Type\.Object\(\{\s*urls: Type\.Array/);
-    expect(web).toMatch(/const FetchOutput = Type\.Object\(\{\s*pages: Type\.Array/);
+    expect(web).toMatch(/const FetchInput = obj\(\s*\{\s*urls: arr\(/);
+    expect(web).toMatch(/const FetchOutput = obj\(\s*\{\s*pages: arr\(/);
   });
 
   it("artifact_read takes only an id and answers with a # name heading", () => {
     const artifacts = source("artifact-tools.ts");
     expect(artifacts).toContain(
-      'parameters: Type.Object({ id: Type.String({ description: "The artifact id." }) })',
+      'parameters: obj({ id: str({ description: "The artifact id." }) }, { open: true })',
     );
     expect(artifacts).toContain("text: `# ${found.info.name}\\n\\n${found.text}`");
   });

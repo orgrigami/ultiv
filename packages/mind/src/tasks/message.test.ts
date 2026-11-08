@@ -6,7 +6,7 @@
  * context.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { Type } from "typebox";
+import { obj } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
@@ -45,7 +45,7 @@ const rig = async (blockIn: "tool" | "reply", extra: readonly string[] = []) => 
   const wait = defineTool({
     name: "wait",
     description: "Waits until the test releases it.",
-    parameters: Type.Object({}),
+    parameters: obj({}, { open: true }),
     execute: async () => {
       started();
       await gate;

@@ -173,8 +173,11 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
   let stopped = false;
   const arm = (): void => {
     if (isOnce) {
-      // A past `once` fires immediately (croner semantics) — a restart
-      // retries a delivery that never succeeded.
+      // A `once` whose time has passed is not armed: it stays listed, unfired.
+      // croner 11 would fire a date up to a second old, and a re-arm while
+      // this job's delivery is still in flight (another job's refresh in the
+      // same second) would deliver it twice.
+      if ((job.once as number) <= Date.now()) return;
       timer = new Cron(new Date(job.once as number), () => {
         void fire().finally(() => void scheduler.refresh());
       });

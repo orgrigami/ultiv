@@ -185,7 +185,9 @@ one wake carrying every payload, each with its own receipt.
   times** so the author verifies intent before the schedule commits.
 - One-shots (`once`, epoch ms) self-retire on success; on 3 consecutive
   failures they are **disabled in place** (visibly dead, not vanished) with
-  an audit escalation.
+  an audit escalation. A one-shot whose time passed while the server was
+  down is not armed on boot (it stays listed, unfired): a re-arm during a
+  delivery in flight would otherwise send it twice (`cron.ts`).
 - Delivery rides the same admission path as typed input. **Routine wakes STEER a turn in flight** (`whenBusy: "steer"` — admitted at the next tool boundary), so the old "wakes never land mid-turn" constraint is gone. Sensors deliberately queue as follow-ups instead: a low-priority tick must not derail active work. Bursts still coalesce via the webhook debounce; that is a documented behavior, not a bug — check the receipts.
 
 ## Sensors

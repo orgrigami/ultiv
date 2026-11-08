@@ -3,7 +3,7 @@
  * owner's card, the secure-field ask, and waiting for a live connection.
  */
 import { Effect } from "effect";
-import { Value } from "typebox/value";
+import { compile } from "@earendil-works/pi-schema";
 import {
   McpServerInputSchema,
   type McpServerInfo,
@@ -15,6 +15,8 @@ import type { SecretRequestsService } from "../secrets/requests.ts";
 import { teamIdOfSegment, homeOf, homeSegmentOf } from "../org/model.ts";
 import type { McpMindDeps } from "./access.ts";
 import type { ChangeCard, Named, SecretSlot } from "./manage.ts";
+
+const serverInput = compile(McpServerInputSchema);
 
 export interface ManageDeps extends McpMindDeps {
   readonly secrets: SecretRequestsService;
@@ -79,9 +81,9 @@ export const checkInput = (input: McpServerInput, slots: readonly SecretSlot[]):
   filled.command?.env.forEach((ref) => Object.assign(ref, { item: ref.item || "pending" }));
   if (slots.some((slot) => slot.target === "oauthSecret") && filled.auth.kind === "oauth")
     filled.auth.clientSecretItem = "pending";
-  if (!Value.Check(McpServerInputSchema, filled)) {
-    const first = [...Value.Errors(McpServerInputSchema, filled)][0];
-    return `invalid connector: ${first?.instancePath || "input"} ${first?.message ?? ""}`.trim();
+  if (!serverInput.check(filled)) {
+    const [first] = serverInput.errors(filled);
+    return `invalid connector: ${first?.path || "input"} ${first?.message ?? ""}`.trim();
   }
   try {
     validateServerInput(filled);

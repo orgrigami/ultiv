@@ -6,7 +6,7 @@
  * a time phrase in the query ("last week", "kemarin") narrows the window.
  * A read, never gated.
  */
-import { Type } from "typebox";
+import { arr, num, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { HistoryHit, HistoryService } from "./history.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -40,28 +40,32 @@ export const historyTools = (
       "was said or decided; use it before re-asking the owner anything a previous chat may " +
       "have settled. Words in English or Indonesian, any order; a misspelling still finds. " +
       'A time phrase in the query ("last week", "kemarin", "in March") narrows the search.',
-    parameters: Type.Object({
-      query: Type.String({ description: "What to look for, in words." }),
-      since: Type.Optional(Type.String({ description: "Only from this day on (YYYY-MM-DD)." })),
-      until: Type.Optional(Type.String({ description: "Only up to this day (YYYY-MM-DD)." })),
-      who: Type.Optional(
-        Type.Union([Type.Literal("owner"), Type.Literal("you"), Type.Literal("tool")], {
-          description: "Only what the owner said, what you said, or tool results.",
-        }),
+    parameters: obj(
+      {
+        query: str({ description: "What to look for, in words." }),
+        since: opt(str({ description: "Only from this day on (YYYY-MM-DD)." })),
+        until: opt(str({ description: "Only up to this day (YYYY-MM-DD)." })),
+        who: opt(
+          oneOf(["owner", "you", "tool"], {
+            description: "Only what the owner said, what you said, or tool results.",
+          }),
+        ),
+        limit: opt(num({ description: `Max hits (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT}).` })),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          sessionId: str(),
+          sessionTitle: str(),
+          kind: str(),
+          role: str(),
+          snippet: str(),
+          at: num(),
+        },
+        { open: true },
       ),
-      limit: Type.Optional(
-        Type.Number({ description: `Max hits (default ${DEFAULT_LIMIT}, max ${MAX_LIMIT}).` }),
-      ),
-    }),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        sessionId: Type.String(),
-        sessionTitle: Type.String(),
-        kind: Type.String(),
-        role: Type.String(),
-        snippet: Type.String(),
-        at: Type.Number(),
-      }),
     ),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));

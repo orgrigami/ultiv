@@ -5,7 +5,7 @@
  * TRIALS_KEPT), and listeners hear it.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createRegistry, defineTool, Harness, MemoryStorage } from "@earendil-works/pi-durable";
@@ -62,7 +62,7 @@ const rig = async () => {
       defineTool({
         name: "send_email",
         description: "Sends an email.",
-        parameters: Type.Object({ to: Type.String() }),
+        parameters: obj({ to: str() }, { open: true }),
         execute: async () => {
           sent += 1;
           return { output: [{ type: "text", text: "sent" }] };

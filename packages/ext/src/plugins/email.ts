@@ -4,7 +4,7 @@
  * only when both are present. Sending is a GATED act — every dispatch waits
  * for the user's approval.
  */
-import { Type } from "typebox";
+import { arr, bool, nul, obj, str, union } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 
@@ -18,15 +18,18 @@ export const emailConfigured = (): boolean =>
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const Params = Type.Object({
-  to: Type.Array(Type.String(), {
-    description: "Recipient addresses (one or more).",
-    minItems: 1,
-    maxItems: 20,
-  }),
-  subject: Type.String({ description: "The subject line." }),
-  text: Type.String({ description: "The plain-text body." }),
-});
+const Params = obj(
+  {
+    to: arr(str(), {
+      description: "Recipient addresses (one or more).",
+      minItems: 1,
+      maxItems: 20,
+    }),
+    subject: str({ description: "The subject line." }),
+    text: str({ description: "The plain-text body." }),
+  },
+  { open: true },
+);
 
 type PostJson = (
   url: string,
@@ -66,10 +69,13 @@ const sendTool = (post: PostJson, from: string): Tool =>
       "the body in the conversation first; dispatch only on a clear instruction. Include only " +
       "the personal data the email needs.",
     parameters: Params,
-    structuredOutputSchema: Type.Object({
-      sent: Type.Boolean(),
-      id: Type.Union([Type.String(), Type.Null()]),
-    }),
+    structuredOutputSchema: obj(
+      {
+        sent: bool(),
+        id: union([str(), nul()]),
+      },
+      { open: true },
+    ),
     execute: async (args) => {
       const outcome = await sendEmail(post, from, args);
       if (!outcome.ok) {

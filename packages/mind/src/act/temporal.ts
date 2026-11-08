@@ -3,27 +3,32 @@
  * right now. A first-party read tool, so every "today", "deadline" and
  * freshness judgment grounds in the server clock, in any IANA zone.
  */
-import { Type } from "typebox";
-import type { Static } from "typebox";
+import { num, obj, opt, str, type Static } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin } from "@spriessen/ext";
 import { defineTool, type Tool } from "@spriessen/ext";
 
-const NowParams = Type.Object({
-  timezone: Type.Optional(
-    Type.String({
-      description: 'IANA timezone (e.g. "Asia/Jakarta"); default is the server\u2019s zone.',
-    }),
-  ),
-});
+const NowParams = obj(
+  {
+    timezone: opt(
+      str({
+        description: 'IANA timezone (e.g. "Asia/Jakarta"); default is the server\u2019s zone.',
+      }),
+    ),
+  },
+  { open: true },
+);
 
-const NowOutput = Type.Object({
-  utc: Type.String({ description: "UTC instant, ISO 8601." }),
-  epochMs: Type.Number(),
-  timezone: Type.String(),
-  offsetMinutes: Type.Number(),
-  local: Type.String({ description: "Local date-time in the zone, ISO-like." }),
-  weekday: Type.String(),
-});
+const NowOutput = obj(
+  {
+    utc: str({ description: "UTC instant, ISO 8601." }),
+    epochMs: num(),
+    timezone: str(),
+    offsetMinutes: num(),
+    local: str({ description: "Local date-time in the zone, ISO-like." }),
+    weekday: str(),
+  },
+  { open: true },
+);
 
 type NowResult = Static<typeof NowOutput>;
 

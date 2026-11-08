@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect, Exit } from "effect";
-import { Type } from "typebox";
+import { num, obj } from "@earendil-works/pi-schema";
 import { defineAction, defineConnector, invoke, resolveAuth } from "./connector.ts";
 import { httpConnector } from "./plugins/http.ts";
 
@@ -17,8 +17,8 @@ const secretFetcher = defineConnector({
     defineAction({
       name: "peek",
       description: "Returns the key length.",
-      input: Type.Object({}),
-      output: Type.Object({ length: Type.Number() }),
+      input: obj({}, { open: true }),
+      output: obj({ length: num() }, { open: true }),
       perform: (_input, context) => Effect.succeed({ length: (context.apiKey ?? "").length }),
     }),
   ],

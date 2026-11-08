@@ -15,14 +15,14 @@
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-codemode": "catalog:",
     "@earendil-works/pi-durable": "catalog:",
+    "@earendil-works/pi-schema": "catalog:",
     "@spriessen/about": "workspace:*",
     "@spriessen/contracts": "workspace:*",
     "@spriessen/core": "workspace:*",
     "@spriessen/ext": "workspace:*",
     "@typesafe-ai/sdk": "^0.7.0",
     "croner": "catalog:",
-    "effect": "catalog:",
-    "typebox": "catalog:"
+    "effect": "catalog:"
   },
   "engines": {
     "node": "^26.0.0"

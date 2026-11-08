@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
 import type { Api, AssistantMessage, Context, Model, Models } from "@earendil-works/pi-ai";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import { generateService, type CompletionGateway } from "./generate.ts";
 
 const reply = (text: string): AssistantMessage =>
@@ -39,7 +39,7 @@ describe("Generate (fake gateway)", () => {
     const gateway = gatewayFrom(['here you go:\n```json\n{"title":"Hi"}\n```']);
     const generate = generateService(models, "m", gateway);
     const out = await Effect.runPromise(
-      generate.extract({ prompt: "title it", schema: Type.Object({ title: Type.String() }) }),
+      generate.extract({ prompt: "title it", schema: obj({ title: str() }, { open: true }) }),
     );
     expect(out.title).toBe("Hi");
   });
@@ -48,7 +48,7 @@ describe("Generate (fake gateway)", () => {
     const gateway = gatewayFrom(["not json at all", '{"title":"Fixed"}']);
     const generate = generateService(models, "m", gateway);
     const out = await Effect.runPromise(
-      generate.extract({ prompt: "title it", schema: Type.Object({ title: Type.String() }) }),
+      generate.extract({ prompt: "title it", schema: obj({ title: str() }, { open: true }) }),
     );
     expect(out.title).toBe("Fixed");
     expect(gateway.calls()).toBe(2);
@@ -57,7 +57,7 @@ describe("Generate (fake gateway)", () => {
   it("fails with InvalidInput when both replies are off-schema", async () => {
     const generate = generateService(models, "m", gatewayFrom(["nope", "still nope"]));
     const exit = await Effect.runPromiseExit(
-      generate.extract({ prompt: "title it", schema: Type.Object({ title: Type.String() }) }),
+      generate.extract({ prompt: "title it", schema: obj({ title: str() }, { open: true }) }),
     );
     expect(exit._tag).toBe("Failure");
     if (exit._tag === "Failure") {

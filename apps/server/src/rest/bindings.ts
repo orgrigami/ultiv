@@ -4,8 +4,10 @@
  * placement and which bots. Bindings never carry secret bytes.
  */
 import { CredentialBindingInputSchema, type CredentialBindingInput } from "@spriessen/contracts";
-import { Value } from "typebox/value";
+import { compile } from "@earendil-works/pi-schema";
 import { errorOf, type RouteArgs } from "./types.ts";
+
+const bindingInput = compile(CredentialBindingInputSchema);
 
 const SPENDABLE = new Set(["key", "login", "note"]);
 
@@ -40,7 +42,7 @@ export async function bindingRoutes(
     return true;
   }
   const body = await args.readJson<unknown>(req);
-  if (!Value.Check(CredentialBindingInputSchema, body)) {
+  if (!bindingInput.check(body)) {
     json(400, { error: "invalid binding" });
     return true;
   }

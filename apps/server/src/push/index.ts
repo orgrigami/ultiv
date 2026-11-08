@@ -4,7 +4,7 @@
  * VAPID keys the routes still answer, `configured` is false and nothing is
  * ever sent.
  */
-import webpush from "web-push";
+import { sendNotification } from "web-push";
 import type { MindService } from "@spriessen/mind";
 import { onRoutineReply } from "../deliver.ts";
 import { pushDir, vapidConfig, type VapidConfig } from "./config.ts";
@@ -24,7 +24,7 @@ export interface PushService {
 const webPushSend =
   (config: VapidConfig): PushSend =>
   async (subscription, body, options) =>
-    webpush.sendNotification({ endpoint: subscription.endpoint, keys: subscription.keys }, body, {
+    sendNotification({ endpoint: subscription.endpoint, keys: subscription.keys }, body, {
       vapidDetails: config,
       TTL: options.TTL,
       topic: options.topic,

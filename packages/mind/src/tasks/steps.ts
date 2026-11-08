@@ -2,12 +2,12 @@
  * A running task's recent steps as short plain lines: what task_status shows
  * the bot and what the owner's live task line shows as "last step".
  */
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { LiveState } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
 import type { TranscriptEntry } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { projectTranscript } from "../converse/steps.ts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 import { taskConversationKey } from "./store.ts";
 
 const LINE_CHARS = 140;
@@ -44,8 +44,7 @@ export const recentSteps = async (
   if (cid === undefined) return [];
   const chat = await Effect.runPromise(converse.open(String(cid)));
   if (chat === undefined) return [];
-  const value = (await chat.viewState(BACKGROUND_CONTEXT)).value;
-  if (value === undefined) return [];
+  const value = await readView(chat, TRANSCRIPT_WINDOW);
   const live = value.docs["pi.live"] as LiveState | undefined;
   const lines = projectTranscript(value.entries, live, true)
     .map(stepLine)

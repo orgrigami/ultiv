@@ -21,6 +21,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { converseService } from "./converse.ts";
 import { projectTranscript } from "./steps.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -58,7 +59,7 @@ describe("a turn cut by a restart (faux model)", () => {
     // Second process, before resume: the turn is still there and nothing runs it.
     const after = converseService(second, agent);
     const reopened = await Effect.runPromise(after.open(String(chat.id)));
-    const view = async () => (await reopened!.viewState(ctx)).value;
+    const view = async () => await readView(reopened!, TRANSCRIPT_WINDOW);
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(faux.state.callCount).toBe(1);
     expect(((await view())?.docs["pi.live"] as LiveState | undefined)?.run).toBeDefined();

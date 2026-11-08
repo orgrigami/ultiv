@@ -3,7 +3,7 @@
  * from their browser to the vault; this tool only learns the item name and
  * id. With `bindTo` it also lets `http_request` send it to one host.
  */
-import { Type } from "typebox";
+import { arr, obj, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { defineTool, type BindingStore } from "@spriessen/ext";
 import { withAudit } from "../audit/audit.ts";
@@ -19,20 +19,24 @@ export interface SecretToolDeps {
   readonly audit: AuditService;
 }
 
-const Field = Type.Object({
-  key: Type.String({ pattern: "^[a-z0-9_]{1,40}$" }),
-  label: Type.String({ minLength: 1, maxLength: 60 }),
-});
+const Field = obj(
+  {
+    key: str({ pattern: "^[a-z0-9_]{1,40}$" }),
+    label: str({ minLength: 1, maxLength: 60 }),
+  },
+  { open: true },
+);
 
-const BindTo = Type.Object({
-  host: Type.String({
-    description: "The only host http_request may send it to, e.g. api.example.com.",
-  }),
-  header: Type.Optional(Type.String({ description: "Header name (default Authorization)." })),
-  prefix: Type.Optional(
-    Type.String({ description: 'Prefix (default "Bearer " for Authorization).' }),
-  ),
-});
+const BindTo = obj(
+  {
+    host: str({
+      description: "The only host http_request may send it to, e.g. api.example.com.",
+    }),
+    header: opt(str({ description: "Header name (default Authorization)." })),
+    prefix: opt(str({ description: 'Prefix (default "Bearer " for Authorization).' })),
+  },
+  { open: true },
+);
 
 const bind = (
   deps: SecretToolDeps,
@@ -61,16 +65,19 @@ const secretTool = (deps: SecretToolDeps) =>
       "Ask your owner to type a key or token into a secure field in the chat. It goes straight " +
       "to the vault; you only get the vault item's name. Never ask for keys in chat. Give " +
       "`bindTo` when http_request should use it.",
-    parameters: Type.Object({
-      label: Type.String({ minLength: 1, maxLength: 60, description: 'e.g. "API key for Acme"' }),
-      purpose: Type.String({
-        minLength: 1,
-        maxLength: 200,
-        description: "Why it is needed, in plain words.",
-      }),
-      fields: Type.Optional(Type.Array(Field, { minItems: 1, maxItems: 5 })),
-      bindTo: Type.Optional(BindTo),
-    }),
+    parameters: obj(
+      {
+        label: str({ minLength: 1, maxLength: 60, description: 'e.g. "API key for Acme"' }),
+        purpose: str({
+          minLength: 1,
+          maxLength: 200,
+          description: "Why it is needed, in plain words.",
+        }),
+        fields: opt(arr(Field, { minItems: 1, maxItems: 5 })),
+        bindTo: opt(BindTo),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
       const scope = deps.profiles.scopeOf(conversationId);

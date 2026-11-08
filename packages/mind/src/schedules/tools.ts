@@ -5,7 +5,7 @@
  * there, in the open. Create and remove are gated (they shape the owner's
  * future attention); listing is a read.
  */
-import { Type } from "typebox";
+import { arr, bool, nul, num, obj, oneOf, opt, str, union } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { CronJobInfo } from "@spriessen/contracts";
 import { isValidJobStart, nextFireTimes, type SchedulesService } from "./schedules.ts";
@@ -27,57 +27,60 @@ const jobSummary = (job: CronJobInfo): Record<string, unknown> => ({
   ...(job.trial === true ? { trial: true } : {}),
 });
 
-const SetParams = Type.Object({
-  prompt: Type.String({
-    description:
-      "What you should do when the schedule fires: you are woken with exactly this text, " +
-      "so make it self-contained.",
-  }),
-  schedule: Type.Optional(
-    Type.String({
+const SetParams = obj(
+  {
+    prompt: str({
       description:
-        '5-field cron expression, e.g. "30 9 * * 1" (09:30 on Mondays), in the profile\'s ' +
-        "timezone. Required unless `once` is set.",
+        "What you should do when the schedule fires: you are woken with exactly this text, " +
+        "so make it self-contained.",
     }),
-  ),
-  once: Type.Optional(
-    Type.Number({
-      description:
-        'Epoch ms for a ONE-SHOT trigger ("remind me in 2 hours"); the job removes itself ' +
-        "after firing. Compute it from the `now` tool.",
-    }),
-  ),
-  run: Type.Optional(
-    Type.Union([Type.Literal("task"), Type.Literal("chat")], {
-      description:
-        "task (default): runs as a background task on your background model and posts its " +
-        "result into your main chat as a note. chat: wakes you in your main chat, for routines " +
-        "that need the conversation itself.",
-    }),
-  ),
-  whenBusy: Type.Optional(
-    Type.Union([Type.Literal("steer"), Type.Literal("followUp"), Type.Literal("reject")], {
-      description:
-        "Mid-turn policy (default steer): a wake landing mid-turn joins the turn at the " +
-        "next boundary (steer), waits for it to end (followUp), or is refused (reject).",
-    }),
-  ),
-  project: Type.Optional(
-    Type.String({
-      description:
-        "The #handle of your open project this routine serves (a check-in, a weekly step); " +
-        "the project's show then lists it.",
-    }),
-  ),
-  trial: Type.Optional(
-    Type.Boolean({
-      description:
-        "Start as a trial: each run holds back every action and only records what you would " +
-        "have done, until your owner turns it live under Routines. Use it for routines that " +
-        "act on the world (send, post, buy, change things).",
-    }),
-  ),
-});
+    schedule: opt(
+      str({
+        description:
+          '5-field cron expression, e.g. "30 9 * * 1" (09:30 on Mondays), in the profile\'s ' +
+          "timezone. Required unless `once` is set.",
+      }),
+    ),
+    once: opt(
+      num({
+        description:
+          'Epoch ms for a ONE-SHOT trigger ("remind me in 2 hours"); the job removes itself ' +
+          "after firing. Compute it from the `now` tool.",
+      }),
+    ),
+    run: opt(
+      oneOf(["task", "chat"], {
+        description:
+          "task (default): runs as a background task on your background model and posts its " +
+          "result into your main chat as a note. chat: wakes you in your main chat, for routines " +
+          "that need the conversation itself.",
+      }),
+    ),
+    whenBusy: opt(
+      oneOf(["steer", "followUp", "reject"], {
+        description:
+          "Mid-turn policy (default steer): a wake landing mid-turn joins the turn at the " +
+          "next boundary (steer), waits for it to end (followUp), or is refused (reject).",
+      }),
+    ),
+    project: opt(
+      str({
+        description:
+          "The #handle of your open project this routine serves (a check-in, a weekly step); " +
+          "the project's show then lists it.",
+      }),
+    ),
+    trial: opt(
+      bool({
+        description:
+          "Start as a trial: each run holds back every action and only records what you would " +
+          "have done, until your owner turns it live under Routines. Use it for routines that " +
+          "act on the world (send, post, buy, change things).",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 const refused = (text: string) => ({
   output: [{ type: "text" as const, text }],
@@ -99,7 +102,7 @@ const setTool = (
       "`now` to ground times; cron runs in your owner's time zone. Your owner approves " +
       "each schedule: first say in a sentence when it fires and what it will make you do.",
     parameters: SetParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), next: Type.Array(Type.Number()) }),
+    structuredOutputSchema: obj({ id: str(), next: arr(num()) }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -166,18 +169,21 @@ const listTool = (schedules: SchedulesService, profiles: ProfilesService): Tool 
   defineTool({
     name: "schedule_list",
     description: "List YOUR schedules (this profile's cron jobs and one-shots).",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        schedule: Type.String(),
-        once: Type.Optional(Type.Number()),
-        enabled: Type.Boolean(),
-        failures: Type.Number(),
-        lastError: Type.Union([Type.String(), Type.Null()]),
-        fireCount: Type.Number(),
-        lastFiredAt: Type.Union([Type.Number(), Type.Null()]),
-      }),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          id: str(),
+          schedule: str(),
+          once: opt(num()),
+          enabled: bool(),
+          failures: num(),
+          lastError: union([str(), nul()]),
+          fireCount: num(),
+          lastFiredAt: union([num(), nul()]),
+        },
+        { open: true },
+      ),
     ),
     execute: async (_args, api) => {
       const scope = scopeOfOrNone(profiles, String(api.conversationId));
@@ -211,8 +217,8 @@ const removeTool = (schedules: SchedulesService, profiles: ProfilesService): Too
     name: "schedule_remove",
     gated: true,
     description: "Cancel one of YOUR schedules by id. Your owner approves each removal.",
-    parameters: Type.Object({ id: Type.String({ description: "The schedule id." }) }),
-    structuredOutputSchema: Type.Object({ removed: Type.Boolean() }),
+    parameters: obj({ id: str({ description: "The schedule id." }) }, { open: true }),
+    structuredOutputSchema: obj({ removed: bool() }, { open: true }),
     execute: async (args, api) => {
       const scope = scopeOfOrNone(profiles, String(api.conversationId));
       if (scope === undefined) {

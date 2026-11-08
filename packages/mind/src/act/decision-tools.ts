@@ -5,18 +5,21 @@
  * degrades cleanly without a key. All four are READS — never gated.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { arr, map, num, obj, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { definePlugin, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
 import type { DecideService } from "../decide/decide.ts";
 import { askTool } from "./decision-ask.ts";
 
-const ScoreParams = Type.Object({
-  statement: Type.String({ description: "The claim or situation to judge." }),
-  instruction: Type.String({
-    description: "What to decide about it, phrased as a yes/no question.",
-  }),
-});
+const ScoreParams = obj(
+  {
+    statement: str({ description: "The claim or situation to judge." }),
+    instruction: str({
+      description: "What to decide about it, phrased as a yes/no question.",
+    }),
+  },
+  { open: true },
+);
 
 /** Jev probability (0..1) that the statement holds under the instruction. */
 export function scoreTool(decide: DecideService): ToolRegistration<typeof ScoreParams> {
@@ -25,7 +28,7 @@ export function scoreTool(decide: DecideService): ToolRegistration<typeof ScoreP
     description:
       "Your typed judgment: the probability (0..1) that a statement holds, from your own decision faculty, Jev. Prefer it over guessing for yes/no judgments.",
     parameters: ScoreParams,
-    structuredOutputSchema: Type.Object({ probability: Type.Number() }),
+    structuredOutputSchema: obj({ probability: num() }, { open: true }),
     execute: async (args) => {
       const probability = await Effect.runPromise(decide.yesNo(args.statement, args.instruction));
       return {
@@ -36,13 +39,16 @@ export function scoreTool(decide: DecideService): ToolRegistration<typeof ScoreP
   };
 }
 
-const PickParams = Type.Object({
-  question: Type.String({ description: "What to decide, phrased as a question." }),
-  options: Type.Array(Type.String(), {
-    minItems: 2,
-    description: "The allowed answers.",
-  }),
-});
+const PickParams = obj(
+  {
+    question: str({ description: "What to decide, phrased as a question." }),
+    options: arr(str(), {
+      minItems: 2,
+      description: "The allowed answers.",
+    }),
+  },
+  { open: true },
+);
 
 /** Jev picks exactly one of the given options for the question. */
 export function pickTool(decide: DecideService): ToolRegistration<typeof PickParams> {
@@ -51,7 +57,7 @@ export function pickTool(decide: DecideService): ToolRegistration<typeof PickPar
     description:
       "Your typed decision faculty (Jev): pick exactly one of the given options for a question.",
     parameters: PickParams,
-    structuredOutputSchema: Type.Object({ choice: Type.String() }),
+    structuredOutputSchema: obj({ choice: str() }, { open: true }),
     execute: async (args) => {
       const picked = await Effect.runPromise(decide.pick(args.question, args.options));
       return {
@@ -62,20 +68,26 @@ export function pickTool(decide: DecideService): ToolRegistration<typeof PickPar
   };
 }
 
-const RatingOutput = Type.Object({
-  score: Type.Number(),
-  confidence: Type.Number(),
-  probabilities: Type.Record(Type.String(), Type.Number()),
-});
+const RatingOutput = obj(
+  {
+    score: num(),
+    confidence: num(),
+    probabilities: map(num()),
+  },
+  { open: true },
+);
 
-const RateParams = Type.Object({
-  state: Type.String({ description: "The thing to rate." }),
-  rubric: Type.Array(Type.String(), {
-    minItems: 2,
-    description: "Ordered level descriptions; the index is the score (0 = first level).",
-  }),
-  instruction: Type.String({ description: "What to rate the state for." }),
-});
+const RateParams = obj(
+  {
+    state: str({ description: "The thing to rate." }),
+    rubric: arr(str(), {
+      minItems: 2,
+      description: "Ordered level descriptions; the index is the score (0 = first level).",
+    }),
+    instruction: str({ description: "What to rate the state for." }),
+  },
+  { open: true },
+);
 
 /** Jev rates the state against an ordered rubric; the expected score may be fractional. */
 export function rateTool(decide: DecideService): ToolRegistration<typeof RateParams> {

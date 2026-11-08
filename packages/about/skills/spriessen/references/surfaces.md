@@ -9,7 +9,7 @@ and pages). The rest open from them.
 
 - **Now**: the check-in. **Needs you** comes first, with a count on Now in
   the nav: approval cards (settled right there), your questions, failed
-  tasks, routine escalations, memory tidy proposals, and work parked after
+  tasks, routine escalations, memory tidy proposals, and turns stopped after
   too many restarts (with Retry). Under it: background work running across
   every bot, what finished in the last day, goals in motion (every bot's
   open projects) and the newest files, each linking the chat it came from.

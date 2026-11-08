@@ -15,10 +15,7 @@ export function speakerOf(hit: Pick<HistoryHit, "role">, botName: string): strin
 }
 
 const fold = (text: string): string =>
-  text
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLocaleLowerCase("en");
+  text.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("en");
 
 export type Part = { readonly text: string; readonly hit: boolean };
 

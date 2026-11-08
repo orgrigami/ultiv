@@ -7,7 +7,7 @@
 import { renameLegacyTeams } from "../migrate/teams.ts";
 import { defineDoc } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import type { ProfileInfo, ProfilePolicies, SessionInfo } from "@spriessen/contracts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { ConverseService } from "../converse/converse.ts";
@@ -205,7 +205,7 @@ export async function titleFor(generate: GenerateService, seed: string): Promise
   try {
     const generated = await Effect.runPromise(
       generate.extract({
-        schema: Type.Object({ title: Type.String() }),
+        schema: obj({ title: str() }, { open: true }),
         maxTokens: 64,
         prompt:
           `Write a 3-6 word title for a conversation that starts with the message below; ` +

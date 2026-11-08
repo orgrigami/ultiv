@@ -25,7 +25,7 @@
  * No replay or evaluation runs: skill_evolve is the separate, explicit loop.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { obj, opt, str } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { ApprovalsService } from "../approvals.ts";
 import type { AuditService } from "../audit/audit.ts";
@@ -399,18 +399,19 @@ export const learnTool = (deps: LearnDeps & { readonly skills: SkillsService }):
       "outside content (pages, documents, mail, files), secrets, contact details or anything " +
       `about approvals into a skill; those are refused. At most ${MAX_LEARNED_PER_TURN} per turn. ` +
       "Updating a skill replaces its whole text, so load it first.",
-    parameters: Type.Object({
-      name: Type.String({
-        description: "The skill's name: lowercase-and-hyphens, new or existing.",
-      }),
-      lesson: Type.String({
-        description: `What you learned, one line (at most ${MAX_LESSON_CHARS} characters), for your owner.`,
-      }),
-      body: Type.String({ description: "The skill's full text (SKILL.md, frontmatter optional)." }),
-      description: Type.Optional(
-        Type.String({ description: "When to use it, if the body has no frontmatter." }),
-      ),
-    }),
+    parameters: obj(
+      {
+        name: str({
+          description: "The skill's name: lowercase-and-hyphens, new or existing.",
+        }),
+        lesson: str({
+          description: `What you learned, one line (at most ${MAX_LESSON_CHARS} characters), for your owner.`,
+        }),
+        body: str({ description: "The skill's full text (SKILL.md, frontmatter optional)." }),
+        description: opt(str({ description: "When to use it, if the body has no frontmatter." })),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
       const resolved = skillsScope(deps.profiles, conversationId);

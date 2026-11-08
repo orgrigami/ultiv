@@ -4,7 +4,7 @@
  * and that withdraw and Stop keep queued messages away from the model.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { Type } from "typebox";
+import { obj } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
@@ -27,6 +27,7 @@ import {
 import { makeApprovals, type ApprovalsService } from "../approvals.ts";
 import { converseService } from "./converse.ts";
 import { isStopped, stopTurn } from "./stop.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -62,7 +63,7 @@ const steerRig = async (
       defineTool({
         name: "wait",
         description: "Waits until the test releases it.",
-        parameters: Type.Object({}),
+        parameters: obj({}, { open: true }),
         execute: async () => {
           if (approvals !== undefined) {
             const request = { callId: "c1", name: "wait", input: {} };
@@ -99,7 +100,8 @@ const steerRig = async (
   const chat = await Effect.runPromise(converse.ensure("steer-test"));
   chatId = String(chat.id);
   const inbox = async (): Promise<InboxState["items"]> =>
-    ((await chat.viewState(ctx)).value?.docs["pi.inbox"] as InboxState | undefined)?.items ?? [];
+    ((await readView(chat, TRANSCRIPT_WINDOW))?.docs["pi.inbox"] as InboxState | undefined)
+      ?.items ?? [];
   const assistantReplies = async (): Promise<number> =>
     (await Effect.runPromise(converse.entriesOf(String(chat.id), 200))).filter((entry) =>
       AssistantEntry.is(entry),

@@ -9,7 +9,7 @@
  * from the model; the approval mode is not offered at all.
  */
 import { Duration } from "effect";
-import { Type } from "typebox";
+import { arr, bool, lit, obj, opt, str, union } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import type { ProfileCreate, ProfileInfo } from "@spriessen/contracts";
 import { InvalidInput } from "@spriessen/core";
@@ -37,7 +37,7 @@ export const BOT_MOVE = "bot_move";
 export const BOT_PAUSE = "bot_pause";
 export const BOT_DELETE = "bot_delete";
 
-const botParam = Type.String({ description: "The bot's name or id (bots_list shows them)." });
+const botParam = str({ description: "The bot's name or id (bots_list shows them)." });
 
 const detailsTool = (deps: AdminDeps) =>
   defineTool({
@@ -49,7 +49,7 @@ const detailsTool = (deps: AdminDeps) =>
     // Read-only, so script-callable: the main-bot-only rule stays in execute
     // (adminOf reads the live org view per call) — a script gets the same
     // word-for-word refusal a direct call would.
-    parameters: Type.Object({ bot: botParam }),
+    parameters: obj({ bot: botParam }, { open: true }),
     replay: "safe",
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -111,18 +111,19 @@ const updateTool = (deps: AdminDeps) =>
       "Main bot only; the owner confirms on a card. Give only the fields to change; persona and " +
       'Instructions replace the old text entirely. tools: a list of tool names, or "all". ' +
       "To change a bot's home use bot_move; host access is the owner's alone.",
-    parameters: Type.Object({
-      bot: botParam,
-      name: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
-      role: Type.Optional(Type.String({ maxLength: 500, description: "One-line role." })),
-      persona: Type.Optional(Type.String({ maxLength: 8_000 })),
-      instructions: Type.Optional(Type.String({ maxLength: 16_000 })),
-      model: Type.Optional(Type.String({ description: 'Model ref "provider/model".' })),
-      effort: Type.Optional(Type.String({ description: "Thinking effort for the model." })),
-      tools: Type.Optional(
-        Type.Union([Type.Array(Type.String(), { maxItems: 200 }), Type.Literal("all")]),
-      ),
-    }),
+    parameters: obj(
+      {
+        bot: botParam,
+        name: opt(str({ minLength: 1, maxLength: 80 })),
+        role: opt(str({ maxLength: 500, description: "One-line role." })),
+        persona: opt(str({ maxLength: 8_000 })),
+        instructions: opt(str({ maxLength: 16_000 })),
+        model: opt(str({ description: 'Model ref "provider/model".' })),
+        effort: opt(str({ description: "Thinking effort for the model." })),
+        tools: opt(union([arr(str(), { maxItems: 200 }), lit("all")])),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -155,10 +156,13 @@ const moveTool = (deps: AdminDeps) =>
       'Move a bot to another home: a team (name or id) or "org". Main bot only. The bot ' +
       "follows its new team's Instructions from its next turn. Refused for the main bot " +
       "(it stays in the org) and for the org's last bot.",
-    parameters: Type.Object({
-      bot: botParam,
-      to: Type.String({ description: 'A team name or id, or "org".' }),
-    }),
+    parameters: obj(
+      {
+        bot: botParam,
+        to: str({ description: 'A team name or id, or "org".' }),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));
@@ -185,10 +189,13 @@ const pauseTool = (deps: AdminDeps) =>
     description:
       "Pause a bot (it stops taking messages and turns; nothing is deleted) or resume it with " +
       "paused false. Main bot only. The main bot and the org's last bot cannot be paused.",
-    parameters: Type.Object({
-      bot: botParam,
-      paused: Type.Boolean({ description: "true to pause, false to resume." }),
-    }),
+    parameters: obj(
+      {
+        bot: botParam,
+        paused: bool({ description: "true to pause, false to resume." }),
+      },
+      { open: true },
+    ),
     callers: ["model"],
     execute: async (args, api) => {
       const verb = args.paused ? "paused" : "resumed";
@@ -219,7 +226,7 @@ const deleteTool = (deps: AdminDeps) =>
       "Delete a bot for good: its chats, memory, files and schedules go with it. Main bot only; " +
       "the owner confirms on a card. Prefer bot_pause when it may be wanted again. Refused for " +
       "the main bot and the org's last bot.",
-    parameters: Type.Object({ bot: botParam }),
+    parameters: obj({ bot: botParam }, { open: true }),
     callers: ["model"],
     execute: async (args, api) => {
       const me = await adminOf(deps, String(api.conversationId));

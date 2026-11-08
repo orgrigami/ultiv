@@ -1,4 +1,15 @@
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  bool,
+  nul,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  type Static,
+} from "@earendil-works/pi-schema";
 
 /**
  * Skills: packaged procedures a bot keeps in its own namespace. Metadata is
@@ -6,80 +17,90 @@ import { Type, type Static } from "typebox";
  * owner's Skills page reads the same shapes over REST.
  */
 
-export const SkillOriginSchema = Type.Union([
-  Type.Literal("builtin"),
-  Type.Literal("self"),
-  Type.Literal("owner"),
-  Type.Literal("url"),
-]);
+export const SkillOriginSchema = oneOf(["builtin", "self", "owner", "url"]);
 export type SkillOrigin = Static<typeof SkillOriginSchema>;
 
-export const SkillMetaSchema = Type.Object({
-  name: Type.String(),
-  description: Type.String(),
-  origin: SkillOriginSchema,
-  /** Where a url-origin skill came from; null otherwise. */
-  sourceUrl: Type.Union([Type.String(), Type.Null()]),
-  /** The profile whose craft this is (self-authored or evolved); null otherwise. */
-  authorProfile: Type.Union([Type.String(), Type.Null()]),
-  createdAt: Type.Number(),
-  updatedAt: Type.Number(),
-  version: Type.Number(),
-  enabled: Type.Boolean(),
-  /** Paths beside SKILL.md (references, scripts), relative to the skill folder. */
-  files: Type.Array(Type.String()),
-  /** The version this one evolved from (or reverted to); null on plain writes. */
-  parentVersion: Type.Union([Type.Number(), Type.Null()]),
-  evolutionNote: Type.Union([Type.String(), Type.Null()]),
-  /** Skills this one absorbed (owner-accepted consolidation); kept on later saves. */
-  absorbed: Type.Optional(Type.Array(Type.String())),
-});
+export const SkillMetaSchema = obj(
+  {
+    name: str(),
+    description: str(),
+    origin: SkillOriginSchema,
+    /** Where a url-origin skill came from; null otherwise. */
+    sourceUrl: union([str(), nul()]),
+    /** The profile whose craft this is (self-authored or evolved); null otherwise. */
+    authorProfile: union([str(), nul()]),
+    createdAt: num(),
+    updatedAt: num(),
+    version: num(),
+    enabled: bool(),
+    /** Paths beside SKILL.md (references, scripts), relative to the skill folder. */
+    files: arr(str()),
+    /** The version this one evolved from (or reverted to); null on plain writes. */
+    parentVersion: union([num(), nul()]),
+    evolutionNote: union([str(), nul()]),
+    /** Skills this one absorbed (owner-accepted consolidation); kept on later saves. */
+    absorbed: opt(arr(str())),
+  },
+  { open: true },
+);
 export type SkillMeta = Static<typeof SkillMetaSchema>;
 
 /** An evolution (or owner-drafted) change parked for the owner's decision. */
-export const SkillProposalSchema = Type.Object({
-  id: Type.String(),
-  skill: Type.String(),
-  at: Type.Number(),
-  /** The profile that proposed it; null for owner drafts. */
-  byProfile: Type.Union([Type.String(), Type.Null()]),
-  /** The skill version the proposal was drawn against. */
-  baseVersion: Type.Number(),
-  body: Type.String(),
-  note: Type.String(),
-  status: Type.Union([Type.Literal("open"), Type.Literal("accepted"), Type.Literal("rejected")]),
-  decidedAt: Type.Union([Type.Number(), Type.Null()]),
-  /**
-   * The proposal's kind; absent on older rows, which read as "update" (a
-   * new body for one skill). "absorb" merges sources into `skill`, the
-   * kept skill, and removes the sources on accept.
-   */
-  kind: Type.Optional(Type.Union([Type.Literal("update"), Type.Literal("absorb")])),
-  /** For kind "absorb": each source skill and the version drafted against. */
-  absorbed: Type.Optional(Type.Array(Type.Object({ name: Type.String(), version: Type.Number() }))),
-});
+export const SkillProposalSchema = obj(
+  {
+    id: str(),
+    skill: str(),
+    at: num(),
+    /** The profile that proposed it; null for owner drafts. */
+    byProfile: union([str(), nul()]),
+    /** The skill version the proposal was drawn against. */
+    baseVersion: num(),
+    body: str(),
+    note: str(),
+    status: oneOf(["open", "accepted", "rejected"]),
+    decidedAt: union([num(), nul()]),
+    /**
+     * The proposal's kind; absent on older rows, which read as "update" (a
+     * new body for one skill). "absorb" merges sources into `skill`, the
+     * kept skill, and removes the sources on accept.
+     */
+    kind: opt(oneOf(["update", "absorb"])),
+    /** For kind "absorb": each source skill and the version drafted against. */
+    absorbed: opt(arr(obj({ name: str(), version: num() }, { open: true }))),
+  },
+  { open: true },
+);
 export type SkillProposal = Static<typeof SkillProposalSchema>;
 
 /** One stored skill's full text, with the proposals parked against it. */
-export const SkillDetailSchema = Type.Object({
-  meta: SkillMetaSchema,
-  body: Type.String(),
-  proposals: Type.Array(SkillProposalSchema),
-});
+export const SkillDetailSchema = obj(
+  {
+    meta: SkillMetaSchema,
+    body: str(),
+    proposals: arr(SkillProposalSchema),
+  },
+  { open: true },
+);
 export type SkillDetail = Static<typeof SkillDetailSchema>;
 
 /** One profile's skill namespace, as the owner's Skills page reads it. */
-export const SkillNamespaceSchema = Type.Object({
-  profile: Type.String(),
-  profileName: Type.String(),
-  skills: Type.Array(SkillMetaSchema),
-});
+export const SkillNamespaceSchema = obj(
+  {
+    profile: str(),
+    profileName: str(),
+    skills: arr(SkillMetaSchema),
+  },
+  { open: true },
+);
 export type SkillNamespace = Static<typeof SkillNamespaceSchema>;
 
 /** The whole owner-scoped listing: the built-in library plus each profile's namespace. */
-export const SkillOverviewSchema = Type.Object({
-  builtins: Type.Array(SkillMetaSchema),
-  profiles: Type.Array(SkillNamespaceSchema),
-  openProposals: Type.Number(),
-});
+export const SkillOverviewSchema = obj(
+  {
+    builtins: arr(SkillMetaSchema),
+    profiles: arr(SkillNamespaceSchema),
+    openProposals: num(),
+  },
+  { open: true },
+);
 export type SkillOverview = Static<typeof SkillOverviewSchema>;

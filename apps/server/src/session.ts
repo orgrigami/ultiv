@@ -1,7 +1,7 @@
 import type { Ctx, Host } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { Conversation, ConversationView, LiveState } from "@earendil-works/pi-durable";
-import { Type } from "typebox";
+import { arr } from "@earendil-works/pi-schema";
 import { Effect } from "effect";
 import {
   EffortSchema,
@@ -16,7 +16,7 @@ import {
   UsageSummarySchema,
   type ThinkingLevel,
 } from "@spriessen/contracts";
-import { projectTranscript, usageOf, type MindService } from "@spriessen/mind";
+import { projectTranscript, TRANSCRIPT_WINDOW, usageOf, type MindService } from "@spriessen/mind";
 import { ownerOf, type Principal } from "./identity.ts";
 import { approveMethod, controlMethods, inputMethod } from "./session-methods.ts";
 import {
@@ -52,7 +52,7 @@ function sessionCells(self: SelfOf): SessionCells {
     model: self.state("model", ModelIdSchema, null),
     effort: self.state("effort", EffortSchema, null),
     conversationId: self.state("conversationId", SessionConversationIdSchema, null),
-    queued: self.state("queued", Type.Array(QueuedInputSchema), []),
+    queued: self.state("queued", arr(QueuedInputSchema), []),
   };
 }
 
@@ -69,7 +69,10 @@ async function hydrate(
   remember: (view: ConversationView) => void,
   inFlight: InFlight,
 ): Promise<void> {
-  const view = await chat.viewState(BACKGROUND_CONTEXT);
+  const watch = await chat.watch(BACKGROUND_CONTEXT, TRANSCRIPT_WINDOW);
+  // Stop on abort, or the watch outlives the object and hangs graceful
+  // shutdown (node --watch restarts wait forever).
+  ctx.signal.addEventListener("abort", () => void watch.stop(), { once: true });
   // Let the client's attach settle before the first hydration publish.
   await new Promise<void>((resolve) => setTimeout(resolve, 1_500));
   const apply = (value: ConversationView) => {
@@ -88,8 +91,17 @@ async function hydrate(
     );
     if (phase !== undefined) safeChange(cells.phase, ctx, () => phase);
   };
-  const unsubscribe = view.subscribe((value) => apply(value));
-  if (view.value !== undefined) apply(view.value);
+  // The current value first; then every change (changes made meanwhile fold into the first call).
+  apply(watch.value);
+  try {
+    watch.start(async (call) => {
+      if (call.kind === "value") apply(call.value);
+    });
+  } catch {
+    // The watch already ended: the object was released or the harness
+    // closed during the settle wait. Nothing is left to hydrate.
+    return;
+  }
   // Reflect the conversation's durable model/effort selection. Both reads may
   // land after a shutdown closed the harness; a failed read is not an error.
   const selection = await Effect.runPromise(mind.converse.agentOf(chat)).catch(() => undefined);
@@ -98,9 +110,6 @@ async function hydrate(
     safeChange(cells.effort, ctx, () => selection.effort as ThinkingLevel | null);
   }
   safeChange(cells.conversationId, ctx, () => String(chat.id));
-  // Detach on abort, or the attached view outlives the object and hangs
-  // graceful shutdown (node --watch restarts wait forever).
-  ctx.signal.addEventListener("abort", () => unsubscribe(), { once: true });
   const id = String(chat.id);
   while (!ctx.signal.aborted) {
     const [waiting] = mind.approvals.pendingFor(id);

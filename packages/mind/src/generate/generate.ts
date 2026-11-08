@@ -20,8 +20,7 @@ import type {
   Models,
 } from "@earendil-works/pi-ai";
 import { External, InvalidInput, Unavailable } from "@spriessen/core";
-import { Value } from "typebox/value";
-import type { Static, TSchema } from "typebox";
+import { compile, type Schema, type Static } from "@earendil-works/pi-schema";
 import { MindModels, ModelCatalog } from "../providers/models.ts";
 import { parseRef } from "../providers/refs.ts";
 import { parseJsonReply } from "../json-reply.ts";
@@ -41,7 +40,7 @@ export interface GenerateRequest {
   readonly system?: string;
   readonly prompt: string;
   /** When set, the reply must be JSON matching this TypeBox schema. */
-  readonly schema?: TSchema;
+  readonly schema?: Schema;
   /** `provider/model`; default is the mind's own. */
   readonly model?: string;
   readonly maxTokens?: number;
@@ -50,7 +49,7 @@ export interface GenerateRequest {
 export interface GenerateService {
   readonly complete: (request: GenerateRequest) => Effect.Effect<string, GenerateError>;
   /** `complete` plus schema validation, returning the parsed value. */
-  readonly extract: <S extends TSchema>(
+  readonly extract: <S extends Schema>(
     request: Omit<GenerateRequest, "schema"> & { readonly schema: S },
   ) => Effect.Effect<Static<S>, GenerateError>;
 }
@@ -64,7 +63,7 @@ const textOf = (message: AssistantMessage): string =>
 
 const parseOf = parseJsonReply;
 
-const schemaInstruction = (schema: TSchema): string =>
+const schemaInstruction = (schema: Schema): string =>
   `\n\nReply with ONLY a JSON value matching this JSON schema, with no prose and no code fence:\n${JSON.stringify(schema)}`;
 
 export const generateService = (
@@ -116,7 +115,8 @@ export const generateService = (
       }
       const first = yield* ask(model, request, null);
       if (request.schema === undefined) return first;
-      if (parseOf(first) !== undefined && Value.Check(request.schema, parseOf(first))) return first;
+      if (parseOf(first) !== undefined && compile(request.schema).check(parseOf(first)))
+        return first;
       return yield* ask(model, request, parseOf(first) === undefined ? "not JSON" : "off-schema");
     });
 
@@ -125,7 +125,7 @@ export const generateService = (
     extract: (request) =>
       Effect.flatMap(complete(request), (text) => {
         const parsed = parseOf(text);
-        if (!Value.Check(request.schema, parsed)) {
+        if (!compile(request.schema).check(parsed)) {
           return Effect.fail(
             new InvalidInput({ reason: "generate: reply did not match the schema" }),
           );

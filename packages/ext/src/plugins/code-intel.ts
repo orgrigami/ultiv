@@ -7,7 +7,7 @@
  * chat with no bot gets nothing. Parsing rides the codeintel leaf modules,
  * which load their WASM runtime lazily.
  */
-import { Type } from "typebox";
+import { arr, bool, int, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import type { Tree } from "web-tree-sitter";
 import { languageOf, parseCode } from "../codeintel/parser.ts";
 import { findReferences, symbolsOf, type Symbol } from "../codeintel/symbols.ts";
@@ -160,20 +160,24 @@ const renderOutline = (
   return true;
 };
 
-const outlineOutput = Type.Object({
-  scope: Type.String(),
-  files: Type.Integer(),
-  parsed: Type.Integer(),
-  truncated: Type.Boolean(),
-  entries: Type.Array(
-    Type.Object({
-      path: Type.String(),
-      symbols: Type.Array(
-        Type.Object({ name: Type.String(), kind: Type.String(), line: Type.Integer() }),
+const outlineOutput = obj(
+  {
+    scope: str(),
+    files: int(),
+    parsed: int(),
+    truncated: bool(),
+    entries: arr(
+      obj(
+        {
+          path: str(),
+          symbols: arr(obj({ name: str(), kind: str(), line: int() }, { open: true })),
+        },
+        { open: true },
       ),
-    }),
-  ),
-});
+    ),
+  },
+  { open: true },
+);
 
 const resolvePrefix = async (
   root: string,
@@ -196,12 +200,15 @@ const outlineTool = (root: string, holder: ScopeHolder): Tool =>
       "Call this ONCE at the start of working in a code workspace; paths are workspace-relative " +
       "like the file tools (bash shows the same tree as /home). TypeScript, TSX, JavaScript and " +
       "Python are parsed; other files appear without symbols.",
-    parameters: Type.Object({
-      path: Type.Optional(Type.String({ description: 'Only under this folder, e.g. "src".' })),
-      depth: Type.Optional(
-        Type.Integer({ minimum: 1, maximum: 6, description: "Folder levels to show (default 4)." }),
-      ),
-    }),
+    parameters: obj(
+      {
+        path: opt(str({ description: 'Only under this folder, e.g. "src".' })),
+        depth: opt(
+          int({ minimum: 1, maximum: 6, description: "Folder levels to show (default 4)." }),
+        ),
+      },
+      { open: true },
+    ),
     structuredOutputSchema: outlineOutput,
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);
@@ -254,23 +261,29 @@ type NavHit = {
   excerpt: string;
 };
 
-const navOutput = Type.Object({
-  scope: Type.String(),
-  action: Type.String(),
-  name: Type.String(),
-  files: Type.Integer(),
-  parsed: Type.Integer(),
-  hits: Type.Array(
-    Type.Object({
-      path: Type.String(),
-      line: Type.Integer(),
-      kind: Type.Optional(Type.String()),
-      name: Type.Optional(Type.String()),
-      column: Type.Optional(Type.Integer()),
-      excerpt: Type.String(),
-    }),
-  ),
-});
+const navOutput = obj(
+  {
+    scope: str(),
+    action: str(),
+    name: str(),
+    files: int(),
+    parsed: int(),
+    hits: arr(
+      obj(
+        {
+          path: str(),
+          line: int(),
+          kind: opt(str()),
+          name: opt(str()),
+          column: opt(int()),
+          excerpt: str(),
+        },
+        { open: true },
+      ),
+    ),
+  },
+  { open: true },
+);
 
 const excerptOf = (file: ParsedFile, line: number): string => {
   const raw = file.tree.rootNode.text.split("\n")[line - 1] ?? "";
@@ -306,13 +319,16 @@ const navTool = (root: string, holder: ScopeHolder): Tool =>
       'in code, excluding strings and comments. Optionally search only one folder, e.g. "src". ' +
       "Paths are workspace-relative like the file tools; TypeScript, TSX, JavaScript and Python " +
       "are parsed.",
-    parameters: Type.Object({
-      action: Type.Union([Type.Literal("definitions"), Type.Literal("references")], {
-        description: "Look up declarations or code occurrences.",
-      }),
-      name: Type.String({ description: 'The symbol name, e.g. "greet".' }),
-      path: Type.Optional(Type.String({ description: 'Only under this folder, e.g. "src".' })),
-    }),
+    parameters: obj(
+      {
+        action: oneOf(["definitions", "references"], {
+          description: "Look up declarations or code occurrences.",
+        }),
+        name: str({ description: 'The symbol name, e.g. "greet".' }),
+        path: opt(str({ description: 'Only under this folder, e.g. "src".' })),
+      },
+      { open: true },
+    ),
     structuredOutputSchema: navOutput,
     execute: async (args, api) => {
       const conversationId = String(api.conversationId);

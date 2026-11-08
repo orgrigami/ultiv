@@ -5,10 +5,12 @@
  * Responses never carry secrets (configs reference vault items by id).
  */
 import type { IncomingMessage } from "node:http";
-import { Value } from "typebox/value";
+import { compile } from "@earendil-works/pi-schema";
 import { McpServerInputSchema, type McpServerInput } from "@spriessen/contracts";
 import { defaultRedirectUrl } from "@spriessen/ext";
 import { errorOf, type RouteArgs } from "./types.ts";
+
+const serverInput = compile(McpServerInputSchema);
 
 export const CALLBACK_PATH = "/api/mcp/oauth/callback";
 
@@ -30,12 +32,12 @@ export const callbackUrlFor = (req: IncomingMessage): string => {
 
 const readInput = async (args: RouteArgs): Promise<McpServerInput> => {
   const body = await args.readJson<unknown>(args.req);
-  if (!Value.Check(McpServerInputSchema, body)) {
-    const first = [...Value.Errors(McpServerInputSchema, body)][0];
+  if (!serverInput.check(body)) {
+    const [first] = serverInput.errors(body);
     throw new Error(
       first === undefined
         ? "invalid connector"
-        : `invalid connector: ${first.instancePath || "body"} ${first.message}`,
+        : `invalid connector: ${first.path || "body"} ${first.message}`,
     );
   }
   return body;

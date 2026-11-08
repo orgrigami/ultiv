@@ -10,7 +10,8 @@ import { Effect } from "effect";
 import { External } from "@spriessen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
-import { conversationIdFrom, SessionMapDoc } from "./converse.ts";
+import { SessionMapDoc } from "./converse.ts";
+import { conversationIdFrom } from "./ids.ts";
 
 export const forkOps = (harness: Harness): Pick<ConverseService, "forkInto"> => ({
   forkInto: (sourceConversationId, at, key) =>

@@ -6,12 +6,12 @@
  * with a wiped store, so anything whose absence must be distinguishable gets
  * an explicit generation marker written at first action.
  */
-import { Type } from "typebox";
+import { arr, bool, nul, num, obj, str, union } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { KvService } from "./kv.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
-const keyParam = Type.String({
+const keyParam = str({
   description:
     'Stable key, e.g. "invoice-<id>/acted" or "ledger/generation". Use structured names.',
 });
@@ -22,12 +22,15 @@ const getTool = (kv: KvService, profiles: ProfilesService): Tool =>
     description:
       'Read YOUR durable state (survives sessions and restarts). "unset" means no value, ' +
       "which is NOT proof you never acted; write generation markers for anything where that matters.",
-    parameters: Type.Object({ key: keyParam }),
-    structuredOutputSchema: Type.Object({
-      found: Type.Boolean(),
-      value: Type.Union([Type.String(), Type.Null()]),
-      updatedAt: Type.Union([Type.Number(), Type.Null()]),
-    }),
+    parameters: obj({ key: keyParam }, { open: true }),
+    structuredOutputSchema: obj(
+      {
+        found: bool(),
+        value: union([str(), nul()]),
+        updatedAt: union([num(), nul()]),
+      },
+      { open: true },
+    ),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -61,8 +64,8 @@ const setTool = (kv: KvService, profiles: ProfilesService): Tool =>
     description:
       "Write YOUR durable state: dedup ledgers, generation tokens, cross-wake bookmarks. " +
       "Write it BEFORE acting on anything you must not do twice.",
-    parameters: Type.Object({ key: keyParam, value: Type.String() }),
-    structuredOutputSchema: Type.Object({ ok: Type.Boolean() }),
+    parameters: obj({ key: keyParam, value: str() }, { open: true }),
+    structuredOutputSchema: obj({ ok: bool() }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -93,8 +96,8 @@ const deleteTool = (kv: KvService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "state_delete",
     description: "Remove one of YOUR state keys.",
-    parameters: Type.Object({ key: keyParam }),
-    structuredOutputSchema: Type.Object({ removed: Type.Boolean() }),
+    parameters: obj({ key: keyParam }, { open: true }),
+    structuredOutputSchema: obj({ removed: bool() }, { open: true }),
     execute: async (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -118,10 +121,8 @@ const listTool = (kv: KvService, profiles: ProfilesService): Tool =>
   defineTool({
     name: "state_list",
     description: "List YOUR durable state keys (keys + timestamps, not values).",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({ key: Type.String(), updatedAt: Type.Number() }),
-    ),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(obj({ key: str(), updatedAt: num() }, { open: true })),
     execute: async (_args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {

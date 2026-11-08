@@ -4,7 +4,7 @@
  * approval; never another bot's memory, files, vault or chats.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { bool, obj, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { defineTool } from "@spriessen/ext";
 import { withAudit, type AuditService } from "../audit/audit.ts";
@@ -35,9 +35,12 @@ const listTool = (deps: BotsToolDeps) =>
     description:
       "List your owner's bots: id, name, one-line role, whether you may message each, and " +
       "their tool groups. Archived bots only with includeArchived.",
-    parameters: Type.Object({
-      includeArchived: Type.Optional(Type.Boolean({ description: "Also list archived bots." })),
-    }),
+    parameters: obj(
+      {
+        includeArchived: opt(bool({ description: "Also list archived bots." })),
+      },
+      { open: true },
+    ),
     replay: "safe",
     execute: async (args, api) => {
       const me = meOf(deps, String(api.conversationId));
@@ -57,7 +60,7 @@ const infoTool = (deps: BotsToolDeps) =>
     description:
       "One bot's public profile by name or id: role, persona's first line, whether you may " +
       "message it (and it you), tool groups, busy/idle. Not its memory or files.",
-    parameters: Type.Object({ bot: Type.String({ description: "The bot's name or id." }) }),
+    parameters: obj({ bot: str({ description: "The bot's name or id." }) }, { open: true }),
     replay: "safe",
     execute: async (args, api) => {
       const me = meOf(deps, String(api.conversationId));

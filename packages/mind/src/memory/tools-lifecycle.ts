@@ -4,7 +4,7 @@
  * irreversible act). History shows one fact's version chain: validity,
  * change type and source for every version.
  */
-import { Type } from "typebox";
+import { arr, bool, nul, num, obj, opt, str, union } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { MemoryService } from "./memory.ts";
 import { causeText, dayOf, handleOf } from "./handles.ts";
@@ -25,13 +25,16 @@ export const forgetTool = (memory: MemoryService, profiles: ProfilesService): To
       "yours to claim; when it was wrong and you know the right version, use memory_update (correct) instead. Your " +
       "own facts only; owner-stated facts can be forgotten only when the owner asked in this " +
       "turn. Always give the reason.",
-    parameters: Type.Object({
-      id: Type.String({
-        description: "The fact's #handle (from memory_recall or memory_history).",
-      }),
-      reason: Type.String({ description: "Why this fact is being retracted." }),
-    }),
-    structuredOutputSchema: Type.Object({ id: Type.String(), forgotten: Type.Boolean() }),
+    parameters: obj(
+      {
+        id: str({
+          description: "The fact's #handle (from memory_recall or memory_history).",
+        }),
+        reason: str({ description: "Why this fact is being retracted." }),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj({ id: str(), forgotten: bool() }, { open: true }),
     execute: (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -62,19 +65,25 @@ export const historyTool = (memory: MemoryService, profiles: ProfilesService): T
       "relying on a fact for something consequential or historical (the note is the evidence; " +
       "history_search on that day finds the conversation), or to find the #handle for " +
       "memory_update. History stays until the owner purges, so forgetting is reversible.",
-    parameters: Type.Object({
-      id: Type.String({ description: "The fact's #handle to trace." }),
-    }),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        text: Type.String(),
-        status: Type.String(),
-        change: Type.String(),
-        validFrom: Type.Union([Type.Number(), Type.Null()]),
-        validTo: Type.Union([Type.Number(), Type.Null()]),
-        supersededBy: Type.Union([Type.String(), Type.Null()]),
-      }),
+    parameters: obj(
+      {
+        id: str({ description: "The fact's #handle to trace." }),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          id: str(),
+          text: str(),
+          status: str(),
+          change: str(),
+          validFrom: union([num(), nul()]),
+          validTo: union([num(), nul()]),
+          supersededBy: union([str(), nul()]),
+        },
+        { open: true },
+      ),
     ),
     execute: (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
@@ -133,16 +142,22 @@ export const relatedTool = (memory: MemoryService, profiles: ProfilesService): T
       "default, 2 with depth). Use it before answering questions about someone or something " +
       "specific, and to see how two things connect. Names match by id, name or alias in " +
       "either language.",
-    parameters: Type.Object({
-      entity: Type.String({ description: "Entity id, name or alias." }),
-      depth: Type.Optional(Type.Number({ description: "1 (default) or 2 hops." })),
-    }),
-    structuredOutputSchema: Type.Object({
-      entity: Type.String(),
-      type: Type.String(),
-      facts: Type.Array(Type.Object({ id: Type.String(), text: Type.String() })),
-      neighbours: Type.Array(Type.Object({ name: Type.String(), via: Type.String() })),
-    }),
+    parameters: obj(
+      {
+        entity: str({ description: "Entity id, name or alias." }),
+        depth: opt(num({ description: "1 (default) or 2 hops." })),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: obj(
+      {
+        entity: str(),
+        type: str(),
+        facts: arr(obj({ id: str(), text: str() }, { open: true })),
+        neighbours: arr(obj({ name: str(), via: str() }, { open: true })),
+      },
+      { open: true },
+    ),
     execute: (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {

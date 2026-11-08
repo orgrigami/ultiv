@@ -7,7 +7,6 @@
  */
 import { describe, expect, it } from "vite-plus/test";
 import { Effect } from "effect";
-import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { MemoryStorage } from "@earendil-works/pi-durable";
 import { defaultPolicies } from "../profiles/docs.ts";
 import { openMind } from "../entity.ts";
@@ -16,6 +15,7 @@ import { backgroundModelFor } from "./model.ts";
 import { taskConversationKey } from "./tasks.ts";
 import { TASK_REPORT_KIND } from "./wake.ts";
 import type { ProfileInfo } from "@spriessen/contracts";
+import { readView, TRANSCRIPT_WINDOW } from "../converse/view.ts";
 
 const bot = (backgroundModel: { id: string; effort: string } | null): ProfileInfo => ({
   id: "p1",
@@ -86,8 +86,8 @@ describe("background tasks (offline, MemoryStorage)", () => {
     // Offline the task fails; the report still lands, as a note entry.
     let entries: readonly { kind: string }[] = [];
     for (let attempt = 0; attempt < 120; attempt += 1) {
-      const state = await parent.viewState(BACKGROUND_CONTEXT);
-      entries = (state.value?.entries ?? []) as readonly { kind: string }[];
+      const state = await readView(parent, TRANSCRIPT_WINDOW);
+      entries = (state.entries ?? []) as readonly { kind: string }[];
       if (entries.some((entry) => entry.kind === TASK_REPORT_KIND)) break;
       await new Promise((resolve) => setTimeout(resolve, 50));
     }

@@ -5,7 +5,18 @@
  * section keeps them in view on every turn; the owner reads and steers them
  * on Crew › bot › Projects. Plain REST payloads, never a chord object.
  */
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  bool,
+  nul,
+  num,
+  obj,
+  oneOf,
+  opt,
+  str,
+  union,
+  type Static,
+} from "@earendil-works/pi-schema";
 
 export const PROJECT_TOOL = "project";
 
@@ -21,40 +32,44 @@ export const PROJECT_LIMITS = {
   open: 10,
 } as const;
 
-export const ProjectStatusSchema = Type.Union([
-  Type.Literal("active"),
-  Type.Literal("paused"),
-  Type.Literal("done"),
-  Type.Literal("dropped"),
-]);
+export const ProjectStatusSchema = oneOf(["active", "paused", "done", "dropped"]);
 export type ProjectStatus = Static<typeof ProjectStatusSchema>;
 
-export const ProjectMilestoneSchema = Type.Object({
-  text: Type.String(),
-  done: Type.Boolean(),
-  doneAt: Type.Union([Type.Number(), Type.Null()]),
-});
+export const ProjectMilestoneSchema = obj(
+  {
+    text: str(),
+    done: bool(),
+    doneAt: union([num(), nul()]),
+  },
+  { open: true },
+);
 export type ProjectMilestone = Static<typeof ProjectMilestoneSchema>;
 
-export const ProjectLogLineSchema = Type.Object({
-  at: Type.Number(),
-  text: Type.String(),
-  by: Type.Union([Type.Literal("bot"), Type.Literal("owner")]),
-});
+export const ProjectLogLineSchema = obj(
+  {
+    at: num(),
+    text: str(),
+    by: oneOf(["bot", "owner"]),
+  },
+  { open: true },
+);
 export type ProjectLogLine = Static<typeof ProjectLogLineSchema>;
 
-export const ProjectInfoSchema = Type.Object({
-  id: Type.String(),
-  owner: Type.String(),
-  profileId: Type.String(),
-  title: Type.String(),
-  goal: Type.String(),
-  status: ProjectStatusSchema,
-  milestones: Type.Array(ProjectMilestoneSchema),
-  log: Type.Array(ProjectLogLineSchema),
-  createdAt: Type.Number(),
-  updatedAt: Type.Number(),
-});
+export const ProjectInfoSchema = obj(
+  {
+    id: str(),
+    owner: str(),
+    profileId: str(),
+    title: str(),
+    goal: str(),
+    status: ProjectStatusSchema,
+    milestones: arr(ProjectMilestoneSchema),
+    log: arr(ProjectLogLineSchema),
+    createdAt: num(),
+    updatedAt: num(),
+  },
+  { open: true },
+);
 export type ProjectInfo = Static<typeof ProjectInfoSchema>;
 
 /**
@@ -62,57 +77,60 @@ export type ProjectInfo = Static<typeof ProjectInfoSchema>;
  * it (both carry `projectId`). A projection on GET /api/projects rows and in
  * the `project` tool's `show`; never stored on the project itself.
  */
-export const ProjectWorkSchema = Type.Object({
-  tasks: Type.Array(
-    Type.Object({
-      id: Type.String(),
-      title: Type.String(),
-      status: Type.String(),
-      createdAt: Type.Number(),
-      finishedAt: Type.Union([Type.Number(), Type.Null()]),
-    }),
-  ),
-  routines: Type.Array(
-    Type.Object({
-      id: Type.String(),
-      schedule: Type.String(),
-      once: Type.Union([Type.Number(), Type.Null()]),
-      prompt: Type.String(),
-      enabled: Type.Boolean(),
-      trial: Type.Boolean(),
-    }),
-  ),
-});
+export const ProjectWorkSchema = obj(
+  {
+    tasks: arr(
+      obj(
+        {
+          id: str(),
+          title: str(),
+          status: str(),
+          createdAt: num(),
+          finishedAt: union([num(), nul()]),
+        },
+        { open: true },
+      ),
+    ),
+    routines: arr(
+      obj(
+        {
+          id: str(),
+          schedule: str(),
+          once: union([num(), nul()]),
+          prompt: str(),
+          enabled: bool(),
+          trial: bool(),
+        },
+        { open: true },
+      ),
+    ),
+  },
+  { open: true },
+);
 export type ProjectWork = Static<typeof ProjectWorkSchema>;
 
 /** Linked tasks shown per project (newest first). */
 export const PROJECT_WORK_TASKS = 10;
 
 /** The `project` tool's parameters: one action per call. */
-export const ProjectParamsSchema = Type.Object({
-  action: Type.Union(
-    [Type.Literal("start"), Type.Literal("update"), Type.Literal("list"), Type.Literal("show")],
-    { description: "start a project, update one, list yours, or show one in full." },
-  ),
-  id: Type.Optional(
-    Type.String({ description: "update / show: the project's #handle (its first characters)." }),
-  ),
-  title: Type.Optional(Type.String({ description: "start: a short name." })),
-  goal: Type.Optional(
-    Type.String({ description: "start: what done looks like, in a sentence or two." }),
-  ),
-  milestones: Type.Optional(
-    Type.Array(Type.String(), { description: "start: the steps toward the goal, in order." }),
-  ),
-  done: Type.Optional(
-    Type.Array(Type.Number(), { description: "update: milestone numbers now done (1 = first)." }),
-  ),
-  add: Type.Optional(Type.Array(Type.String(), { description: "update: milestones to add." })),
-  note: Type.Optional(
-    Type.String({ description: "update: one line of progress for the log (what changed, why)." }),
-  ),
-  status: Type.Optional(ProjectStatusSchema),
-});
+export const ProjectParamsSchema = obj(
+  {
+    action: oneOf(["start", "update", "list", "show"], {
+      description: "start a project, update one, list yours, or show one in full.",
+    }),
+    id: opt(str({ description: "update / show: the project's #handle (its first characters)." })),
+    title: opt(str({ description: "start: a short name." })),
+    goal: opt(str({ description: "start: what done looks like, in a sentence or two." })),
+    milestones: opt(arr(str(), { description: "start: the steps toward the goal, in order." })),
+    done: opt(arr(num(), { description: "update: milestone numbers now done (1 = first)." })),
+    add: opt(arr(str(), { description: "update: milestones to add." })),
+    note: opt(
+      str({ description: "update: one line of progress for the log (what changed, why)." }),
+    ),
+    status: opt(ProjectStatusSchema),
+  },
+  { open: true },
+);
 export type ProjectParams = Static<typeof ProjectParamsSchema>;
 
 /** What the owner may change from the app (PATCH /api/projects/:id). */

@@ -6,40 +6,43 @@
  * asynchronous — the sender's turn ends at admission, the counterpart thinks
  * on their own main thread, and the finish signal wakes the sender's endpoint.
  */
-import { Type } from "typebox";
+import { arr, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import { definePlugin, defineTool, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
 import type { MailboxService } from "./mailbox.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { normalizeTopic, type RoomsService } from "../profiles/rooms.ts";
 
-const MessageParams = Type.Object({
-  to: Type.String({
-    description: "The sibling profile's id (see your identity section for the roster).",
-  }),
-  kind: Type.Union([Type.Literal("request"), Type.Literal("notify")], {
-    description:
-      '"request" expects an answer (your thread is woken with a finish signal); use it ' +
-      'for questions and delegations. "notify" is fire-and-forget information.',
-  }),
-  body: Type.String({
-    description:
-      "The full, self-contained message, kept short: include everything the recipient " +
-      "needs: it sees only this, not your context.",
-  }),
-  topic: Type.Optional(
-    Type.String({
+const MessageParams = obj(
+  {
+    to: str({
+      description: "The sibling profile's id (see your identity section for the roster).",
+    }),
+    kind: oneOf(["request", "notify"], {
       description:
-        'The conversation context, e.g. "Q3 report". REUSE the same topic to continue a ' +
-        "thread; near-duplicate topics splinter the conversation into extra rooms. Omit only " +
-        "for a new general thread.",
+        '"request" expects an answer (your thread is woken with a finish signal); use it ' +
+        'for questions and delegations. "notify" is fire-and-forget information.',
     }),
-  ),
-  artifacts: Type.Optional(
-    Type.Array(Type.String(), {
-      description: "Artifact ids to grant the recipient (read access to exactly these).",
+    body: str({
+      description:
+        "The full, self-contained message, kept short: include everything the recipient " +
+        "needs: it sees only this, not your context.",
     }),
-  ),
-});
+    topic: opt(
+      str({
+        description:
+          'The conversation context, e.g. "Q3 report". REUSE the same topic to continue a ' +
+          "thread; near-duplicate topics splinter the conversation into extra rooms. Omit only " +
+          "for a new general thread.",
+      }),
+    ),
+    artifacts: opt(
+      arr(str(), {
+        description: "Artifact ids to grant the recipient (read access to exactly these).",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =>
   defineTool({
@@ -57,7 +60,7 @@ const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =
       "personal data (contacts, calendar, memories, files, location) only when your owner " +
       "asked, and only what the task needs.",
     parameters: MessageParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
+    structuredOutputSchema: obj({ id: str(), status: str() }, { open: true }),
     execute: (args, api) => {
       const scope = profiles.scopeOf(String(api.conversationId));
       if (scope === undefined) {
@@ -113,18 +116,19 @@ const messageTool = (mailbox: MailboxService, profiles: ProfilesService): Tool =
     },
   });
 
-const RoomParams = Type.Object({
-  room: Type.Optional(
-    Type.String({
-      description:
-        "A room id you were given (e.g. in a finish signal). Omit with `peer` to find a room.",
-    }),
-  ),
-  peer: Type.Optional(
-    Type.String({ description: "A sibling profile id: picks your latest room with them." }),
-  ),
-  topic: Type.Optional(Type.String({ description: "Narrow a peer search to one topic." })),
-});
+const RoomParams = obj(
+  {
+    room: opt(
+      str({
+        description:
+          "A room id you were given (e.g. in a finish signal). Omit with `peer` to find a room.",
+      }),
+    ),
+    peer: opt(str({ description: "A sibling profile id: picks your latest room with them." })),
+    topic: opt(str({ description: "Narrow a peer search to one topic." })),
+  },
+  { open: true },
+);
 
 const roomTool = (mailbox: MailboxService, profiles: ProfilesService, rooms: RoomsService): Tool =>
   defineTool({

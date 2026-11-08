@@ -4,7 +4,7 @@
  * plugin installs only when the URL is present. Minimal VEVENT parser: no
  * RRULE expansion — recurring events appear at their series start.
  */
-import { Type } from "typebox";
+import { arr, bool, nul, num, obj, opt, str, union } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 
@@ -93,14 +93,13 @@ export const parseIcs = (raw: string): readonly IcsEvent[] => {
   return events.sort((a, b) => a.start - b.start);
 };
 
-const Params = Type.Object({
-  days: Type.Optional(
-    Type.Number({ description: "How many days ahead to show, including today (default 1)." }),
-  ),
-  timezone: Type.Optional(
-    Type.String({ description: 'IANA zone for "today" (default: the server\u2019s zone).' }),
-  ),
-});
+const Params = obj(
+  {
+    days: opt(num({ description: "How many days ahead to show, including today (default 1)." })),
+    timezone: opt(str({ description: 'IANA zone for "today" (default: the server\u2019s zone).' })),
+  },
+  { open: true },
+);
 
 const eventsTool = (feedUrl: string): Tool =>
   defineTool({
@@ -110,14 +109,17 @@ const eventsTool = (feedUrl: string): Tool =>
       "Recurring events are NOT expanded (only a series' first occurrence is listed), so " +
       "never call a day free on this alone.",
     parameters: Params,
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        summary: Type.String(),
-        start: Type.String(),
-        end: Type.Union([Type.String(), Type.Null()]),
-        allDay: Type.Boolean(),
-        location: Type.Union([Type.String(), Type.Null()]),
-      }),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          summary: str(),
+          start: str(),
+          end: union([str(), nul()]),
+          allDay: bool(),
+          location: union([str(), nul()]),
+        },
+        { open: true },
+      ),
     ),
     execute: async (args) => {
       const days = Math.min(Math.max(Math.trunc(args.days ?? 1), 1), 14);

@@ -1,4 +1,4 @@
-import { Type, type Static } from "typebox";
+import { arr, num, obj, str, type Static } from "@earendil-works/pi-schema";
 
 /**
  * One room: a TUNNEL between the sender's thread (main chat, or the session
@@ -8,18 +8,21 @@ import { Type, type Static } from "typebox";
  * endpoints, never inside the tunnel. Rooms are not sessions: they never
  * appear in session lists; the app surfaces them through `/api/rooms`.
  */
-export const RoomInfoSchema = Type.Object({
-  id: Type.String(),
-  owner: Type.String(),
-  /** The conversation's context ("Q3 report", "onboarding"); empty = general. */
-  topic: Type.String(),
-  participants: Type.Array(Type.String()),
-  createdAt: Type.Number(),
-  lastMessageAt: Type.Number(),
-});
+export const RoomInfoSchema = obj(
+  {
+    id: str(),
+    owner: str(),
+    /** The conversation's context ("Q3 report", "onboarding"); empty = general. */
+    topic: str(),
+    participants: arr(str()),
+    createdAt: num(),
+    lastMessageAt: num(),
+  },
+  { open: true },
+);
 
 export type RoomInfo = Static<typeof RoomInfoSchema>;
 
-export const RoomListSchema = Type.Array(RoomInfoSchema);
+export const RoomListSchema = arr(RoomInfoSchema);
 
 export type RoomList = Static<typeof RoomListSchema>;

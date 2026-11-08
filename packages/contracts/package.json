@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@earendil-works/chord": "catalog:",
-    "typebox": "catalog:"
+    "@earendil-works/pi-schema": "catalog:"
   },
   "devDependencies": {},
   "engines": {

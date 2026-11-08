@@ -7,8 +7,7 @@
  * (no tools), the same rule as the decision faculty.
  */
 import { Effect } from "effect";
-import { Type } from "typebox";
-import type { Static } from "typebox";
+import { arr, bool, num, obj, opt, str, type Static } from "@earendil-works/pi-schema";
 import { External, NotFound } from "@spriessen/core";
 import type { ActionError, Connector } from "../connector.ts";
 import { defineAction, defineConnector, invoke } from "../connector.ts";
@@ -29,26 +28,33 @@ const authHeaders = (context: { readonly apiKey?: string }): Record<string, stri
   "x-api-key": context.apiKey ?? "",
 });
 
-const SearchInput = Type.Object({
-  query: Type.String({ description: "The web search query." }),
-  recencyMinutes: Type.Optional(
-    Type.Number({ description: "Only results fresher than this many minutes." }),
-  ),
-  location: Type.Optional(Type.String({ description: 'Country bias, e.g. "US" (the default).' })),
-  language: Type.Optional(Type.String({ description: 'Language bias, e.g. "en" (the default).' })),
-});
+const SearchInput = obj(
+  {
+    query: str({ description: "The web search query." }),
+    recencyMinutes: opt(num({ description: "Only results fresher than this many minutes." })),
+    location: opt(str({ description: 'Country bias, e.g. "US" (the default).' })),
+    language: opt(str({ description: 'Language bias, e.g. "en" (the default).' })),
+  },
+  { open: true },
+);
 
-const SearchOutput = Type.Object({
-  results: Type.Array(
-    Type.Object({
-      title: Type.String(),
-      url: Type.String(),
-      snippet: Type.String(),
-      site: Type.Optional(Type.String()),
-      date: Type.Optional(Type.String()),
-    }),
-  ),
-});
+const SearchOutput = obj(
+  {
+    results: arr(
+      obj(
+        {
+          title: str(),
+          url: str(),
+          snippet: str(),
+          site: opt(str()),
+          date: opt(str()),
+        },
+        { open: true },
+      ),
+    ),
+  },
+  { open: true },
+);
 
 const search = defineAction({
   name: "search",
@@ -90,25 +96,34 @@ const search = defineAction({
     }),
 });
 
-const FetchInput = Type.Object({
-  urls: Type.Array(Type.String({ description: "Absolute URL." }), {
-    minItems: 1,
-    maxItems: MAX_URLS,
-    description: `Pages to fetch (1-${MAX_URLS} per call).`,
-  }),
-});
-
-const FetchOutput = Type.Object({
-  pages: Type.Array(
-    Type.Object({
-      url: Type.String(),
-      title: Type.Optional(Type.String()),
-      content: Type.String(),
-      truncated: Type.Optional(Type.Boolean()),
-      error: Type.Optional(Type.String()),
+const FetchInput = obj(
+  {
+    urls: arr(str({ description: "Absolute URL." }), {
+      minItems: 1,
+      maxItems: MAX_URLS,
+      description: `Pages to fetch (1-${MAX_URLS} per call).`,
     }),
-  ),
-});
+  },
+  { open: true },
+);
+
+const FetchOutput = obj(
+  {
+    pages: arr(
+      obj(
+        {
+          url: str(),
+          title: opt(str()),
+          content: str(),
+          truncated: opt(bool()),
+          error: opt(str()),
+        },
+        { open: true },
+      ),
+    ),
+  },
+  { open: true },
+);
 
 const fetchPage = defineAction({
   name: "fetch",

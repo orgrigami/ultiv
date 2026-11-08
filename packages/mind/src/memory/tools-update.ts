@@ -11,7 +11,7 @@
  *
  * Writes (change/correct) go through the same guard as memory_write.
  */
-import { Type } from "typebox";
+import { num, obj, oneOf, opt, str, union } from "@earendil-works/pi-schema";
 import { defineTool, type Tool } from "@spriessen/ext";
 import type { MemoryService } from "./memory.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
@@ -19,26 +19,24 @@ import { parseWhen } from "./dates.ts";
 import { causeText, dayOf, handleOf } from "./handles.ts";
 import { guardedWrite, type GuardDeps } from "./tools-write.ts";
 
-const UpdateParams = Type.Object({
-  id: Type.String({ description: "The fact's #handle, from memory_recall." }),
-  op: Type.Union(
-    [Type.Literal("change"), Type.Literal("correct"), Type.Literal("end"), Type.Literal("confirm")],
-    {
+const UpdateParams = obj(
+  {
+    id: str({ description: "The fact's #handle, from memory_recall." }),
+    op: oneOf(["change", "correct", "end", "confirm"], {
       description:
         "change: it is different now (keeps the old as the past). correct: it was wrong. " +
         "end: it no longer holds and nothing replaces it. confirm: the owner said it again or agreed.",
-    },
-  ),
-  text: Type.Optional(
-    Type.String({ description: "change/correct: the new, self-contained text of the fact." }),
-  ),
-  at: Type.Optional(
-    Type.Union([Type.String(), Type.Number()], {
-      description:
-        "change: the day the new version started; end: the day it stops holding (YYYY-MM-DD, default today).",
     }),
-  ),
-});
+    text: opt(str({ description: "change/correct: the new, self-contained text of the fact." })),
+    at: opt(
+      union([str(), num()], {
+        description:
+          "change: the day the new version started; end: the day it stops holding (YYYY-MM-DD, default today).",
+      }),
+    ),
+  },
+  { open: true },
+);
 
 const text = (value: string, isError = false) => ({
   output: [{ type: "text" as const, text: value }],

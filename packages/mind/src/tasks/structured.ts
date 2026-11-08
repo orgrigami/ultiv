@@ -8,8 +8,8 @@
  */
 import type { Conversation } from "@earendil-works/pi-durable";
 import { Effect } from "effect";
-import { Value } from "typebox/value";
-import type { TSchema } from "typebox";
+import { compile, type Schema } from "@earendil-works/pi-schema";
+import { formats } from "@earendil-works/pi-schema/formats";
 import type { Json } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { parseJsonReply } from "../json-reply.ts";
@@ -45,13 +45,14 @@ export type ResultCheck =
 export const checkResult = (schema: unknown, text: string): ResultCheck => {
   const value = parseJsonReply(text);
   if (value === undefined) return { ok: false, reason: "the reply is not JSON" };
-  const errors = [...Value.Errors(schema as TSchema, value)].slice(0, 3);
+  const errors = compile(schema as Schema, { formats, unresolvedRefs: "reject" })
+    .errors(value)
+    .slice(0, 3);
   // Parsed from JSON text, so it is a JSON value.
   if (errors.length === 0) return { ok: true, value: value as Json };
-  const lines = errors.map((error) => {
-    const at = (error as { instancePath?: string }).instancePath ?? "";
-    return `${at === "" ? "(root)" : at} ${error.message}`;
-  });
+  const lines = errors.map(
+    (error) => `${error.path === "" ? "(root)" : error.path} ${error.message}`,
+  );
   return { ok: false, reason: lines.join("; ") };
 };
 

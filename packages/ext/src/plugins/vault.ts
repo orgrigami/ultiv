@@ -6,7 +6,7 @@
  */
 import { resolveInside } from "@spriessen/core";
 import type { HomeRef } from "@spriessen/contracts";
-import { Type } from "typebox";
+import { arr, nul, obj, opt, str, union } from "@earendil-works/pi-schema";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import type { VaultStore } from "../vault.ts";
@@ -181,16 +181,19 @@ const listTool = (store: VaultStore, holder: ScopeHolder): Tool =>
       "their values, so never claim to know one; if a secret is missing, ask your owner to " +
       "add it in the app's Vault, never in chat. Contacts are " +
       "readable through vault_contacts.",
-    parameters: Type.Object({}),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        name: Type.String(),
-        kind: Type.String(),
-        access: Type.String(),
-        masked: Type.String(),
-        profile: Type.Union([Type.String(), Type.Null()]),
-      }),
+    parameters: obj({}, { open: true }),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          id: str(),
+          name: str(),
+          kind: str(),
+          access: str(),
+          masked: str(),
+          profile: union([str(), nul()]),
+        },
+        { open: true },
+      ),
     ),
     execute: (args, api) => {
       const scope = readScope(holder, String(api.conversationId));
@@ -225,16 +228,22 @@ const contactsTool = (store: VaultStore, holder: ScopeHolder): Tool =>
       "address your owner stored. Use it to resolve 'email Mom' into a real address. Contacts " +
       "are your owner's personal data: use them for the task at hand, and never pass them to " +
       "other bots, rooms or webhooks unless your owner asked.",
-    parameters: Type.Object({
-      query: Type.Optional(Type.String({ description: "Name or email substring." })),
-    }),
-    structuredOutputSchema: Type.Array(
-      Type.Object({
-        id: Type.String(),
-        name: Type.String(),
-        email: Type.Union([Type.String(), Type.Null()]),
-        phone: Type.Union([Type.String(), Type.Null()]),
-      }),
+    parameters: obj(
+      {
+        query: opt(str({ description: "Name or email substring." })),
+      },
+      { open: true },
+    ),
+    structuredOutputSchema: arr(
+      obj(
+        {
+          id: str(),
+          name: str(),
+          email: union([str(), nul()]),
+          phone: union([str(), nul()]),
+        },
+        { open: true },
+      ),
     ),
     execute: (args, api) => {
       const scope = readScope(holder, String(api.conversationId));

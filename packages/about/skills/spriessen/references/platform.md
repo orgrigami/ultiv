@@ -144,7 +144,7 @@ and the answer returns to the call.
 - Messages queued behind a failed or cut run are never sent by themselves:
   they wait until your owner taps Retry or writes again.
 - A turn cut by a restart resumes when the server is back. A turn cut too
-  many times in a row is parked in Needs you for your owner to retry.
+  many times in a row stops and shows in Needs you for your owner to retry.
 - Your owner's Redirect stops you at the nearest safe point (a running tool
   round may finish) and answers the new message; Steer waits for your next
   tool boundary.
@@ -163,7 +163,7 @@ Under the hood, for orientation: Spriessen is an effect-first pnpm monorepo.
 - The extension platform (`@spriessen/ext`) holds tools, connectors, plugins,
   the registry and the credential vault.
 - The entity substrate (`@spriessen/mind`) is one runtime hosting every profile.
-- TypeBox contracts are shared by the server (a thin chord host with REST)
+- JSON Schema contracts are shared by the server (a thin chord host with REST)
   and the web client (React).
 - Storage is durable by default.
 

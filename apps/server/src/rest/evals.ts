@@ -9,15 +9,17 @@
  *   GET    /api/evals/runs            the runs, newest first
  *   GET    /api/evals/runs/:id        one run with its results
  */
-import { Value } from "typebox/value";
+import { compile } from "@earendil-works/pi-schema";
 import { EvalExpectSchema, type EvalExpect } from "@spriessen/contracts";
 import { errorOf, queryOr, type RouteArgs } from "./types.ts";
+
+const evalExpect = compile(EvalExpectSchema);
 
 const statusOf = (cause: unknown): number =>
   (cause as { _tag?: string })._tag === "spriessen/NotFound" ? 404 : 400;
 
 const expectOf = (value: unknown): EvalExpect | undefined | "bad" =>
-  value === undefined ? undefined : Value.Check(EvalExpectSchema, value) ? value : "bad";
+  value === undefined ? undefined : evalExpect.check(value) ? value : "bad";
 
 const strings = (value: unknown): string[] | undefined | "bad" =>
   value === undefined

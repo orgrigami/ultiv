@@ -7,7 +7,7 @@
  */
 import { factsOf, type TurnFacts } from "./task-tools.ts";
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { bool, obj, str } from "@earendil-works/pi-schema";
 import type { PromptSection } from "@earendil-works/pi-durable";
 import type { TaskInfo } from "@spriessen/contracts";
 import { defineTool, type Tool } from "@spriessen/ext";
@@ -36,10 +36,13 @@ export const tasksVisibleTo = (
   );
 };
 
-const MessageParams = Type.Object({
-  id: Type.String({ description: "The task's id (running, queued or finished)." }),
-  text: Type.String({ description: "The new instruction, self-contained." }),
-});
+const MessageParams = obj(
+  {
+    id: str({ description: "The task's id (running, queued or finished)." }),
+    text: str({ description: "The new instruction, self-contained." }),
+  },
+  { open: true },
+);
 
 /** The tool's reply per outcome; errors are the refusals. */
 const MESSAGE_REPLIES: Record<MessageOutcome, { readonly text: string; readonly error?: true }> = {
@@ -72,7 +75,7 @@ export const messageTool = (
       'wakes you with the new result. Use it for follow-ups on the same work ("make it ' +
       'shorter", "add prices") instead of spawning a fresh task.',
     parameters: MessageParams,
-    structuredOutputSchema: Type.Object({ id: Type.String(), sent: Type.Boolean() }),
+    structuredOutputSchema: obj({ id: str(), sent: bool() }, { open: true }),
     execute: async (args, api) => {
       const visible = tasksVisibleTo(
         profiles,
@@ -101,9 +104,12 @@ export const messageTool = (
     },
   });
 
-const NotifyParams = Type.Object({
-  text: Type.String({ description: "One short progress line for your owner (≤280 chars)." }),
-});
+const NotifyParams = obj(
+  {
+    text: str({ description: "One short progress line for your owner (≤280 chars)." }),
+  },
+  { open: true },
+);
 
 /** notify_owner: only inside a task; the line shows in the owner's chat, the parent sleeps on. */
 export const notifyTool = (tasks: TasksService): Tool =>
@@ -114,7 +120,7 @@ export const notifyTool = (tasks: TasksService): Tool =>
       "straight to your owner's chat. It does not wake your bot; the final result still " +
       "arrives as your reply. At most once every 2 minutes, ≤280 characters.",
     parameters: NotifyParams,
-    structuredOutputSchema: Type.Object({ posted: Type.Boolean() }),
+    structuredOutputSchema: obj({ posted: bool() }, { open: true }),
     execute: async (args, api) => {
       const task = await Effect.runPromise(tasks.taskOf(String(api.conversationId)));
       if (task === undefined) {

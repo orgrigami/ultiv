@@ -6,7 +6,7 @@
  * the result, the echoed URL and any error. Non-GET calls and a credential's
  * first use on a host wait for an approval card (the usual 120s auto-deny).
  */
-import { Type } from "typebox";
+import { map, obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import type { AuditEvent, VaultItemInfo } from "@spriessen/contracts";
 import type { ScopeHolder } from "../plugins/vault.ts";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
@@ -38,21 +38,23 @@ export interface BrokerDeps {
   readonly transport?: Transport;
 }
 
-const Parameters = Type.Object({
-  method: Type.Union(
-    ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"].map((m) => Type.Literal(m)),
-    { description: "HTTP method. Anything but GET/HEAD asks your owner first." },
-  ),
-  url: Type.String({ description: "Absolute https URL (never put secrets in it)." }),
-  credential: Type.Optional(
-    Type.String({
-      description:
-        "Name or id of a vault credential to authenticate with; the broker adds it, you never see it.",
+const Parameters = obj(
+  {
+    method: oneOf(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"], {
+      description: "HTTP method. Anything but GET/HEAD asks your owner first.",
     }),
-  ),
-  headers: Type.Optional(Type.Record(Type.String(), Type.String())),
-  body: Type.Optional(Type.String({ description: "Request body (JSON as a string)." })),
-});
+    url: str({ description: "Absolute https URL (never put secrets in it)." }),
+    credential: opt(
+      str({
+        description:
+          "Name or id of a vault credential to authenticate with; the broker adds it, you never see it.",
+      }),
+    ),
+    headers: opt(map(str())),
+    body: opt(str({ description: "Request body (JSON as a string)." })),
+  },
+  { open: true },
+);
 
 const fail = (text: string) => ({ isError: true, output: [{ type: "text" as const, text }] });
 

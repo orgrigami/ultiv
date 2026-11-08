@@ -8,17 +8,19 @@
  * owner's project answers exactly like a missing one.
  */
 import { Effect } from "effect";
-import { Value } from "typebox/value";
+import { compile } from "@earendil-works/pi-schema";
 import { ProjectStatusSchema, type ProjectOwnerPatch } from "@spriessen/contracts";
 import { projectWork } from "@spriessen/mind";
 import { canSeeTask } from "./can.ts";
 import { queryOr, type RouteArgs } from "./types.ts";
 
+const isProjectStatus = compile(ProjectStatusSchema).check;
+
 const numbers = (value: unknown): boolean =>
   value === undefined || (Array.isArray(value) && value.every((n) => Number.isInteger(n)));
 
 const patchOf = (body: Record<string, unknown>): ProjectOwnerPatch | undefined => {
-  if (body.status !== undefined && !Value.Check(ProjectStatusSchema, body.status)) return undefined;
+  if (body.status !== undefined && !isProjectStatus(body.status)) return undefined;
   if (!numbers(body.done) || !numbers(body.undone)) return undefined;
   if (body.note !== undefined && typeof body.note !== "string") return undefined;
   return body as ProjectOwnerPatch;

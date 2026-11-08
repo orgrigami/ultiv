@@ -6,6 +6,7 @@ import { openMind, projectTranscript } from "@spriessen/mind";
 import type { SessionInfo } from "@spriessen/contracts";
 import type { RouteArgs } from "./types.ts";
 import { branchRoutes } from "./branch.ts";
+import { readView, TRANSCRIPT_WINDOW } from "@spriessen/mind";
 
 type Mind = Awaited<ReturnType<typeof openMind>>["mind"];
 
@@ -47,8 +48,8 @@ const setup = async () => {
     },
     BACKGROUND_CONTEXT,
   );
-  const state = await conversation.viewState(BACKGROUND_CONTEXT);
-  const [owner] = projectTranscript(state.value?.entries ?? [], undefined, false);
+  const state = await readView(conversation, TRANSCRIPT_WINDOW);
+  const [owner] = projectTranscript(state.entries ?? [], undefined, false);
   if (owner === undefined) throw new Error("no owner message");
   return { handle, mind, chat, at: owner.id };
 };
@@ -63,8 +64,8 @@ describe("POST /api/sessions/:id/branch", () => {
     const conversation = await Effect.runPromise(
       mind.converse.ensure(await mind.profiles.keyForSession("harry", branch.id)),
     );
-    const state = await conversation.viewState(BACKGROUND_CONTEXT);
-    const texts = JSON.stringify(state.value?.entries ?? []);
+    const state = await readView(conversation, TRANSCRIPT_WINDOW);
+    const texts = JSON.stringify(state.entries ?? []);
     expect(texts).toContain("book a plane");
     expect(texts).not.toContain("book a train");
     await handle.close();

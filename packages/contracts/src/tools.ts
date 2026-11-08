@@ -1,10 +1,13 @@
-import { Type, type Static } from "typebox";
+import { arr, obj, str, type Static } from "@earendil-works/pi-schema";
 
 /** One tool of the installed catalog: its name and what it is for, one line. */
-export const ToolCatalogEntrySchema = Type.Object({
-  name: Type.String(),
-  description: Type.String(),
-});
+export const ToolCatalogEntrySchema = obj(
+  {
+    name: str(),
+    description: str(),
+  },
+  { open: true },
+);
 
 export type ToolCatalogEntry = Static<typeof ToolCatalogEntrySchema>;
 
@@ -13,6 +16,6 @@ export type ToolCatalogEntry = Static<typeof ToolCatalogEntrySchema>;
  * curate. Plain-REST payload shape — the allowlist editor reads it; no
  * chord contract rides on it.
  */
-export const ToolCatalogSchema = Type.Array(ToolCatalogEntrySchema);
+export const ToolCatalogSchema = arr(ToolCatalogEntrySchema);
 
 export type ToolCatalog = Static<typeof ToolCatalogSchema>;

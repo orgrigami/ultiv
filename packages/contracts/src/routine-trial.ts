@@ -4,29 +4,45 @@
  * the owner sees what it WOULD do before it touches anything. Nothing runs,
  * nothing is sent, no chat is woken and no push goes out.
  */
-import { Type, type Static } from "typebox";
+import {
+  arr,
+  nul,
+  num,
+  obj,
+  str,
+  union,
+  unknown,
+  type Schema,
+  type Static,
+} from "@earendil-works/pi-schema";
 import type { Json } from "./tasks.ts";
 
-const JsonSchema = Type.Unsafe<Json>(Type.Unknown());
+const JsonSchema = unknown() as Schema<Json>;
 
 /** One call the bot tried during a trial; it did not run. */
-export const TrialActionSchema = Type.Object({
-  name: Type.String(),
-  /** Its input, JSON-safe; a long one is cut to `{ "truncated": "…" }`. */
-  input: JsonSchema,
-});
+export const TrialActionSchema = obj(
+  {
+    name: str(),
+    /** Its input, JSON-safe; a long one is cut to `{ "truncated": "…" }`. */
+    input: JsonSchema,
+  },
+  { open: true },
+);
 
 export type TrialAction = Static<typeof TrialActionSchema>;
 
-export const RoutineTrialSchema = Type.Object({
-  at: Type.Number(),
-  /** What the bot would have said (empty when it said nothing). */
-  reply: Type.String(),
-  /** The calls it tried, in order; none ran. */
-  actions: Type.Array(TrialActionSchema),
-  /** Why the trial could not run, in owner words; null when it ran. */
-  error: Type.Union([Type.String(), Type.Null()]),
-});
+export const RoutineTrialSchema = obj(
+  {
+    at: num(),
+    /** What the bot would have said (empty when it said nothing). */
+    reply: str(),
+    /** The calls it tried, in order; none ran. */
+    actions: arr(TrialActionSchema),
+    /** Why the trial could not run, in owner words; null when it ran. */
+    error: union([str(), nul()]),
+  },
+  { open: true },
+);
 
 export type RoutineTrial = Static<typeof RoutineTrialSchema>;
 

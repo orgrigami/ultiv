@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { Type } from "typebox";
+import { obj, str } from "@earendil-works/pi-schema";
 import type { PromptSection } from "@earendil-works/pi-durable";
 import {
   bashPlugin,
@@ -20,7 +20,7 @@ import { ENTITY_NAME, identityPlugin, identitySection } from "./identity.ts";
 const echo = defineTool({
   name: "echo",
   description: "Echo the input.",
-  parameters: Type.Object({ text: Type.String() }),
+  parameters: obj({ text: str() }, { open: true }),
   execute: async () => ({ output: [{ type: "text", text: "echo" }] }),
 });
 

@@ -2,8 +2,8 @@
  * Run control of a conversation: Stop (`interrupt`), withdrawing one queued
  * message, reading the live run state, and aborting only the running turn
  * (`abortRun`, Redirect now) — which, unlike Stop, leaves queued messages in
- * the inbox. Also the tasks the engine parked after too many restarts in a
- * row (`parked`) and running one again (`retryParked`).
+ * the inbox. Also the turns that restarts cut off too many times in a row
+ * (`parked`) and running one again (`retryParked`).
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
@@ -12,23 +12,53 @@ import type {
   Harness,
   InboxState,
   LiveState,
+  Report,
   SubmissionId,
-  TaskId,
 } from "@earendil-works/pi-durable";
 import { External } from "@spriessen/core";
 import { asEffect } from "./as-effect.ts";
 import type { ConverseService } from "./converse.ts";
+import { conversationIdFrom } from "./ids.ts";
+import { readView } from "./view.ts";
 
 /**
- * A pi-durable task parked by the restart limit: it was cut off (a crash or
- * restart mid-run) `settings.restartLimit` times in a row without progress,
- * so the engine stopped running it until someone retries it.
+ * A chat turn that restarts cut off: the host stopped mid-answer
+ * `settings.restartLimit` times in a row (or kept stopping while the model
+ * answered), so the engine ended the run (`pi.live.runFailure`) instead of
+ * running it again. The owner runs it again from Needs you.
  */
 export type ParkedTask = {
   readonly taskId: string;
   /** The registered task name (`pi.generation` for a chat turn). */
   readonly kind: string;
   readonly conversationId: string;
+};
+
+/**
+ * The turns the engine reported interrupted since this process started
+ * (`task_interrupted` on a generation). Feed `onReport` to `Harness.open`.
+ */
+export type InterruptedRuns = {
+  readonly onReport: (report: Report) => void;
+  readonly list: () => readonly ParkedTask[];
+  readonly forget: (taskId: string) => void;
+};
+
+export const interruptedRuns = (): InterruptedRuns => {
+  const runs = new Map<string, ParkedTask>();
+  return {
+    onReport: (report) => {
+      if (report.kind !== "task_interrupted" || report.task.kind !== "pi.generation") return;
+      const taskId = String(report.task.id);
+      runs.set(taskId, {
+        taskId,
+        kind: report.task.kind,
+        conversationId: String(report.task.conversationId),
+      });
+    },
+    list: () => [...runs.values()],
+    forget: (taskId) => void runs.delete(taskId),
+  };
 };
 
 /**
@@ -39,11 +69,9 @@ export type ParkedTask = {
 export const QUEUE_RETRY_KIND = "ultiv.queue-retry";
 
 const retryQueuedOf = async (conversation: Conversation): Promise<"started" | "busy" | "empty"> => {
-  const view = await conversation.viewState(BACKGROUND_CONTEXT);
-  const docs = view.value?.docs;
-  view.dispose();
-  if ((docs?.["pi.live"] as LiveState | undefined)?.run !== undefined) return "busy";
-  const items = (docs?.["pi.inbox"] as InboxState | undefined)?.items ?? [];
+  const { docs } = await readView(conversation);
+  if ((docs["pi.live"] as LiveState | undefined)?.run !== undefined) return "busy";
+  const items = (docs["pi.inbox"] as InboxState | undefined)?.items ?? [];
   if (!items.some((item) => item.mode !== "write")) return "empty";
   await conversation.submit(
     { type: "write", entry: { kind: QUEUE_RETRY_KIND, data: { at: Date.now() }, model: [] } },
@@ -52,23 +80,36 @@ const retryQueuedOf = async (conversation: Conversation): Promise<"started" | "b
   return "started";
 };
 
-const parkedOf = async (harness: Harness): Promise<readonly ParkedTask[]> => {
-  const inspection = await harness.inspect(BACKGROUND_CONTEXT);
-  return inspection.tasks.flatMap(({ record, state }) =>
-    state.kind === "blocked" && state.reason === "restart_limit"
-      ? [
-          {
-            taskId: String(record.id),
-            kind: record.kind,
-            conversationId: String(record.conversationId),
-          },
-        ]
-      : [],
-  );
+/** The live doc of a conversation right now. */
+const liveDocOf = async (conversation: Conversation): Promise<LiveState | undefined> =>
+  (await readView(conversation)).docs["pi.live"] as LiveState | undefined;
+
+/**
+ * The reported turns whose run failure still stands: a later run (a new
+ * message, a retry) replaces `runFailure`, and the turn leaves the list.
+ */
+const parkedOf = async (
+  harness: Harness,
+  interrupted: InterruptedRuns | undefined,
+): Promise<readonly ParkedTask[]> => {
+  const standing: ParkedTask[] = [];
+  for (const task of interrupted?.list() ?? []) {
+    const conversation = await harness
+      .conversation(conversationIdFrom(task.conversationId), BACKGROUND_CONTEXT)
+      .catch(() => undefined);
+    const live = conversation === undefined ? undefined : await liveDocOf(conversation);
+    if (live?.run === undefined && String(live?.runFailure?.taskId) === task.taskId) {
+      standing.push(task);
+    } else {
+      interrupted?.forget(task.taskId);
+    }
+  }
+  return standing;
 };
 
 export const controlOps = (
   harness: Harness,
+  interrupted?: InterruptedRuns,
 ): Pick<
   ConverseService,
   | "interrupt"
@@ -80,7 +121,7 @@ export const controlOps = (
   | "retryQueued"
   | "resume"
 > => ({
-  parked: () => asEffect("parked tasks", parkedOf(harness)),
+  parked: () => asEffect("parked tasks", parkedOf(harness, interrupted)),
   resume: () => {
     try {
       harness.resume();
@@ -94,12 +135,17 @@ export const controlOps = (
     asEffect(
       "parked retry",
       (async () => {
-        // Only a task that is parked right now: retryTask on anything else is a no-op or a throw.
-        const found = (await parkedOf(harness)).find((task) => task.taskId === taskId);
+        // Only a turn whose failure still stands: a continue on a busy chat throws.
+        const found = (await parkedOf(harness, interrupted)).find((task) => task.taskId === taskId);
         if (found === undefined) return "not_parked" as const;
-        const numeric = Number(taskId);
-        const id = (Number.isSafeInteger(numeric) ? numeric : taskId) as unknown as TaskId;
-        await harness.retryTask(id, BACKGROUND_CONTEXT);
+        const conversation = await harness.conversation(
+          conversationIdFrom(found.conversationId),
+          BACKGROUND_CONTEXT,
+        );
+        if (conversation === undefined) return "not_parked" as const;
+        // A continue runs on the context as it is, without a new message.
+        await conversation.submit({ type: "continue" }, BACKGROUND_CONTEXT);
+        interrupted?.forget(taskId);
         return "retried" as const;
       })(),
     ),
@@ -117,22 +163,12 @@ export const controlOps = (
       harness.abortSubmission(id, BACKGROUND_CONTEXT, conversation.id),
     );
   },
-  liveOf: (conversation) =>
-    asEffect(
-      "live read",
-      conversation.viewState(BACKGROUND_CONTEXT).then((view) => {
-        const live = view.value?.docs["pi.live"] as LiveState | undefined;
-        view.dispose();
-        return live;
-      }),
-    ),
+  liveOf: (conversation) => asEffect("live read", liveDocOf(conversation)),
   abortRun: (conversation) =>
     asEffect(
       "run abort",
       (async () => {
-        const view = await conversation.viewState(BACKGROUND_CONTEXT);
-        const run = (view.value?.docs["pi.live"] as LiveState | undefined)?.run;
-        view.dispose();
+        const run = (await liveDocOf(conversation))?.run;
         if (run === undefined) return "idle" as const;
         // The run task aborts bottom-up: running tools get their abort signal
         // and an `aborted` result, the streamed partial is kept as an aborted

@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from "vite-plus/test";
 import type { RegistryService } from "@spriessen/ext";
-import { Type } from "typebox";
+import { obj, oneOf, opt, str } from "@earendil-works/pi-schema";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { defineTool } from "@spriessen/ext";
 import { targetExactEntry, mayAutoApprove } from "../auto-approve.ts";
@@ -30,12 +30,13 @@ const bash = (runs: { script: string; target?: string }[]): ToolRegistration =>
     ...defineTool({
       name: "bash",
       description: "run a script",
-      parameters: Type.Object({
-        script: Type.String(),
-        target: Type.Optional(
-          Type.Union([Type.Literal("vm"), Type.Literal("host"), Type.Literal("node")]),
-        ),
-      }),
+      parameters: obj(
+        {
+          script: str(),
+          target: opt(oneOf(["vm", "host", "node"])),
+        },
+        { open: true },
+      ),
       execute: async (args) => {
         const input = args as { script: string; target?: string };
         runs.push({

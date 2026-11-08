@@ -1,7 +1,8 @@
 /**
- * Parked tasks (slice 6) against the real engine: a turn cut off by a
- * restart more times than `settings.restartLimit` allows is parked, listed
- * by `parked()`, and runs again (and answers) after `retryParked()`.
+ * Interrupted turns against the real engine: a turn cut off by restarts as
+ * many times as `settings.restartLimit` allows ends (`pi.live.runFailure`,
+ * reported `task_interrupted`), is listed by `parked()`, and runs again (and
+ * answers) after `retryParked()`, which submits a continue.
  */
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,8 +19,9 @@ import {
   fauxText,
   type FauxResponseStep,
 } from "@earendil-works/pi-ai";
-import { converseService } from "./converse.ts";
+import { converseService, interruptedRuns } from "./converse.ts";
 import { projectTranscript } from "./steps.ts";
+import { readView, TRANSCRIPT_WINDOW } from "./view.ts";
 
 const ctx = BACKGROUND_CONTEXT;
 
@@ -33,8 +35,8 @@ const silent: FauxResponseStep = (_context, options) =>
     options?.signal?.addEventListener("abort", () => resolve(fauxAssistantMessage("cut")));
   });
 
-describe("parked tasks (faux model)", () => {
-  it("lists a turn parked by the restart limit and runs it again on retry", async () => {
+describe("interrupted turns (faux model)", () => {
+  it("lists a turn the restart limit ended and runs it again on retry", async () => {
     const faux = fauxProvider({ tokensPerSecond: 100_000 });
     const models = createModels();
     models.setProvider(faux.provider);
@@ -43,10 +45,16 @@ describe("parked tasks (faux model)", () => {
     // A file, as in production: closing the harness closes its storage.
     const dir = mkdtempSync(join(tmpdir(), "spriessen-parked-"));
     const path = join(dir, "harness.db");
+    const interrupted = interruptedRuns();
     const open = async () =>
       Harness.open(
         await openNodeSqliteStorage(path),
-        { models, registry: createRegistry(), settings: { restartLimit: 1 } },
+        {
+          models,
+          registry: createRegistry(),
+          settings: { restartLimit: 1 },
+          onReport: interrupted.onReport,
+        },
         ctx,
       );
     const agent = { model: { provider: model.provider, modelId: model.id } };
@@ -60,8 +68,10 @@ describe("parked tasks (faux model)", () => {
     // A crash, not a clean close: the task is still "running" in storage when the next process opens.
     const second = await open();
 
-    // Second process: one cut-off is the limit here, so the turn is parked, not rerun.
-    const after = converseService(second, agent);
+    // Second process: one cut-off is the limit here, so the turn ends instead of rerunning.
+    const after = converseService(second, agent, undefined, interrupted);
+    second.resume();
+    await until(async () => (await Effect.runPromise(after.parked())).length > 0);
     const parked = await Effect.runPromise(after.parked());
     expect(parked).toHaveLength(1);
     expect(parked[0]).toMatchObject({ conversationId: String(chat.id) });
@@ -70,7 +80,7 @@ describe("parked tasks (faux model)", () => {
 
     expect(await Effect.runPromise(after.retryParked(parked[0]!.taskId))).toBe("retried");
     const reopened = await Effect.runPromise(after.open(String(chat.id)));
-    const view = async () => (await reopened!.viewState(ctx)).value;
+    const view = async () => await readView(reopened!, TRANSCRIPT_WINDOW);
     await until(async () => {
       const steps = projectTranscript((await view())?.entries ?? [], undefined, false);
       return steps.some((s) => s.kind === "output" && s.text === "back again");
