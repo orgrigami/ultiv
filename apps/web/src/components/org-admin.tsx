@@ -76,9 +76,9 @@ export function OrgSection() {
               void change(() => orgApi.patchOrg({ hostAccess: checked === true }))
             }
           />
-          <span className="text-ui">
+          <span className="text-sm">
             Host access for the org
-            <span className="text-meta text-muted-foreground block">
+            <span className="text-xs text-muted-foreground block">
               {org.hostAccess
                 ? "On. Bots can run things on this computer when every level below is on too."
                 : "Off. No bot can run things on this computer."}
@@ -109,7 +109,7 @@ export function OrgSection() {
           {problem}
         </p>
       )}
-      <p className="text-meta text-muted-foreground mt-2">
+      <p className="text-xs text-muted-foreground mt-2">
         A team groups bots under shared Instructions, a VM size and its own host-access switch. Open
         one to change it.
       </p>
@@ -126,9 +126,9 @@ function TeamRow({ team }: { team: TeamInfo }) {
       className="hover:bg-muted focus-visible:ring-ring/50 flex min-h-11 items-center gap-3 px-3 py-2.5 outline-none focus-visible:ring-2"
     >
       <Building2Icon className="text-muted-foreground size-4 shrink-0" />
-      <span className="text-ui min-w-0 flex-1">
+      <span className="text-sm min-w-0 flex-1">
         <span className="block truncate">{team.name}</span>
-        <span className="text-meta text-muted-foreground block">
+        <span className="text-xs text-muted-foreground block">
           {vmLabel(team.vm)} · host access {team.hostAccess ? "on" : "off"} ·{" "}
           {team.netOpen === true
             ? "network open"
@@ -177,9 +177,9 @@ export function HostAccessSwitch({ bot }: { bot: ProfileInfo }) {
           disabled={busy}
           onCheckedChange={(checked) => void setOwn(checked === true)}
         />
-        <span className="text-ui">
+        <span className="text-sm">
           This bot may run things on this computer
-          <span className="text-meta text-muted-foreground block">
+          <span className="text-xs text-muted-foreground block">
             Effective:{" "}
             {mine?.allowed === true ? (
               <Badge variant="secondary">allowed</Badge>

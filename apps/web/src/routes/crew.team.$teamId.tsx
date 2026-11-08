@@ -9,6 +9,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { FolderIcon, UserRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DEFAULT_TEAM_SHARED_CAP_BYTES, type TeamSummary } from "@spriessen/contracts";
+import { plural } from "@spriessen/present/plural";
 import { TeamBots } from "@/components/team/team-bots";
 import { TeamMemory } from "@/components/team/team-memory";
 import { TeamRemove } from "@/components/team/team-remove";
@@ -54,8 +55,9 @@ function useSummary(id: string, epoch: unknown): TeamSummary | null {
 
 /** A folder cap in the unit the owner set it in: "1 GiB", "512 MiB". */
 const capText = (bytes: number): string => {
+  const one = new Intl.NumberFormat("en", { maximumFractionDigits: 1 });
   const gib = bytes / 1_073_741_824;
-  return gib >= 1 ? `${Number(gib.toFixed(1))} GiB` : `${Math.round(bytes / 1_048_576)} MiB`;
+  return gib >= 1 ? `${one.format(gib)} GiB` : `${Math.round(bytes / 1_048_576)} MiB`;
 };
 
 function People({ capBytes }: { capBytes: number }) {
@@ -63,14 +65,14 @@ function People({ capBytes }: { capBytes: number }) {
     <ListCard>
       <div className="flex min-h-11 items-center gap-3 px-3 py-2.5">
         <UserRoundIcon className="text-muted-foreground size-4 shrink-0" />
-        <span className="text-ui flex-1">You</span>
-        <span className="text-meta text-muted-foreground">Owner</span>
+        <span className="text-sm flex-1">You</span>
+        <span className="text-xs text-muted-foreground">Owner</span>
       </div>
       <div className="flex min-h-11 items-start gap-3 px-3 py-2.5">
         <FolderIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-        <span className="text-ui flex-1">
+        <span className="text-sm flex-1">
           Shared folder
-          <span className="text-meta text-muted-foreground block">
+          <span className="text-xs text-muted-foreground block">
             /home/shared in this team's VM: every bot here reads and writes it, up to{" "}
             {capText(capBytes)} (past that it turns read-only until files are removed). Org bots see
             it as /home/team-shared/&lt;team id&gt;.
@@ -107,7 +109,7 @@ function TeamPage() {
     <Page
       back={<BackToCrew />}
       title={team.name}
-      lead={`Team · ${count === 1 ? "1 bot" : `${count} bots`} · ${vmLabel(team.vm)} · host access ${team.hostAccess ? "on" : "off"}`}
+      lead={`Team · ${count} ${plural(count, "bot", "bots")} · ${vmLabel(team.vm)} · host access ${team.hostAccess ? "on" : "off"}`}
     >
       <TeamBots teamId={team.id} />
       <SectionHeader title="Settings" className="mt-2" />
@@ -120,7 +122,7 @@ function TeamPage() {
       <TeamTemplates teamId={team.id} />
       <SectionHeader title="Activity" className="mt-2" />
       {activity !== undefined && (
-        <p className="text-meta text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {activity.toolCalls7d} tool calls this week · {activity.openApprovals} waiting for you
           {activity.lastToolCallAt !== null ? ` · last ${formatWhen(activity.lastToolCallAt)}` : ""}
         </p>

@@ -31,21 +31,20 @@ function ToolsPage() {
   const active: Tab = tab ?? "connectors";
   return (
     <Page title="Tools" lead="Everything your bots reach beyond the chat.">
-      <div
-        role="tablist"
-        aria-label="Tool sections"
-        className="bg-muted/60 mb-4 inline-flex self-start gap-1 rounded-xl p-1"
-      >
+      <div role="tablist" aria-label="Tool sections" className="mb-4 flex flex-wrap gap-1.5">
         {TABS.map((entry) => (
           <Button
             key={entry.id}
-            variant="segment"
-            size="lg"
+            variant="filter"
+            pill
             nativeButton={false}
-            role="tab"
-            aria-current={active === entry.id ? "page" : undefined}
             render={
-              <Link to="/tools" search={entry.id === "connectors" ? {} : { tab: entry.id }} />
+              <Link
+                to="/tools"
+                search={entry.id === "connectors" ? {} : { tab: entry.id }}
+                role="tab"
+                aria-selected={active === entry.id}
+              />
             }
           >
             {entry.label}

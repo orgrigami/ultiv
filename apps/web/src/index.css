@@ -387,17 +387,20 @@ svg.lucide {
 }
 .prose.md-doc :where(th) {
   border-bottom: 1px solid var(--border);
+  /* ai-design-check-ignore-next-line spacing-scale -- doc-grade table cell padding: 6/10px steps */
   padding: 0.375rem 0.625rem;
   text-align: start;
   font-weight: 600;
 }
 .prose.md-doc :where(td) {
   border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  /* ai-design-check-ignore-next-line spacing-scale -- doc-grade table cell padding: 6/10px steps */
   padding: 0.375rem 0.625rem;
   vertical-align: top;
 }
 .prose.md-doc :where(blockquote) {
   border-inline-start: 2px solid var(--border);
+  /* ai-design-check-ignore-next-line spacing-scale -- doc-grade quote indent: 14px */
   padding-inline-start: 0.875rem;
   color: var(--color-muted-foreground);
   font-style: normal;
@@ -428,6 +431,7 @@ svg.lucide {
 .prose.md-doc :where(code):not(:where(pre code)) {
   border: 1px solid var(--border);
   border-radius: 0.375rem;
+  /* ai-design-check-ignore-next-line spacing-scale -- inline code pad: 1px/5px around the glyphs */
   padding: 0.0625rem 0.3125rem;
   background: var(--color-muted);
   font-weight: normal;
@@ -607,6 +611,7 @@ svg.lucide {
 .working-ring::after {
   content: "";
   position: absolute;
+  /* ai-design-check-ignore-next-line spacing-scale -- decorative ring sits 3px off the button edge */
   inset: -3px;
   border-radius: 999px;
   border: 1.5px solid currentColor;

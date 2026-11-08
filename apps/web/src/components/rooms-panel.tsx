@@ -11,6 +11,7 @@ import { BotAvatar } from "@/components/bot-avatar";
 import { RoomTimeline } from "@/components/room-timeline";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Heading } from "@/components/ui/heading";
+import { ListCard } from "@/components/ui/list-card";
 import { ListRow } from "@/components/ui/list-row";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -128,10 +129,10 @@ export function RoomsContent({
     );
   }
   return (
-    <div className="flex flex-col gap-1">
+    <ListCard as="ul" aria-label="Bot talks" className="p-1">
       {rooms.map((room) => (
         <RoomRow key={room.id} room={room} nameOf={nameOf} onOpen={() => onOpen(room.id)} />
       ))}
-    </div>
+    </ListCard>
   );
 }

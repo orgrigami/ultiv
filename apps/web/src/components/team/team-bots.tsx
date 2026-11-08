@@ -106,8 +106,8 @@ export function TeamBots({ teamId }: { teamId: string }) {
                 >
                   <BotAvatar id={bot.id} name={bot.name} size="sm" />
                   <span className="min-w-0 flex-1">
-                    <span className="text-ui block truncate font-medium">{bot.name}</span>
-                    <span className="text-meta text-muted-foreground block truncate">
+                    <span className="text-sm block truncate font-medium">{bot.name}</span>
+                    <span className="text-xs text-muted-foreground block truncate">
                       {bot.description !== "" ? bot.description : "No role yet"}
                     </span>
                   </span>

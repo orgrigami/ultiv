@@ -17,6 +17,7 @@ import { BindingEditor } from "@/components/binding-editor";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { DevDetails } from "@/components/ui/dev-details";
 import { Select } from "@/components/ui/select";
@@ -209,7 +210,7 @@ export function VaultContent({ profiles }: { profiles: ProfileInfo[] }) {
             </Button>
           </p>
         ) : items.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No items yet.</p>
+          <EmptyState>No items yet.</EmptyState>
         ) : (
           items.map((item, index) => (
             <div key={item.id} className="contents">
