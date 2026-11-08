@@ -5,8 +5,8 @@
  * rail, the bot pill and the Crew page, from Settings → Organization, and
  * from the command palette.
  */
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { ChevronLeftIcon, FolderIcon, UserRoundIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { FolderIcon, UserRoundIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DEFAULT_TEAM_SHARED_CAP_BYTES, type TeamSummary } from "@spriessen/contracts";
 import { TeamBots } from "@/components/team/team-bots";
@@ -16,6 +16,7 @@ import { TeamSettings } from "@/components/team/team-settings";
 import { TeamTemplates } from "@/components/team/team-templates";
 import { ReachActivity } from "@/components/team/reach-activity";
 import { Page } from "@/components/page";
+import { BackLink } from "@/components/back-link";
 import { ListCard } from "@/components/ui/list-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -31,14 +32,8 @@ export const Route = createFileRoute("/crew/team/$teamId")({
 });
 
 function BackToCrew() {
-  return (
-    <Link
-      to="/crew"
-      className="text-muted-foreground hover:text-foreground -ml-1 inline-flex min-h-11 items-center gap-1 self-start rounded-lg pr-2 text-sm sm:min-h-8"
-    >
-      <ChevronLeftIcon className="size-4" /> Crew
-    </Link>
-  );
+  const navigate = useNavigate();
+  return <BackLink label="Crew" onClick={() => void navigate({ to: "/crew" })} />;
 }
 
 /** Counts from the summary: tool calls this week, open approvals, the last call. */
