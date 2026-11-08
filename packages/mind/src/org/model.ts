@@ -2,7 +2,7 @@
  * The org data model: one org per install, flat teams (no parent
  * field), members with roles, reach grants and published templates. Stored
  * as the `ultiv.org` document — the `ultiv.` prefix every stored record in
- * the repo keeps (see AGENTS.md Naming). The pure helpers here are the ONE
+ * the repo keeps (see docs/NAMING.md). The pure helpers here are the ONE
  * definition of "which home is this" and "what are this member's roles";
  * `can()` on the server and the prompt/memory scoping in the mind read them.
  */
