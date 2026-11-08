@@ -22,3 +22,6 @@ apps/web/.impeccable/mocks/
 
 # agent worktrees (other branches checked out in place)
 .claude/worktrees/
+
+# Rust desktop app
+apps/desktop/target/

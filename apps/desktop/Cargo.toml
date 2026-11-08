@@ -1,0 +1,17 @@
+[package]
+name = "spriessen-desktop"
+version = "0.1.0"
+edition = "2024"
+description = "The Spriessen native desktop client (Rune)"
+publish = false
+
+[dependencies]
+rune = { git = "https://github.com/anomalyco/rune", rev = "a7f276c3630f85a06a0230295da4d2bd172d8d3b" }
+rune-kit = { git = "https://github.com/anomalyco/rune", rev = "a7f276c3630f85a06a0230295da4d2bd172d8d3b", features = [
+    "markdown",
+    "mermaid",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
+ureq = { version = "3.5.1", features = ["json"] }
