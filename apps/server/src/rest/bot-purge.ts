@@ -1,7 +1,8 @@
 /**
  * The purge cascade: every store a bot touches (registry row and sessions,
- * mailbox, memory, vault, schedules, webhooks, watches, rooms and its
- * artifact tree). The DELETE route and the main bot's bot_delete share it.
+ * mailbox, memory, vault, schedules, webhooks, watches, rooms, its artifact
+ * tree, its file tree and its skill library). The DELETE route and the main
+ * bot's bot_delete share it.
  *
  * The bot's microVM is NOT destroyed here (phase 4, one VM per home): the
  * VM belongs to the bot's home — the org or its team — and is shared
@@ -11,7 +12,7 @@
  */
 import { rmSync } from "node:fs";
 import { resolveInside, artifactsDir } from "@spriessen/ext";
-import { removeSensorsForSessions } from "@spriessen/mind";
+import { botFilesDir, removeSensorsForSessions, skillsDir } from "@spriessen/mind";
 import { removeCronJobsForSessions } from "../cron.ts";
 import { removeWebhooksForSessions } from "../webhooks.ts";
 import type { RouteArgs } from "./types.ts";
@@ -56,6 +57,18 @@ export async function purgeBot(
   } catch {
     artifacts = -1;
   }
+  // The bot's own file tree (Persona/Instructions and its edits) and its
+  // skill library go with it — same discipline as the artifact tree.
+  const purgeTree = (root: () => string): number => {
+    try {
+      rmSync(resolveInside(root(), owner, id), { recursive: true, force: true });
+      return 1;
+    } catch {
+      return -1;
+    }
+  };
+  const files = purgeTree(botFilesDir);
+  const skills = purgeTree(skillsDir);
   // The VM survives the bot (one VM per home, shared with the home's other
   // bots); the bot's Linux USER does not — `retireBotUser` above removed it
   // (or marked it for the VM's next boot). The field stays so the answer's
@@ -72,9 +85,11 @@ export async function purgeBot(
     sensors,
     rooms,
     artifacts,
+    files,
+    skills,
     sandbox,
     note:
-      "transcripts stay in harness storage (retention); registry rows and files are gone; " +
-      "the home's shared VM stays but no longer has this bot's Linux user",
+      "transcripts stay in harness storage (retention); registry rows, artifacts, file tree " +
+      "and skills are gone; the home's shared VM stays but no longer has this bot's Linux user",
   };
 }
