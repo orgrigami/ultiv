@@ -1,11 +1,22 @@
 /**
- * The work pane: a task's steps and result, a file, a bot's memory or the
- * Needs you list, shown beside the chat. Desktop (≥1024px) gets a floating
- * panel to the right of whatever screen is open; narrower screens get the
- * same content as a full-height sheet. Back walks the short trail of what was
- * opened from inside the pane; Close (or Escape) clears it.
+ * The work dock: a task's steps and result, a file, a bot's memory, the
+ * Needs you list or a room, shown beside the chat. Desktop (≥1024px) gets a
+ * floating panel to the right of whatever screen is open; narrower screens
+ * get the active tab as a full-height sheet. The dock holds several tabs at
+ * once: the strip at its top switches between them, so a task, a file and
+ * memory can all stay open beside one conversation. Back steps within the
+ * active tab's trail; a strip tab's ✕ closes that tab; the header's ✕ (or
+ * Escape) closes the active one, and the dock leaves when the last tab does.
  */
 import { ChevronLeftIcon, XIcon } from "lucide-react";
+import {
+  BellDotIcon,
+  BrainIcon,
+  FileIcon,
+  ListTodoIcon,
+  MessagesSquareIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, type ElementType } from "react";
 import { MemoryContent } from "@/components/memory/memory-panel";
 import { FilePreviewBody, fileSubtitle } from "@/components/file-preview";
@@ -18,8 +29,18 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, TALL_SHEET } from "@/components/ui/dialog";
 import { useApp } from "@/lib/app-state";
 import { useMedia, WIDE } from "@/lib/use-media";
-import { InWorkPane, useWorkPane } from "@/lib/work-pane";
+import { InWorkPane, useWorkPane, type WorkPaneState } from "@/lib/work-pane";
+import { cn } from "@/lib/utils";
 import type { WorkItem } from "@/lib/work-stack";
+
+/** One small icon per kind, so a strip tab reads at a glance. */
+const KIND_ICON: Record<WorkItem["kind"], LucideIcon> = {
+  task: ListTodoIcon,
+  file: FileIcon,
+  memory: BrainIcon,
+  needs: BellDotIcon,
+  room: MessagesSquareIcon,
+};
 
 function titleOf(item: WorkItem): { title: string; subtitle: string | null } {
   switch (item.kind) {
@@ -37,6 +58,53 @@ function titleOf(item: WorkItem): { title: string; subtitle: string | null } {
         subtitle: item.topic !== null ? `Bot talks · ${item.topic}` : "Bot talks",
       };
   }
+}
+
+/** The strip of open tabs above the frame: one pill per tab, in open order. */
+function TabStrip({ pane }: { pane: WorkPaneState }) {
+  return (
+    <div
+      aria-label="Open work"
+      className="text-muted-foreground flex min-w-0 shrink-0 gap-1 overflow-x-auto px-2 pb-2"
+    >
+      {pane.tabs.map((tab) => {
+        const active = tab.key === pane.activeKey;
+        const Icon = KIND_ICON[tab.item.kind];
+        const { title } = titleOf(tab.item);
+        return (
+          <div
+            key={tab.key}
+            className={cn(
+              "flex shrink-0 items-center overflow-hidden rounded-lg border",
+              active
+                ? "border-border/70 bg-secondary text-secondary-foreground"
+                : "border-transparent hover:bg-muted",
+            )}
+          >
+            <button
+              type="button"
+              aria-pressed={active}
+              title={title}
+              onClick={() => pane.select(tab.key)}
+              className="focus-visible:ring-ring/50 press flex min-h-8 cursor-pointer items-center gap-1.5 py-1 pr-1 pl-2 text-xs outline-none focus-visible:ring-3 pointer-coarse:min-h-11"
+            >
+              <Icon className="size-3.5 shrink-0" />
+              <span className="max-w-24 truncate sm:max-w-28">{title}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={`Close ${title}`}
+              onClick={() => pane.closeTab(tab.key)}
+              className="focus-visible:ring-ring/50 text-muted-foreground flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none hover:text-foreground focus-visible:ring-3 pointer-coarse:size-8"
+            >
+              <XIcon className="size-3.5" />
+              <span className="sr-only">Close</span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function Body({ item }: { item: WorkItem }) {
@@ -86,6 +154,7 @@ function Frame({ item, Title }: { item: WorkItem; Title: ElementType }) {
   const { title, subtitle } = titleOf(item);
   return (
     <InWorkPane.Provider value>
+      {pane !== null && pane.tabs.length > 1 && <TabStrip pane={pane} />}
       <div className="flex items-start gap-1 px-2 pb-2">
         {pane?.canBack === true ? (
           <Button variant="ghost" size="icon-lg" aria-label="Back" onClick={pane.back}>
