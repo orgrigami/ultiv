@@ -16,6 +16,8 @@ export function Page({
   lead,
   back,
   hero,
+  actions,
+  wide,
   children,
 }: {
   title: React.ReactNode;
@@ -26,21 +28,35 @@ export function Page({
   back?: React.ReactNode;
   /** Replaces the title block (it must carry its own h1): the bot profile. */
   hero?: React.ReactNode;
+  /** The screen's actions, top right beside the title; they wrap under it on phones. */
+  actions?: React.ReactNode;
+  /** A wider canvas for dashboards (5xl instead of the reading column's 3xl). */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   useDocumentTitle(docTitle ?? (typeof title === "string" ? title : undefined));
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-8">
+      <div
+        className={
+          (wide ? "max-w-5xl " : "max-w-3xl ") +
+          "mx-auto flex w-full flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(var(--tabbar-h)+1rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-8"
+        }
+      >
         <header className="flex flex-col gap-1.5">
           {back}
           {hero ?? (
             <>
-              <Heading level={1} size="title">
-                {title}
-              </Heading>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <Heading level={1} size="title" className="min-w-0">
+                  {title}
+                </Heading>
+                {actions !== undefined && (
+                  <div className="flex shrink-0 items-center gap-2">{actions}</div>
+                )}
+              </div>
               {lead !== undefined && <p className="text-muted-foreground text-sm">{lead}</p>}
-              <div className="border-t" />
+              {lead !== undefined && <div className="border-t" />}
             </>
           )}
         </header>

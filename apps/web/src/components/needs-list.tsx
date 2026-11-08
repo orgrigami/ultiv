@@ -140,7 +140,7 @@ export function NeedsList({
           key={row.id}
           role="status"
           className={cn(
-            "settle-in flex min-h-12 items-center gap-2.5 rounded-2xl border px-3 text-sm font-medium",
+            "settle-in flex min-h-12 items-center gap-2.5 rounded-xl border px-3 text-sm font-medium",
             row.approved ? "border-ok/30 bg-ok/10 text-ok" : "bg-muted text-muted-foreground",
           )}
         >
@@ -158,17 +158,17 @@ export function NeedsList({
         </p>
       ))}
       {rows.length > 0 && (
-        <ul aria-label="Needs you" className="bg-card divide-border divide-y rounded-3xl border">
+        <ul aria-label="Needs you" className="bg-card divide-border divide-y rounded-xl border p-1">
           {rows.map((item) => {
             const kind = KIND[item.kind];
             const Icon = kind.icon;
             const approval = item.approval;
             return (
               <li key={item.id} className="flex flex-col">
-                <div className="flex items-center gap-1 pr-1">
+                <div className="flex items-center gap-1">
                   <RowButton
                     onClick={() => open(item)}
-                    className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2.5 pl-3"
+                    className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-lg py-2.5 pl-2.5"
                   >
                     <span className="relative shrink-0">
                       <BotAvatar id={item.botId} name={item.botName} />

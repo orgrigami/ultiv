@@ -200,7 +200,7 @@ function PasskeyManager() {
       ) : (
         <ul aria-label="Passkeys" className="divide-border flex flex-col divide-y">
           {keys.map((key, index) => (
-            <li key={key.id} className="flex min-h-12 items-center gap-3 px-3 py-2">
+            <li key={key.id} className="flex min-h-11 items-center gap-3 px-3 py-2">
               <KeyRoundIcon className="text-muted-foreground size-4 shrink-0" />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm">Passkey {index + 1}</span>
@@ -334,7 +334,7 @@ function LinkRow({
     <Link
       to="/tools"
       search={to === "connectors" ? {} : { tab: to }}
-      className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-12 items-center gap-3 px-3 py-2 outline-none first:rounded-t-xl last:rounded-b-xl focus-visible:ring-3"
+      className="hover:bg-muted/60 focus-visible:ring-ring/50 flex min-h-11 items-center gap-3 px-3 py-2 outline-none first:rounded-t-xl last:rounded-b-xl focus-visible:ring-3"
     >
       <Icon className="text-muted-foreground size-4 shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col">

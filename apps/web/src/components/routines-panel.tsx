@@ -127,7 +127,7 @@ export function RoutinesContent({
     return <SkeletonRows label="Loading routines" />;
   }
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {error !== null && <ErrorState message={error} onRetry={() => void load()} />}
       <Section
         title="Schedules"
@@ -146,7 +146,7 @@ export function RoutinesContent({
       <Section
         title="Webhooks"
         action={<CreateWebhook profiles={active} onCreated={load} />}
-        empty="No webhooks yet. A webhook lets another app wake a bot."
+        empty="No webhooks yet. Wake a bot from another app."
       >
         {data.webhooks.map((hook) => (
           <WebhookRow

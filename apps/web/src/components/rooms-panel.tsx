@@ -5,13 +5,13 @@
  * the work pane shows), with no composer. The list and the open room both
  * refetch on the live "mailbox" signal.
  */
-import { ArrowLeftIcon } from "lucide-react";
 import type { ProfileInfo, RoomInfo } from "@spriessen/contracts";
+import { BackLink } from "@/components/back-link";
 import { BotAvatar } from "@/components/bot-avatar";
 import { RoomTimeline } from "@/components/room-timeline";
-import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { Heading } from "@/components/ui/heading";
+import { ListCard } from "@/components/ui/list-card";
 import { ListRow } from "@/components/ui/list-row";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -52,9 +52,7 @@ function OpenRoom({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
-        <ArrowLeftIcon /> All conversations
-      </Button>
+      <BackLink label="All conversations" onClick={onBack} />
       {room !== undefined && <PairHeader room={room} nameOf={nameOf} />}
       <RoomTimeline roomId={roomId} />
     </div>
@@ -131,10 +129,10 @@ export function RoomsContent({
     );
   }
   return (
-    <div className="flex flex-col gap-1">
+    <ListCard as="ul" aria-label="Bot talks" className="p-1">
       {rooms.map((room) => (
         <RoomRow key={room.id} room={room} nameOf={nameOf} onOpen={() => onOpen(room.id)} />
       ))}
-    </div>
+    </ListCard>
   );
 }

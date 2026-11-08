@@ -129,7 +129,7 @@ function WorkspaceDefaultSection() {
               </Button>
             </div>
           </div>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground max-w-[56ch] text-xs">
             The stored setting outranks the server's SPRIESSEN_MODEL environment. Clearing it hands
             the default back to the environment; with neither set, new chats fail until a model is
             picked per chat.

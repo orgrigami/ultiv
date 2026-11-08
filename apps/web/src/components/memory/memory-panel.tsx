@@ -77,13 +77,13 @@ function TabStrip({
     <div
       role="tablist"
       aria-label="Memory sections"
-      className="border-border mt-3 flex gap-1 overflow-x-auto border-b pb-1"
+      className="mt-3 flex gap-1.5 overflow-x-auto pb-1"
     >
       {tabItems(openCount, tabs).map((item) => (
         <Button
           key={item.id}
-          variant="tab"
-          size="xs"
+          variant="filter"
+          pill
           role="tab"
           id={`memory-tab-${item.id}`}
           aria-selected={tab === item.id}

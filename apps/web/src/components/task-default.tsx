@@ -80,7 +80,7 @@ export function TaskDefaultSection() {
           </label>
         </div>
       )}
-      <p className="text-muted-foreground text-xs">
+      <p className="text-muted-foreground max-w-[56ch] text-xs">
         Bots' chats hand their work to background tasks. This many run at once per bot; more wait in
         its queue and start by themselves. A bot's own Edit bot setting outranks this.
       </p>

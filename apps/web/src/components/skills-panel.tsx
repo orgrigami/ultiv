@@ -3,7 +3,7 @@
  * for the owner's decision. Reads the owner-scoped overview over REST; the
  * detail dialog holds one skill's full text and its open proposals.
  */
-import { CombineIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { SkillMeta, SkillOverview } from "@spriessen/contracts";
 import { plural } from "@/lib/plural";
@@ -70,22 +70,20 @@ function NamespaceSection({
         action={
           <span className="flex items-center gap-1">
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="sm"
               disabled={curating}
               aria-label={`Find overlapping skills for ${namespace.profileName}`}
-              title="Find overlaps"
               onClick={() => onCurate(namespace.profile)}
             >
-              <CombineIcon />
+              Find overlaps
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
+              size="sm"
               aria-label={`Add skill for ${namespace.profileName}`}
               onClick={() => onAdd(namespace.profile)}
             >
-              <PlusIcon />
+              <PlusIcon /> Add skill
             </Button>
           </span>
         }

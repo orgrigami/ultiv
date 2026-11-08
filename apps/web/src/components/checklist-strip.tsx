@@ -66,7 +66,7 @@ function StripBody({ list }: { list: ChecklistDetails | null }) {
         />
       </RowButton>
       {open && (
-        <ol className="border-border/60 flex max-h-[min(30dvh,16rem)] flex-col gap-2 overflow-y-auto border-t px-3.5 py-3">
+        <ol className="border-border/60 flex max-h-[min(24dvh,12rem)] flex-col gap-2 overflow-y-auto border-t px-3.5 py-3">
           {list.items.map((item, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: the plan's steps are positional
             <li key={index} className="flex items-start gap-2.5 text-sm leading-snug">

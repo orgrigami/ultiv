@@ -206,7 +206,7 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
 
   if (failed)
     return (
-      <div className="px-4 pt-3">
+      <div className="px-3 pt-3">
         <ErrorState message="Couldn't load the conversation." onRetry={retry} />
       </div>
     );
@@ -215,7 +215,7 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
   const seated = seatLines(detail.timeline);
   return (
     <>
-      <ol aria-label="Bot talk" className="flex flex-col gap-3 px-4 pt-3">
+      <ol aria-label="Bot talk" className="flex flex-col gap-3 px-3 pt-3">
         {seated.map((entry, index) => (
           <Fragment key={entry.line.id ?? index}>
             {entry.divider !== null && <DayDivider label={entry.divider} />}

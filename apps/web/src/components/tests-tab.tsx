@@ -7,6 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import type { EvalCase, EvalRun, ProfileInfo } from "@spriessen/contracts";
+import { plural } from "@spriessen/present/plural";
 import { CharacterEmpty } from "@/components/character-empty";
 import { Mark } from "@/components/state-mark";
 import { ModelOptions } from "@/components/model-options";
@@ -53,7 +54,8 @@ function RunResults({ run, cases }: { run: EvalRun; cases: readonly EvalCase[] }
                 {result.score !== null && (
                   <span className="text-muted-foreground tnum">
                     {" "}
-                    · Jev {result.score.toFixed(2)}
+                    · Jev{" "}
+                    {new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(result.score)}
                   </span>
                 )}
               </summary>
@@ -132,7 +134,7 @@ export function TestsTab({ bot }: { bot: ProfileInfo }) {
           </Select>
         </label>
         <Button type="button" onClick={() => void start()} disabled={starting || running}>
-          {running ? "Running…" : `Run ${cases.length} ${cases.length === 1 ? "test" : "tests"}`}
+          {running ? "Running…" : `Run ${cases.length} ${plural(cases.length, "test", "tests")}`}
         </Button>
       </div>
       {latest !== undefined && <RunResults run={latest} cases={cases} />}

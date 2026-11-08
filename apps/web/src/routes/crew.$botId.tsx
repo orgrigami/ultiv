@@ -10,7 +10,8 @@
  */
 import { BotFilesEditor } from "@/components/bot-files-editor";
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ChevronLeftIcon, MessageCircleIcon, PencilIcon, StarIcon } from "lucide-react";
+import { BackLink } from "@/components/back-link";
+import { MessageCircleIcon, PencilIcon, StarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ProfileInfo } from "@spriessen/contracts";
 import { EditBotDialog } from "@/components/bot-dialog";
@@ -105,14 +106,8 @@ export const Route = createFileRoute("/crew/$botId")({
 });
 
 function BackToCrew() {
-  return (
-    <Link
-      to="/crew"
-      className="text-muted-foreground hover:text-foreground -ml-1 inline-flex min-h-11 items-center gap-1 self-start rounded-lg pr-2 text-sm sm:min-h-8"
-    >
-      <ChevronLeftIcon className="size-4" /> Crew
-    </Link>
-  );
+  const navigate = useNavigate();
+  return <BackLink label="Crew" onClick={() => void navigate({ to: "/crew" })} />;
 }
 
 function ProfilePage() {

@@ -110,7 +110,7 @@ export function ApprovalModeChip({
           )}
         >
           <Icon className="size-3.5" aria-hidden />
-          {chip.label}
+          <span className="max-sm:hidden">{chip.label}</span>
         </Menu.Trigger>
         <Menu.Portal>
           <MenuSheetBackdrop />

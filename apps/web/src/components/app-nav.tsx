@@ -288,15 +288,14 @@ function FindTab() {
   const quick = useQuickSwitch();
   if (quick === null) return null;
   return (
-    <button
-      type="button"
+    <RowButton
       onClick={quick.openSwitcher}
       aria-label="Find a chat, bot or page"
       className={cn(TAB, "text-muted-foreground")}
     >
       <SearchIcon className="size-6 shrink-0" />
       Find
-    </button>
+    </RowButton>
   );
 }
 
@@ -305,7 +304,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Sections"
-      className="bg-background/65 border-border/60 fixed inset-x-0 bottom-0 z-40 flex h-[calc(4rem+env(safe-area-inset-bottom))] border-t px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
+      className="bg-background/65 border-border/60 fixed inset-x-0 bottom-0 z-40 flex h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom))] border-t px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl sm:hidden"
     >
       {SECTIONS.map((entry) => (
         <TabLink key={entry} section={entry} current={section === entry} />

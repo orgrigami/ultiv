@@ -8,6 +8,7 @@
  * it what the app already loads.
  */
 import type { CredentialBinding, ProfileInfo } from "@spriessen/contracts";
+import { plural } from "@spriessen/present/plural";
 
 export type AccessTone = "on" | "off" | "asks";
 
@@ -47,7 +48,7 @@ const approvals = (bot: AccessInput["bot"]): AccessLine => {
   const saved =
     rules === 0
       ? ""
-      : ` ${rules} always-allowed ${rules === 1 ? "rule skips" : "rules skip"} the question.`;
+      : ` ${rules} always-allowed ${plural(rules, "rule skips", "rules skip")} the question.`;
   return {
     label: "Approvals",
     tone: mode.tone,
@@ -107,7 +108,7 @@ const tools = (allowlist: AccessInput["bot"]["toolAllowlist"]): AccessLine =>
       : {
           label: "Tools",
           tone: "on",
-          text: `${allowlist.length} chosen ${allowlist.length === 1 ? "tool" : "tools"}; new tools stay out until you add them.`,
+          text: `${allowlist.length} chosen ${plural(allowlist.length, "tool", "tools")}; new tools stay out until you add them.`,
         };
 
 const logins = (botId: string, bindings: AccessInput["bindings"]): AccessLine => {
