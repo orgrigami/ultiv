@@ -205,6 +205,7 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   state_list: ["Listed its working notes", "Listing its notes…", "generic"],
   state_delete: ["Removed a working note", "Removing a note…", "generic"],
   table: ["Worked on a table", "Working on a table…", "generic"],
+  browser_session: ["Used its browser session", "Using its browser session…", "web"],
   skill_list: ["Listed its skills", "Listing its skills…", "skill"],
   skill_load: ["Loaded a skill", "Loading a skill…", "skill"],
   skill_write: ["Wrote a skill", "Writing a skill…", "skill"],

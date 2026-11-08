@@ -27,6 +27,7 @@ export const OUTSIDE_TOOLS: readonly string[] = [
   "web_search",
   "http_request",
   "browser_open",
+  "browser_session",
   "calendar_events",
   "connector_resources",
   // Other bots.
