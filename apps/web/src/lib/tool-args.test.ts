@@ -45,7 +45,7 @@ describe("the arguments the tools take", () => {
   });
 
   it("artifact_read takes only an id and answers with a # name heading", () => {
-    const artifacts = source("artifacts.ts");
+    const artifacts = source("artifact-tools.ts");
     expect(artifacts).toContain(
       'parameters: Type.Object({ id: Type.String({ description: "The artifact id." }) })',
     );

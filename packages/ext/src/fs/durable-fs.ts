@@ -7,12 +7,19 @@
  * upsert, never a journal. Durability is per syscall; the exec boundary is
  * where the model sees it.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { posix } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { ArtifactInfo } from "@spriessen/contracts";
-import { resolveInside } from "@spriessen/core";
-import { mimeOfName, VFS_INDEX_ID } from "../plugins/artifacts.ts";
+import { VFS_INDEX_ID } from "../plugins/artifacts.ts";
+import {
+  blobPath,
+  restamp,
+  sidecarPath,
+  writeFileBlob,
+  writeIndexPair,
+  type StoreScope,
+} from "./durable-store.ts";
+import { dropVersions, keepVersion } from "./versions.ts";
 import {
   DEFAULT_MODE_DIR,
   DEFAULT_MODE_FILE,
@@ -69,12 +76,20 @@ export class DurableFs {
   // ---- persistence -------------------------------------------------------
 
   private sidecarOf(id: string): string {
-    return resolveInside(this.dir, `${id}.json`);
+    return sidecarPath(this.dir, id);
   }
   private blobOf(id: string): string {
-    return resolveInside(this.dir, `${id}.bin`);
+    return blobPath(this.dir, id);
+  }
+  private scope(): StoreScope {
+    return { conversationId: this.conversationId, owner: this.owner, profile: this.profile };
   }
 
+  /**
+   * (Re-)read the index; every change calls it first: several trees open the
+   * same folder (a bash session, file_edit, artifact_write, an upload), and a
+   * change must land on the newest map, never write an older one over it.
+   */
   private load(): void {
     if (!existsSync(this.sidecarOf(VFS_INDEX_ID))) {
       this.index = { paths: { "/": { kind: "dir", mode: DEFAULT_MODE_DIR, mtime: Date.now() } } };
@@ -89,23 +104,8 @@ export class DurableFs {
     }
   }
 
-  /** Write the index through; blobs are always written before the map that references them. */
   private persist(): void {
-    mkdirSync(this.dir, { recursive: true });
-    writeFileSync(this.blobOf(VFS_INDEX_ID), JSON.stringify(this.index), "utf8");
-    const info: ArtifactInfo = {
-      id: VFS_INDEX_ID,
-      name: "workspace index",
-      mime: "application/json",
-      bytes: Buffer.byteLength(JSON.stringify(this.index), "utf8"),
-      createdAt: existsSync(this.sidecarOf(VFS_INDEX_ID))
-        ? (JSON.parse(readFileSync(this.sidecarOf(VFS_INDEX_ID), "utf8")) as ArtifactInfo).createdAt
-        : Date.now(),
-      conversationId: this.conversationId,
-      owner: this.owner,
-      profile: this.profile,
-    };
-    writeFileSync(this.sidecarOf(VFS_INDEX_ID), JSON.stringify(info));
+    writeIndexPair(this.dir, this.index, this.scope());
   }
 
   // ---- entry helpers -----------------------------------------------------
@@ -115,23 +115,8 @@ export class DurableFs {
   }
 
   /** Write (or overwrite) one file's bytes; the artifact id is stable per path. */
-  private writeBlob(id: string, bytes: Uint8Array, name: string): void {
-    mkdirSync(this.dir, { recursive: true });
-    writeFileSync(this.blobOf(id), bytes);
-    const existing = existsSync(this.sidecarOf(id))
-      ? (JSON.parse(readFileSync(this.sidecarOf(id), "utf8")) as ArtifactInfo)
-      : undefined;
-    const info: ArtifactInfo = {
-      id,
-      name,
-      mime: mimeOfName(name),
-      bytes: bytes.byteLength,
-      createdAt: existing?.createdAt ?? Date.now(),
-      conversationId: this.conversationId,
-      owner: this.owner,
-      profile: this.profile,
-    };
-    writeFileSync(this.sidecarOf(id), JSON.stringify(info));
+  private writeBlob(id: string, bytes: Uint8Array, path: string): void {
+    writeFileBlob(this.dir, id, bytes, path, this.scope());
   }
 
   private newId(): string {
@@ -144,6 +129,7 @@ export class DurableFs {
 
   private dropBlobIfUnreferenced(id: string): void {
     if (id === VFS_INDEX_ID || this.refCount(id) > 0) return;
+    dropVersions(this.dir, id);
     rmSync(this.blobOf(id), { force: true });
     rmSync(this.sidecarOf(id), { force: true });
   }
@@ -210,13 +196,15 @@ export class DurableFs {
     content: FileContent,
     _options?: WriteFileOptions | BufferEncoding,
   ): Promise<void> {
+    this.load();
     const value = normalize(path);
     const bytes = typeof content === "string" ? Buffer.from(content, "utf8") : Buffer.from(content);
     const existing = this.entry(value);
     if (existing?.kind === "dir") throw eisdir(value);
     const id = existing?.kind === "file" ? existing.id : this.newId();
     if (id === undefined) throw enoent("open", value);
-    this.writeBlob(id, bytes, posix.basename(value));
+    if (existing?.kind === "file") keepVersion(this.dir, id, bytes, value);
+    this.writeBlob(id, bytes, value);
     this.put(value, {
       kind: "file",
       id,
@@ -230,6 +218,7 @@ export class DurableFs {
     content: FileContent,
     options?: WriteFileOptions | BufferEncoding,
   ): Promise<void> {
+    this.load();
     const addition =
       typeof content === "string" ? Buffer.from(content, "utf8") : Buffer.from(content);
     const existing: Uint8Array =
@@ -250,6 +239,7 @@ export class DurableFs {
   }
 
   async mkdir(path: string, options?: MkdirOptions): Promise<void> {
+    this.load();
     const value = normalize(path);
     if (options?.recursive === true) {
       const parts = value.split("/").filter((part) => part !== "");
@@ -268,6 +258,7 @@ export class DurableFs {
   }
 
   async createExclusive(path: string, options: CreateExclusiveOptions): Promise<void> {
+    this.load();
     const value = normalize(path);
     if (this.entry(value) !== undefined) throw eexists(value);
     const parent = this.entry(parentOf(value));
@@ -277,7 +268,7 @@ export class DurableFs {
       return;
     }
     const id = this.newId();
-    this.writeBlob(id, new Uint8Array(0), posix.basename(value));
+    this.writeBlob(id, new Uint8Array(0), value);
     this.put(value, { kind: "file", id, mode: options.mode, mtime: Date.now() });
   }
 
@@ -308,6 +299,7 @@ export class DurableFs {
   }
 
   async rm(path: string, options?: RmOptions): Promise<void> {
+    this.load();
     const value = normalize(path);
     const entry = this.entry(value);
     if (entry === undefined) {
@@ -352,7 +344,7 @@ export class DurableFs {
     }
     const bytes = this.fileBytes(source);
     const id = this.newId();
-    this.writeBlob(id, bytes, posix.basename(dest));
+    this.writeBlob(id, bytes, dest);
     this.put(dest, { kind: "file", id, mode: entry.mode, mtime: Date.now() });
   }
 
@@ -362,11 +354,13 @@ export class DurableFs {
   }
 
   async cp(src: string, dest: string, options?: CpOptions): Promise<void> {
+    this.load();
     const target = this.destPath(normalize(src), normalize(dest));
     this.copyInto(normalize(src), target, options?.recursive === true);
   }
 
   async mv(src: string, dest: string): Promise<void> {
+    this.load();
     const from = normalize(src);
     const to = this.destPath(from, normalize(dest));
     const entry = this.entry(from);
@@ -377,8 +371,10 @@ export class DurableFs {
     );
     for (const path of subtree) {
       const moved = this.index.paths[path];
+      const next = path === from ? to : `${to}${path.slice(from.length)}`;
       delete this.index.paths[path];
-      this.index.paths[path === from ? to : `${to}${path.slice(from.length)}`] = moved as VfsEntry;
+      this.index.paths[next] = moved as VfsEntry;
+      if (moved?.kind === "file" && moved.id !== undefined) restamp(this.dir, moved.id, next);
     }
     this.persist();
   }
@@ -400,12 +396,14 @@ export class DurableFs {
   }
 
   async chmod(path: string, mode: number): Promise<void> {
+    this.load();
     const entry = this.entry(path);
     if (entry === undefined) throw enoent("chmod", path);
     this.put(path, { ...entry, mode });
   }
 
   async symlink(target: string, linkPath: string): Promise<void> {
+    this.load();
     const value = normalize(linkPath);
     if (this.entry(value) !== undefined) throw eexists(value);
     this.put(value, {
@@ -417,6 +415,7 @@ export class DurableFs {
   }
 
   async link(existingPath: string, newPath: string): Promise<void> {
+    this.load();
     const value = normalize(newPath);
     const entry = this.entry(existingPath);
     if (entry === undefined || entry.kind !== "file" || entry.id === undefined) {
@@ -445,9 +444,43 @@ export class DurableFs {
   }
 
   async utimes(path: string, _atime: Date, mtime: Date): Promise<void> {
+    this.load();
     const entry = this.entry(path);
     if (entry === undefined) throw enoent("utimes", path);
     this.put(path, { ...entry, mtime: mtime.getTime() });
+  }
+
+  // ---- the store's view ----------------------------------------------------
+
+  /** The artifact id of the file at a path (after a fresh read of the index). */
+  idOf(path: string): string | undefined {
+    this.load();
+    const entry = this.entry(path);
+    return entry?.kind === "file" ? entry.id : undefined;
+  }
+
+  /** Every path a file id sits at (hard links share one), sorted. */
+  pathsOf(id: string): readonly string[] {
+    this.load();
+    return Object.entries(this.index.paths)
+      .filter(([, entry]) => entry.kind === "file" && entry.id === id)
+      .map(([path]) => path)
+      .sort();
+  }
+
+  /** Put an artifact already in the store at a free path (parents made). */
+  place(path: string, id: string): void {
+    this.load();
+    const value = normalize(path);
+    if (this.entry(value) !== undefined) throw eexists(value);
+    const parts = value.split("/").filter((part) => part !== "");
+    for (let i = 1; i < parts.length; i += 1) {
+      const dir = `/${parts.slice(0, i).join("/")}`;
+      if (this.entry(dir) === undefined)
+        this.index.paths[dir] = { kind: "dir", mode: DEFAULT_MODE_DIR, mtime: Date.now() };
+    }
+    this.put(value, { kind: "file", id, mode: DEFAULT_MODE_FILE, mtime: Date.now() });
+    restamp(this.dir, id, value);
   }
 
   /** Diagnostic: files in the backing artifact store (index excluded). */

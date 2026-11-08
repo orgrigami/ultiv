@@ -1,5 +1,6 @@
 import type { BotFileName, BotFileState, BotFileVersion } from "./bot-files.ts";
 import { routinesApi } from "./api-routines.ts";
+import { artifactsApi } from "./api-artifacts.ts";
 import type {
   ProjectInfo,
   ProjectOwnerPatch,
@@ -34,7 +35,6 @@ import type { NeedsYouExtra } from "./needs-you.ts";
 import { UNAUTHORIZED_EVENT } from "./auth.ts";
 import { statusText } from "./error-words.ts";
 import type {
-  ArtifactRow,
   MemoryV2Line,
   MemoryV2State,
   PendingApprovalRow,
@@ -69,7 +69,7 @@ export type {
  * chord's replicated-object wire desyncs on attach). Same base as the chord
  * link: VITE_CHORD_URL in dev/prod override, relative in same-origin builds.
  */
-function base(): string {
+export function base(): string {
   const override = import.meta.env.VITE_CHORD_URL;
   if (override !== undefined && override !== "") {
     return override.replace(/^ws(s?):/, "http$1:").replace(/\/$/, "");
@@ -94,7 +94,7 @@ export class ApiError extends Error {
   }
 }
 
-async function failure(response: Response, method: string, path: string): Promise<ApiError> {
+export async function failure(response: Response, method: string, path: string): Promise<ApiError> {
   let detail: string | null = null;
   try {
     const body = (await response.json()) as { error?: unknown };
@@ -287,33 +287,6 @@ export const api = {
       `/api/memory/v2/facts/${encodeURIComponent(id)}/restore?profile=${encodeURIComponent(profile ?? "owner")}`,
       "POST",
     ),
-  /** A bot's files, newest first, each with the chat it came from. */
-  artifacts: (profile: string): Promise<ArtifactRow[]> =>
-    getJson<ArtifactRow[]>(`/api/artifacts?profile=${encodeURIComponent(profile)}&sources=1`),
-  /** The newest files across every bot, with their chats (the Now page). */
-  recentArtifacts: (limit: number): Promise<ArtifactRow[]> =>
-    getJson<ArtifactRow[]>(`/api/artifacts?limit=${limit}&sources=1`),
-  artifactMeta: (id: string): Promise<ArtifactRow> =>
-    getJson<ArtifactRow>(`/api/artifacts/${encodeURIComponent(id)}/meta`),
-  artifactUrl: (id: string, download?: boolean): string =>
-    `${base()}/api/artifacts/${encodeURIComponent(id)}${download === true ? "?dl=1" : ""}`,
-  /** POST /api/artifacts with the raw bytes; the server 413s over its 10 MB cap. */
-  artifactUpload: async (file: Blob, name: string, sessionId?: string): Promise<ArtifactRow> => {
-    const query = new URLSearchParams({
-      name,
-      mime: file.type === "" ? "application/octet-stream" : file.type,
-    });
-    if (sessionId !== undefined) query.set("sessionId", sessionId);
-    // The real type rides the query; the body is always raw bytes, typed so
-    // the request is never one another origin could send without a preflight.
-    const response = await fetch(`${base()}/api/artifacts?${query.toString()}`, {
-      method: "POST",
-      headers: { "content-type": "application/octet-stream" },
-      body: file,
-    });
-    if (!response.ok) throw await failure(response, "POST", "/api/artifacts");
-    return (await response.json()) as ArtifactRow;
-  },
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
   roomByEnvelope: (envelopeId: string): Promise<RoomDetail> =>
@@ -392,8 +365,6 @@ export const api = {
         ...(input !== undefined ? { input } : {}),
       },
     ),
-  artifactsFor: (conversationId: string): Promise<ArtifactRow[]> =>
-    getJson<ArtifactRow[]>(`/api/artifacts?conversationId=${encodeURIComponent(conversationId)}`),
   pendingApprovals: (): Promise<PendingApprovalRow[]> =>
     getJson<PendingApprovalRow[]>("/api/approvals"),
   /** The Needs you inputs no poll carries: tidy counts, escalations, approval chats. */
@@ -415,6 +386,7 @@ export const api = {
   cancelTask: (id: string): Promise<{ cancelled: boolean }> =>
     send<{ cancelled: boolean }>(`/api/tasks/${encodeURIComponent(id)}/cancel`, "POST"),
   ...routinesApi,
+  ...artifactsApi,
   /**
    * One bot's audit tail (read-only; its Crew profile Activity tab). The
    * server filters by profile after taking the tail, so read the widest

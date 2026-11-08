@@ -16,18 +16,15 @@ import { DurableFs } from "../fs/durable-fs.ts";
 import { bumpWorkspace } from "../fs/workspace-epoch.ts";
 import { extractDocumentText } from "../docs/extract.ts";
 import { MAX_PARSE_CHARS, languageOf, parseCode, syntaxProblems } from "../codeintel/parser.ts";
-import { SKIP_DIRS } from "./code-intel.ts";
+import { inSkippedDir } from "../fs/skip-dirs.ts";
+import { treePath } from "../fs/tree-path.ts";
 import { artifactsDir, readArtifactBytes } from "./artifacts.ts";
 import type { ScopeHolder } from "./vault.ts";
 
-const MAX_PATH_CHARS = 512;
 const MAX_READ_CHARS = 100_000;
 const MAX_WRITE_CHARS = 1_000_000;
 const MAX_HITS = 50;
 const MAX_FIND_PATHS = 100;
-
-/** Folders never worth walking: build output, VCS state and dependency stores. */
-const inSkippedDir = (path: string): boolean => path.split("/").some((part) => SKIP_DIRS.has(part));
 
 /**
  * A minimal glob: `*` within one path segment, `**` across segments,
@@ -72,24 +69,7 @@ export const fail = (text: string): ToolResult => ({
   isError: true as const,
 });
 
-/** A workspace-relative path as a tree path ("/notes/plan.md"), or why it is refused. */
-export const treePath = (raw: string): { path: string } | { refused: string } => {
-  const value = raw.trim();
-  if (value === "") return { refused: "a path is required" };
-  if (value.length > MAX_PATH_CHARS) return { refused: "the path is too long" };
-  if (value.includes("\0") || value.includes("\\"))
-    return { refused: "the path has a character files can't use" };
-  if (value.startsWith("/") || value.startsWith("~") || /^[a-zA-Z]:/.test(value))
-    return {
-      refused:
-        'only paths inside your own files work; use a relative path like "notes/plan.md" ' +
-        "(bash shows it as /home/notes/plan.md)",
-    };
-  const parts = value.replace(/\/+$/, "").split("/");
-  if (parts.some((part) => part === "" || part === "." || part === ".."))
-    return { refused: 'the path can\'t contain "..", "." or empty parts' };
-  return { path: `/${parts.join("/")}` };
-};
+export { treePath } from "../fs/tree-path.ts";
 
 export interface Area {
   readonly fs: DurableFs;

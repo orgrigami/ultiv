@@ -40,7 +40,7 @@ export function FilesSection() {
               <FileCard file={file} />
               <span className="text-muted-foreground ml-2 flex min-w-0 items-center gap-1.5 text-xs">
                 <span className="shrink-0">
-                  {[nameOf(file.profile), formatWhen(file.createdAt)]
+                  {[nameOf(file.profile), formatWhen(file.updatedAt ?? file.createdAt)]
                     .filter((part) => part !== "")
                     .join(" · ")}
                 </span>

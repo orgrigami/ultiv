@@ -2,7 +2,7 @@
  * The shared file preview. Every surface (chat cards, reply links, the Files
  * tab, the task sheet) opens it — in the work pane, its phone sheet, or a
  * dialog outside the app shell. One slim toolbar (Preview/Source, wrap,
- * copy, download, fullscreen) sits over a body that fills the space; the
+ * copy, earlier versions, download, fullscreen) sits over a body that fills the space; the
  * bodies per kind live in file-views.tsx. Fullscreen is its own dialog
  * over everything, so it works from the phone sheet too.
  */
@@ -12,6 +12,7 @@ import { DownloadIcon, Maximize2Icon, Minimize2Icon, WrapTextIcon } from "lucide
 import { Dialog, DialogContent, DialogTitle, TALL_SHEET } from "@/components/ui/dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CodeBlockCopyButton } from "@/components/ui/code-block";
+import { FileVersions } from "@/components/file-versions";
 import {
   AudioView,
   CodeView,
@@ -84,6 +85,9 @@ interface ViewerState {
   readonly wrap: boolean;
   readonly toggleWrap: () => void;
   readonly openFull: () => void;
+  /** Bumps after a version is restored: the text and the versions reload. */
+  readonly revision: number;
+  readonly restored: () => void;
 }
 
 function ViewSwitch({
@@ -141,6 +145,9 @@ function Toolbar({ state, fullscreen }: { state: ViewerState; fullscreen: boolea
         )}
         {TEXTUAL.has(kind) && text.text !== null && (
           <CodeBlockCopyButton value={text.text} size="icon" title="Copy" />
+        )}
+        {!fullscreen && (
+          <FileVersions fileId={file.id} revision={state.revision} onRestored={state.restored} />
         )}
         <a
           href={api.artifactUrl(file.id, true)}
@@ -259,7 +266,8 @@ function Fullscreen({
 /** The preview itself (no title): the work pane and the dialog both show this. */
 export function FilePreviewBody({ file }: { file: FileRef }) {
   const kind = previewKindOf(file.mime, file.name);
-  const text = useArtifactText(TEXTUAL.has(kind) ? file.id : null);
+  const [revision, setRevision] = useState(0);
+  const text = useArtifactText(TEXTUAL.has(kind) ? file.id : null, revision);
   const [view, setView] = useState<View>("rendered");
   const [wrap, toggleWrap] = useWrap();
   const [full, setFull] = useState(false);
@@ -272,6 +280,8 @@ export function FilePreviewBody({ file }: { file: FileRef }) {
     wrap,
     toggleWrap,
     openFull: () => setFull(true),
+    revision,
+    restored: () => setRevision((value) => value + 1),
   };
   return (
     <div className="flex min-h-0 flex-1 flex-col">

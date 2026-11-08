@@ -17,6 +17,12 @@ export const ArtifactInfoSchema = Type.Object({
   owner: Type.Union([Type.String(), Type.Null()]),
   /** The profile workspace the artifact lives in; null on legacy sidecars. */
   profile: Type.Union([Type.String(), Type.Null()]),
+  /** Where the file sits in its bot's tree ("reports/board.md"); absent on loose legacy files. */
+  path: Type.Optional(Type.String()),
+  /** The last write; a file written again at its path keeps its id and createdAt. */
+  updatedAt: Type.Optional(Type.Number()),
+  /** Set on an earlier version of a file (the head's id); versions never list as files. */
+  versionOf: Type.Optional(Type.String()),
 });
 
 export type ArtifactInfo = Static<typeof ArtifactInfoSchema>;

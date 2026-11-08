@@ -12,7 +12,8 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { Ping } from "@spriessen/contracts";
 import {
   artifactsDir,
-  copyArtifact,
+  adoptAllLooseFiles,
+  grantInto,
   resolveInside,
   upgradeMcpHomes,
   upgradeMcpTeamHomes,
@@ -115,7 +116,7 @@ export async function buildStack(options?: {
       grantArtifacts: async (owner, from, to, ids) => {
         const base = artifactsDir();
         for (const id of ids) {
-          copyArtifact(resolveInside(base, owner, from), resolveInside(base, owner, to), id);
+          await grantInto(resolveInside(base, owner, from), resolveInside(base, owner, to), id);
         }
       },
     },
@@ -124,6 +125,11 @@ export async function buildStack(options?: {
   // One-time, repeatable: stored webhook tokens become hashes (URLs keep
   // working). Logs a count only, never a token.
   const sealed = await sealWebhookTokens(mind.converse);
+  // One-time, repeatable: files written before every writer went through
+  // the bots' trees get a path (same-name text files become one file with
+  // its earlier versions). Logs a count only.
+  const adopted = await adoptAllLooseFiles(artifactsDir());
+  if (adopted > 0) console.log(`files: placed ${adopted} loose file(s) into their bots' trees`);
   if (sealed > 0) console.log(`webhooks: sealed ${sealed} stored token(s) as hashes`);
   // One-time, repeatable: every pre-sign-in owner label (guest, or whatever
   // an older client sent) moves to the ONE account before anything listens.

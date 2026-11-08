@@ -1,7 +1,10 @@
 /**
  * Artifact routes over the per-profile partitioned workspace:
  * ARTIFACTS_DIR/{owner}/{profile}/, with the flat root kept for legacy
- * sidecars (owner null — uuid-capability access, exactly as before).
+ * sidecars (owner null — uuid-capability access, exactly as before). A
+ * bot's files are its tree: an upload lands at uploads/<name> (a free name
+ * when taken), a delete removes the file from every path it sits at, and a
+ * list sorts by the last write. Versions live in artifact-versions.ts.
  */
 import { readFileSync } from "node:fs";
 import { Effect } from "effect";
@@ -12,11 +15,16 @@ import {
   listArtifacts,
   MAX_UPLOAD_BYTES,
   mimeOfName,
+  pathForName,
+  putFile,
   readArtifactInfo,
+  removeFile,
   resolveInside,
   searchArtifacts,
+  touchedAt,
   writeArtifactBytes,
 } from "@spriessen/ext";
+import { artifactVersionRoutes } from "./artifact-versions.ts";
 import { artifactSources } from "./artifact-source.ts";
 import { ownsProfile, ownsSession } from "./owner-scope.ts";
 import { can } from "./can.ts";
@@ -39,7 +47,7 @@ const conversationIdOf = async (
   return (await Effect.runPromise(mind.converse.conversationIdOf(key))) ?? undefined;
 };
 
-const findArtifact = async (
+export const findArtifact = async (
   args: RouteArgs,
   id: string,
 ): Promise<{ dir: string; info: NonNullable<ReturnType<typeof readArtifactInfo>> } | undefined> => {
@@ -54,7 +62,7 @@ const findArtifact = async (
  * Legacy flat-root artifacts carry `owner: null` and stay visible to everyone
  * (single-user era). Another owner's artifact answers 404, like a missing one.
  */
-const ownedBy = (info: { owner: string | null; id?: string }, owner: string): boolean =>
+export const ownedBy = (info: { owner: string | null; id?: string }, owner: string): boolean =>
   // Legacy sidecars with no owner stay readable, as before (see SECURITY.md).
   info.owner === null ||
   can(owner, "view", { type: "artifact", owner: info.owner, id: info.id ?? "" });
@@ -99,7 +107,7 @@ const listed = async (
   profile: string | undefined,
 ): Promise<unknown[]> => {
   const limit = Number(queryOr(args, "limit") ?? "");
-  const newest = [...items].sort((a, b) => b.createdAt - a.createdAt);
+  const newest = [...items].sort((a, b) => touchedAt(b) - touchedAt(a));
   const kept =
     Number.isInteger(limit) && limit > 0 ? newest.slice(0, Math.min(limit, 200)) : newest;
   if (queryOr(args, "sources") !== "1") return kept;
@@ -186,20 +194,17 @@ export async function artifactRoutes(
       json(413, { error: "file too large (10 MB max)" });
       return true;
     }
-    json(
-      200,
-      writeArtifactBytes(
-        row !== undefined ? resolveInside(artifactsDir(), row.owner, row.profile) : artifactsDir(),
-        {
-          name,
-          mime,
-          data: body,
-          conversationId,
-          owner: row?.owner ?? null,
-          profile: row?.profile ?? null,
-        },
-      ),
-    );
+    const scope = { conversationId, owner: row?.owner ?? null, profile: row?.profile ?? null };
+    if (row === undefined) {
+      // No bot, no tree: the legacy root keeps loose files.
+      json(200, writeArtifactBytes(artifactsDir(), { name, mime, data: body, ...scope }));
+      return true;
+    }
+    const dir = resolveInside(artifactsDir(), row.owner, row.profile);
+    const at = pathForName("uploads", name, "upload.bin");
+    const put = await putFile(dir, at, body, { ...scope, unique: true, mime });
+    if ("refused" in put) json(409, { error: put.refused });
+    else json(200, put.info);
     return true;
   }
   if (path === "/api/artifacts" && method === "DELETE") {
@@ -211,6 +216,7 @@ export async function artifactRoutes(
     json(200, { ok: true, cleared });
     return true;
   }
+  if (await artifactVersionRoutes(args)) return true;
   if (path.startsWith("/api/artifacts/") && method === "GET") {
     // Meta first: ids never contain a slash, and ?dl=1 stays in the query.
     const seg = segment("/api/artifacts/");
@@ -228,7 +234,7 @@ export async function artifactRoutes(
       json(404, { error: "unknown artifact" });
       return true;
     }
-    json(200, { ok: deleteArtifact(found.dir, found.info.id) });
+    json(200, { ok: await removeFile(found.dir, found.info.id) });
     return true;
   }
   return false;

@@ -20,7 +20,8 @@ import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin } from "../plugin.ts";
 import { defineTool, type Tool } from "../tool.ts";
 import { scopeDir, type ScopeHolder } from "./vault.ts";
-import { artifactsDir, MAX_IMAGE_BASE64, writeArtifactBytes } from "./artifacts.ts";
+import { artifactsDir, MAX_IMAGE_BASE64 } from "./artifacts.ts";
+import { pathForName, putFile } from "../fs/tree.ts";
 import { homeWorldOf } from "./bash.ts";
 import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 import { join } from "node:path";
@@ -131,15 +132,20 @@ const present = async (run: Shaped) => {
   let shot: { readonly id: string; readonly name: string; readonly size: number } | undefined;
   if (run.bytes !== undefined) {
     const scope = run.holder?.get()?.scopeOf(run.conversationId);
-    const info = writeArtifactBytes(run.dir, {
-      name: `screenshot-${hostOf(run.url)}-${run.stamp}.png`,
-      mime: "image/png",
-      data: run.bytes,
-      conversationId: run.conversationId,
-      owner: scope?.owner ?? null,
-      profile: scope?.profile ?? null,
-    });
-    shot = { id: info.id, name: info.name, size: run.bytes.length };
+    const name = `screenshot-${hostOf(run.url)}-${run.stamp}.png`;
+    const put = await putFile(
+      run.dir,
+      pathForName("screenshots", name, "screenshot.png"),
+      run.bytes,
+      {
+        unique: true,
+        mime: "image/png",
+        conversationId: run.conversationId,
+        owner: scope?.owner ?? null,
+        profile: scope?.profile ?? null,
+      },
+    );
+    if ("info" in put) shot = { id: put.info.id, name: put.info.name, size: run.bytes.length };
   }
   const base64 = run.bytes === undefined ? "" : Buffer.from(run.bytes).toString("base64");
   const shown = shot !== undefined && base64.length <= MAX_IMAGE_BASE64;

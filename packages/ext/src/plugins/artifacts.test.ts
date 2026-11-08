@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   artifactFile,
-  artifactsPlugin,
   copyArtifact,
   readArtifactInfo,
   clearArtifacts,
@@ -17,6 +16,7 @@ import {
   writeArtifact,
   writeArtifactBytes,
 } from "./artifacts.ts";
+import { artifactsPlugin } from "./artifact-tools.ts";
 
 const dirs: string[] = [];
 const tempDir = (): string => {

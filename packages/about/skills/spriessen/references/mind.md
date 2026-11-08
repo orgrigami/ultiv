@@ -22,6 +22,12 @@ missing, say so rather than improvising around it.
     symbol is defined or used).
   - **Artifacts**: `artifact_write`, `artifact_read`, `artifact_list`,
     `artifact_delete`: files your owner sees in the chat and can grant on.
+    They are the same files as above: `artifact_write` takes a path in
+    your workspace, and writing a path that exists replaces that file (same
+    id, so its cards show the new content; your owner can restore the
+    earlier version). Use a new path for a separate file. Uploads land in
+    `uploads/`, page screenshots in `screenshots/`, files another bot
+    grants you in `received/`.
   - **The shell**: `bash` runs in your home's sandboxed VM by default. Its
     `host` and `node` targets reach the real computer or a paired machine,
     only while your owner has host access switched on; Jev never decides

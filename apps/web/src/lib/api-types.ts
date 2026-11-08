@@ -90,6 +90,10 @@ export interface ArtifactRow {
   conversationId: string | null;
   owner: string | null;
   profile: string | null;
+  /** Where it sits in its bot's files ("reports/board.md"); absent on loose legacy files. */
+  path?: string;
+  /** The last write; a file written again keeps its id and createdAt. */
+  updatedAt?: number;
   /** The chat it came from (`?sources=1` lists and every /meta); null = none maps. */
   source?: ArtifactSource | null;
 }

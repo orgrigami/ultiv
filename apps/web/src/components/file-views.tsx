@@ -21,7 +21,11 @@ import { cn } from "@/lib/utils";
 const SAFE_BOTTOM = "pb-[max(1.25rem,env(safe-area-inset-bottom))]";
 
 /** The artifact fetched once as text (capped); `null` skips the fetch. */
-export function useArtifactText(id: string | null): {
+export function useArtifactText(
+  id: string | null,
+  /** A change refetches the same file (after a version is restored). */
+  revision = 0,
+): {
   text: string | null;
   failed: boolean;
   /** The file ran past the preview cap: only its start is shown. */
@@ -48,7 +52,7 @@ export function useArtifactText(id: string | null): {
         if (!control.signal.aborted) setState({ text: null, failed: true, cut: false });
       });
     return () => control.abort();
-  }, [id]);
+  }, [id, revision]);
   return state;
 }
 

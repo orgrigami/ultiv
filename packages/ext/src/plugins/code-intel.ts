@@ -16,25 +16,14 @@ import { defineTool, type Tool } from "../tool.ts";
 import { artifactsDir } from "./artifacts.ts";
 import { asText, fail, locate, safeAreaOf, throughSymlink, type Area } from "./files.ts";
 import type { ScopeHolder } from "./vault.ts";
+import { inSkippedDir } from "../fs/skip-dirs.ts";
+
+export { SKIP_DIRS } from "../fs/skip-dirs.ts";
 
 const MAX_OUTLINE_CHARS = 6000;
 const MAX_SYMBOLS_PER_FILE = 30;
 const MAX_NAV_HITS = 50;
 const MAX_EXCERPT_CHARS = 120;
-
-/** Folders that are never worth walking for user-facing code or file listings. */
-export const SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "build",
-  "__pycache__",
-  ".venv",
-  "venv",
-  ".coverage",
-  ".worktrees",
-  ".next",
-]);
 
 const KIND_LABEL: Record<Symbol["kind"], string> = {
   function: "fn",
@@ -59,7 +48,7 @@ const isResult = (value: unknown): value is ToolResult =>
 
 const show = (path: string): string => path.slice(1);
 
-const skipped = (path: string): boolean => path.split("/").some((part) => SKIP_DIRS.has(part));
+const skipped = inSkippedDir;
 
 interface ParsedFile {
   readonly path: string;
