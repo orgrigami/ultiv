@@ -108,6 +108,10 @@ export interface ProfilesService {
   readonly workspaceTaskLimit: () => Promise<number | null>;
   /** Store the workspace task limit (1..TASK_LIMIT_MAX); null clears it. */
   readonly setWorkspaceTaskLimit: (limit: number | null) => Promise<void>;
+  /** The global pause: while true, no task starts and routine fires are held. */
+  readonly workspacePaused: () => Promise<boolean>;
+  /** Set or clear the global pause. */
+  readonly setWorkspacePaused: (paused: boolean) => Promise<void>;
   /** The ids of every indexed chat conversation (not tasks); built from the stored rows. */
   readonly chatConversations: () => Promise<readonly string[]>;
   /** The conversation scope index: persona, audit and artifact scoping read this. */

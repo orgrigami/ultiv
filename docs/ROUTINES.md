@@ -63,6 +63,8 @@ Every fire writes a receipt BEFORE delivery is attempted, then settles it:
   (cron, 3 consecutive → job disabled + audit escalation).
 - `rejected` — ingress refused the call; `reason` is the class.
 - `trial` — a schedule's fire ran as a trial (every action held back).
+- `held` — the workspace is PAUSED: the fire happened, nothing was woken,
+  and it does not replay on resume (see the global pause below).
 - `ignored` — a webhook payload from a sender off its allow list, with no
   thread chat to add context to; nothing was woken.
 
@@ -228,6 +230,31 @@ the gap). One-shots are the opposite: a `once` that passed while down fires
 immediately on boot (retrying a delivery that never succeeded). This is
 deliberate — "daily at 9" after an outage should resume tomorrow at 9, not
 fire a burst of stale prompts at boot.
+
+## The global pause (one switch to freeze the crew)
+
+`Settings → Pause the crew` (`ultiv.settings` `paused`, REST
+`GET/PUT /api/settings/pause`; the Now page carries the banner). While on:
+
+- **No background task STARTS.** Spawns are admitted but wait as `queued`
+  (the queue caps still refuse past 20); resuming starts what fits. Running
+  tasks are not killed — pause is a hold, not a stop (a Stop travels the
+  work tree; see docs/FEATURES.md).
+- **Cron fires are held**: the timer fired, so the write-ahead receipt
+  settles `held` (reason "workspace paused") and nothing is woken. No
+  outcome is written and a one-shot stays listed, unfired — it fires on the
+  next boot after resume, the same rule as a one-shot whose time passed in
+  downtime.
+- **Webhook payloads are acked, then held**: the sender already walked away
+  with `200 {ok, eventId}`, the receipts settle `held`, and the payloads do
+  not replay on resume.
+- **Sensor passes are skipped whole** — no poll, no receipts, no dedup
+  writes: exactly a downtime gap. Unseen events fire on the first pass
+  after resume (the calendar's missed-poll grace covers the seam).
+- **Chats with the owner keep working**, and so do approvals: pause freezes
+  autonomy, not conversation.
+
+Pause holds like downtime; it does not queue. Nothing held replays.
 
 ## Durable state (the KV plane)
 

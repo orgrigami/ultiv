@@ -100,6 +100,16 @@ const flush = async (
   entries: readonly { eventId: string; text: string; whenBusy: "steer" | "followUp" | "reject" }[],
 ): Promise<void> => {
   try {
+    // The global pause holds the delivery (the sender was already acked):
+    // receipts settle "held" and the payloads do not replay on resume.
+    if (await mind.profiles.workspacePaused().catch(() => false)) {
+      await Promise.all(
+        entries.map((entry) =>
+          settleRoutineEvent(mind.converse, entry.eventId, "held", "workspace paused"),
+        ),
+      );
+      return;
+    }
     const text = entries.map((entry) => entry.text).join("\n");
     // A coalesced batch rides the strongest policy any of its payloads carry
     // (steer beats follow-up) — one wake, one admission.

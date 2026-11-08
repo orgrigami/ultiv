@@ -112,28 +112,32 @@ export const validTimezone = (tz: string): boolean => {
 /**
  * Owner-level settings: which profile is the main bot (exactly one at a
  * time), the stored workspace default model (null = not set; the
- * environment's SPRIESSEN_MODEL applies until the owner stores one) and the
+ * environment's SPRIESSEN_MODEL applies until the owner stores one), the
  * stored default for how many background tasks a bot runs at once (null =
- * SPRIESSEN_MAX_RUNNING_TASKS, else the built-in default).
+ * SPRIESSEN_MAX_RUNNING_TASKS, else the built-in default), and the global
+ * pause (true = the crew is frozen: no task starts, routine fires are held).
  */
 export type SettingsValue = {
   main: Record<string, string>;
   defaultModel: { ref: string; effort: string } | null;
   maxRunningTasks: number | null;
+  paused: boolean;
 };
 
 export const SettingsDoc = defineDoc<SettingsValue>({
   kind: "ultiv.settings",
-  version: 3,
+  version: 4,
   scope: "session",
-  initial: () => ({ main: {}, defaultModel: null, maxRunningTasks: null }),
-  // v1 carried only `main`, v2 added the default model: stamp what is missing.
+  initial: () => ({ main: {}, defaultModel: null, maxRunningTasks: null, paused: false }),
+  // v1 carried only `main`; v2 added the default model, v3 the task limit,
+  // v4 the pause: stamp what is missing.
   migrate: (value) => {
     const old = value as Partial<SettingsValue>;
     return {
       main: old.main ?? {},
       defaultModel: old.defaultModel ?? null,
       maxRunningTasks: old.maxRunningTasks ?? null,
+      paused: old.paused ?? false,
     } as unknown as SettingsValue;
   },
   checkpointWhen: () => true,

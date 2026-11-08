@@ -144,6 +144,26 @@ export const taskLimitOps = (
   },
 });
 
+/**
+ * The global pause (Settings › Pause the crew): while on, no background task
+ * STARTS (spawns queue, the pump holds) and routine fires are held with a
+ * `held` receipt instead of waking anyone. Chats with the owner keep working:
+ * pause freezes autonomy, not conversation.
+ */
+export const pauseOps = (
+  ctx: ProfilesContext,
+): Pick<ProfilesService, "workspacePaused" | "setWorkspacePaused"> => ({
+  workspacePaused: async () =>
+    (await run(ctx.converse.docs.snapshot(SettingsDoc)))?.paused === true,
+  setWorkspacePaused: async (paused) => {
+    await run(
+      ctx.converse.docs.commit(async (tx) => {
+        (await tx.doc(SettingsDoc)).paused = paused;
+      }),
+    );
+  },
+});
+
 export const mainOps = (
   ctx: ProfilesContext,
 ): Pick<ProfilesService, "ensureMain" | "resetMain" | "mainOf" | "setMain"> => {

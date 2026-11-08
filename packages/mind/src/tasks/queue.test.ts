@@ -24,7 +24,12 @@ import type { TaskInfo } from "@spriessen/contracts";
 const ctx = BACKGROUND_CONTEXT;
 
 /** A tasks service whose bots run one task at a time; the first reply waits for `release`. */
-const rig = async (replies: readonly string[]) => {
+const rig = async (
+  replies: readonly string[],
+  wiring: { limitOf?: () => Promise<number>; isPaused?: () => Promise<boolean> } = {
+    limitOf: async () => 1,
+  },
+) => {
   const faux = fauxProvider();
   const models = createModels();
   models.setProvider(faux.provider);
@@ -50,7 +55,7 @@ const rig = async (replies: readonly string[]) => {
     model: { provider: model.provider, modelId: model.id },
   });
   const tasks = tasksService(converse);
-  await tasks.attach(async () => null, { limitOf: async () => 1 });
+  await tasks.attach(async () => null, wiring);
   const spawn = (prompt: string) =>
     Effect.runPromise(
       tasks.spawn({ sessionId: "", owner: "agent", conversationId: "chat-1", prompt }),
@@ -68,6 +73,24 @@ const rig = async (replies: readonly string[]) => {
 };
 
 describe("task queue (faux model)", () => {
+  it("the global pause holds starts; resuming pumps what fits", async () => {
+    let paused = true;
+    const r = await rig(["first"], {
+      limitOf: async () => 1,
+      isPaused: async () => paused,
+    });
+    const a = await r.spawn("a");
+    // Paused: the spawn is admitted but nothing starts — it waits as queued.
+    expect(a.status).toBe("queued");
+    paused = false;
+    await r.tasks.refill();
+    await r.blocked;
+    expect((await r.row(a.id)).status).toBe("running");
+    r.release();
+    expect((await r.settled(a.id)).result).toBe("first");
+    await r.harness.close(ctx);
+  });
+
   it("queues over the limit and starts the next task when a slot frees", async () => {
     const r = await rig(["first", "second"]);
     const a = await r.spawn("a");

@@ -16,7 +16,7 @@ import { taskLimitOf } from "./limits.ts";
 import type { TaskWiring } from "./run.ts";
 
 export const taskWiring = (
-  profiles: Pick<ProfilesService, "get" | "workspaceTaskLimit">,
+  profiles: Pick<ProfilesService, "get" | "workspaceTaskLimit" | "workspacePaused">,
   holder: ScopeHolder | undefined,
   extras: {
     /** Settle pending mail sent FROM stopped conversations (stop propagation). */
@@ -32,6 +32,7 @@ export const taskWiring = (
     const profile = await profiles.get(bot.owner, bot.profileId).catch(() => undefined);
     return taskLimitOf(profile?.policies.maxRunningTasks, stored);
   },
+  isPaused: async () => await profiles.workspacePaused().catch(() => false),
   filesOf: async (conversationId, since) => {
     const dir = holder === undefined ? root : scopeDir(holder, conversationId, root);
     return searchArtifacts(dir, { conversationId })

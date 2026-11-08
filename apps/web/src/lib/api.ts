@@ -341,6 +341,10 @@ export const api = {
   settingsTasks: (): Promise<TaskSettings> => getJson<TaskSettings>("/api/settings/tasks"),
   setSettingsTasks: (maxRunningTasks: number | null): Promise<TaskSettings> =>
     send<TaskSettings>("/api/settings/tasks", "PUT", { maxRunningTasks }),
+  settingsPause: (): Promise<{ paused: boolean }> =>
+    getJson<{ paused: boolean }>("/api/settings/pause"),
+  setSettingsPause: (paused: boolean): Promise<{ paused: boolean }> =>
+    send<{ paused: boolean }>("/api/settings/pause", "PUT", { paused }),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

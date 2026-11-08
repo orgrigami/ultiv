@@ -41,6 +41,11 @@ export interface TaskWiring {
   readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
   /** Stop propagation: kill background bash jobs running in these conversations. */
   readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
+  /**
+   * The global pause (Settings › Pause the crew): while true, no task STARTS
+   * (spawns queue, the pump holds). Wired to the settings doc.
+   */
+  readonly isPaused?: () => Promise<boolean>;
 }
 
 /** Mutable wiring shared by the service's parts. */

@@ -20,6 +20,7 @@ import { OrgSection } from "@/components/org-admin";
 import { NodesPanel } from "@/components/nodes-panel";
 import { WorkspaceDefaultSection } from "@/components/workspace-default";
 import { TaskDefaultSection } from "@/components/task-default";
+import { PauseSection } from "@/components/pause-section";
 import { Mark } from "@/components/state-mark";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ function SettingsPage() {
       <ServerSection check={check} error={error} reload={load} />
       <WorkspaceDefaultSection />
       <TaskDefaultSection />
+      <PauseSection />
       <NodesPanel />
       <OrgSection />
       <PushToggle />
