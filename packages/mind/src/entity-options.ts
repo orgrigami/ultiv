@@ -8,7 +8,13 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { ConfigError } from "effect/Config";
 import { External, Unavailable, Duplicate } from "@spriessen/core";
 import type { HomeRef } from "@spriessen/contracts";
-import type { Plugin, ScopeHolder, BindingStore, VaultStore } from "@spriessen/ext";
+import type {
+  Plugin,
+  ScopeHolder,
+  BindingStore,
+  VaultStore,
+  TakeoverRegistry,
+} from "@spriessen/ext";
 import type { GenerateOptions } from "./generate/generate.ts";
 import type { McpOptions } from "./mcp/index.ts";
 import type { MindAdmin, MindAuthz } from "./admin/index.ts";
@@ -109,6 +115,8 @@ export interface MindWiring {
   readonly jobKiller?: (conversations: readonly string[]) => number;
   /** Late-bound spend sink: the entity fills it once the profile index exists. */
   readonly usageRef?: { current?: UsageSink };
+  /** The browser-takeover registry (ext), surfaced to the server's REST. */
+  readonly browserTakeovers?: TakeoverRegistry;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

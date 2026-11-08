@@ -27,7 +27,7 @@ import {
   createScopeHolder,
   emailConfigured,
   emailPlugin,
-  browserSessionPlugin,
+  browserSessionFacility,
   JobKiller,
   makeRegistry,
   Registry,
@@ -363,6 +363,9 @@ const mindLayerRaw = (
         skills,
         usage,
         tables,
+        ...(wiring.browserTakeovers !== undefined
+          ? { browserTakeovers: wiring.browserTakeovers }
+          : {}),
         org,
         ...routines,
         mcp: mcp.manager,
@@ -401,6 +404,28 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   // job's abort signal on it; work-tree stops (tasks/tree.ts) reach it
   // through the task wiring.
   const jobKiller = new JobKiller();
+  // Browser takeovers: the session plugin's registry, driven by the owner's
+  // REST; a finished takeover wakes the asking bot's conversation.
+  const browserSession = browserSessionFacility({
+    holder,
+    onTakeoverFinished: (conversationId, wake) => {
+      void (async () => {
+        const converse = wiring.converseRef.current;
+        if (converse === undefined) return;
+        const chat = await Effect.runPromise(converse.open(conversationId)).catch(() => undefined);
+        if (chat === undefined) return;
+        const submission = await Effect.runPromise(
+          converse.submit(
+            chat,
+            wake,
+            "followUp",
+            `browser-takeover:${conversationId}:${Date.now()}`,
+          ),
+        );
+        void Effect.runPromise(converse.settle(chat, submission)).catch(() => undefined);
+      })();
+    },
+  });
   const wiring: MindWiring = {
     jobKiller: (conversations) => jobKiller.killConversations(conversations),
     holder,
@@ -410,6 +435,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     bindings,
     converseRef,
     usageRef: {},
+    browserTakeovers: browserSession.takeovers,
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }
@@ -463,7 +489,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
             : {}),
         }),
         browserPlugin({ holder }),
-        browserSessionPlugin({ holder }),
+        browserSession.plugin,
         filesPlugin({ holder }),
         codeIntelPlugin({ holder }),
         graphPlugin(),

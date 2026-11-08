@@ -1,8 +1,10 @@
 /**
  * The browser-session tool against a FAKE backend that answers the driver
  * protocol: page facts on open, the password refusal, a screenshot artifact
- * on shot, and the close handwave. The in-VM driver itself needs chromium;
- * it is exercised by the opt-in real-VM suite.
+ * on shot, the close handwave, and the takeover round trip (the bot's acts
+ * refused while the owner holds, the owner driving, the finish wake). The
+ * in-VM driver itself needs chromium; it is exercised by the opt-in real-VM
+ * suite.
  */
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -10,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ShellBackend, ShellExecResult, ShellFile } from "../shell/backend.ts";
 import { listArtifacts } from "./artifacts.ts";
-import { browserSessionPlugin, browserActText } from "./browser-session.ts";
+import { browserSessionFacility, browserActText } from "./browser-session.ts";
 import { DRIVER_PATH } from "../browser/driver.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-browser-session-"));
@@ -51,10 +53,10 @@ const fakeBackend = (): ShellBackend => ({
 });
 
 const rig = () => {
-  const plugin = browserSessionPlugin({ root: scratch, backend: () => fakeBackend() });
-  const capability = plugin.capabilities.find((candidate) => candidate.kind === "tool");
+  const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
+  const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
   if (capability?.kind !== "tool") throw new Error("no browser_session tool");
-  return capability.tool;
+  return { tool: capability.tool, takeovers: facility.takeovers };
 };
 
 const api = { conversationId: "conv-1" } as never;
@@ -63,7 +65,7 @@ const text = (reply: { output?: readonly { type: string; text?: string }[] }) =>
 
 describe("the browser session tool (fake driver)", () => {
   it("opens a page and reports its facts; reads; clicks through", async () => {
-    const tool = rig();
+    const { tool } = rig();
     const opened = await tool.execute(
       { op: "open", url: "https://example.test/page" },
       api,
@@ -79,7 +81,7 @@ describe("the browser session tool (fake driver)", () => {
   });
 
   it("refuses password fields with the owner-actionable sentence", async () => {
-    const tool = rig();
+    const { tool } = rig();
     const reply = await tool.execute(
       { op: "type", selector: "input[type=password]", text: "hunter2" },
       api,
@@ -90,11 +92,47 @@ describe("the browser session tool (fake driver)", () => {
   });
 
   it("saves the screenshot as an artifact and closes politely", async () => {
-    const tool = rig();
+    const { tool } = rig();
     const shot = await tool.execute({ op: "shot" }, api, {} as never);
     expect(text(shot)).toContain("screenshot saved as artifact");
     expect(listArtifacts(scratch).some((info) => info.name.startsWith("browser-"))).toBe(true);
     const closed = await tool.execute({ op: "close" }, api, {} as never);
     expect(text(closed)).toContain("closed");
+  });
+
+  it("a takeover holds the bot's acts, takes the owner's, and wakes on finish", async () => {
+    const wakes: { conversationId: string; wake: string }[] = [];
+    const facility = browserSessionFacility({
+      root: scratch,
+      backend: () => fakeBackend(),
+      onTakeoverFinished: (conversationId, wake) => wakes.push({ conversationId, wake }),
+    });
+    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    const tool = capability.tool;
+    const asked = await tool.execute(
+      { op: "takeover", reason: "the sign-in needs you" },
+      api,
+      {} as never,
+    );
+    expect(text(asked)).toContain("asked to take the controls");
+    // While the owner holds: the bot's acts are refused.
+    const refused = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
+    expect(refused.isError).toBe(true);
+    expect(text(refused)).toContain("holds the controls");
+    // The owner drives, one act at a time, and each answer carries the shot.
+    const after = await facility.takeovers.act(facility.takeovers.list()[0]?.id ?? "", {
+      kind: "click",
+      selector: "#signin",
+    });
+    expect(after.ok).toBe(true);
+    expect(after.png).not.toBe("");
+    // Finish: the bot is woken with the page, and the hold is gone.
+    const row = await facility.takeovers.finish(facility.takeovers.list()[0]?.id ?? "");
+    expect(row?.conversationId).toBe("conv-1");
+    expect(wakes).toHaveLength(1);
+    expect(wakes[0]?.wake).toContain("takeover is finished");
+    const again = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
+    expect(again.isError).toBeUndefined();
   });
 });

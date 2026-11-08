@@ -379,6 +379,25 @@ export const api = {
       `/api/tables/${encodeURIComponent(tableId)}?profile=${encodeURIComponent(profileId)}`,
       "DELETE",
     ),
+  browserTakeovers: (): Promise<{
+    takeovers: {
+      id: string;
+      conversationId: string;
+      reason: string;
+      openedAt: number;
+      profileId: string | null;
+      botName: string;
+    }[];
+  }> => getJson("/api/browser/takeover"),
+  browserTakeoverAct: (
+    id: string,
+    body: { kind: string; selector?: string; text?: string; key?: string },
+  ): Promise<{ ok: boolean; png: string; url: string; title: string; error: string | null }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/act`, "POST", body),
+  browserTakeoverFinish: (id: string): Promise<{ ok: boolean }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/finish`, "POST", {}),
+  browserTakeoverCancel: (id: string): Promise<{ ok: boolean }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}`, "DELETE"),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

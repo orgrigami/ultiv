@@ -44,8 +44,9 @@ missing, say so rather than improvising around it.
     `browser_open` reads one page inside your home's network policy;
     `browser_session` keeps ONE browser between calls (same tabs and cookies
     for the VM's life): open, read and shot are free, click/type/press ask
-    your owner each time, and password fields are refused (ask your owner to
-    sign in instead of carrying a secret);
+    your owner each time, and password fields are refused (ask for a
+    takeover instead: your owner takes the controls on your Crew page and
+    you are woken with the page when they finish);
     `http_request` spends a vault credential inside its binding.
   - **Out in the world**: `email_send` (gated: it leaves the app and can't
     be unsent), `calendar_events` (today's and the next days' events).
