@@ -23,10 +23,12 @@ export const RoutineEventSchema = obj(
      * delivered = admitted into the session conversation; failed = delivery
      * exhausted its retries; rejected = ingress refused (auth/schema/rate/size);
      * trial = the fire ran as a trial (every action held back, nothing woken);
-     * ignored = a webhook sender not on its allow list, with no chat to add
-     * context to (nothing woken).
+     * held = the workspace is paused: the fire happened, nothing was woken,
+     * and it does not replay on resume (pause holds like downtime, it does
+     * not queue); ignored = a webhook sender not on its allow list, with no
+     * chat to add context to (nothing woken).
      */
-    status: oneOf(["accepted", "delivered", "failed", "rejected", "trial", "ignored"]),
+    status: oneOf(["accepted", "delivered", "failed", "rejected", "trial", "held", "ignored"]),
     /** Rejection class or failure reason; null when nothing went wrong. */
     reason: union([str(), nul()]),
   },

@@ -8,11 +8,17 @@ import type { Storage } from "@earendil-works/pi-durable";
 import { ConfigError } from "effect/Config";
 import { External, Unavailable, Duplicate } from "@spriessen/core";
 import type { HomeRef } from "@spriessen/contracts";
-import type { Plugin, ScopeHolder, BindingStore, VaultStore } from "@spriessen/ext";
+import type {
+  Plugin,
+  ScopeHolder,
+  BindingStore,
+  VaultStore,
+  TakeoverRegistry,
+} from "@spriessen/ext";
 import type { GenerateOptions } from "./generate/generate.ts";
 import type { McpOptions } from "./mcp/index.ts";
 import type { MindAdmin, MindAuthz } from "./admin/index.ts";
-import type { ConverseService } from "./converse/converse.ts";
+import type { ConverseService, UsageSink } from "./converse/converse.ts";
 
 export interface MindOptions {
   /** Durable storage override; default is SQLite at HARNESS_DB (tests pass MemoryStorage). */
@@ -101,6 +107,16 @@ export interface MindWiring {
   ) => Promise<void>;
   /** Re-arms the server's cron scheduler after a schedule-registry change. */
   readonly onSchedulesChanged?: () => Promise<void>;
+  /**
+   * The background-job kill switch (ext bash-jobs): the bash plugin tracks
+   * each job's abort signal on it, and work-tree stops (tasks/tree.ts) kill
+   * every job a stopped conversation started.
+   */
+  readonly jobKiller?: (conversations: readonly string[]) => number;
+  /** Late-bound spend sink: the entity fills it once the profile index exists. */
+  readonly usageRef?: { current?: UsageSink };
+  /** The browser-takeover registry (ext), surfaced to the server's REST. */
+  readonly browserTakeovers?: TakeoverRegistry;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

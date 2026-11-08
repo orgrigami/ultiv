@@ -24,6 +24,29 @@ const limitFor = async (rt: TaskRuntime, bot: TaskBot | null): Promise<number> =
     ? taskLimitOf(null, null)
     : await rt.wiring.limitOf(bot).catch(() => taskLimitOf(null, null));
 
+/** The global pause (Settings › Pause the crew); a wiring gap reads "not paused". */
+const pausedNow = async (rt: TaskRuntime): Promise<boolean> =>
+  rt.wiring.isPaused === undefined ? false : await rt.wiring.isPaused().catch(() => false);
+
+/** At or over the daily token budget (uncapped and unwired read "not over"). */
+export const overBudget = async (
+  rt: TaskRuntime,
+  bot: TaskBot | null,
+): Promise<{ readonly today: number; readonly budget: number } | undefined> => {
+  if (rt.wiring.spendOf === undefined) return undefined;
+  const spend = await rt.wiring.spendOf(bot).catch(() => undefined);
+  if (spend === undefined || spend.budget === null || spend.today < spend.budget) {
+    return undefined;
+  }
+  return { today: spend.today, budget: spend.budget };
+};
+
+/** The refusal a spawn gets at the budget (a sentence the model relays to the owner). */
+export const budgetMessage = (today: number, budget: number): string =>
+  `This bot reached its daily token budget (${today} of ${budget} tokens today), so no new ` +
+  "tasks start: they would run tomorrow, when the budget resets. Tell your owner if this work " +
+  "matters today; they can raise the budget in Edit bot.";
+
 /** Where a new or continued run goes: start now, wait, or (a full queue) nowhere. */
 export type Placement = "running" | "queued" | "full";
 
@@ -35,10 +58,16 @@ export const placementOf = async (
 ): Promise<Placement> => {
   const key = slotKeyOf(task);
   const same = all.filter((other) => other.id !== task.id && slotKeyOf(other) === key);
+  const held = same.filter((other) => other.status === "queued").length;
+  // Paused or over the daily budget: nothing starts. The row queues like any
+  // other wait (or, past the queue cap, the spawn is refused); resuming (or
+  // the next day) pumps what fits.
+  if ((await pausedNow(rt)) || (await overBudget(rt, task.bot ?? null)) !== undefined) {
+    return held >= MAX_QUEUED_TASKS ? "full" : "queued";
+  }
   const running = same.filter((other) => other.status === "running").length;
   if (running < (await limitFor(rt, task.bot ?? null))) return "running";
-  const queued = same.filter((other) => other.status === "queued").length;
-  return queued >= MAX_QUEUED_TASKS ? "full" : "queued";
+  return held >= MAX_QUEUED_TASKS ? "full" : "queued";
 };
 
 /** The refusal a spawn or continuation gets when the bot's queue is full. */
@@ -55,6 +84,7 @@ const started = (task: TaskInfo, at: number): TaskInfo => {
 /** Start the queued tasks that fit, oldest first, per bot. */
 export const pumpQueue = (rt: TaskRuntime) => async (): Promise<void> => {
   const starts = await rt.lock(async () => {
+    if (await pausedNow(rt)) return [];
     const all = await Effect.runPromise(readTasks(rt.converse));
     const waiting = all
       .filter((task) => task.status === "queued")
@@ -68,6 +98,8 @@ export const pumpQueue = (rt: TaskRuntime) => async (): Promise<void> => {
     }
     const out: { readonly task: TaskInfo; readonly input: string }[] = [];
     for (const task of waiting) {
+      // Over its daily token budget: the task waits for the next day.
+      if ((await overBudget(rt, task.bot ?? null)) !== undefined) continue;
       const key = slotKeyOf(task);
       if ((running.get(key) ?? 0) >= (await limitFor(rt, task.bot ?? null))) continue;
       running.set(key, (running.get(key) ?? 0) + 1);

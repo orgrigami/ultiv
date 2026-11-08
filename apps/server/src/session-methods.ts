@@ -67,13 +67,18 @@ export function controlMethods({ mind, conversation, conversationId, cells }: Me
     interrupt: async (input: { tasks?: boolean }, ctx: C) => {
       // Withdraw the queue, abort the turn, deny every waiting approval card.
       await stopTurn(mind.converse, mind.approvals, await conversation);
-      const cancelledTasks =
-        input.tasks === true ? await stopChatTasks(mind, await conversationId) : 0;
+      const stopped = input.tasks === true ? await stopChatTasks(mind, await conversationId) : null;
       safeChange(cells.pending, ctx, () => null);
       safeChange(cells.queued, ctx, () => []);
       safeChange(cells.phase, ctx, () => "idle");
       safeChange(cells.lastError, ctx, () => null);
-      return { ok: true, cancelledTasks };
+      return {
+        ok: true,
+        cancelledTasks: stopped?.tasks ?? 0,
+        ...(stopped === null
+          ? {}
+          : { cancelledMessages: stopped.messages, stoppedJobs: stopped.jobs }),
+      };
     },
   };
 }

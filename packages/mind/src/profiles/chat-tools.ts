@@ -48,6 +48,7 @@ export const CHAT_TOOLS: readonly string[] = [
   "memory_related",
   "history_search",
   "state_get",
+  "table",
   "state_set",
   "state_list",
   "state_delete",

@@ -27,6 +27,8 @@ import {
   createScopeHolder,
   emailConfigured,
   emailPlugin,
+  browserSessionFacility,
+  JobKiller,
   makeRegistry,
   Registry,
   tinyfishConfigured,
@@ -61,6 +63,8 @@ import { adminTools } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService } from "./profiles/rooms.ts";
 import { mailboxService } from "./mailbox/mailbox.ts";
+import { usageService, usageSinkOf } from "./usage/usage.ts";
+import { tablesService } from "./tables/tables.ts";
 import { teamInstructionsOf, teamOfProfile, orgService } from "./org/service.ts";
 import {
   defaultDeleteTeamStore,
@@ -210,8 +214,44 @@ const mindLayerRaw = (
       );
       // Messages a crash interrupted are redelivered (idempotently) on boot.
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
+      // The daily spend ledger: every settled turn's tokens land here, and a
+      // bot's dailyTokenBudget gates its task admission (queue.ts).
+      const usage = usageService(converse);
+      if (wiring.usageRef !== undefined) {
+        wiring.usageRef.current = usageSinkOf({
+          converse,
+          usage,
+          scopeOf: (conversationId) => profiles.scopeOf(conversationId),
+        });
+      }
       // Tasks run as their bot: bind (and resume) only once the index exists.
-      void tasks.attach(profiles.bindTask, taskWiring(profiles, wiring.holder));
+      void tasks.attach(
+        profiles.bindTask,
+        taskWiring(profiles, wiring.holder, {
+          cancelMailSentFrom: (conversations) => mailbox.cancelSentFrom(conversations),
+          ...(wiring.jobKiller !== undefined
+            ? {
+                stopJobsOf: async (conversations: readonly string[]) =>
+                  wiring.jobKiller?.(conversations) ?? 0,
+              }
+            : {}),
+          spendOf: async (bot) => {
+            if (bot === null) return { today: 0, budget: null };
+            const profile = await profiles.get(bot.owner, bot.profileId).catch(() => undefined);
+            return {
+              today: await usage.today(bot.owner, bot.profileId),
+              budget: profile?.policies.dailyTokenBudget ?? null,
+            };
+          },
+          fallbackModel: async () => {
+            const stored = await profiles.workspaceFallbackModel().catch(() => null);
+            if (stored === null) return null;
+            return models.find(stored.ref) !== undefined
+              ? { id: stored.ref, effort: stored.effort }
+              : null;
+          },
+        }),
+      );
       // The search sidecar: derived, rebuildable, closed with the mind.
       const searchDb = yield* Effect.acquireRelease(
         Effect.sync(() => openSearchDb(wiring.searchDbPath)),
@@ -246,6 +286,7 @@ const mindLayerRaw = (
       // Everything rides one pi-durable registry; late installs are legal —
       // the harness reconsiders its tools as the registry changes.
       const piRegistry = yield* PiRegistry;
+      const tables = tablesService(converse);
       installFaculties(piRegistry, {
         converse,
         act,
@@ -253,6 +294,7 @@ const mindLayerRaw = (
         profiles,
         rooms,
         mailbox,
+        tables,
         botTools,
         audit,
         approvals,
@@ -319,6 +361,11 @@ const mindLayerRaw = (
         rooms,
         mailbox,
         skills,
+        usage,
+        tables,
+        ...(wiring.browserTakeovers !== undefined
+          ? { browserTakeovers: wiring.browserTakeovers }
+          : {}),
         org,
         ...routines,
         mcp: mcp.manager,
@@ -353,13 +400,42 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   const vaultRoot = vaultConfigured() ? (options.vault?.dir ?? vaultDir()) : null;
   const vaultStore = vaultRoot !== null ? makeVaultStore(vaultRoot) : null;
   const bindings = vaultRoot !== null ? makeBindingStore(vaultRoot) : null;
+  // One kill switch for background bash jobs: the bash plugin tracks each
+  // job's abort signal on it; work-tree stops (tasks/tree.ts) reach it
+  // through the task wiring.
+  const jobKiller = new JobKiller();
+  // Browser takeovers: the session plugin's registry, driven by the owner's
+  // REST; a finished takeover wakes the asking bot's conversation.
+  const browserSession = browserSessionFacility({
+    holder,
+    onTakeoverFinished: (conversationId, wake) => {
+      void (async () => {
+        const converse = wiring.converseRef.current;
+        if (converse === undefined) return;
+        const chat = await Effect.runPromise(converse.open(conversationId)).catch(() => undefined);
+        if (chat === undefined) return;
+        const submission = await Effect.runPromise(
+          converse.submit(
+            chat,
+            wake,
+            "followUp",
+            `browser-takeover:${conversationId}:${Date.now()}`,
+          ),
+        );
+        void Effect.runPromise(converse.settle(chat, submission)).catch(() => undefined);
+      })();
+    },
+  });
   const wiring: MindWiring = {
+    jobKiller: (conversations) => jobKiller.killConversations(conversations),
     holder,
     searchDbPath: searchDbPathOf(options),
     vaultStore,
     vaultRoot,
     bindings,
     converseRef,
+    usageRef: {},
+    browserTakeovers: browserSession.takeovers,
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }
@@ -407,11 +483,13 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         bashPlugin({
           holder,
           jobs: bashJobHost(() => wiring.converseRef.current),
+          jobKiller,
           ...(wiring.nodeExec !== undefined
             ? { nodes: nodeShellFacadeOf(wiring.converseRef, wiring.nodeExec) }
             : {}),
         }),
         browserPlugin({ holder }),
+        browserSession.plugin,
         filesPlugin({ holder }),
         codeIntelPlugin({ holder }),
         graphPlugin(),
@@ -427,7 +505,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       return yield* makeRegistry(plugins);
     }),
   ).pipe(Layer.provide(decideLayer.pipe(Layer.merge(approvals)).pipe(Layer.merge(audit))));
-  const converse = converseLayer(options.storage).pipe(
+  const converse = converseLayer(options.storage, wiring.usageRef ?? {}).pipe(
     Layer.provide(
       models
         .pipe(Layer.merge(registry))

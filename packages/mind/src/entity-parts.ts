@@ -49,6 +49,8 @@ import { webhooksService, type WebhooksService } from "./webhooks/webhooks.ts";
 import { webhookTools } from "./webhooks/tools.ts";
 import { kvService, type KvService } from "./state/kv.ts";
 import { stateTools } from "./state/tools.ts";
+import { tableTools } from "./tables/tools.ts";
+import type { TablesService } from "./tables/tables.ts";
 import { sensorsService, type SensorsService } from "./sensors/sensors.ts";
 import { sensorTools } from "./sensors/tools.ts";
 import { projectRefOf } from "./projects/links.ts";
@@ -70,6 +72,8 @@ interface Faculties {
   readonly state: KvService;
   readonly sensors: SensorsService;
   readonly history: HistoryService;
+  /** The profile's typed tables (tables/tables.ts). */
+  readonly tables: TablesService;
   /** The write guard reads the turn's origin and taint through these. */
   readonly audit?: AuditService;
   /** The approval surface, for the skills extension's gated tools. */
@@ -182,6 +186,12 @@ export const installFaculties = (
     defineExtension({
       name: "ultius.mind.state",
       tools: stateTools(state, profiles),
+    }),
+  );
+  piRegistry.install(
+    defineExtension({
+      name: "ultius.mind.tables",
+      tools: tableTools(f.tables, profiles),
     }),
   );
   piRegistry.install(

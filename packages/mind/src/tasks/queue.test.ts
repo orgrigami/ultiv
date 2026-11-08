@@ -24,15 +24,43 @@ import type { TaskInfo } from "@spriessen/contracts";
 const ctx = BACKGROUND_CONTEXT;
 
 /** A tasks service whose bots run one task at a time; the first reply waits for `release`. */
-const rig = async (replies: readonly string[]) => {
+const rig = async (
+  replies: readonly string[],
+  wiring: {
+    limitOf?: () => Promise<number>;
+    isPaused?: () => Promise<boolean>;
+    spendOf?: () => Promise<{ today: number; budget: number | null }>;
+    fallbackModel?: () => Promise<{ id: string; effort: string } | null>;
+    binder?: () => Promise<{ owner: string; profileId: string } | null>;
+  } = { limitOf: async () => 1 },
+  extra: {
+    /** The first step throws instead of answering (a dead provider). */
+    readonly failFirst?: boolean;
+    /** A second faux provider (the fallback model rides it). */
+    readonly second?: {
+      readonly faux: ReturnType<typeof fauxProvider>;
+      readonly replies: readonly string[];
+    };
+  } = {},
+) => {
   const faux = fauxProvider();
   const models = createModels();
   models.setProvider(faux.provider);
+  let secondRef: string | undefined;
+  if (extra.second !== undefined) {
+    models.setProvider(extra.second.faux.provider);
+    extra.second.faux.setResponses(
+      extra.second.replies.map((text) => async () => fauxAssistantMessage(fauxText(text))),
+    );
+    const probe = extra.second.faux.getModel();
+    secondRef = `${probe.provider}/${probe.id}`;
+  }
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let started!: () => void;
   const blocked = new Promise<void>((resolve) => (started = resolve));
   const steps: FauxResponseStep[] = replies.map((text, index) => async () => {
+    if (extra.failFirst === true && index === 0) throw new Error("provider down");
     if (index === 0) {
       started();
       await gate;
@@ -50,7 +78,7 @@ const rig = async (replies: readonly string[]) => {
     model: { provider: model.provider, modelId: model.id },
   });
   const tasks = tasksService(converse);
-  await tasks.attach(async () => null, { limitOf: async () => 1 });
+  await tasks.attach(wiring.binder === undefined ? async () => null : wiring.binder, wiring);
   const spawn = (prompt: string) =>
     Effect.runPromise(
       tasks.spawn({ sessionId: "", owner: "agent", conversationId: "chat-1", prompt }),
@@ -64,10 +92,75 @@ const rig = async (replies: readonly string[]) => {
     }
     throw new Error("task never settled");
   };
-  return { harness, tasks, spawn, row, settled, blocked, release };
+  return { harness, tasks, spawn, row, settled, blocked, release, secondRef };
 };
 
 describe("task queue (faux model)", () => {
+  it("a failed run retries once on the fallback model and reports its answer", async () => {
+    const second = fauxProvider();
+    let fallbackRef = "";
+    const r = await rig(
+      ["never"],
+      {
+        limitOf: async () => 1,
+        fallbackModel: async () => ({ id: fallbackRef, effort: "" }),
+      },
+      { failFirst: true, second: { faux: second, replies: ["rescued"] } },
+    );
+    fallbackRef = r.secondRef ?? "";
+    const a = await r.spawn("a");
+    const settled = await r.settled(a.id);
+    expect(settled.status).toBe("done");
+    expect(settled.result).toBe("rescued");
+    await r.harness.close(ctx);
+  });
+
+  it("the daily token budget refuses spawns with a sentence, and holds queued ones", async () => {
+    const spend = { today: 100, budget: 5_000 as number | null };
+    const r = await rig(["first", "second"], {
+      limitOf: async () => 1,
+      spendOf: async () => ({ today: spend.today, budget: spend.budget }),
+      binder: async () => ({ owner: "agent", profileId: "p1" }),
+    });
+    const a = await r.spawn("a");
+    await r.blocked;
+    const b = await r.spawn("b");
+    expect(a.status).toBe("running");
+    expect(b.status).toBe("queued");
+    // The budget lands mid-queue: nothing new is admitted…
+    spend.today = 5_000;
+    const refused = await Effect.runPromise(
+      Effect.result(
+        r.tasks.spawn({ sessionId: "", owner: "agent", conversationId: "chat-1", prompt: "nope" }),
+      ),
+    );
+    expect(refused._tag).toBe("Failure");
+    // …and the queued one waits for the next day, not the freed slot.
+    r.release();
+    expect((await r.settled(a.id)).status).toBe("done");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect((await r.row(b.id)).status).toBe("queued");
+    await r.harness.close(ctx);
+  });
+
+  it("the global pause holds starts; resuming pumps what fits", async () => {
+    let paused = true;
+    const r = await rig(["first"], {
+      limitOf: async () => 1,
+      isPaused: async () => paused,
+    });
+    const a = await r.spawn("a");
+    // Paused: the spawn is admitted but nothing starts — it waits as queued.
+    expect(a.status).toBe("queued");
+    paused = false;
+    await r.tasks.refill();
+    await r.blocked;
+    expect((await r.row(a.id)).status).toBe("running");
+    r.release();
+    expect((await r.settled(a.id)).result).toBe("first");
+    await r.harness.close(ctx);
+  });
+
   it("queues over the limit and starts the next task when a slot frees", async () => {
     const r = await rig(["first", "second"]);
     const a = await r.spawn("a");

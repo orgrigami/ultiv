@@ -20,6 +20,7 @@ import {
 } from "@spriessen/mind";
 import { Effect } from "effect";
 import { deliverToSession } from "./deliver.ts";
+import { holdIfPaused } from "./pause.ts";
 
 export {
   createCronJob,
@@ -80,6 +81,9 @@ const armedJob = (mind: MindService, job: CronJobInfo, scheduler: CronScheduler)
       source: "cron",
     });
     try {
+      // The global pause holds the whole fire: receipt "held", nothing woken,
+      // no outcome written (a one-shot stays listed, unfired — see pause.ts).
+      if (await holdIfPaused(mind, eventId)) return;
       if (job.trial === true && (job.once === undefined || job.once === null)) {
         // Trial mode (recurring jobs only): the run holds back every action
         // and only records what it would have done (mind routines/trial.ts).

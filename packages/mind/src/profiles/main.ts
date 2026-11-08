@@ -128,6 +128,36 @@ export const settingsModelOps = (
   };
 };
 
+/**
+ * The workspace fallback model (Settings › Fallback model): when a TASK run
+ * fails and a fallback is set (and in the live catalog), the task's
+ * conversation is switched to it for one rescue attempt (tasks/run.ts). It is
+ * the overnight story: the default model's provider dying at 3am no longer
+ * parks every run. Chats with the owner never fall over silently — the owner
+ * is watching those.
+ */
+export const fallbackModelOps = (
+  ctx: ProfilesContext,
+): Pick<ProfilesService, "workspaceFallbackModel" | "setWorkspaceFallbackModel"> => ({
+  workspaceFallbackModel: async () =>
+    (await run(ctx.converse.docs.snapshot(SettingsDoc)))?.fallbackModel ?? null,
+  setWorkspaceFallbackModel: async (model) => {
+    const next =
+      model === null
+        ? null
+        : (() => {
+            const ref = normalizeRef(model.ref.trim());
+            if (ref === "") throw new InvalidInput({ reason: "the model ref is empty" });
+            return { ref, effort: model.effort.trim() };
+          })();
+    await run(
+      ctx.converse.docs.commit(async (tx) => {
+        (await tx.doc(SettingsDoc)).fallbackModel = next;
+      }),
+    );
+  },
+});
+
 export const taskLimitOps = (
   ctx: ProfilesContext,
 ): Pick<ProfilesService, "workspaceTaskLimit" | "setWorkspaceTaskLimit"> => ({
@@ -139,6 +169,26 @@ export const taskLimitOps = (
     await run(
       ctx.converse.docs.commit(async (tx) => {
         (await tx.doc(SettingsDoc)).maxRunningTasks = limit;
+      }),
+    );
+  },
+});
+
+/**
+ * The global pause (Settings › Pause the crew): while on, no background task
+ * STARTS (spawns queue, the pump holds) and routine fires are held with a
+ * `held` receipt instead of waking anyone. Chats with the owner keep working:
+ * pause freezes autonomy, not conversation.
+ */
+export const pauseOps = (
+  ctx: ProfilesContext,
+): Pick<ProfilesService, "workspacePaused" | "setWorkspacePaused"> => ({
+  workspacePaused: async () =>
+    (await run(ctx.converse.docs.snapshot(SettingsDoc)))?.paused === true,
+  setWorkspacePaused: async (paused) => {
+    await run(
+      ctx.converse.docs.commit(async (tx) => {
+        (await tx.doc(SettingsDoc)).paused = paused;
       }),
     );
   },

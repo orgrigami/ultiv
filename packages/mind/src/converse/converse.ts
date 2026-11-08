@@ -284,9 +284,33 @@ const submitOf = (
     ),
   );
 
+/** Spend of one committed assistant message (pi-ai `Usage`); tokens only. */
+export interface TurnUsage {
+  readonly input: number;
+  readonly output: number;
+  readonly totalTokens: number;
+}
+
+/**
+ * Hears every committed assistant message's spend (chats and tasks alike);
+ * the entity wires this to the daily usage ledger (usage/usage.ts).
+ */
+export type UsageSink = (conversationId: string, usage: TurnUsage) => void;
+
+const usageOfMessage = (usage: Record<string, unknown> | undefined): TurnUsage => {
+  const input = Number(usage?.input ?? 0);
+  const output = Number(usage?.output ?? 0);
+  return {
+    input,
+    output,
+    totalTokens: Number(usage?.totalTokens ?? input + output),
+  };
+};
+
 const settleOf = (
   conversation: Conversation,
   submission: Submission,
+  usageSink?: UsageSink,
 ): Effect.Effect<TurnResult, External> =>
   Effect.gen(function* () {
     const settled = yield* asEffect("agent wait", submission.wait(BACKGROUND_CONTEXT));
@@ -300,7 +324,17 @@ const settleOf = (
       "commit",
       conversation.commit((tx) => tx.entry(AssistantEntry, settled.answer), BACKGROUND_CONTEXT),
     );
-    const message = stored?.model?.[0] as { content?: unknown } | undefined;
+    const message = stored?.model?.[0] as
+      | { content?: unknown; usage?: Record<string, unknown> }
+      | undefined;
+    if (message !== undefined && usageSink !== undefined) {
+      // Spend accounting never fails the turn it measures.
+      try {
+        usageSink(String(conversation.id), usageOfMessage(message.usage));
+      } catch {
+        /* recorded on a best-effort basis */
+      }
+    }
     return { text: textOf(message?.content) };
   });
 
@@ -312,6 +346,8 @@ export const converseService = (
   findModel: (ref: string) => ModelSpec | undefined = () => undefined,
   /** The turns the harness reported interrupted (its `onReport`); none in most engine tests. */
   interrupted?: InterruptedRuns,
+  /** Hears each settled turn's token spend (the daily ledger); none in tests. */
+  usageSink?: UsageSink,
 ): ConverseService => {
   // The workspace default can change while the server runs (Settings, `spriessen models default`).
   let base = agent;
@@ -375,7 +411,7 @@ export const converseService = (
       ),
     submit: (conversation, content, whenBusy, requestId, entry) =>
       submitOf(conversation, content, whenBusy, requestId, entry),
-    settle: (conversation, submission) => settleOf(conversation, submission),
+    settle: (conversation, submission) => settleOf(conversation, submission, usageSink),
     write: (conversation, kind, data) =>
       Effect.asVoid(
         asEffect(
@@ -402,7 +438,7 @@ export const converseService = (
       ),
     turn: (conversation, content, whenBusy) =>
       Effect.flatMap(submitOf(conversation, content, whenBusy), (submission) =>
-        settleOf(conversation, submission),
+        settleOf(conversation, submission, usageSink),
       ),
     ...selectionOps(findModel, () => base.model),
     docs: {
@@ -440,6 +476,8 @@ const openSqlite: Effect.Effect<Storage, External | ConfigError> = Effect.gen(fu
  */
 export const converseLayer = (
   storage: Storage | undefined,
+  /** The entity's late-bound spend sink (usage/usage.ts); unset in tests. */
+  usageRef: { current?: UsageSink } = {},
 ): Layer.Layer<Converse, External | ConfigError, MindModels | ModelCatalog | PiRegistry> =>
   Layer.effect(
     Converse,
@@ -484,6 +522,8 @@ export const converseLayer = (
         ref !== null ? { model: parseRef(ref) } : {},
         catalog.find,
         interrupted,
+        // Late-bound: the entity fills the ref once the profile index exists.
+        (conversationId, usage) => usageRef.current?.(conversationId, usage),
       );
       return {
         ...service,

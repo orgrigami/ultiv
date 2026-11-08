@@ -9,6 +9,7 @@
  * too; a chat with a model of its own keeps it.
  */
 import { Effect } from "effect";
+import { InvalidInput } from "@spriessen/core";
 import { errorOf, type RouteArgs } from "./types.ts";
 
 /** Give the owner's model-less chats the (new) workspace default; best effort per chat. */
@@ -41,9 +42,52 @@ const defaultOf = async (args: RouteArgs): Promise<unknown> => {
   return { defaultModel: env !== null ? { ref: env, effort: "", source: "env" } : null };
 };
 
+/** The stored fallback for failed task runs (null = none); no env stands in. */
+const fallbackOf = async (args: RouteArgs): Promise<unknown> => ({
+  fallbackModel: await args.mind.profiles.workspaceFallbackModel(),
+});
+
+/** PUT body {ref, effort} → {ref, effort} | null; the ref must be in the catalog. */
+const readModelBody = async (
+  args: RouteArgs,
+): Promise<{ ref: string; effort: string } | null | "bad"> => {
+  const body = await args.readJson<{ ref?: unknown; effort?: unknown }>(args.req);
+  if (body === null || body.ref === null || body.ref === undefined) return null;
+  const ref = typeof body.ref === "string" ? body.ref.trim() : "";
+  const effort = typeof body.effort === "string" ? body.effort.trim() : "";
+  if (ref === "") return "bad";
+  // The owner picks from the picker; this only catches drift. An empty
+  // catalog (first boot, offline) cannot judge: the ref is kept.
+  if (args.mind.models.list().length > 0 && args.mind.models.find(ref) === undefined) {
+    throw new InvalidInput({ reason: `unknown model "${ref}" — it is not in the live catalog` });
+  }
+  return { ref, effort };
+};
+
 export async function settingsRoutes(args: RouteArgs): Promise<boolean> {
-  if (args.path !== "/api/settings/model") return false;
   const method = args.req.method ?? "GET";
+  if (args.path === "/api/settings/fallback-model") {
+    if (method === "GET") {
+      args.json(200, await fallbackOf(args));
+      return true;
+    }
+    if (method === "PUT") {
+      try {
+        const model = await readModelBody(args);
+        if (model === "bad") {
+          args.json(400, { error: "send { ref, effort } — or null to clear the fallback" });
+          return true;
+        }
+        await args.mind.profiles.setWorkspaceFallbackModel(model);
+        args.json(200, await fallbackOf(args));
+      } catch (cause) {
+        args.json(409, { error: errorOf(cause) });
+      }
+      return true;
+    }
+    return false;
+  }
+  if (args.path !== "/api/settings/model") return false;
   if (method === "GET") {
     args.json(200, await defaultOf(args));
     return true;

@@ -290,6 +290,8 @@ export const api = {
     ),
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
+  roomSay: (id: string, text: string, to: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(id)}/say`, "POST", { text, to }),
   roomByEnvelope: (envelopeId: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/by-envelope/${encodeURIComponent(envelopeId)}`),
   mcpServers: (): Promise<McpServerList> => getJson<McpServerList>("/api/mcp/servers"),
@@ -338,9 +340,64 @@ export const api = {
   settingsModel: (): Promise<SettingsModel> => getJson<SettingsModel>("/api/settings/model"),
   setSettingsModel: (input: { ref: string; effort: string } | null): Promise<SettingsModel> =>
     send<SettingsModel>("/api/settings/model", "PUT", input),
+  settingsFallback: (): Promise<{ fallbackModel: { ref: string; effort: string } | null }> =>
+    getJson<{ fallbackModel: { ref: string; effort: string } | null }>(
+      "/api/settings/fallback-model",
+    ),
+  setSettingsFallback: (
+    input: { ref: string; effort: string } | null,
+  ): Promise<{ fallbackModel: { ref: string; effort: string } | null }> =>
+    send<{ fallbackModel: { ref: string; effort: string } | null }>(
+      "/api/settings/fallback-model",
+      "PUT",
+      input,
+    ),
   settingsTasks: (): Promise<TaskSettings> => getJson<TaskSettings>("/api/settings/tasks"),
   setSettingsTasks: (maxRunningTasks: number | null): Promise<TaskSettings> =>
     send<TaskSettings>("/api/settings/tasks", "PUT", { maxRunningTasks }),
+  settingsPause: (): Promise<{ paused: boolean }> =>
+    getJson<{ paused: boolean }>("/api/settings/pause"),
+  setSettingsPause: (paused: boolean): Promise<{ paused: boolean }> =>
+    send<{ paused: boolean }>("/api/settings/pause", "PUT", { paused }),
+  botUsage: (profileId: string): Promise<{ budget: number | null; today: number }> =>
+    getJson<{ budget: number | null; today: number }>(
+      `/api/usage?profile=${encodeURIComponent(profileId)}`,
+    ),
+  botTables: (
+    profileId: string,
+  ): Promise<{
+    tables: {
+      id: string;
+      name: string;
+      columns: { name: string; type: string }[];
+      rows: { id: string; at: number; data: Record<string, string | number | boolean | null> }[];
+      updatedAt: number;
+    }[];
+  }> => getJson(`/api/tables?profile=${encodeURIComponent(profileId)}`),
+  removeBotTable: (profileId: string, tableId: string): Promise<{ ok: boolean }> =>
+    send(
+      `/api/tables/${encodeURIComponent(tableId)}?profile=${encodeURIComponent(profileId)}`,
+      "DELETE",
+    ),
+  browserTakeovers: (): Promise<{
+    takeovers: {
+      id: string;
+      conversationId: string;
+      reason: string;
+      openedAt: number;
+      profileId: string | null;
+      botName: string;
+    }[];
+  }> => getJson("/api/browser/takeover"),
+  browserTakeoverAct: (
+    id: string,
+    body: { kind: string; selector?: string; text?: string; key?: string },
+  ): Promise<{ ok: boolean; png: string; url: string; title: string; error: string | null }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/act`, "POST", body),
+  browserTakeoverFinish: (id: string): Promise<{ ok: boolean }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/finish`, "POST", {}),
+  browserTakeoverCancel: (id: string): Promise<{ ok: boolean }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}`, "DELETE"),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

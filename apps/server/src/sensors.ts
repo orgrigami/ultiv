@@ -195,6 +195,10 @@ const pollRss = async (mind: MindService, sensors: readonly SensorRow[]): Promis
 };
 
 const sensorPass = async (mind: MindService): Promise<void> => {
+  // The global pause skips the pass whole: no poll, no receipts, no dedup
+  // writes — exactly a downtime gap. Unseen events fire on the pass after
+  // resume (the calendar's missed-poll grace covers the seam).
+  if (await mind.profiles.workspacePaused().catch(() => false)) return;
   const enabled = (await readSensors(mind.converse)).filter((sensor) => sensor.enabled);
   await pollCalendar(
     mind,

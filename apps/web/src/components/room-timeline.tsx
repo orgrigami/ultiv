@@ -8,11 +8,13 @@
  * signal and follows new messages while scrolled to the end. Lives under the
  * room header on /rooms and in the work pane (opened from a mail pill).
  */
-import { Fragment, useEffect, useRef } from "react";
-import { CircleAlertIcon } from "lucide-react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { CircleAlertIcon, SendHorizontalIcon } from "lucide-react";
 import { ChatProse, isFoldable } from "@/components/chat-prose";
+import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { api, type RoomLine } from "@/lib/api";
 import { formatFull } from "@/lib/format";
 import { MessageActions, TurnHead } from "@/components/message-parts";
@@ -115,6 +117,80 @@ function useFollowEnd(count: number) {
   return end;
 }
 
+/** The owner's composer under a bot talk: speak as yourself, to one bot. */
+function RoomComposer({
+  roomId,
+  participants,
+  onSent,
+}: {
+  roomId: string;
+  participants: { profileId: string; name: string }[];
+  onSent: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [to, setTo] = useState(participants[0]?.profileId ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const send = async (): Promise<void> => {
+    const body = text.trim();
+    if (body === "" || to === "") return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.roomSay(roomId, body, to);
+      setText("");
+      onSent();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="border-border/60 bg-background/80 sticky bottom-0 border-t px-4 py-2 backdrop-blur">
+      <form
+        className="flex items-end gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void send();
+        }}
+      >
+        <label className="sr-only" htmlFor="room-say-to">
+          Which bot
+        </label>
+        <select
+          id="room-say-to"
+          className="bg-card border-border h-9 shrink-0 rounded-lg border px-2 text-xs"
+          value={to}
+          onChange={(event) => setTo(event.target.value)}
+        >
+          {participants.map((bot) => (
+            <option key={bot.profileId} value={bot.profileId}>
+              to {bot.name}
+            </option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="room-say-text">
+          Message
+        </label>
+        <input
+          id="room-say-text"
+          className="bg-card h-9 min-w-0 flex-1 rounded-lg border border-transparent px-3 text-sm outline-none focus-visible:border-[var(--accent-tone)]"
+          placeholder="Speak as yourself into this talk"
+          value={text}
+          disabled={busy}
+          onChange={(event) => setText(event.target.value)}
+        />
+        <Button type="submit" size="sm" disabled={busy || text.trim() === ""}>
+          {busy ? <Spinner /> : <SendHorizontalIcon />}
+          <span className="sr-only">Send</span>
+        </Button>
+      </form>
+      {error !== null && <p className="text-destructive mt-1 text-xs">{error}</p>}
+    </div>
+  );
+}
+
 export function RoomTimeline({ roomId }: { roomId: string }) {
   const {
     value: detail,
@@ -138,19 +214,19 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
 
   const seated = seatLines(detail.timeline);
   return (
-    <ol
-      aria-label="Bot talk, read-only"
-      className="flex flex-col gap-3 px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-    >
-      {seated.map((entry, index) => (
-        <Fragment key={entry.line.id ?? index}>
-          {entry.divider !== null && <DayDivider label={entry.divider} />}
-          <RoomTurn seated={entry} />
-        </Fragment>
-      ))}
-      <li ref={end} className="text-muted-foreground py-6 text-center text-xs">
-        {seated.length === 0 ? "No messages yet." : "Only bots write here. You can read along."}
-      </li>
-    </ol>
+    <>
+      <ol aria-label="Bot talk" className="flex flex-col gap-3 px-3 pt-3">
+        {seated.map((entry, index) => (
+          <Fragment key={entry.line.id ?? index}>
+            {entry.divider !== null && <DayDivider label={entry.divider} />}
+            <RoomTurn seated={entry} />
+          </Fragment>
+        ))}
+        <li ref={end} className="text-muted-foreground py-6 text-center text-xs">
+          {seated.length === 0 ? "No messages yet." : "Bots write here; you can read along."}
+        </li>
+      </ol>
+      <RoomComposer roomId={roomId} participants={detail.participants} onSent={retry} />
+    </>
   );
 }

@@ -43,7 +43,9 @@ describe("no command path targets a VM by name", () => {
       "readFile",
     ]);
     expect(backend.needsPrepare?.length).toBe(0); // no target either
-    expect(backend.exec.length).toBe(3); // script, cwd, timeout — no target
+    // script, cwd, timeout, and an optional AbortSignal (work-tree stops) —
+    // still no VM, home or team argument.
+    expect(backend.exec.length).toBe(4);
   });
 
   it("a home's VM name comes from its own scope dir alone, and homes never collide", () => {

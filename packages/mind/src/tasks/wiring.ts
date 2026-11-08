@@ -1,7 +1,8 @@
 /**
  * What the tasks faculty needs from the rest of the mind once it exists:
- * each bot's running limit (its policy, else the workspace default) and the
- * files a task's conversation wrote, for the parent's wake.
+ * each bot's running limit (its policy, else the workspace default), the
+ * files a task's conversation wrote (for the parent's wake), and the
+ * work-tree stop extras (mailbox settlement, background-job kills).
  */
 import {
   artifactsDir,
@@ -15,8 +16,20 @@ import { taskLimitOf } from "./limits.ts";
 import type { TaskWiring } from "./run.ts";
 
 export const taskWiring = (
-  profiles: Pick<ProfilesService, "get" | "workspaceTaskLimit">,
+  profiles: Pick<ProfilesService, "get" | "workspaceTaskLimit" | "workspacePaused">,
   holder: ScopeHolder | undefined,
+  extras: {
+    /** Settle pending mail sent FROM stopped conversations (stop propagation). */
+    readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
+    /** Kill background bash jobs running in stopped conversations. */
+    readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
+    /** The bot's spend today and its daily token budget (the ledger + policies). */
+    readonly spendOf?: (
+      bot: { readonly owner: string; readonly profileId: string } | null,
+    ) => Promise<{ readonly today: number; readonly budget: number | null }>;
+    /** The workspace fallback model, catalog-validated; null = none. */
+    readonly fallbackModel?: () => Promise<{ readonly id: string; readonly effort: string } | null>;
+  } = {},
   root: string = artifactsDir(),
 ): TaskWiring => ({
   limitOf: async (bot) => {
@@ -25,10 +38,17 @@ export const taskWiring = (
     const profile = await profiles.get(bot.owner, bot.profileId).catch(() => undefined);
     return taskLimitOf(profile?.policies.maxRunningTasks, stored);
   },
+  isPaused: async () => await profiles.workspacePaused().catch(() => false),
   filesOf: async (conversationId, since) => {
     const dir = holder === undefined ? root : scopeDir(holder, conversationId, root);
     return searchArtifacts(dir, { conversationId })
       .filter((info) => touchedAt(info) >= since)
       .map((info) => ({ id: info.id, name: info.name }));
   },
+  ...(extras.cancelMailSentFrom !== undefined
+    ? { cancelMailSentFrom: extras.cancelMailSentFrom }
+    : {}),
+  ...(extras.stopJobsOf !== undefined ? { stopJobsOf: extras.stopJobsOf } : {}),
+  ...(extras.spendOf !== undefined ? { spendOf: extras.spendOf } : {}),
+  ...(extras.fallbackModel !== undefined ? { fallbackModel: extras.fallbackModel } : {}),
 });

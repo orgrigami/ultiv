@@ -146,9 +146,10 @@ export const runOnHost = (
   script: string,
   cwd: string,
   timeoutMs: number,
+  abortSignal?: AbortSignal,
 ): Promise<ShellExecResult> =>
   new Promise((resolve) => {
-    execFile(
+    const child = execFile(
       "/bin/bash",
       ["-c", wrapScript(script)],
       { cwd, timeout: timeoutMs, maxBuffer: 8_000_000, killSignal: "SIGKILL" },
@@ -165,4 +166,13 @@ export const runOnHost = (
         });
       },
     );
+    const onStop = (): void => {
+      child.kill("SIGKILL");
+    };
+    // A signal that was aborted before this exec started must still kill.
+    if (abortSignal !== undefined) {
+      if (abortSignal.aborted) onStop();
+      else abortSignal.addEventListener("abort", onStop, { once: true });
+    }
+    child.once("close", () => abortSignal?.removeEventListener("abort", onStop));
   });

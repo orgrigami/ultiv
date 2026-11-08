@@ -5,13 +5,15 @@
  * this module only runs it.
  */
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { Effect } from "effect";
 import { ownerErrorText } from "@spriessen/core";
 import type { TaskInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { findTask, taskConversationKey, updateTask } from "./store.ts";
+import type { TaskModel } from "./model.ts";
 import { settleStructured } from "./structured.ts";
-import { owed, wakeParent, type TaskFile } from "./wake.ts";
+import { NOT_STARTED, owed, wakeParent, type TaskFile } from "./wake.ts";
 
 /** The bot a task runs as. */
 export type TaskBot = NonNullable<TaskInfo["bot"]>;
@@ -34,6 +36,32 @@ export interface TaskWiring {
   readonly limitOf?: (bot: TaskBot | null) => Promise<number>;
   /** Files a task's conversation wrote since a time, for the parent's wake. */
   readonly filesOf?: (conversationId: string, since: number) => Promise<readonly TaskFile[]>;
+  /**
+   * Stop propagation (tree.ts): settle pending mailbox mail sent FROM these
+   * conversations without waking them. Wired to the mailbox service.
+   */
+  readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
+  /** Stop propagation: kill background bash jobs running in these conversations. */
+  readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
+  /**
+   * The global pause (Settings › Pause the crew): while true, no task STARTS
+   * (spawns queue, the pump holds). Wired to the settings doc.
+   */
+  readonly isPaused?: () => Promise<boolean>;
+  /**
+   * The bot's spend today and its daily token budget (null = uncapped):
+   * at or over budget, new spawns are refused with a sentence the model
+   * relays, and queued tasks wait for the next day.
+   */
+  readonly spendOf?: (
+    bot: TaskBot | null,
+  ) => Promise<{ readonly today: number; readonly budget: number | null }>;
+  /**
+   * The workspace fallback model (Settings › Fallback model), validated
+   * against the live catalog; null = none. A failed task run gets ONE
+   * rescue attempt on it (run.ts).
+   */
+  readonly fallbackModel?: () => Promise<TaskModel | null>;
 }
 
 /** Mutable wiring shared by the service's parts. */
@@ -134,6 +162,41 @@ export const wakeWithFiles = async (rt: TaskRuntime, id: string): Promise<void> 
   await wakeParent(rt.converse, id, files);
 };
 
+/**
+ * Stop a running or queued task: abort a run, mark cancelled, wake the
+ * parent — or, with `quiet` (the owner stopped the whole chat), never.
+ * Idempotent: only a running or queued task is cancelled. The TREE the task
+ * spawned (mail, jobs) is settled by tree.ts, after this returns.
+ */
+export const cancelTask = async (rt: TaskRuntime, id: string, quiet: boolean): Promise<boolean> => {
+  const { converse } = rt;
+  const task = await Effect.runPromise(findTask(converse, id));
+  if (task === undefined || (task.status !== "running" && task.status !== "queued")) return false;
+  // Stop the work first, then write the outcome: the runner honors the
+  // cancelled status and keeps its hands off when it settles.
+  if (task.status === "running") {
+    const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(id)));
+    await Effect.runPromise(converse.interrupt(conversation));
+  }
+  const notStarted = task.status === "queued" && (task.runs ?? 1) === 1;
+  await Effect.runPromise(
+    updateTask(converse, id, (current) => {
+      if (current.status !== "running" && current.status !== "queued") return current;
+      const { next: _next, ...rest } = current;
+      return {
+        ...rest,
+        status: "cancelled",
+        error: notStarted ? NOT_STARTED : "cancelled by the user",
+        finishedAt: Date.now(),
+        ...(quiet ? { notified: true } : owed(current)),
+      };
+    }),
+  );
+  await wakeWithFiles(rt, id).catch(() => undefined);
+  await rt.pump().catch(() => undefined);
+  return true;
+};
+
 /** The settled row's fields for a finished run (done), unless it was cancelled meanwhile. */
 const finishRun = async (
   rt: TaskRuntime,
@@ -162,6 +225,54 @@ const finishRun = async (
   );
 };
 
+/** One full attempt: the turn, the follower drain, the settled row. */
+const runOnce = async (rt: TaskRuntime, task: TaskInfo, input: string): Promise<void> => {
+  const conversation = await Effect.runPromise(rt.converse.ensure(taskConversationKey(task.id)));
+  const first = await Effect.runPromise(rt.converse.turn(conversation, input));
+  const text = await drainFollowers(rt, task.id, conversation, first.text);
+  await finishRun(rt, task, conversation, text);
+};
+
+const fallbackNote = (ref: string): string =>
+  `[fallback] The usual model could not finish this run; it continues on ${ref} from where the ` +
+  "transcript left off. Before repeating anything that reached outside (a message, a post, a " +
+  "change to files or a service), check whether it already happened.";
+
+/**
+ * One rescue attempt on the workspace fallback model, for a FAILED run: the
+ * overnight story — the default model's provider dying at 3am no longer parks
+ * every task. The conversation's own model is restored afterwards; a rescue
+ * that fails again stands (the row then carries the ORIGINAL failure).
+ */
+const rescueOnFallback = async (rt: TaskRuntime, task: TaskInfo): Promise<boolean> => {
+  if (rt.wiring.fallbackModel === undefined) return false;
+  const fallback = await rt.wiring.fallbackModel().catch(() => null);
+  if (fallback === null) return false;
+  const conversation = await Effect.runPromise(rt.converse.ensure(taskConversationKey(task.id)));
+  const previous = await Effect.runPromise(rt.converse.agentOf(conversation)).catch(
+    () => undefined,
+  );
+  console.warn(`task ${task.id}: retrying once on the fallback model ${fallback.id}`);
+  await Effect.runPromise(
+    rt.converse.configure(conversation, {
+      model: fallback.id,
+      effort: fallback.effort === "" ? null : (fallback.effort as ModelThinkingLevel),
+    }),
+  );
+  try {
+    await runOnce(rt, task, fallbackNote(fallback.id));
+    return true;
+  } finally {
+    // The conversation goes back to its own model, whatever the rescue did.
+    await Effect.runPromise(
+      rt.converse.configure(conversation, {
+        model: previous?.model ?? null,
+        effort: previous?.effort ?? null,
+      }),
+    ).catch(() => undefined);
+  }
+};
+
 /**
  * Settles one run of a task in the background: the registry doc carries the
  * outcome, the spawning conversation is woken with it, and the queue gets
@@ -172,10 +283,11 @@ export const runTask = (rt: TaskRuntime, task: TaskInfo, input: string): void =>
   const { converse } = rt;
   void (async () => {
     try {
-      const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(task.id)));
-      const first = await Effect.runPromise(converse.turn(conversation, input));
-      const text = await drainFollowers(rt, task.id, conversation, first.text);
-      await finishRun(rt, task, conversation, text);
+      try {
+        await runOnce(rt, task, input);
+      } catch (cause) {
+        if (!(await rescueOnFallback(rt, task).catch(() => false))) throw cause;
+      }
     } catch (cause) {
       // The owner reads this in Needs you: a sentence, not the bare tag
       // ("spriessen/External"). The full cause goes to the server log.

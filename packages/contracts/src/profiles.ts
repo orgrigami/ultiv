@@ -66,6 +66,13 @@ export const ProfilePoliciesSchema = obj(
     learnSkills: opt(bool()),
     /** Model turns per day across the profile; null = uncapped. */
     dailyTurnBudget: union([num(), nul()]),
+    /**
+     * Tokens per day (input + output, chats and tasks alike) this bot may
+     * SPEND before its task admission pauses: new spawns are refused with a
+     * sentence the model relays, queued ones wait for the next day. Chats
+     * with the owner always run. Null or absent = uncapped.
+     */
+    dailyTokenBudget: opt(union([num(), nul()])),
     /** This profile may distill into the owner-level memory store (the memory keeper). */
     memoryKeeper: bool(),
     /**
@@ -106,6 +113,7 @@ export const POLICY_NUMBER_FIELDS = {
   firstTokenDeadlineSec: { label: "First reply (seconds)", min: 10, max: 1_800 },
   turnDeadlineMin: { label: "Whole turn (minutes)", min: 1, max: 720 },
   maxRunningTasks: { label: "Tasks at once", min: 1, max: TASK_LIMIT_MAX },
+  dailyTokenBudget: { label: "Daily token budget", min: 10_000, max: 2_000_000_000 },
 } as const;
 
 export type PolicyNumberField = keyof typeof POLICY_NUMBER_FIELDS;

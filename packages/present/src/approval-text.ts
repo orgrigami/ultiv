@@ -35,6 +35,11 @@ const KNOWN: Record<string, Known> = {
     action: "run a script in its workspace",
     risk: "Higher risk: the script can change files and reach the network.",
   },
+  browser_session: {
+    action: "act in its browser session",
+    risk: "Higher risk: the click, typing or key press acts on the live page in this bot's browser.",
+    risky: true,
+  },
   email_send: {
     action: "send an email",
     risk: "Higher risk: the email leaves this app and can't be unsent.",

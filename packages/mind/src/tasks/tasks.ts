@@ -32,13 +32,13 @@ import {
 } from "./store.ts";
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";
 import { recentSteps } from "./steps.ts";
-import { NOT_STARTED, owed } from "./wake.ts";
 import type { TaskModel } from "./model.ts";
 import { schemaBrief } from "./structured.ts";
 import { messageTask, type MessageOptions, type MessageOutcome } from "./continue.ts";
-import { placementOf, pumpQueue, queueFullMessage } from "./queue.ts";
+import { budgetMessage, overBudget, placementOf, pumpQueue, queueFullMessage } from "./queue.ts";
 import {
   bindTask,
+  cancelTask,
   runTask,
   serial,
   wakeWithFiles,
@@ -47,6 +47,7 @@ import {
   type TaskRuntime,
   type TaskWiring,
 } from "./run.ts";
+import { stopChatWork, stopTaskTree, type TreeStop } from "./tree.ts";
 
 export { TasksDoc, taskConversationKey, titleOf } from "./store.ts";
 export { TASK_UPDATE_KIND, NOTIFY_CHARS, NOTIFY_INTERVAL_MS } from "./notify.ts";
@@ -91,6 +92,18 @@ export interface TasksService {
     id: string,
     options?: { readonly quiet?: boolean },
   ) => Effect.Effect<boolean, External>;
+  /**
+   * Stop one task WITH its work tree (tree.ts): the task, then the mail its
+   * conversation sent and the background jobs it started. Undefined when the
+   * task was not live.
+   */
+  readonly stopTree: (id: string) => Effect.Effect<TreeStop | undefined, External>;
+  /**
+   * Stop a chat's whole work tree: its queued tasks first, then the running
+   * ones, then their mail and jobs (quiet cancels; the chat itself was just
+   * interrupted by the caller).
+   */
+  readonly stopChatWork: (conversationId: string) => Effect.Effect<TreeStop, External>;
   /**
    * Remove a task from the registry entirely; a still-running or queued task is
    * cancelled first (and its parent woken). The durable transcript stays.
@@ -149,39 +162,6 @@ export const TASK_BRIEF =
   "they reach your bot as links. A [from parent] line is a new instruction from it: follow " +
   "it, also after you finished (your bot may continue you). For long work, post a one-line " +
   "milestone to your owner with notify_owner (rarely; never the result).";
-
-/**
- * Stop a running or queued task: abort a run, mark cancelled, wake the
- * parent. Idempotent — only a running or queued task is cancelled.
- */
-const cancelTask = async (rt: TaskRuntime, id: string, quiet: boolean): Promise<boolean> => {
-  const { converse } = rt;
-  const task = await Effect.runPromise(findTask(converse, id));
-  if (task === undefined || (task.status !== "running" && task.status !== "queued")) return false;
-  // Stop the work first, then write the outcome: the runner honors the
-  // cancelled status and keeps its hands off when it settles.
-  if (task.status === "running") {
-    const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(id)));
-    await Effect.runPromise(converse.interrupt(conversation));
-  }
-  const notStarted = task.status === "queued" && (task.runs ?? 1) === 1;
-  await Effect.runPromise(
-    updateTask(converse, id, (current) => {
-      if (current.status !== "running" && current.status !== "queued") return current;
-      const { next: _next, ...rest } = current;
-      return {
-        ...rest,
-        status: "cancelled",
-        error: notStarted ? NOT_STARTED : "cancelled by the user",
-        finishedAt: Date.now(),
-        ...(quiet ? { notified: true } : owed(current)),
-      };
-    }),
-  );
-  await wakeWithFiles(rt, id).catch(() => undefined);
-  await rt.pump().catch(() => undefined);
-  return true;
-};
 
 /** Point a task's conversation at its own model before its first turn. */
 const applyTaskModel = (
@@ -242,6 +222,15 @@ const spawnTask =
             // under the bot before the task is admitted: the first turn
             // already runs as the bot.
             const bot = await bindTask(rt, id, input.conversationId, null);
+            // At or over the daily token budget: refuse with a sentence the
+            // model relays — queueing would only pile work for tomorrow. (The
+            // just-bound conversation stays empty and row-less: invisible.)
+            if (bot !== null) {
+              const over = await overBudget(rt, bot);
+              if (over !== undefined) {
+                return { refused: budgetMessage(over.today, over.budget) };
+              }
+            }
             const placement = await placementOf(rt, all, { ...probe, ...(bot ? { bot } : {}) });
             if (placement === "full") return { full: true as const };
             if (input.model !== undefined) {
@@ -260,6 +249,7 @@ const spawnTask =
         catch: (cause) => new External({ op: "task spawn", cause }),
       }),
       (placed) => {
+        if ("refused" in placed) return Effect.fail(new InvalidInput({ reason: placed.refused }));
         if (placed.full) return Effect.fail(new InvalidInput({ reason: queueFullMessage() }));
         if (placed.task.status === "running") runTask(rt, placed.task, placed.brief);
         return Effect.succeed(placed.task);
@@ -354,6 +344,16 @@ export const tasksService = (converse: ConverseService): TasksService => {
       Effect.tryPromise({
         try: () => cancelTask(rt, id, options?.quiet === true),
         catch: (cause) => new External({ op: "task cancel", cause }),
+      }),
+    stopTree: (id) =>
+      Effect.tryPromise({
+        try: () => stopTaskTree(rt, id, false),
+        catch: (cause) => new External({ op: "task stop tree", cause }),
+      }),
+    stopChatWork: (conversationId) =>
+      Effect.tryPromise({
+        try: () => stopChatWork(rt, conversationId),
+        catch: (cause) => new External({ op: "chat work stop", cause }),
       }),
     message: messageTask(rt),
     steps: (id, count) => recentSteps(converse, id, count),

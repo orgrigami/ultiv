@@ -97,32 +97,21 @@ describe("idleIfStalled", () => {
 });
 
 describe("stopChatTasks", () => {
-  it("quietly cancels only this chat's running tasks", async () => {
-    const row = (id: string, conversationId: string, status: string) => ({
-      id,
-      conversationId,
-      status,
-    });
-    const calls: [string, unknown][] = [];
+  it("delegates the chat's whole work tree to the mind and returns its counts", async () => {
+    const seen: string[] = [];
     const mind = {
       tasks: {
-        list: () =>
-          Effect.succeed([
-            row("a", "chat-1", "running"),
-            row("b", "chat-1", "done"),
-            row("c", "chat-2", "running"),
-            row("d", "chat-1", "running"),
-          ]),
-        cancel: (id: string, options: unknown) => {
-          calls.push([id, options]);
-          return Effect.succeed(true);
+        stopChatWork: (conversationId: string) => {
+          seen.push(conversationId);
+          return Effect.succeed({ tasks: 2, messages: 1, jobs: 3 });
         },
       },
     } as never;
-    expect(await stopChatTasks(mind, "chat-1")).toBe(2);
-    expect(calls).toEqual([
-      ["a", { quiet: true }],
-      ["d", { quiet: true }],
-    ]);
+    expect(await stopChatTasks(mind, "chat-1")).toEqual({
+      tasks: 2,
+      messages: 1,
+      jobs: 3,
+    });
+    expect(seen).toEqual(["chat-1"]);
   });
 });

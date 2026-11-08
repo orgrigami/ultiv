@@ -3,7 +3,7 @@
  * the Bots page or the switcher) and to edit one. On phones the selects stack
  * and Save spans the sheet.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,8 @@ export interface BotForm {
   turnMin?: string;
   /** Tasks at once (edit only): "" = the workspace default. */
   taskLimit?: string;
+  /** Daily token budget (edit only): "" = uncapped. */
+  tokenBudget?: string;
 }
 
 export const emptyForm: BotForm = {
@@ -82,6 +84,8 @@ export function BotDialog({
   confirm,
   /** Edit-only fields (e.g. the always-allowed tool list); rendered before Save. */
   extra,
+  /** What this bot already spent today (the daily ledger); shown at the budget field. */
+  spendToday,
   children,
   open: controlledOpen,
   onOpenChange,
@@ -91,6 +95,7 @@ export function BotDialog({
   models: ModelInfo[];
   confirm: (form: BotForm) => Promise<void>;
   extra?: React.ReactNode | undefined;
+  spendToday?: number | undefined;
   /** The trigger; omit it and drive `open` instead. */
   children?: React.ReactElement | undefined;
   open?: boolean | undefined;
@@ -211,6 +216,7 @@ export function BotDialog({
             <BotLimits
               form={form}
               taskDefault={taskDefault}
+              spendToday={spendToday}
               onChange={(limits) => setForm({ ...form, ...limits })}
             />
           )}
@@ -269,12 +275,14 @@ export function EditBotDialog({
   onOpenChange: (open: boolean) => void;
   refresh: () => Promise<void>;
 }) {
+  const spendToday = useSpendToday(bot.id, open);
   return (
     <BotDialog
       title={`Edit ${bot.name}`}
       models={models}
       open={open}
       onOpenChange={onOpenChange}
+      spendToday={spendToday}
       extra={
         <>
           <BackgroundModelField bot={bot} models={models} refresh={refresh} />
@@ -294,6 +302,7 @@ export function EditBotDialog({
         firstTokenSec: String(bot.policies.firstTokenDeadlineSec ?? ""),
         turnMin: String(bot.policies.turnDeadlineMin ?? ""),
         taskLimit: String(bot.policies.maxRunningTasks ?? ""),
+        tokenBudget: String(bot.policies.dailyTokenBudget ?? ""),
       }}
       confirm={async (form) => {
         // Throws on failure, so the form stays open with the reason.
@@ -310,10 +319,30 @@ export function EditBotDialog({
             firstTokenDeadlineSec: deadlineValue(form.firstTokenSec, "firstTokenDeadlineSec"),
             turnDeadlineMin: deadlineValue(form.turnMin, "turnDeadlineMin"),
             maxRunningTasks: deadlineValue(form.taskLimit, "maxRunningTasks"),
+            dailyTokenBudget: deadlineValue(form.tokenBudget, "dailyTokenBudget"),
           },
         });
         await refresh();
       }}
     />
   );
+}
+
+/** What the bot spent today (the daily ledger), read while the dialog is open. */
+function useSpendToday(profileId: string, open: boolean): number | undefined {
+  const [today, setToday] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    api
+      .botUsage(profileId)
+      .then((usage) => {
+        if (live) setToday(usage.today);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [profileId, open]);
+  return today;
 }

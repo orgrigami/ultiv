@@ -185,22 +185,15 @@ export function sameQueue(a: readonly QueuedInput[], b: readonly QueuedInput[]):
 }
 
 /**
- * The chat's Stop, extended to its background tasks: every task this chat
- * spawned that is still queued or running is cancelled quietly (no wake —
- * the owner just stopped this chat). Queued ones go first, so a freed slot
- * never starts one of them. Returns how many were stopped.
+ * The chat's Stop, extended to its whole work tree (mind tasks/tree.ts):
+ * every task this chat spawned is cancelled quietly (no wake — the owner
+ * just stopped this chat), queued ones first, and each task's tree follows
+ * it: pending mail it sent is settled cancelled (never waking it back) and
+ * its background bash jobs are killed. Returns what the stop reached.
  */
-export async function stopChatTasks(mind: MindService, conversationId: string): Promise<number> {
-  const tasks = (await Effect.runPromise(mind.tasks.list())).filter(
-    (task) => task.conversationId === conversationId,
-  );
-  const order = [
-    ...tasks.filter((task) => task.status === "queued"),
-    ...tasks.filter((task) => task.status === "running"),
-  ];
-  let stopped = 0;
-  for (const task of order) {
-    if (await Effect.runPromise(mind.tasks.cancel(task.id, { quiet: true }))) stopped += 1;
-  }
-  return stopped;
+export async function stopChatTasks(
+  mind: MindService,
+  conversationId: string,
+): Promise<{ tasks: number; messages: number; jobs: number }> {
+  return Effect.runPromise(mind.tasks.stopChatWork(conversationId));
 }

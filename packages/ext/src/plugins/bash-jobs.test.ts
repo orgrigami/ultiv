@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listArtifacts } from "./artifacts.ts";
 import { bashPlugin, localShellBackend } from "./bash.ts";
-import { MAX_JOBS_PER_CONVERSATION, type BashJob } from "./bash-jobs.ts";
+import { JobKiller, MAX_JOBS_PER_CONVERSATION, type BashJob } from "./bash-jobs.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-bash-jobs-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -19,6 +19,7 @@ const rig = (name: string) => {
   const dir = join(scratch, name);
   const started: BashJob[] = [];
   const finished: { job: BashJob; text: string }[] = [];
+  const stopped: BashJob[] = [];
   let done!: () => void;
   const settled = new Promise<void>((resolve) => (done = resolve));
   const plugin = bashPlugin({
@@ -30,13 +31,17 @@ const rig = (name: string) => {
         finished.push({ job, text });
         done();
       },
+      stopped: (job) => {
+        stopped.push(job);
+        done();
+      },
     },
   });
   const capability = plugin.capabilities.find(
     (candidate) => candidate.kind === "tool" && candidate.tool.name === "bash",
   );
   if (capability?.kind !== "tool") throw new Error("no bash tool");
-  return { dir, bash: capability.tool, started, finished, settled };
+  return { dir, bash: capability.tool, started, finished, stopped, settled };
 };
 
 const api = { conversationId: "conv-1" } as never;
@@ -92,5 +97,49 @@ describe("bash background jobs", () => {
       {} as never,
     );
     expect(reply.isError).toBe(true);
+  });
+
+  it("a work-tree stop kills the job and wakes nobody", async () => {
+    const killer = new JobKiller();
+    const dir = join(scratch, "killed");
+    const started: BashJob[] = [];
+    const finished: { job: BashJob; text: string }[] = [];
+    const stopped: BashJob[] = [];
+    let done!: () => void;
+    const settled = new Promise<void>((resolve) => (done = resolve));
+    const plugin = bashPlugin({
+      root: dir,
+      backend: (_d, home) => localShellBackend(home),
+      jobKiller: killer,
+      jobs: {
+        started: (job) => started.push(job),
+        finished: (job, text) => {
+          finished.push({ job, text });
+          done();
+        },
+        stopped: (job) => {
+          stopped.push(job);
+          done();
+        },
+      },
+    });
+    const capability = plugin.capabilities.find((c) => c.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no bash tool");
+    const before = Date.now();
+    await capability.tool.execute(
+      { script: "sleep 30\necho never", background: true },
+      api,
+      {} as never,
+    );
+    expect(started).toHaveLength(1);
+    expect(killer.killConversations(["conv-1"])).toBe(1);
+    await settled;
+    // Stopped within seconds (killed), not the 30-minute cap, and the
+    // conversation is never woken with a result for cancelled work.
+    expect(stopped).toHaveLength(1);
+    expect(finished).toHaveLength(0);
+    expect(Date.now() - before).toBeLessThan(10_000);
+    // A second kill for that conversation finds nothing.
+    expect(killer.killConversations(["conv-1"])).toBe(0);
   });
 });
