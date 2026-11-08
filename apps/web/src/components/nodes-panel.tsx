@@ -59,7 +59,7 @@ export function NodesPanel() {
           </Button>
         }
       />
-      <p className="text-muted-foreground text-xs">
+      <p className="text-muted-foreground max-w-[56ch] text-xs">
         Your other machines, so a bot with host access can run scripts there (bash target
         &quot;node&quot;). Scripts run as your account on that machine and can reach anything it
         can; every one asks you first unless you saved that exact script. The pairing token is shown
