@@ -7,6 +7,14 @@
  * its cookies SURVIVE between calls; each tool call attaches to it, does one
  * thing, and exits. Everything the model receives is words and structure —
  * never cookies, never storage values.
+ *
+ * Chromium runs with a hermetic HOME/XDG_RUNTIME_DIR/TMPDIR under the
+ * profile dir: the backend's exec env points TMPDIR at the bot's $HOME/.tmp,
+ * which does not exist until the workspace prepare runs (the browser path
+ * never runs it), and chromium ABORTS at launch when its ProcessSingleton
+ * socket dir under TMPDIR is missing. The hermetic HOME also keeps
+ * chromium's dot-dirs (.config/.cache/.local) out of the workspace, where
+ * the sync loop would promote them to artifacts.
  */
 
 /** Where the driver lives inside the VM (outside the wiped workspace). */
@@ -47,6 +55,16 @@ def ensure_browser():
     if up():
         return
     os.makedirs(PROFILE, exist_ok=True)
+    # Hermetic runtime dirs (see the file header): the bot's TMPDIR may not
+    # exist on a fresh VM, and chromium aborts without its singleton-socket
+    # dir; a HOME under the profile keeps its dot-dirs out of the workspace.
+    home = PROFILE + "/home"
+    for d in (home, home + "/xdg", home + "/tmp"):
+        os.makedirs(d, exist_ok=True)
+    env = dict(os.environ)
+    env["HOME"] = home
+    env["XDG_RUNTIME_DIR"] = home + "/xdg"
+    env["TMPDIR"] = home + "/tmp"
     subprocess.Popen(
         [
             "chromium", "--headless=new", "--no-sandbox", "--disable-gpu",
@@ -56,6 +74,7 @@ def ensure_browser():
             "--remote-debugging-port=%d" % PORT,
             "about:blank",
         ],
+        env=env,
         stdout=open(PROFILE + "/log", "ab"),
         stderr=subprocess.STDOUT,
         start_new_session=True,
@@ -83,7 +102,14 @@ class Ws:
     """The slice of the websocket protocol CDP needs (text frames, no TLS)."""
 
     def __init__(self, url):
-        host, _, rest = url[5:].partition("/")
+        hostport, _, rest = url[5:].partition("/")
+        # The debugger url carries "host:port" (or "[v6]:port"); the socket
+        # wants the host ALONE — "127.0.0.1:9222" as a host string is treated
+        # as a name and getaddrinfo fails with "Name or service not known".
+        if hostport.startswith("["):
+            host = hostport[1 : hostport.index("]")]
+        else:
+            host = hostport.partition(":")[0]
         path = "/" + rest
         self.sock = socket.create_connection((host, PORT), timeout=DEADLINE)
         key = base64.b64encode(os.urandom(16)).decode()
