@@ -130,7 +130,7 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
 
   if (failed)
     return (
-      <div className="px-4 pt-3">
+      <div className="px-3 pt-3">
         <ErrorState message="Couldn't load the conversation." onRetry={retry} />
       </div>
     );
@@ -140,7 +140,7 @@ export function RoomTimeline({ roomId }: { roomId: string }) {
   return (
     <ol
       aria-label="Bot talk, read-only"
-      className="flex flex-col gap-3 px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      className="flex flex-col gap-3 px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
     >
       {seated.map((entry, index) => (
         <Fragment key={entry.line.id ?? index}>

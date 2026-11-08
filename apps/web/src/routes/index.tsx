@@ -18,7 +18,7 @@ export const Route = createFileRoute("/")({
 });
 
 /** The chat column shared by / and /c/$sessionId. */
-export const chatColumn = "mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-3 sm:px-6";
+export const chatColumn = "mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col px-4 sm:px-6";
 
 function HomePage() {
   const { sessions, mainId, epoch, refreshAll, setLastBot } = useApp();
@@ -63,7 +63,7 @@ function HomePage() {
 
   if (sessions.profiles.length === 0) {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))]">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(var(--tabbar-h)+1rem+env(safe-area-inset-bottom))]">
         <div className={chatColumn}>
           <OnboardingHome
             models={sessions.models}

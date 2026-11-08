@@ -252,7 +252,7 @@ export function SessionView({
         <div ref={transcriptRef} className="scroll-under absolute inset-0">
           <ScrollArea className="h-full">
             <ul
-              className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))]"
+              className="flex flex-col gap-3 pt-[calc(3.75rem+env(safe-area-inset-top))] sm:gap-4"
               style={{
                 paddingBottom: aboveComposer(footerHeight, 12),
               }}
@@ -347,7 +347,7 @@ export function SessionView({
         )}
         <footer
           ref={footerRef}
-          className="pointer-events-none absolute inset-x-0 z-10 flex flex-col gap-2 pb-3 *:pointer-events-auto"
+          className="pointer-events-none absolute inset-x-0 z-10 flex flex-col gap-1.5 pb-3 *:pointer-events-auto"
           style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
         >
           <NeedsPill sessionId={sessionId} botId={bot?.id} />
