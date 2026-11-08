@@ -37,7 +37,7 @@ export function useChatScroll(changes: readonly unknown[]) {
   }, []);
 
   // Content that grows after render (lazy markdown, a card expanding, the
-  // task pill changing the padding) keeps a pinned transcript at the bottom.
+  // checklist strip changing the padding) keeps a pinned transcript at the bottom.
   useEffect(() => {
     const viewport = viewportOf(transcriptRef.current);
     const content = viewport?.firstElementChild;

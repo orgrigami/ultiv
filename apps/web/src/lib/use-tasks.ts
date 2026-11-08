@@ -1,6 +1,7 @@
 /**
- * This chat's background tasks, polled (REST has no push). One poll feeds the
- * task pill, the task cards in the transcript and the Stop confirmation.
+ * This chat's background tasks, refreshed by the `tasks` live signal. One
+ * list feeds the header's task chip, the live task lines and task cards in
+ * the transcript, and the Stop confirmation.
  * Nothing shows until the chat's conversation id is known, so tasks from
  * other chats never leak in.
  */
@@ -9,10 +10,12 @@ import type { TaskRow } from "@spriessen/contracts";
 import { api } from "@/lib/api";
 import { onLive } from "@/lib/live.ts";
 import { pollFailed, pollRecovered } from "@/lib/notify";
+import { isLive } from "@/lib/task-text";
 
 export interface ChatTasks {
   readonly tasks: readonly TaskRow[];
-  readonly running: readonly TaskRow[];
+  /** Running or queued: what Stop would also stop. */
+  readonly live: readonly TaskRow[];
   readonly refresh: () => Promise<void>;
 }
 
@@ -46,6 +49,6 @@ export function useTasks(conversationId: string | null): ChatTasks {
     };
   }, [refresh]);
 
-  const running = tasks.filter((task) => task.status === "running");
-  return { tasks: conversationId === null ? [] : tasks, running, refresh };
+  const live = tasks.filter(isLive);
+  return { tasks: conversationId === null ? [] : tasks, live, refresh };
 }

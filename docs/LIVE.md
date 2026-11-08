@@ -31,7 +31,7 @@ so a phone waking from sleep catches up without a poll.
 
 ## What replaced the 5 s polls
 
-`app-state.tsx` (approvals and tasks), `use-tasks.ts` (the chat's task pill),
+`app-state.tsx` (approvals and tasks), `use-tasks.ts` (the chat's task chip and live task lines),
 `use-sessions.ts` (bots and chats), the routines, vault, skills and memory
 panels (through `lib/use-live-refresh.ts`, which collapses a burst into one
 refetch),

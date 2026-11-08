@@ -35,6 +35,7 @@ import {
   roomView,
   searchView,
   skillFileView,
+  taskMessageView,
   taskView,
   writeView,
 } from "./tool-kind-views.ts";
@@ -151,6 +152,8 @@ export type ToolView = {
   readonly checklist?: ChecklistDetails | undefined;
   /** The Mermaid source a graph call drew, redrawn in the browser. */
   readonly diagram?: { readonly source: string; readonly title: string | null } | undefined;
+  /** The background task this call started or messaged: drawn as its live line. */
+  readonly task?: { readonly id: string } | undefined;
 };
 
 export type ToolPresentation =
@@ -169,7 +172,6 @@ const VERBED: Record<string, [string, string, ToolFamily]> = {
   memory_forget: ["Forgot a memory", "Forgetting a memory…", "memory"],
   memory_history: ["Traced a memory's history", "Tracing a memory…", "memory"],
   memory_related: ["Looked up related memories", "Looking up related memories…", "memory"],
-  task_message: ["Steered a task", "Steering a task…", "task"],
   task_status: ["Checked a task", "Checking a task…", "task"],
   task_list: ["Listed tasks", "Listing tasks…", "task"],
   task_cancel: ["Cancelled a task", "Cancelling a task…", "task"],
@@ -252,6 +254,8 @@ export function presentationOf(step: ToolStep, nameOf?: NameOf): ToolPresentatio
       return { kind: "human", view: learnView(step) };
     case "task_spawn":
       return { kind: "human", view: taskView(step) };
+    case "task_message":
+      return { kind: "human", view: taskMessageView(step) };
     case "bash":
       return { kind: "human", view: bashView(step) };
     case "http_request":

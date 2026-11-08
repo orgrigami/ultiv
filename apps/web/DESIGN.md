@@ -165,7 +165,7 @@ Spacing rhythm is tight and token-led: rows breathe in 6px steps, fields pad 10p
 
 ## Elevation & Depth
 
-Depth is tonal first: four lightness tiers on one blue-black hue — rail (0.146), ground (0.166), card (0.2), popover (0.222) with hover/accent at 0.27 — carry almost all of the z-axis. Shadows exist in exactly one place: floating chrome. `.chrome-float` (composer, tasks pill) pairs a 72% translucent ground with `backdrop-filter: blur(20px) saturate(1.15)` and one directional offset shadow (`0 12px 32px -16px oklch(0 0 0 / 0.55)` dark, softened to 30% ink in light) — depth with direction, never an ambient halo. Nothing else casts a shadow at rest; hover states change background tier, not elevation. The transcript sinks under the floating header band with `.scroll-under`, a 4.75rem mask fade, so content dissolves instead of being sliced mid-line.
+Depth is tonal first: four lightness tiers on one blue-black hue — rail (0.146), ground (0.166), card (0.2), popover (0.222) with hover/accent at 0.27 — carry almost all of the z-axis. Shadows exist in exactly one place: floating chrome. `.chrome-float` (composer, header chips) pairs a 72% translucent ground with `backdrop-filter: blur(20px) saturate(1.15)` and one directional offset shadow (`0 12px 32px -16px oklch(0 0 0 / 0.55)` dark, softened to 30% ink in light) — depth with direction, never an ambient halo. Nothing else casts a shadow at rest; hover states change background tier, not elevation. The transcript sinks under the floating header band with `.scroll-under`, a 4.75rem mask fade, so content dissolves instead of being sliced mid-line.
 
 ### Named Rules
 

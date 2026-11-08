@@ -1,7 +1,8 @@
 /**
- * The Edit-bot dialog's deadline fields: checked before anything is sent, in
- * the same words the server uses (`policyNumberProblem` in @spriessen/contracts).
- * Kept free of UI imports so the root test suite can run it.
+ * The Edit-bot dialog's number fields (the deadlines and how many tasks run
+ * at once): checked before anything is sent, in the same words the server
+ * uses (`policyNumberProblem` in @spriessen/contracts). Kept free of UI
+ * imports so the root test suite can run it.
  */
 import { policyNumberProblem, type PolicyNumberField } from "@spriessen/contracts";
 
@@ -27,6 +28,8 @@ export const deadlineValue = (
 export const formProblem = (form: {
   readonly firstTokenSec?: string | undefined;
   readonly turnMin?: string | undefined;
+  readonly taskLimit?: string | undefined;
 }): string | null =>
   deadlineFieldProblem(form.firstTokenSec, "firstTokenDeadlineSec") ??
-  deadlineFieldProblem(form.turnMin, "turnDeadlineMin");
+  deadlineFieldProblem(form.turnMin, "turnDeadlineMin") ??
+  deadlineFieldProblem(form.taskLimit, "maxRunningTasks");

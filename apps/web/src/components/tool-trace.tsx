@@ -28,6 +28,7 @@ import {
 import type { ToolStep } from "@spriessen/contracts";
 import { ChecklistCard } from "@/components/checklist-card";
 import { Diagram } from "@/components/diagram";
+import { LiveTask } from "@/components/live-task";
 import { FileCard } from "@/components/file-card";
 import { ErrorNote, FoldText, ToolBody } from "@/components/tool-bodies";
 import { Receipts, TypedOutput } from "@/components/tool-receipts";
@@ -284,6 +285,7 @@ export const ToolTrace = memo(function ToolTrace({
       {human.artifact !== undefined && (
         <FileCard file={human.artifact} className={`-mt-0.5 mb-0.5 max-w-prose ${ATTACH}`} />
       )}
+      {human.task !== undefined && <LiveTask id={human.task.id} className={`-mt-0.5 ${ATTACH}`} />}
       {human.diagram !== undefined && (
         <Diagram
           source={human.diagram.source}

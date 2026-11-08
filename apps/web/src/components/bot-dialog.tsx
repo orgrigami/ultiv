@@ -11,7 +11,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import type { ModelInfo, ProfileApprovalMode, ProfileInfo } from "@spriessen/contracts";
-import { deadlineFieldProblem, deadlineValue, formProblem } from "@/lib/deadline-fields";
+import { deadlineValue, formProblem } from "@/lib/deadline-fields";
+import { BotLimits } from "@/components/bot-limits";
+import { useTaskDefault } from "@/lib/task-settings";
 
 import {
   APPROVAL_MODE_HELP,
@@ -36,6 +38,8 @@ export interface BotForm {
   /** Turn deadlines (edit only): "" = the default (60 s / 15 min). */
   firstTokenSec?: string;
   turnMin?: string;
+  /** Tasks at once (edit only): "" = the workspace default. */
+  taskLimit?: string;
 }
 
 export const emptyForm: BotForm = {
@@ -101,8 +105,7 @@ export function BotDialog({
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const firstTokenProblem = deadlineFieldProblem(form.firstTokenSec, "firstTokenDeadlineSec");
-  const turnProblem = deadlineFieldProblem(form.turnMin, "turnDeadlineMin");
+  const taskDefault = useTaskDefault(open && form.firstTokenSec !== undefined);
   const submit = async (): Promise<void> => {
     if (form.name.trim() === "") return;
     // Bad deadlines are shown next to their field; nothing is sent.
@@ -205,45 +208,11 @@ export function BotDialog({
             </span>
           </label>
           {form.firstTokenSec !== undefined && (
-            <div className="flex flex-col gap-1 text-sm">
-              <span>Deadlines</span>
-              <div className="flex gap-2">
-                <label className="flex flex-1 flex-col gap-1 text-xs">
-                  First reply (seconds)
-                  <Input
-                    inputMode="numeric"
-                    placeholder="60"
-                    value={form.firstTokenSec}
-                    aria-invalid={firstTokenProblem !== null}
-                    onChange={(event) => setForm({ ...form, firstTokenSec: event.target.value })}
-                  />
-                  {firstTokenProblem !== null && (
-                    <span role="alert" className="text-destructive">
-                      {firstTokenProblem}
-                    </span>
-                  )}
-                </label>
-                <label className="flex flex-1 flex-col gap-1 text-xs">
-                  Whole turn (minutes)
-                  <Input
-                    inputMode="numeric"
-                    placeholder="15"
-                    value={form.turnMin ?? ""}
-                    aria-invalid={turnProblem !== null}
-                    onChange={(event) => setForm({ ...form, turnMin: event.target.value })}
-                  />
-                  {turnProblem !== null && (
-                    <span role="alert" className="text-destructive">
-                      {turnProblem}
-                    </span>
-                  )}
-                </label>
-              </div>
-              <span className="text-muted-foreground text-xs">
-                A model call that sends nothing, or a turn that runs longer, is stopped with a note
-                in the chat. Leave empty for the default. Approval waits don't count.
-              </span>
-            </div>
+            <BotLimits
+              form={form}
+              taskDefault={taskDefault}
+              onChange={(limits) => setForm({ ...form, ...limits })}
+            />
           )}
           {extra}
           {error !== null && <p className="text-destructive text-sm">{error}</p>}
@@ -324,6 +293,7 @@ export function EditBotDialog({
         sandbox: bot.policies.sandbox !== false,
         firstTokenSec: String(bot.policies.firstTokenDeadlineSec ?? ""),
         turnMin: String(bot.policies.turnDeadlineMin ?? ""),
+        taskLimit: String(bot.policies.maxRunningTasks ?? ""),
       }}
       confirm={async (form) => {
         // Throws on failure, so the form stays open with the reason.
@@ -339,6 +309,7 @@ export function EditBotDialog({
             sandbox: form.sandbox,
             firstTokenDeadlineSec: deadlineValue(form.firstTokenSec, "firstTokenDeadlineSec"),
             turnDeadlineMin: deadlineValue(form.turnMin, "turnDeadlineMin"),
+            maxRunningTasks: deadlineValue(form.taskLimit, "maxRunningTasks"),
           },
         });
         await refresh();

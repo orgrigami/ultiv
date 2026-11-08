@@ -230,15 +230,42 @@ export const fetchView = (step: ToolStep): ToolView => {
   };
 };
 
+/** The task a task tool call is about: its `details`, else the reply's "task <id> …" line. */
+export const taskIdOf = (step: ToolStep): string | undefined => {
+  const fromDetails = flatOf(recordOf(step.details).id);
+  if (fromDetails !== undefined && fromDetails !== "") return fromDetails;
+  const fromInput = flatOf(recordOf(step.input).id);
+  if (step.name !== "task_spawn" && fromInput !== undefined && fromInput !== "") return fromInput;
+  return /^task ([0-9a-f-]{8,})\b/.exec(rawOf(step.output) ?? "")?.[1];
+};
+
 export const taskView = (step: ToolStep): ToolView => {
   const input = recordOf(step.input);
   const title = clip(flatOf(input.title) ?? flatOf(input.prompt), 40);
+  const id = step.status === "done" ? taskIdOf(step) : undefined;
+  const queued = flatOf(recordOf(step.details).status) === "queued";
   return {
     family: "task",
-    done: "Started a task",
+    done: queued ? "Queued a task" : "Started a task",
     live: "Starting a task…",
     detail: title,
     structured: { t: "record", fields: [], note: clip(rawOf(input.prompt), 2000) },
+    ...(id !== undefined ? { task: { id } } : {}),
+  };
+};
+
+/** task_message: steering a running task, or continuing a finished one. */
+export const taskMessageView = (step: ToolStep): ToolView => {
+  const input = recordOf(step.input);
+  const outcome = flatOf(recordOf(step.details).outcome);
+  const id = step.status === "done" ? taskIdOf(step) : undefined;
+  const continued = outcome === "continued" || outcome === "queued";
+  return {
+    family: "task",
+    done: continued ? "Continued a task" : "Sent a task new instructions",
+    live: "Messaging a task…",
+    detail: clip(flatOf(input.text), 60),
+    ...(id !== undefined ? { task: { id } } : {}),
   };
 };
 

@@ -147,6 +147,7 @@ export function ChatHeader({
   onConfigure,
   onApprovalMode,
   onMemory,
+  tasks,
 }: {
   bot?: ChatBot | undefined;
   link: LinkState;
@@ -160,6 +161,8 @@ export function ChatHeader({
   onApprovalMode: (mode: ProfileApprovalMode) => void;
   /** Opens this chat's bot Memory panel (absent when there is no bot). */
   onMemory?: (() => void) | undefined;
+  /** The background-work chip (shows only while tasks run or wait). */
+  tasks?: React.ReactNode;
 }) {
   const name = bot?.name !== undefined && bot.name !== "" ? bot.name : "Chat";
   const phone = usePhoneSheet();
@@ -187,6 +190,7 @@ export function ChatHeader({
             }}
           />
         )}
+        {tasks}
       </div>
       <Popover.Root modal={phone}>
         <Popover.Trigger

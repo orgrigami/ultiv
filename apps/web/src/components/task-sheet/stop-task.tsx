@@ -1,6 +1,6 @@
 /**
  * Stop one running task, with a light inline confirm ("Stop task" / "Keep") —
- * no dialog for something this small. Shared by the task pill rows and the
+ * no dialog for something this small. Shared by the task rows and the
  * task sheet's header.
  */
 import { useState } from "react";

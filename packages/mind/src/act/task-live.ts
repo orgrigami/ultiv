@@ -96,6 +96,7 @@ export const messageTool = (
       return {
         ...textReply(`task ${args.id} ${reply.text}`),
         structuredOutput: { id: args.id, sent: true },
+        details: { id: args.id, outcome },
       };
     },
   });

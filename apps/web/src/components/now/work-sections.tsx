@@ -1,7 +1,7 @@
 /**
  * The Now page's work: background tasks running across every bot, and the
  * ones that finished cleanly in the last day (failures sit in Needs you).
- * Rows are the task pill's own rows, named by bot; a tap opens the task's
+ * Rows are the shared task rows (the chat header's list uses them too), named by bot; a tap opens the task's
  * work. Data is the app's task list, refreshed by the `tasks` signal.
  */
 import { TaskRow } from "@/components/task-row";

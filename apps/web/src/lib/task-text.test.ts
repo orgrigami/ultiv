@@ -2,8 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import type { TaskInfo } from "@spriessen/contracts";
 import {
   formatElapsed,
-  pillLabel,
-  pillTasks,
+  chipLabel,
+  taskMeta,
   taskElapsed,
   taskLatest,
   taskTitle,
@@ -45,16 +45,20 @@ describe("task text", () => {
     ).toBe("Found 3");
   });
 
-  it("summarises the pill", () => {
-    const now = 1_000_000;
-    const done = task({ status: "done", finishedAt: now - 1_000 });
-    const old = task({ status: "done", finishedAt: now - 3_600_000 });
-    expect(pillTasks([task(), done, old], now)).toHaveLength(2);
-    expect(pillLabel([task(), task()])).toBe("2 tasks running");
-    expect(pillLabel([task(), done])).toBe("1 task running · 1 done");
-    expect(pillLabel([done])).toBe("Task done");
-    expect(pillLabel([task({ status: "failed" })])).toBe("Task failed");
-    expect(pillLabel([task({ status: "cancelled" })])).toBe("Task stopped");
-    expect(pillLabel([done, task({ status: "failed" })])).toBe("2 tasks finished · 1 failed");
+  it("says the same meta line on every surface", () => {
+    const now = 200_000;
+    expect(taskMeta(task({ startedAt: 15_000, lastStep: "Searching the web" }), now)).toBe(
+      "Running · 3m 05s · Searching the web",
+    );
+    expect(taskMeta(task({ status: "queued" }), now)).toBe("Queued · waits for a free slot");
+    expect(taskMeta(task({ status: "done", finishedAt: 60_000, runs: 2 }), now)).toBe(
+      "Done · 1m 00s · run 2",
+    );
+  });
+
+  it("counts the header chip", () => {
+    expect(chipLabel([task(), task()])).toBe("2 running");
+    expect(chipLabel([task(), task({ status: "queued" })])).toBe("1 running · 1 queued");
+    expect(chipLabel([task({ status: "queued" })])).toBe("1 queued");
   });
 });

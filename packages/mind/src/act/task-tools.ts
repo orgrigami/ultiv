@@ -181,6 +181,7 @@ const spawnTool = (
           `task ${task.id} ${state}. End your turn now; you will be woken with the result.`,
         ),
         structuredOutput: { id: task.id, status: task.status },
+        details: { id: task.id, status: task.status },
       };
     },
   });

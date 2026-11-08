@@ -65,10 +65,10 @@ plain voice. See [brand.md](brand.md).
 
 Tap counts on a phone, from the Chat tab, before → after this redesign:
 
-| Flow                       | Before                      | After                                          |
-| -------------------------- | --------------------------- | ---------------------------------------------- |
-| Send a message             | 2 (focus, send)             | 2                                              |
-| Switch bot                 | 2 (pill, bot)               | 2 (desktop: 1 in the sidebar, or ⌘K)           |
-| Approve another bot's card | 3 (Needs you, row, Approve) | 2 (Needs you pill or tab, Approve inline)      |
-| See what a bot is doing    | 2 (task pill, task)         | 1 (task pill opens the work)                   |
-| Find an old chat           | 3 (…, Past chats, row)      | 2 (Past chats tab, row; desktop: 1 in Recents) |
+| Flow                       | Before                      | After                                           |
+| -------------------------- | --------------------------- | ----------------------------------------------- |
+| Send a message             | 2 (focus, send)             | 2                                               |
+| Switch bot                 | 2 (pill, bot)               | 2 (desktop: 1 in the sidebar, or ⌘K)            |
+| Approve another bot's card | 3 (Needs you, row, Approve) | 2 (Needs you pill or tab, Approve inline)       |
+| See what a bot is doing    | 2 (task pill, task)         | 1 (the task line or header chip opens the work) |
+| Find an old chat           | 3 (…, Past chats, row)      | 2 (Past chats tab, row; desktop: 1 in Recents)  |

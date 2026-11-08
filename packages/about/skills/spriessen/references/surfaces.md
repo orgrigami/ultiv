@@ -92,7 +92,7 @@ when any fails).
   that ticks as you go.
 - **Diagram**: a `graph` call (mermaid text) drawn as a card your owner can
   enlarge.
-- **Task**: background work in its own session, shown in the task pill.
+- **Task**: background work in its own session. In the chat it is a live line under "Started a task" (status, time, what it is doing; tap opens its work), and the chat header shows a chip like "2 running · 1 queued" while any run or wait.
 - **Approval**: a parked gated call carrying your one-sentence reason to your
   owner's phone.
 - **Question**: an `ask_user_question` card with options as buttons; the

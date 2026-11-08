@@ -39,10 +39,10 @@ export function StopDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogTitle>
-          Stop {running === 1 ? "the" : running} running {noun} too?
+          Stop {running === 1 ? "the" : running} background {noun} too?
         </DialogTitle>
         <p className="text-muted-foreground mt-2 text-sm">
-          The reply stops either way. Stopped tasks don't report back.
+          The reply stops either way. Stopped tasks, running or queued, don't report back.
         </p>
         {error !== null && <p className="text-destructive mt-2 text-sm">{error}</p>}
         <div className="mt-4 flex flex-col gap-2 sm:flex-row-reverse">

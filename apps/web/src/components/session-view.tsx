@@ -189,7 +189,7 @@ export function SessionView({
   onConfigure: (model: string | null, effort: ThinkingLevel | null) => Promise<void>;
   onApprovalMode: (mode: ProfileApprovalMode) => Promise<void>;
   onInterrupt: () => Promise<void>;
-  /** Background tasks, floated above the composer. */
+  /** The chat's background tasks: a chip in the header while any run or wait. */
   tasks?: React.ReactNode;
   /** This chat's task rows, for the task cards in the transcript. */
   taskInfo?: readonly TaskInfo[];
@@ -335,6 +335,7 @@ export function SessionView({
             }
             onApprovalMode={(mode) => control(() => onApprovalMode(mode))}
             onMemory={hasBot ? () => openMemory("") : undefined}
+            tasks={tasks}
           />
         </div>
         {/* Screen readers hear new replies and approval requests. */}
@@ -349,7 +350,6 @@ export function SessionView({
           className="pointer-events-none absolute inset-x-0 z-10 flex flex-col gap-2 pb-3 *:pointer-events-auto"
           style={{ bottom: "var(--chat-bottom, env(safe-area-inset-bottom))" }}
         >
-          {tasks}
           <NeedsPill sessionId={sessionId} botId={bot?.id} />
           <ChecklistStrip key={sessionId} list={plan} />
           {lastError !== null && <ErrorNote message={lastError} />}

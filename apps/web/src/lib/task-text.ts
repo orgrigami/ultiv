@@ -1,7 +1,8 @@
 /**
- * Plain words for background tasks, shared by the task pill and the task
- * cards: a title, an elapsed time, the one-line "what it's doing now", and
- * the pill's summary. Pure, so it is unit-tested.
+ * Plain words for background tasks, the same on every surface (the task line
+ * in the chat, the header's task list, Now, a bot's Work tab, the task
+ * sheet): a title, a status word, an elapsed time, the one-line "what it's
+ * doing now", and the header chip's count. Pure, so it is unit-tested.
  */
 import type { TaskInfo } from "@spriessen/contracts";
 import { plural } from "./plural.ts";
@@ -49,29 +50,46 @@ const STATUS_WORD = {
 
 export const taskStatusWord = (status: TaskInfo["status"]): string => STATUS_WORD[status];
 
-/** Settled tasks stay in the pill this long, so a finish is noticed. */
-export const RECENT_MS = 10 * 60_000;
+/** Running or waiting for a slot: work still in flight. */
+export const isLive = (task: Pick<TaskInfo, "status">): boolean =>
+  task.status === "running" || task.status === "queued";
 
-/** The tasks the pill shows: every running one, plus ones settled recently. */
-export function pillTasks(tasks: readonly TaskInfo[], now: number): TaskInfo[] {
-  return tasks.filter(
-    (task) =>
-      task.status === "running" || (task.finishedAt !== null && now - task.finishedAt < RECENT_MS),
-  );
+/**
+ * The one meta line every task row shows under (or instead of) its title:
+ * "Running · 3m 05s · Searching the web", "Queued · waits for a free slot",
+ * "Done · 6m 56s". A continued task says which run it is on.
+ */
+export function taskMeta(
+  task: Pick<
+    TaskInfo,
+    "status" | "createdAt" | "startedAt" | "finishedAt" | "runs" | "updates" | "lastStep"
+  >,
+  now: number,
+): string {
+  const parts = [taskStatusWord(task.status)];
+  if (task.status === "queued") parts.push("waits for a free slot");
+  else parts.push(taskElapsed(task, now));
+  if ((task.runs ?? 1) > 1) parts.push(`run ${task.runs}`);
+  const latest = task.status === "running" ? taskLatest(task) : undefined;
+  if (latest !== undefined) parts.push(latest);
+  return parts.join(" · ");
 }
 
-/** The collapsed pill's line: "2 tasks running", "1 task running · 1 done", "Task done". */
-export function pillLabel(tasks: readonly TaskInfo[]): string {
+/** The header chip's words: "2 running", "1 running · 1 queued", "3 queued". */
+export function chipLabel(tasks: readonly Pick<TaskInfo, "status">[]): string {
   const running = tasks.filter((task) => task.status === "running").length;
-  const settled = tasks.length - running;
-  const failed = tasks.filter((task) => task.status === "failed").length;
-  if (running > 0) {
-    const head = `${running} ${plural(running, "task", "tasks")} running`;
-    return settled > 0 ? `${head} · ${settled} done` : head;
-  }
-  if (settled === 1)
-    return failed === 1
-      ? "Task failed"
-      : `Task ${STATUS_WORD[tasks[0]!.status].toLocaleLowerCase("en")}`;
-  return failed > 0 ? `${settled} tasks finished · ${failed} failed` : `${settled} tasks finished`;
+  const queued = tasks.filter((task) => task.status === "queued").length;
+  const parts = [
+    ...(running > 0 ? [`${running} running`] : []),
+    ...(queued > 0 ? [`${queued} queued`] : []),
+  ];
+  return parts.join(" · ");
+}
+
+/** The chip's spoken label: "2 background tasks running, 1 queued". */
+export function chipAria(tasks: readonly Pick<TaskInfo, "status">[]): string {
+  const running = tasks.filter((task) => task.status === "running").length;
+  const queued = tasks.filter((task) => task.status === "queued").length;
+  const head = `${running} background ${plural(running, "task", "tasks")} running`;
+  return queued > 0 ? `${head}, ${queued} queued. Show them` : `${head}. Show them`;
 }
