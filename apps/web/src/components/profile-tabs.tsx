@@ -15,6 +15,7 @@ import {
   HistoryIcon,
   ScrollTextIcon,
   ShieldCheckIcon,
+  TableIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -48,6 +49,7 @@ export const PROFILE_TABS = [
   { id: "instructions", label: "Instructions" },
   { id: "memory", label: "Memory" },
   { id: "projects", label: "Work" },
+  { id: "tables", label: "Tables" },
   { id: "routines", label: "Routines" },
   { id: "access", label: "Access" },
   { id: "files", label: "Files" },
@@ -61,6 +63,7 @@ export const TAB_ICON: Partial<Record<ProfileTab, LucideIcon>> = {
   instructions: ScrollTextIcon,
   memory: BrainIcon,
   projects: FlagIcon,
+  tables: TableIcon,
   routines: CalendarClockIcon,
   access: ShieldCheckIcon,
   files: FolderIcon,

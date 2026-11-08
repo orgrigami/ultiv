@@ -22,6 +22,8 @@ export * from "./profiles/section.ts";
 export * from "./mailbox/mailbox.ts";
 export * from "./mailbox/tools.ts";
 export * from "./usage/usage.ts";
+export * from "./tables/tables.ts";
+export * from "./tables/tools.ts";
 export * from "./reactions/tools.ts";
 export * from "./memory/memory.ts";
 export * from "./memory/core.ts";

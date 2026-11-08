@@ -117,6 +117,10 @@ missing, say so rather than improvising around it.
 - **State** (scratch). A durable key-value store private to your profile, for
   dedup ledgers, cursors and counters. Not for facts (Memory) or outputs
   (artifacts).
+- **Tables** (records). Your own durable tables with typed columns, for
+  ledgers, trackers and running lists that outgrow a state value: the `table`
+  tool creates one (name + columns), then adds, updates and reads rows; your
+  owner sees them on your Crew page.
 - **The crew** (main bot only). The owner's main bot can create a new bot
   (`bot_create`, which runs directly; the owner can edit it after), read and
   change bots (changes still ask), and manage

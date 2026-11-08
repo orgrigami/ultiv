@@ -363,6 +363,22 @@ export const api = {
     getJson<{ budget: number | null; today: number }>(
       `/api/usage?profile=${encodeURIComponent(profileId)}`,
     ),
+  botTables: (
+    profileId: string,
+  ): Promise<{
+    tables: {
+      id: string;
+      name: string;
+      columns: { name: string; type: string }[];
+      rows: { id: string; at: number; data: Record<string, string | number | boolean | null> }[];
+      updatedAt: number;
+    }[];
+  }> => getJson(`/api/tables?profile=${encodeURIComponent(profileId)}`),
+  removeBotTable: (profileId: string, tableId: string): Promise<{ ok: boolean }> =>
+    send(
+      `/api/tables/${encodeURIComponent(tableId)}?profile=${encodeURIComponent(profileId)}`,
+      "DELETE",
+    ),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

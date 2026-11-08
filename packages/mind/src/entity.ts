@@ -63,6 +63,7 @@ import { questionTools } from "./ask/question.ts";
 import { roomsService } from "./profiles/rooms.ts";
 import { mailboxService } from "./mailbox/mailbox.ts";
 import { usageService, usageSinkOf } from "./usage/usage.ts";
+import { tablesService } from "./tables/tables.ts";
 import { teamInstructionsOf, teamOfProfile, orgService } from "./org/service.ts";
 import {
   defaultDeleteTeamStore,
@@ -284,6 +285,7 @@ const mindLayerRaw = (
       // Everything rides one pi-durable registry; late installs are legal —
       // the harness reconsiders its tools as the registry changes.
       const piRegistry = yield* PiRegistry;
+      const tables = tablesService(converse);
       installFaculties(piRegistry, {
         converse,
         act,
@@ -291,6 +293,7 @@ const mindLayerRaw = (
         profiles,
         rooms,
         mailbox,
+        tables,
         botTools,
         audit,
         approvals,
@@ -358,6 +361,7 @@ const mindLayerRaw = (
         mailbox,
         skills,
         usage,
+        tables,
         org,
         ...routines,
         mcp: mcp.manager,

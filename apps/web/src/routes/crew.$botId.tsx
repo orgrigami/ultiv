@@ -28,6 +28,7 @@ import { ACTIVITY_LIMIT, tabCount, type ProfileCounts } from "@/lib/profile-summ
 import { Heading } from "@/components/ui/heading";
 import { TestsTab } from "@/components/tests-tab";
 import { ProjectsTab } from "@/components/projects-tab";
+import { TablesTab } from "@/components/tables-tab";
 import {
   AccessTab,
   ActivityTab,
@@ -261,6 +262,7 @@ function Profile({
         {active === "activity" && <ActivityTab bot={bot} />}
         {active === "tests" && <TestsTab bot={bot} />}
         {active === "projects" && <ProjectsTab bot={bot} />}
+        {active === "tables" && <TablesTab bot={bot} />}
       </div>
     </Page>
   );
