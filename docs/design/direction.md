@@ -35,18 +35,18 @@ purpose. The tokens live in `apps/web/src/index.css`, the brand in
 - **A profile with a big friendly face, a pill tab strip with counts, and
   file-style cards:** a bot's profile reads like a character sheet. Counts
   tell you what is inside before you tap.
-- **Chat beside a work pane:** the bot's output (a document, a task, an
+- **Chat beside opened work:** the bot's output (a document, a task, an
   approval) belongs next to the conversation that made it.
 
 We take the spirit only. No names, mascots or layouts are copied.
 
 ## Nav model
 
-| Width                | Chrome                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------- |
-| Phone (< 640 px)     | Bottom tab bar: Chat · Past chats · Needs you · Crew · Settings. Work opens as a full-screen sheet.       |
-| Tablet (640–1023 px) | Left sidebar with the same five, New chat and Recents. Work opens as a sheet.                             |
-| Desktop (≥ 1024 px)  | Sidebar · chat · a work pane on the right that opens when there is work to show and closes with ✕ or Esc. |
+| Width                | Chrome                                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Phone (< 640 px)     | Bottom tab bar: Chat · Past chats · Needs you · Crew · Settings. Work opens as a full-screen sheet.                |
+| Tablet (640–1023 px) | Left sidebar with the same five, New chat and Recents. Work opens as a sheet.                                      |
+| Desktop (≥ 1024 px)  | Sidebar · chat · a work dock on the right that holds several tabs of opened work at once and closes with ✕ or Esc. |
 
 The bot switcher is the floating avatar pill in the chat header at every
 width. Needs you has a badge everywhere, and a "needs you" pill floats above
