@@ -34,7 +34,7 @@ function CrewPage() {
   return (
     <Page
       title="Crew"
-      lead="Your bots. Open one to see its memory, routines and access."
+      lead="Your bots, their memory, routines and access."
       actions={
         <>
           <Button variant="outline" size="sm" onClick={() => setCreatingTeam(true)}>

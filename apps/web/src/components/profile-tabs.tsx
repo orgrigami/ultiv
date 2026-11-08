@@ -222,7 +222,7 @@ export function ManageRow({
     <RowButton
       disabled={disabled}
       onClick={onClick}
-      className="hover:bg-muted/60 flex min-h-11 flex-col items-start gap-0.5 px-3 py-2.5 first:rounded-t-2xl last:rounded-b-2xl disabled:cursor-not-allowed disabled:opacity-60"
+      className="hover:bg-muted/60 flex min-h-11 flex-col items-start gap-0.5 px-3 py-2.5 first:rounded-t-xl last:rounded-b-xl disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className={cn("text-sm", destructive && "text-destructive")}>{title}</span>
       <span className="text-muted-foreground text-xs">{detail}</span>

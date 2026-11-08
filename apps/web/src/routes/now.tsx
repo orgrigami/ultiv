@@ -23,7 +23,7 @@ function NowPage() {
   const { reloadNeeds, needsCount } = useApp();
   useEffect(() => void reloadNeeds(), [reloadNeeds]);
   return (
-    <Page wide title="Now" lead="What waits on you, what's running, and what just landed.">
+    <Page wide title="Now" lead="What waits on you, and what just landed.">
       <section aria-label="Needs you" className="flex flex-col gap-2">
         <SectionHeader
           title={

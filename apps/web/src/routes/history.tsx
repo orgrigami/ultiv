@@ -14,7 +14,7 @@ function HistoryPage() {
   return (
     <Page
       title="Past chats"
-      lead="Every bot's main chat and the chats you started, newest first."
+      lead="All the chats, newest first."
       actions={
         <Button
           size="sm"

@@ -65,7 +65,7 @@ export function PushToggle() {
     <section aria-label="Notifications" className="flex flex-col gap-2">
       <SectionHeader title="Notifications" />
       <div className="flex flex-col gap-3 rounded-xl border p-3 text-sm">
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground max-w-prose">
           Get a notification on this device when a task finishes or fails, a bot needs your
           approval, a routine gets a reply, or a message between bots times out. Nothing is sent
           while {BRAND.name} is open on screen.
