@@ -107,8 +107,47 @@ fn tab_body(s: &App, bot_id: &str, tab: ProfileTab, dark: bool) -> El {
         ProfileTab::Routines => crate::ui::screens::routines::bot_routines(s, bot_id, dark),
         ProfileTab::Access => access_tab(s, bot_id, dark),
         ProfileTab::Activity => rows_tab(&s.audit, "activity", "No activity yet.", dark),
-        ProfileTab::Tests => common::empty_state("Evals load with the tests panel.", dark),
+        ProfileTab::Tests => tests_tab(s, bot_id, dark),
     }
+}
+
+/// The Tests tab: the bot's saved eval cases, each with its reference reply
+/// and the expects. Runs stay on the web client for now; the cases read here.
+fn tests_tab(s: &App, bot_id: &str, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    let Some(cases) = s.evals.get(bot_id) else {
+        return common::empty_state("Loading the saved cases…", dark);
+    };
+    if cases.is_empty() {
+        return common::empty_state("No saved cases yet. Capture one from a chat on the web client.", dark);
+    }
+    let rows: Vec<El> = cases
+        .iter()
+        .map(|c| {
+            let title = crate::net::types::row_str(c, "title");
+            let input = crate::net::types::row_str(c, "input");
+            let reply = c.get("reference").and_then(|r| r.get("reply")).and_then(serde_json::Value::as_str).unwrap_or("");
+            let expects = c.get("expect").and_then(serde_json::Value::as_array).map(Vec::len).unwrap_or(0);
+            el()
+                .key(format!("eval:{}", crate::net::types::row_str(c, "id")))
+                .w_full()
+                .px(space::S3)
+                .py(space::S2)
+                .gap(space::S1)
+                .child(text(if title.is_empty() { "A saved case".into() } else { title }).font(ty::UI_MED).color(t.fg).max_lines(1))
+                .child(text(input).font(ty::UI).color(t.muted_fg).max_lines(2))
+                .children((!reply.is_empty()).then(|| {
+                    text(format!("Reference: {reply}")).font(ty::META).color(t.muted_fg).max_lines(2)
+                }))
+                .children((expects > 0).then(|| {
+                    text(format!("{expects} check{}", if expects == 1 { "" } else { "s" })).font(ty::META).color(t.live)
+                }))
+        })
+        .collect();
+    col()
+        .key("tests-tab")
+        .gap(space::S3)
+        .child(common::list_card(dark).children(rows))
 }
 
 /// The memory v2 panel: what the bot remembers — core lines, facts, and the

@@ -84,8 +84,106 @@ fn pending_card(s: &App, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
     match name {
         "secret_request" => secret_card(s, pending, dark, k),
         "ask_user_question" => question_card(s, pending, dark, k),
+        "bot_create" => bot_create_card(s, pending, dark, k),
         _ => decision_card(s, pending, dark, k),
     }
+}
+
+/// The bot-create card: the proposal as a small editable form (name, title,
+/// persona); everything else rides as proposed. Creating sends the corrected
+/// input back through the approval's override channel. The draft seeds in
+/// `update` when the ask lands.
+fn bot_create_card(s: &App, pending: &serde_json::Value, dark: bool, k: &rune_kit::Kit) -> Vec<El> {
+    let t = crate::theme::tokens(dark);
+    let (head, call, _) = pending_head(s, pending, dark);
+    if call.is_empty() {
+        return vec![];
+    }
+    let input = &pending["input"];
+    let draft = s.bot_create.get(&call);
+    let (name_edit, title_edit, persona_edit) = match draft {
+        Some(d) => (&d.name, &d.title, &d.persona),
+        None => (&s.scratch_edit, &s.scratch_edit, &s.scratch_edit),
+    };
+    let mut body: Vec<El> = Vec::new();
+    for (which, edit, placeholder) in [
+        (Which::Name, name_edit, "Its name"),
+        (Which::Title, title_edit, "Its title"),
+        (Which::Persona, persona_edit, "Its persona, in a sentence"),
+    ] {
+        let key = call.clone();
+        body.push(
+            rune_kit::TextInput::new(edit)
+                .placeholder(placeholder)
+                .on_edit(move |s: &mut App| field_edit(s, &key, which))
+                .build(k),
+        );
+    }
+    let tools = input.get("tools").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
+    let model = crate::net::types::row_str(input, "model");
+    body.push(
+        text(format!(
+            "Rides as proposed: {} · {}",
+            if tools.is_empty() { "all installed tools".to_string() } else { format!("{} tools", tools.len()) },
+            if model.is_empty() { "the workspace model" } else { &model }
+        ))
+        .font(ty::META)
+        .color(t.muted_fg),
+    );
+    let deny_call = call.clone();
+    let approve_call = call.clone();
+    body.push(
+        rune::row()
+            .key("bot-create-actions")
+            .gap(space::S2)
+            .child(
+                Button::new("Deny").variant(ButtonVariant::Outline).on_press(move |s: &mut App| {
+                    decide_here(s, deny_call.clone(), false, false);
+                }).build(k),
+            )
+            .child(
+                Button::new("Create it").variant(ButtonVariant::Submit).on_press(move |s: &mut App| {
+                    create_here(s, approve_call.clone());
+                }).build(k),
+            ),
+    );
+    vec![card_shell(s, dark, t.live, head, body)]
+}
+
+/// Which of the draft's fields an editor binds.
+#[derive(Clone, Copy)]
+enum Which {
+    Name,
+    Title,
+    Persona,
+}
+
+fn field_edit<'a>(s: &'a mut App, call: &str, which: Which) -> &'a mut rune::TextEdit {
+    let Some(draft) = s.bot_create.get_mut(call) else { return &mut s.scratch_edit };
+    match which {
+        Which::Name => &mut draft.name,
+        Which::Title => &mut draft.title,
+        Which::Persona => &mut draft.persona,
+    }
+}
+
+fn create_here(s: &mut App, call: String) {
+    let Some(session) = s.chat_session.clone() else { return };
+    let Some(draft) = s.bot_create.get(&call) else { return };
+    let name = draft.name.text.trim().to_string();
+    if name.is_empty() {
+        return;
+    }
+    let input = serde_json::json!({
+        "name": name,
+        "title": draft.title.text.trim(),
+        "persona": draft.persona.text,
+    });
+    let tag = format!("decide:{call}");
+    s.net.mutate(
+        crate::net::endpoints::Mutation::DecideWithInput { conversation: session, call, approved: true, input },
+        &tag,
+    );
 }
 
 /// The card's shared head: "<who> wants to <action>".

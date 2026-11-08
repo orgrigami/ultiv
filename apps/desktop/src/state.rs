@@ -188,7 +188,14 @@ pub struct App {
     pub sensors: Vec<Row>,
     pub rooms: Vec<Row>,
     pub room: Option<Row>,
-    pub skills: Vec<Row>,
+    /// The skills overview (builtins, per-bot namespaces, open proposals).
+    pub skills: Option<Row>,
+    /// One skill's opened detail (profile, name, payload).
+    pub skill_detail: Option<(String, String, Row)>,
+    /// Parked proposals by profile id.
+    pub proposals: HashMap<String, Vec<Row>>,
+    /// Saved eval cases by bot id ("all" for the unfiltered list).
+    pub evals: HashMap<String, Vec<Row>>,
     pub vault: Vec<Row>,
     pub bindings: Vec<Row>,
     pub mcp: Vec<Row>,
@@ -264,10 +271,31 @@ pub struct App {
     pub secret_edits: HashMap<String, Vec<(String, rune::TextEdit)>>,
     /// The question card's own-answer editor.
     pub question_edit: rune::TextEdit,
+    /// The bot-create card's editable proposal fields, by call id.
+    pub bot_create: HashMap<String, BotCreateDraft>,
     /// The quick switcher's query field.
     pub switcher_edit: rune::TextEdit,
     /// The onboarding card's bot-name field.
     pub onboard_name: rune::TextEdit,
+    /// The new-team row's name field.
+    pub team_name: rune::TextEdit,
+    /// The team page's rename field, and which team it edits.
+    pub team_rename: rune::TextEdit,
+    pub team_rename_id: Option<String>,
+}
+
+/// The three fields the owner most often corrects on a proposed bot.
+pub struct BotCreateDraft {
+    pub name: rune::TextEdit,
+    pub title: rune::TextEdit,
+    pub persona: rune::TextEdit,
+}
+
+impl BotCreateDraft {
+    pub fn of(input: &serde_json::Value) -> BotCreateDraft {
+        let text = |key: &str| rune::TextEdit::new(crate::net::types::row_str(input, key));
+        BotCreateDraft { name: text("name"), title: text("title"), persona: text("persona") }
+    }
 }
 
 /// One message the transcript holds, projected from a chord transcript entry.
@@ -376,7 +404,10 @@ impl Default for App {
             sensors: Vec::new(),
             rooms: Vec::new(),
             room: None,
-            skills: Vec::new(),
+            skills: None,
+            skill_detail: None,
+            proposals: HashMap::new(),
+            evals: HashMap::new(),
             vault: Vec::new(),
             bindings: Vec::new(),
             mcp: Vec::new(),
@@ -422,8 +453,12 @@ impl Default for App {
             chat_reactions: HashMap::new(),
             secret_edits: HashMap::new(),
             question_edit: rune::TextEdit::new(String::new()),
+            bot_create: HashMap::new(),
             switcher_edit: rune::TextEdit::new(String::new()),
             onboard_name: rune::TextEdit::new(String::new()),
+            team_name: rune::TextEdit::new(String::new()),
+            team_rename: rune::TextEdit::new(String::new()),
+            team_rename_id: None,
         }
     }
 }

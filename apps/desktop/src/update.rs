@@ -64,6 +64,16 @@ fn apply_bridge(app: &mut App) -> bool {
                         .collect();
                     app.chat_phase = state.get("phase").and_then(serde_json::Value::as_str).unwrap_or("idle").to_string();
                     app.chat_pending = state.get("pending").filter(|p| !p.is_null()).cloned();
+                    // Seed the bot-create draft so its card reads real values.
+                    if let Some(pending) = &app.chat_pending {
+                        if pending.get("name").and_then(serde_json::Value::as_str) == Some("bot_create") {
+                            if let Some(call) = pending.get("callId").and_then(serde_json::Value::as_str) {
+                                app.bot_create.entry(call.to_string()).or_insert_with(|| {
+                                    crate::state::BotCreateDraft::of(pending.get("input").unwrap_or(&serde_json::Value::Null))
+                                });
+                            }
+                        }
+                    }
                     changed = true;
                 }
             }
@@ -218,8 +228,22 @@ fn payload(app: &mut App, f: Fetch, v: serde_json::Value) -> bool {
             }
         }
         Fetch::Skills => {
-            app.skills = rows(v);
+            app.skills = Some(v);
             app.mark_loaded("skills");
+        }
+        Fetch::SkillDetail { profile, name } => {
+            let tag = format!("skill-detail:{profile}:{name}");
+            app.skill_detail = Some((profile.clone(), name.clone(), v));
+            app.mark_loaded(&tag);
+        }
+        Fetch::SkillProposals(profile) => {
+            let tag = format!("skill-proposals:{profile}");
+            app.proposals.insert(profile, v.get("proposals").and_then(serde_json::Value::as_array).cloned().unwrap_or_default());
+            app.mark_loaded(&tag);
+        }
+        Fetch::Evals(bot) => {
+            app.evals.insert(bot, rows(v));
+            app.mark_loaded("evals");
         }
         Fetch::Vault => {
             app.vault = rows(v);
@@ -377,6 +401,22 @@ fn done(app: &mut App, tag: String, ok: bool, msg: Option<String>) {
         } else if tag.starts_with("decide:") {
             app.net.fetch(Fetch::Approvals);
             app.net.fetch(Fetch::NeedsYou);
+        } else if let Some(rest) = tag.strip_prefix("skill:") {
+            let mut parts = rest.splitn(2, ':');
+            let (profile, name) = (parts.next().unwrap_or("").to_string(), parts.next().unwrap_or("").to_string());
+            app.net.fetch(Fetch::Skills);
+            app.net.fetch(Fetch::SkillDetail { profile, name });
+        } else if let Some(profile) = tag.strip_prefix("skill-proposals:") {
+            app.net.fetch(Fetch::Skills);
+            app.net.fetch(Fetch::SkillProposals(profile.to_string()));
+        } else if let Some(name) = tag.strip_prefix("create-team:") {
+            let _ = name;
+            app.net.fetch(Fetch::Org);
+        } else if let Some(id) = tag.strip_prefix("patch-team:") {
+            let _ = id;
+            app.net.fetch(Fetch::Org);
+        } else if tag.starts_with("decide:") {
+            app.net.fetch(Fetch::Approvals);
         } else if tag.starts_with("pair-node:") {
             // The answer carries the token; the one time it is ever visible.
             app.node_token = msg.clone();
@@ -460,11 +500,22 @@ pub fn refresh_route(app: &mut App) {
             if *tab == crate::state::ProfileTab::Browser {
                 f.push(Fetch::Takeovers);
             }
+            if *tab == crate::state::ProfileTab::Tests {
+                f.push(Fetch::Evals(id.clone()));
+            }
             f
         }
         Route::Routines => vec![Fetch::Cron, Fetch::Webhooks, Fetch::Sensors],
         Route::Rooms => vec![Fetch::Rooms],
-        Route::Tools(_) => vec![Fetch::McpServers, Fetch::Skills, Fetch::Vault, Fetch::VaultBindings],
+        Route::Tools(tab) => {
+            let mut f = vec![Fetch::McpServers, Fetch::Skills, Fetch::Vault, Fetch::VaultBindings];
+            if *tab == crate::state::ToolsTab::Skills {
+                for p in &app.profiles {
+                    f.push(Fetch::SkillProposals(p.id.clone()));
+                }
+            }
+            f
+        }
         Route::Settings => vec![Fetch::Nodes],
         _ => vec![],
     };

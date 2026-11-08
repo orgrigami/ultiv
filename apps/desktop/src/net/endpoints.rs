@@ -50,6 +50,12 @@ pub enum Fetch {
     BotFile { profile: String, file: String },
     /// The open browser takeover asks.
     Takeovers,
+    /// One skill's detail.
+    SkillDetail { profile: String, name: String },
+    /// A profile's parked skill proposals.
+    SkillProposals(String),
+    /// A bot's saved eval cases.
+    Evals(String),
 }
 
 /// The mutations, tagged at the call site so `Event::Done` routes the answer.
@@ -79,6 +85,11 @@ pub enum Mutation {
     SecretCancel(String),
     AnswerQuestion { conversation: String, call: String, answer: String },
     Branch { session: String, at: String },
+    SkillSet { profile: String, name: String, enabled: bool },
+    SkillVerdict { profile: String, id: String, accept: bool },
+    CreateTeam(String),
+    PatchTeam { id: String, name: String },
+    DecideWithInput { conversation: String, call: String, approved: bool, input: serde_json::Value },
 }
 
 fn path_of(f: &Fetch) -> String {
@@ -116,6 +127,9 @@ fn path_of(f: &Fetch) -> String {
         Fetch::Memory(profile) => format!("/api/memory/v2?profile={profile}"),
         Fetch::BotFile { profile, file } => format!("/api/profiles/{profile}/files/{file}"),
         Fetch::Takeovers => "/api/browser/takeover".into(),
+        Fetch::SkillDetail { profile, name } => format!("/api/skills/{profile}/{name}"),
+        Fetch::SkillProposals(profile) => format!("/api/skills/{profile}/proposals"),
+        Fetch::Evals(bot) => format!("/api/evals?bot={bot}"),
     }
 }
 
@@ -177,6 +191,11 @@ pub fn tag_of(m: &Mutation) -> String {
         Mutation::SecretCancel(call) => format!("secret:{call}"),
         Mutation::AnswerQuestion { call, .. } => format!("decide:{call}"),
         Mutation::Branch { session, .. } => format!("branch:{session}"),
+        Mutation::SkillSet { profile, name, .. } => format!("skill:{profile}:{name}"),
+        Mutation::SkillVerdict { profile, .. } => format!("skill-proposals:{profile}"),
+        Mutation::CreateTeam(name) => format!("create-team:{name}"),
+        Mutation::PatchTeam { id, .. } => format!("patch-team:{id}"),
+        Mutation::DecideWithInput { call, .. } => format!("decide:{call}"),
     }
 }
 
@@ -266,6 +285,28 @@ pub fn run_mutation(client: &Client, m: &Mutation) -> ApiResult<serde_json::Valu
             Verb::Post,
             &format!("/api/sessions/{session}/branch"),
             json!({ "at": at, "mode": "from" }),
+        ),
+        Mutation::SkillSet { profile, name, enabled } => super::api::send_value(
+            client,
+            Verb::Put,
+            &format!("/api/skills/{profile}/{name}"),
+            json!({ "enabled": enabled }),
+        ),
+        Mutation::SkillVerdict { profile, id, accept } => super::api::send_value(
+            client,
+            Verb::Post,
+            &format!("/api/skills/{profile}/proposals/{id}/{}", if *accept { "accept" } else { "reject" }),
+            json!({}),
+        ),
+        Mutation::CreateTeam(name) => super::api::send_value(client, Verb::Post, "/api/org/teams", json!({ "name": name })),
+        Mutation::PatchTeam { id, name } => {
+            super::api::send_value(client, Verb::Patch, &format!("/api/org/teams/{id}"), json!({ "name": name }))
+        }
+        Mutation::DecideWithInput { conversation, call, approved, input } => super::api::send_value(
+            client,
+            Verb::Post,
+            &format!("/api/approvals/{conversation}/{call}"),
+            json!({ "approved": approved, "input": input }),
         ),
     }
 }

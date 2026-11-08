@@ -7,6 +7,7 @@ use rune::{col, el, text, El};
 
 pub fn view(s: &App, team_id: &str, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
+    let k = crate::theme::kit(dark);
     let teams = s.org.as_ref().and_then(|o| o.get("teams")).and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
     let team = teams.iter().find(|tm| crate::net::types::row_str(tm, "id") == team_id);
     let name = team.map(|tm| crate::net::types::row_str(tm, "name")).unwrap_or_else(|| "A team".into());
@@ -25,12 +26,56 @@ pub fn view(s: &App, team_id: &str, dark: bool) -> El {
             )
         })
         .collect();
+    let renaming = s.team_rename_id.as_deref() == Some(team_id);
+    let saved = name.clone();
+    let team_id_owned = team_id.to_string();
+    let rename = rune::row()
+        .key("team-rename")
+        .gap(space::S2)
+        .center_y()
+        .child(
+            rune_kit::TextInput::new(&s.team_rename)
+                .placeholder("Rename the team")
+                .on_edit(|s: &mut App| &mut s.team_rename)
+                .build(&k),
+        )
+        .children(renaming.then(|| {
+            let id = team_id.to_string();
+            rune_kit::Button::new("Save name")
+                .variant(rune_kit::ButtonVariant::Outline)
+                .on_press(move |s: &mut App| {
+                    let id = id.clone();
+                    let name_text = s.team_rename.text.trim().to_string();
+                    if name_text.is_empty() {
+                        return;
+                    }
+                    s.net.mutate(
+                        crate::net::endpoints::Mutation::PatchTeam { id: id.clone(), name: name_text },
+                        &format!("patch-team:{id}"),
+                    );
+                })
+                .build(&k)
+        }))
+        .child(
+            rune_kit::Button::new(if renaming { "Cancel" } else { "Rename" })
+                .variant(rune_kit::ButtonVariant::Ghost)
+                .on_press(move |s: &mut App| {
+                    if s.team_rename_id.as_deref() == Some(team_id_owned.as_str()) {
+                        s.team_rename_id = None;
+                    } else {
+                        s.team_rename_id = Some(team_id_owned.clone());
+                        s.team_rename = rune::TextEdit::new(saved.clone());
+                    }
+                })
+                .build(&k),
+        );
     let page = col()
         .key("team-page")
         .w_full()
         .padding(space::S6)
         .gap(16.0)
         .child(common::page_header(&name, dark, vec![]))
+        .child(rename)
         .child(common::section_label("Bots", dark))
         .child(if members.is_empty() {
             common::empty_state("No bots call this team home.", dark)

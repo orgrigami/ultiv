@@ -63,22 +63,26 @@ Working: sign-in gate (bootstrap and sign-in), rail with roster and Recents,
 Chats with the live chord transcript, send via the composer, the tool-call
 lens rows (the web's owner words through `@spriessen/present` in the
 sidecar), the reaction chips and the Branch button on the owner's messages,
-the decision / secret / question approval cards in the chat, Stop while the
-bot works, Needs you with approve/deny and parked retry, Now
-(working/finished/goals/files), Crew and bot profiles with pill tabs
-including the Persona/Instructions editors, the memory v2 panel, and the
-browser-takeover ask list, Settings (server check, default model, task
-default, pause, nodes pairing with the one-time token, theme, sign out),
-Routines (enable/trial, webhook test), Past chats with the words said, Bot
-talks with the owner composer, Tools tabs, the work dock (max five tabs,
-task timelines, file previews: images decode through the rune cache, CSV/TSV
-draw tables, text renders mono), and the quick switcher (Cmd/Ctrl-K, N).
+all four approval cards (decision with Always allow, secret fields to the
+vault, the question card with one-tap options, and the bot-create form with
+its override), Stop while the bot works, Needs you with approve/deny and
+parked retry, Now (working/finished/goals/files), Crew and bot profiles with
+pill tabs including the Persona/Instructions editors, the memory v2 panel,
+the eval cases, and the browser-takeover ask list, Settings (server check,
+default model, task default, pause, nodes pairing with the one-time token,
+theme, sign out), Routines (enable/trial, webhook test), Past chats with the
+words said, Bot talks with the owner composer, Tools tabs with the skills
+overview (per-bot namespaces, detail with the enable switch, proposal
+verdicts) and vault, org teams (create, pages with rename, the bots whose
+home they are), the work dock (max five tabs, task timelines, file previews:
+images decode through the rune cache, CSV/TSV draw tables, text renders
+mono), and the quick switcher (Cmd/Ctrl-K, N).
 
 Behind the web: the lens's expanded per-kind bodies (shaped search/HTTP/
 terminal views — rows carry titles and details only), file previews' toolbar
-(source/wrap/copy/download/fullscreen), skill panels' bodies and proposals,
-org admin (teams, grants, templates), evals/tests panels, the takeover live
-cast (SSE; the desktop lists asks), reactions the owner sets (the web only
-shows the bot's), message-level reactions beyond the bot chips, and the
-bot-create approval variant. Web Push is replaced by the OS; `docs/WEB.md`
-remains the behavior authority for everything both clients share.
+(source/wrap/copy/download/fullscreen), org grants and templates, eval RUNS
+(the cases list reads here), the takeover live cast (SSE; the desktop lists
+asks), reactions the owner sets (the web only shows the bot's), and
+per-field editors on the deeper settings forms. Web Push is replaced by the
+OS; `docs/WEB.md` remains the behavior authority for everything both clients
+share.
