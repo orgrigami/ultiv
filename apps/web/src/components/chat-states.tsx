@@ -10,14 +10,14 @@ import { BotAvatar, type ChatBot } from "@/components/chat-header";
 import { Mark } from "@/components/state-mark";
 import { SUGGESTIONS } from "@/components/composer";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ChatSkeleton() {
-  const bar = "bg-muted/70 animate-pulse rounded-lg";
   return (
     <li aria-hidden className="flex flex-col gap-3 pt-2">
-      <div className={`${bar} h-10 w-2/3 self-start`} />
-      <div className={`${bar} h-8 w-1/2 self-end`} />
-      <div className={`${bar} h-16 w-3/4 self-start`} />
+      <Skeleton className="h-10 w-2/3 self-start" />
+      <Skeleton className="h-8 w-1/2 self-end" />
+      <Skeleton className="h-16 w-3/4 self-start" />
     </li>
   );
 }

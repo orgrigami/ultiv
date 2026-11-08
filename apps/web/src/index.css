@@ -137,6 +137,9 @@
      2xl 20px (cards, rows) · 3xl 25px (sheets, the work pane, empty states);
      pills are rounded-full. Motion: 120-200ms, never on with reduced motion. */
   --radius: 0.625rem;
+  /* The phone tab bar's height; the bar, the chat's --chat-bottom and every
+     page's bottom reserve all read this one value. */
+  --tabbar-h: 4rem;
   --sidebar: var(--gray-1);
   --sidebar-foreground: var(--gray-12);
   --sidebar-primary: var(--primary);

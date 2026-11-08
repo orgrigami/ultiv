@@ -135,7 +135,7 @@ function Body({ item }: { item: WorkItem }) {
       );
     case "room":
       return (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
           <RoomTimeline roomId={item.roomId} />
         </div>
       );

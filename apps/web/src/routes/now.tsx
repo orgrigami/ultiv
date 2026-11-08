@@ -23,7 +23,7 @@ function NowPage() {
   const { reloadNeeds, needsCount } = useApp();
   useEffect(() => void reloadNeeds(), [reloadNeeds]);
   return (
-    <Page title="Now" lead="What waits on you, what's running, and what just landed.">
+    <Page wide title="Now" lead="What waits on you, what's running, and what just landed.">
       <section aria-label="Needs you" className="flex flex-col gap-2">
         <SectionHeader
           title={
@@ -36,10 +36,16 @@ function NowPage() {
         />
         <NeedsList compact />
       </section>
-      <RunningSection />
-      <FinishedSection />
-      <GoalsSection />
-      <FilesSection />
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <div className="flex flex-col gap-4">
+          <RunningSection />
+          <FinishedSection />
+        </div>
+        <div className="flex flex-col gap-4">
+          <GoalsSection />
+          <FilesSection />
+        </div>
+      </div>
     </Page>
   );
 }

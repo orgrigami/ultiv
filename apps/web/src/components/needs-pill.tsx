@@ -23,7 +23,7 @@ export function NeedsPill({
   return (
     <RowButton
       onClick={() => openWork({ kind: "needs" })}
-      className="chrome-float press animate-in fade-in slide-in-from-bottom-1 flex min-h-11 max-w-[min(28rem,100%)] items-center gap-2 self-center rounded-full px-4 text-sm duration-200 motion-reduce:animate-none"
+      className="chrome-float press animate-in fade-in slide-in-from-bottom-1 flex min-h-11 max-w-md items-center gap-2 self-center rounded-full px-4 text-sm duration-200 motion-reduce:animate-none"
     >
       <ShieldQuestionIcon aria-hidden className="text-signal size-4 shrink-0" />
       <span className="min-w-0 truncate font-medium">{needsPillLabel(items)}</span>

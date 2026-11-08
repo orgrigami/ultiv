@@ -50,7 +50,7 @@ export function BotSwitcher({
           <span className="flex min-w-0 flex-col text-left leading-tight">
             <span className="truncate text-sm font-medium">{name}</span>
             {home !== null && (
-              <span className="text-muted-foreground truncate text-xs">{home}</span>
+              <span className="text-muted-foreground truncate text-xs max-sm:hidden">{home}</span>
             )}
           </span>
           <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
