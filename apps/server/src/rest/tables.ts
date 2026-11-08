@@ -22,6 +22,7 @@ export interface TableView {
 export async function tableRoutes(args: RouteArgs): Promise<boolean> {
   const { req, mind, path, json } = args;
   const method = req.method ?? "GET";
+  if (path !== "/api/tables" && path.match(/^\/api\/tables\/[^/]+$/) === null) return false;
   const profileId = new URL(req.url ?? "", "http://local").searchParams.get("profile");
   if (profileId === null || profileId === "") {
     json(400, { error: "name a bot: /api/tables?profile=<id>" });

@@ -8,6 +8,16 @@
  */
 import { errorOf, type RouteArgs } from "./types.ts";
 import type { TakeoverAct } from "@spriessen/ext";
+import { can } from "./can.ts";
+
+/** The caller holds this conversation's controls: the can() decision, never a label comparison. */
+const holds = (args: RouteArgs, conversationId: string): boolean => {
+  const scope = args.mind.profiles.scopeOf(conversationId);
+  return (
+    scope !== undefined &&
+    can(args.owner, "change", { type: "chat", owner: scope.owner, id: conversationId })
+  );
+};
 
 /** The row enriched with the asking bot, for the Crew tab. */
 const rowFor = async (
@@ -26,12 +36,10 @@ const rowFor = async (
   };
 };
 
-const ownedRow = async (args: RouteArgs, id: string) => {
+const ownedRow = (args: RouteArgs, id: string) => {
   const row = args.mind.browserTakeovers?.get(id);
   if (row === undefined) return undefined;
-  const scope = args.mind.profiles.scopeOf(row.conversationId);
-  if (scope === undefined || scope.owner !== args.owner) return undefined;
-  return row;
+  return holds(args, row.conversationId) ? row : undefined;
 };
 
 export async function takeoverRoutes(args: RouteArgs): Promise<boolean> {
@@ -46,16 +54,13 @@ export async function takeoverRoutes(args: RouteArgs): Promise<boolean> {
   }
   if (path === "/api/browser/takeover" && method === "GET") {
     const rows = mind.browserTakeovers.list();
-    const mine = rows.filter((row) => {
-      const scope = mind.profiles.scopeOf(row.conversationId);
-      return scope !== undefined && scope.owner === args.owner;
-    });
+    const mine = rows.filter((row) => holds(args, row.conversationId));
     json(200, { takeovers: await Promise.all(mine.map((row) => rowFor(args, row))) });
     return true;
   }
   const act = path.match(/^\/api\/browser\/takeover\/([^/]+)\/act$/);
   if (act !== null && method === "POST") {
-    const row = await ownedRow(args, decodeURIComponent(act[1] ?? ""));
+    const row = ownedRow(args, decodeURIComponent(act[1] ?? ""));
     if (row === undefined) {
       json(404, { error: "that takeover is no longer open" });
       return true;
@@ -91,7 +96,7 @@ export async function takeoverRoutes(args: RouteArgs): Promise<boolean> {
   }
   const finish = path.match(/^\/api\/browser\/takeover\/([^/]+)\/finish$/);
   if (finish !== null && method === "POST") {
-    const row = await ownedRow(args, decodeURIComponent(finish[1] ?? ""));
+    const row = ownedRow(args, decodeURIComponent(finish[1] ?? ""));
     if (row === undefined) {
       json(404, { error: "that takeover is no longer open" });
       return true;
@@ -102,7 +107,7 @@ export async function takeoverRoutes(args: RouteArgs): Promise<boolean> {
   }
   const remove = path.match(/^\/api\/browser\/takeover\/([^/]+)$/);
   if (remove !== null && method === "DELETE") {
-    const row = await ownedRow(args, decodeURIComponent(remove[1] ?? ""));
+    const row = ownedRow(args, decodeURIComponent(remove[1] ?? ""));
     if (row === undefined) {
       json(404, { error: "that takeover is no longer open" });
       return true;

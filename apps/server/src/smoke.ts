@@ -441,13 +441,26 @@ expect(
   "rooms never appear in sessions",
   allSessions.json.every((row: { kind: string }) => row.kind !== "room"),
 );
-const said = await call(
+const said = await fetch(`${base}/api/rooms/${roomId}/say`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ to: rid, text: "supervision ping" }),
+});
+expect("speaking in a bot talk needs the owner's session", said.status === 401);
+const spoken = await call(
   "POST",
   `/api/rooms/${roomId}/say`,
   { to: rid, text: "supervision ping" },
   headers,
 );
-expect("bot talks are read-only to humans", said.status === 404);
+expect("the owner can speak into a bot talk", spoken.status === 200 && spoken.json.ok === true);
+const stranger = await call(
+  "POST",
+  `/api/rooms/${roomId}/say`,
+  { to: "not-a-participant", text: "nope" },
+  headers,
+);
+expect("the owner addresses a participant only", stranger.status === 400);
 const cancelled = await call("POST", `/api/mailbox/${message.envelope.id}/cancel`, {}, headers);
 expect("no human cancel in a bot talk", cancelled.status === 404);
 
