@@ -38,3 +38,13 @@ export const cancelledText = (entry: MailboxEntry, toName: string): string =>
 
 export const replySignalText = (toName: string, id: string, roomId: string): string =>
   `[reply from ${toName} • re: ${id}]\n\n${toName} finished their turn without sending a reply. If you need their answer, read the room with the room tool (room id: ${roomId}) and follow up with them. Otherwise conclude here for your owner.`;
+
+/**
+ * The owner's line into a room, as the addressed bot reads it. The `[owner]`
+ * prefix is what the memory guard reads as the OWNER's voice (guard.ts), so
+ * what the owner says here keeps owner authority — that is the point.
+ */
+export const ownerRoomWakeText = (topic: string, body: string): string =>
+  `[owner] in the bot talk "${topic}": ${body}\n\n(The owner is speaking to you through this ` +
+  "talk. They read your main chat: answer there when the answer is for them; use the message " +
+  "tool when the other bot should hear it too.)";

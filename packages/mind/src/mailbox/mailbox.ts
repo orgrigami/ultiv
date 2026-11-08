@@ -14,7 +14,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { MailboxEntry, MailboxEnvelope, MailboxList, RoomInfo } from "@spriessen/contracts";
-import { scrubSecrets } from "@spriessen/core";
+import { InvalidInput, scrubSecrets } from "@spriessen/core";
 import {
   armDeadline,
   cancelEntry,
@@ -33,10 +33,11 @@ import {
   validateSend,
 } from "./policy.ts";
 import { checkOnTopic } from "./topic.ts";
+import { ownerRoomWakeText } from "./text.ts";
 import type { MailboxOrigin } from "./policy.ts";
 import { recover, type RecoveryReport } from "./recovery.ts";
 import { normalizeTopic } from "../profiles/rooms.ts";
-import { isExternal, onEntriesChanged, readEntries, writeEntries } from "./store.ts";
+import { isExternal, onEntriesChanged, readEntries, run, writeEntries } from "./store.ts";
 
 export {
   EXTERNAL_RATE_PER_HOUR,
@@ -71,6 +72,11 @@ export interface MailboxSendInput {
 
 /** The speaker name for a bot that no longer exists (room view + room tool). */
 export const REMOVED_BOT = "Removed bot";
+
+/** The owner's seat id in a room transcript (never a profile id). */
+export const OWNER_ID = "owner";
+/** How the owner's seat reads in the room view. */
+export const OWNER_NAME = "You";
 
 /**
  * An admitted entry, plus the rollover marker: when the send landed in a
@@ -122,6 +128,19 @@ export interface MailboxService {
   readonly purgeProfile: (owner: string, profileId: string) => Promise<number>;
   /** Cancel a pending message; the sender is told. A finished one is returned unchanged. */
   readonly cancel: (owner: string, id: string) => Promise<MailboxEntry>;
+  /**
+   * The owner speaks into a room: the line lands in the room's transcript
+   * (from "owner") and wakes ONLY the addressed bot, in its endpoint
+   * conversation for the room, framed so the memory guard reads the OWNER's
+   * voice. No delivery engine, no NACK: the owner is present.
+   */
+  readonly ownerSay: (input: {
+    readonly owner: string;
+    readonly room: RoomInfo;
+    /** The addressed bot (a participant): the only one woken. */
+    readonly to: string;
+    readonly text: string;
+  }) => Promise<MailboxEntry>;
   /**
    * Stop propagation: cancel every pending message SENT from these
    * conversations (a stopped work tree), without waking the sender. Returns
@@ -277,6 +296,7 @@ const transcriptOf =
   async (owner: string, room: RoomInfo): Promise<readonly TranscriptLine[]> => {
     const entries = await readEntries(e.deps.converse);
     const nameOf = async (id: string): Promise<string> => {
+      if (id === OWNER_ID) return OWNER_NAME;
       if (isExternal(id)) return id.replace(/^external:/, "");
       return (await e.deps.profiles.get(owner, id))?.name ?? REMOVED_BOT;
     };
@@ -285,7 +305,9 @@ const transcriptOf =
         (candidate) =>
           (candidate.owner ?? "") === owner &&
           candidate.envelope.topic === room.topic &&
-          room.participants.includes(candidate.envelope.from) &&
+          // The owner's own lines (ownerSay) share the room's transcript.
+          (candidate.envelope.from === OWNER_ID ||
+            room.participants.includes(candidate.envelope.from)) &&
           room.participants.includes(candidate.envelope.to),
       )
       .sort((a, b) => a.envelope.at - b.envelope.at);
@@ -310,6 +332,72 @@ export const mailboxService = (deps: MailboxDeps): MailboxService => {
   const service: MailboxService = {
     ...sendOps(e),
     transcriptOf: transcriptOf(e),
+    ownerSay: async ({ owner, room, to, text }) => {
+      if (!room.participants.includes(to)) {
+        throw new InvalidInput({ reason: "that bot is not in this bot talk" });
+      }
+      const body = text.trim().slice(0, 20_000);
+      if (body === "") throw new InvalidInput({ reason: "the message is empty" });
+      const envelope: MailboxEnvelope = {
+        id: randomUUID(),
+        chain: [],
+        from: OWNER_ID,
+        to,
+        kind: "notify",
+        replyTo: null,
+        ...(room.topic !== "" ? { topic: room.topic } : {}),
+        body,
+        artifacts: [],
+        at: Date.now(),
+      };
+      const entry: MailboxEntry = {
+        envelope,
+        // "replied" reads as settled (nothing owed): the wake happened, and
+        // whether the bot answers is its own turn, not a delivery state.
+        status: "replied",
+        retries: 0,
+        deliveredAt: Date.now(),
+        settledAt: Date.now(),
+        error: null,
+        owner,
+        origin: "human",
+        originConversation: null,
+        senderNotified: true,
+      };
+      await writeEntries(converse, (items) => [...items, entry]);
+      e.deps.audit.record({
+        at: Date.now(),
+        kind: "mailbox",
+        conversationId: "mailbox",
+        profile: to,
+        callId: envelope.id,
+        name: "owner-say",
+        durationMs: null,
+        ok: true,
+        error: null,
+      });
+      // Wake ONLY the addressed bot, at its endpoint for this room, framed
+      // with the owner prefix the memory guard reads as the owner's voice.
+      // The owner is present: no retries, no deadlines, no NACKs.
+      const endpoint = await endpointFor(e, owner, room, to, await readEntries(converse)).catch(
+        () => undefined,
+      );
+      const chat = endpoint === undefined ? undefined : await run(converse.open(endpoint));
+      if (chat !== undefined) {
+        const submission = await run(
+          converse.submit(
+            chat,
+            ownerRoomWakeText(room.topic, body),
+            "followUp",
+            `room-owner:${envelope.id}`,
+          ),
+        );
+        void run(converse.settle(chat, submission)).catch((cause: unknown) => {
+          console.error("owner room wake failed:", cause);
+        });
+      }
+      return entry;
+    },
     endpointOf: (owner, room, profileId) =>
       readEntries(converse).then((entries) => endpointFor(e, owner, room, profileId, entries)),
     list: async (owner) => {

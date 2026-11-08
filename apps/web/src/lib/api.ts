@@ -290,6 +290,8 @@ export const api = {
     ),
   room: (id: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/${encodeURIComponent(id)}`),
+  roomSay: (id: string, text: string, to: string): Promise<{ ok: boolean }> =>
+    send<{ ok: boolean }>(`/api/rooms/${encodeURIComponent(id)}/say`, "POST", { text, to }),
   roomByEnvelope: (envelopeId: string): Promise<RoomDetail> =>
     getJson<RoomDetail>(`/api/rooms/by-envelope/${encodeURIComponent(envelopeId)}`),
   mcpServers: (): Promise<McpServerList> => getJson<McpServerList>("/api/mcp/servers"),

@@ -93,3 +93,34 @@ export async function roomRoutes(args: RouteArgs): Promise<boolean> {
   json(200, await roomDetail(args, room));
   return true;
 }
+
+/**
+ * The owner speaks into a bot talk (POST /api/rooms/:id/say { text, to }):
+ * the line joins the room's transcript under the owner's seat and wakes ONLY
+ * the addressed bot (a participant), framed as the owner's voice for the
+ * memory guard. Another owner's room is a 404 like a missing one.
+ */
+export async function roomSayRoutes(args: RouteArgs): Promise<boolean> {
+  const { req, mind, path, json } = args;
+  const match = path.match(/^\/api\/rooms\/([^/]+)\/say$/);
+  if (match === null || (req.method ?? "") !== "POST") return false;
+  const room = await mind.rooms.get(args.owner, decodeURIComponent(match[1] ?? ""));
+  if (room === undefined) {
+    json(404, { error: "That bot talk no longer exists." });
+    return true;
+  }
+  const body = await args.readJson<{ text?: unknown; to?: unknown }>(req);
+  const text = typeof body?.text === "string" ? body.text : "";
+  const to = typeof body?.to === "string" ? body.to : "";
+  if (text.trim() === "" || to === "") {
+    json(400, { error: "send { text, to } — which bot the words are for" });
+    return true;
+  }
+  try {
+    const entry = await mind.mailbox.ownerSay({ owner: args.owner, room, to, text });
+    json(200, { ok: true, id: entry.envelope.id });
+  } catch (cause) {
+    json(400, { error: (cause as { reason?: string }).reason ?? "that didn't work" });
+  }
+  return true;
+}
