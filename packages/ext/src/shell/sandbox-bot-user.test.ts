@@ -93,6 +93,22 @@ describe("bootScript (root, per boot)", () => {
     // Running it twice is the same script: the guards decide.
     expect(bootScript(undefined, { gid: 10_001 })).toBe(script);
   });
+
+  it("an open home (netOpen) boots the DoH DNS bridge, pinned first, never fatal", () => {
+    const script = bootScript(undefined, undefined, true);
+    expect(script).toContain(".spriessen-dnsd.py");
+    expect(script).toContain("dns-query");
+    // Pinned FIRST in resolv.conf; a failed pin warns instead of failing the boot.
+    expect(script).toContain("sed -i '1i nameserver 127.0.0.1' /etc/resolv.conf");
+    expect(script).toContain("|| echo 'spriessen-setup-warn: dns bridge resolv.conf pin' >&2");
+    // Running it twice is the same script: the guards decide.
+    expect(bootScript(undefined, undefined, true)).toBe(script);
+  });
+
+  it("an allowlist home (the default) never installs the bridge", () => {
+    expect(bootScript(undefined)).not.toContain("spriessen-dnsd");
+    expect(bootScript(10_001, { gid: 10_002 })).not.toContain("dns-query");
+  });
 });
 
 describe("botProvisionScript (root, idempotent, per bot)", () => {

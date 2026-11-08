@@ -241,7 +241,7 @@ export const sandboxShellBackend =
       const user = options.user;
       const teams = options.teamShared?.teams ?? [];
       const script = [
-        bootScript(options.sharedGid, options.orgShared),
+        bootScript(options.sharedGid, options.orgShared, options.netOpen === true),
         ...(teams.length > 0 ? [teamStoreProvisionScript(teams)] : []),
         ...(teams.length > 0
           ? [teamGroupReconcileScript(teams, options.teamShared?.users ?? [])]

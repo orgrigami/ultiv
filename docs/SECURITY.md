@@ -479,6 +479,17 @@ while ingress stays denied. This turns the sandbox's network isolation OFF
 for that home: treat its bots accordingly, and expect nothing in the threat
 model's network claims to hold while it is on. The flag is part of the same
 create-time fingerprint, so flipping it recreates the VM at its next use.
+Open homes also boot an in-guest DoH DNS bridge (`shell/dns-bridge.ts`:
+`/tmp/.spriessen-dnsd.py` on `127.0.0.1:53`, forwarding over
+DNS-over-HTTPS), pinned first in `/etc/resolv.conf` with the runtime's
+gateway resolver kept after it — a workaround for the runtime's forwarder
+being observed to answer NXDOMAIN for every name for hours while 443
+egress kept working (8 Nov 2026). It never runs on allowlist homes, where
+the gateway resolver IS the enforcement of the host list. Open homes also
+boot with the TLS interception list emptied (`interceptedPorts([])` in
+`allowlistNetwork`): an open home denies nothing, so interception has no
+job there and its runtime CA only broke clients whose trust store lacks it
+(chromium: `ERR_CERT_AUTHORITY_INVALID`).
 TLS interception is bypassed for the policy's allow rules, so a bot's TLS to
 an allowlisted host is end to end — no CA is installed in the guest — while
 a DENIED host gets an explicit refusal (probe-verified: an off-list or

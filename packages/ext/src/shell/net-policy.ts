@@ -136,13 +136,31 @@ export const specDrift = (sandboxName: string, spec: VmSpec, file?: string): boo
 export const allowlistNetwork = (
   network: {
     policy: (policy: NetworkPolicy) => unknown;
-    tls: (configure: (tls: { bypass: (pattern: string) => unknown }) => unknown) => unknown;
+    tls: (
+      configure: (tls: {
+        bypass: (pattern: string) => unknown;
+        interceptedPorts: (ports: number[]) => unknown;
+      }) => unknown,
+    ) => unknown;
   },
   hosts: readonly string[],
   open = false,
 ): unknown => {
   const withPolicy = network.policy(allowlistPolicy(hosts, open)) as typeof network;
-  return withPolicy.tls((tls: { bypass: (pattern: string) => unknown }) => tls.bypass("*"));
+  return withPolicy.tls(
+    (tls: {
+      bypass: (pattern: string) => unknown;
+      interceptedPorts: (ports: number[]) => unknown;
+    }) => {
+      const bypassed = tls.bypass("*") as {
+        interceptedPorts: (ports: number[]) => unknown;
+      };
+      // An open home denies nothing, so TLS interception has no job there —
+      // and its runtime-CA MITM breaks every client whose trust store lacks
+      // that CA (chromium: ERR_CERT_AUTHORITY_INVALID). Off entirely.
+      return open ? bypassed.interceptedPorts([]) : bypassed;
+    },
+  );
 };
 
 /** Where the last policy a VM was CREATED with is recorded. */

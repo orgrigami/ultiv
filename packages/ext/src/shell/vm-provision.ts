@@ -22,6 +22,7 @@ import {
   setfaclStep,
   warnOnFail,
 } from "./setup-steps.ts";
+import { dnsBridgeBootSteps } from "./dns-bridge.ts";
 
 export { SETUP_FATAL, SETUP_FATAL_CODE, SETUP_WARN, setfaclStep, warnOnFail };
 import { clearAppliedFingerprint, type VmSpec } from "./net-policy.ts";
@@ -111,10 +112,16 @@ export const HIDEPID_SCRIPT = [
   `grep -Eq '^proc /proc proc [^ ]*hidepid=(2|invisible)' /proc/mounts || { echo '${SETUP_FATAL} hidepid not in effect' >&2; exit ${SETUP_FATAL_CODE}; }`,
 ].join("\n");
 
-/** The root boot script: hidepid=2 on /proc, the shared folder, the org-wide folder. */
+/**
+ * The root boot script: hidepid=2 on /proc, the shared folder, the org-wide
+ * folder, and — on an OPEN home only — the in-guest DoH DNS bridge (see
+ * shell/dns-bridge.ts: the runtime's gateway resolver is the enforcement on
+ * allowlist homes and stays the only resolver there).
+ */
 export const bootScript = (
   sharedGid: number | undefined,
   orgShared?: { readonly gid: number; readonly readOnly?: boolean },
+  netOpen = false,
 ): string =>
   [
     // Each bot sees only its own processes; a bot cannot undo the remount.
@@ -147,6 +154,9 @@ export const bootScript = (
                 setfaclStep(ORG_GROUP, ORG_SHARED_DIR),
               ]),
         ]),
+    // The DoH bridge rides along on open homes only (dns-bridge.ts): never
+    // where the gateway resolver enforces the allowlist.
+    ...(netOpen ? dnsBridgeBootSteps() : []),
   ].join("\n");
 
 /**

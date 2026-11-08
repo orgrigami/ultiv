@@ -9,7 +9,8 @@
  * /tmp under umask 077; the shared-folder group mechanism; supplementary
  * groups for a numeric uid:gid; org-shared read-only in a team VM;
  * no /home/team-shared there; a new team folder appearing live in
- * the org VM; no network path between VMs; the cap remount; recreate.
+ * the org VM; no network path between VMs; the cap remount; recreate;
+ * the netOpen DoH bridge carrying resolution alone.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
@@ -264,6 +265,38 @@ suite(`real VM isolation (${REAL ? "verifying" : "NOT VERIFIED: set SPRIESSEN_RE
         "getent hosts example.com >/dev/null && echo resolved || echo failed",
       );
       expect(resolved.stdout.trim()).toBe("resolved");
+    },
+    T,
+  );
+
+  it(
+    "a netOpen VM keeps resolving when only the DoH bridge is left (the gateway-resolver outage of 8 Nov 2026)",
+    async () => {
+      const name = `spriessen-rvt-open-${tag}`;
+      const d = sandboxShellBackend({ name, guestRoot: userA.home, netOpen: true })(
+        join(scratch, "e"),
+      );
+      try {
+        const bridge = await sh(d, "pgrep -f spriessen-dnsd.py >/dev/null && echo up || echo down");
+        expect(bridge.stdout.trim()).toBe("up");
+        const pin = await sh(d, "head -1 /etc/resolv.conf");
+        expect(pin.stdout).toContain("nameserver 127.0.0.1");
+        // The outage: the runtime's gateway resolver answers NXDOMAIN for
+        // every name while 443 egress keeps working. Simulate the VM having
+        // no gateway path at all — resolution must still work over the bridge.
+        await sh(
+          d,
+          "cp /etc/resolv.conf /etc/resolv.conf.rvt && printf 'nameserver 127.0.0.1\\n' > /etc/resolv.conf",
+        );
+        const sole = await sh(
+          d,
+          "getent hosts example.com >/dev/null && echo resolved || echo failed",
+        );
+        expect(sole.stdout.trim()).toBe("resolved");
+      } finally {
+        await sh(d, "mv /etc/resolv.conf.rvt /etc/resolv.conf").catch(() => {});
+        await destroySandbox(name).catch(() => {});
+      }
     },
     T,
   );

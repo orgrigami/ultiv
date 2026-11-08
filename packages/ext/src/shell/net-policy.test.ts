@@ -106,20 +106,45 @@ describe("the applied-fingerprint marker (a change recreates the VM)", () => {
 });
 
 describe("allowlistNetwork (the network() seam the VM boots with)", () => {
-  it("applies the home's policy and bypasses TLS interception", () => {
+  const recorder = () => {
     const calls: string[] = [];
     const network = {
       policy: (_policy: unknown): unknown => {
         calls.push("policy");
         return network;
       },
-      tls: (configure: (tls: { bypass: (pattern: string) => unknown }) => unknown): unknown => {
+      tls: (
+        configure: (tls: {
+          bypass: (pattern: string) => unknown;
+          interceptedPorts: (ports: number[]) => unknown;
+        }) => unknown,
+      ): unknown => {
         calls.push("tls");
-        return configure({ bypass: (pattern) => calls.push(`bypass:${pattern}`) as unknown });
+        return configure({
+          bypass: (pattern) => {
+            calls.push(`bypass:${pattern}`);
+            return {
+              interceptedPorts: (ports: number[]) =>
+                calls.push(`interceptedPorts:${ports.join(",")}`) as unknown,
+            };
+          },
+          interceptedPorts: (ports) => calls.push(`interceptedPorts:${ports.join(",")}`) as unknown,
+        });
       },
     };
+    return { calls, network };
+  };
+
+  it("applies the home's policy and bypasses TLS interception", () => {
+    const { calls, network } = recorder();
     allowlistNetwork(network as never, ["api.example.com"]);
     expect(calls).toEqual(["policy", "tls", "bypass:*"]);
+  });
+
+  it("an OPEN home also empties the interception list (nothing to deny there)", () => {
+    const { calls, network } = recorder();
+    allowlistNetwork(network as never, [], true);
+    expect(calls).toEqual(["policy", "tls", "bypass:*", "interceptedPorts:"]);
   });
 });
 
