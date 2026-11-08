@@ -41,17 +41,28 @@ const signIn = await fetch(`${base}/api/auth/sign-in`, {
 const cookie = (signIn.headers.get("set-cookie") ?? "").split(";")[0];
 if (!cookie) throw new Error("no cookie");
 
-const bot = await (await fetch(`${base}/api/profiles`, {
-  method: "POST",
-  headers: { "content-type": json, cookie },
-  body: JSON.stringify({ name: "Sable", description: "The first bot; it answers and keeps the books." }),
-})).json();
-const second = await (await fetch(`${base}/api/profiles`, {
-  method: "POST",
-  headers: { "content-type": json, cookie },
-  body: JSON.stringify({ name: "Quill", description: "Files reports and watches the webhooks." }),
-})).json();
-const main = await (await fetch(`${base}/api/profiles/${bot.id}/main`, { headers: { cookie } })).json();
+const bot = await (
+  await fetch(`${base}/api/profiles`, {
+    method: "POST",
+    headers: { "content-type": json, cookie },
+    body: JSON.stringify({
+      name: "Sable",
+      description: "The first bot; it answers and keeps the books.",
+    }),
+  })
+).json();
+const second = await (
+  await fetch(`${base}/api/profiles`, {
+    method: "POST",
+    headers: { "content-type": json, cookie },
+    body: JSON.stringify({ name: "Quill", description: "Files reports and watches the webhooks." }),
+  })
+).json();
+const main = await (
+  await fetch(`${base}/api/profiles/${bot.id}/main`, { headers: { cookie } })
+).json();
 
-console.log(`E2E ${JSON.stringify({ base, cookie, bot: bot.id, second: second.id, main: main.id })}`);
+console.log(
+  `E2E ${JSON.stringify({ base, cookie, bot: bot.id, second: second.id, main: main.id })}`,
+);
 setInterval(() => {}, 10_000);

@@ -9,6 +9,7 @@
 # launcher that runs the CLI with the repo's own Node (the one `vp node`
 # resolves from mise.toml) — never whatever `node` happens to be first on
 # PATH. `spriessen update` pulls and re-runs it. Everything goes through vp.
+# The desktop app builds only when DESKTOP_APP_ACTIVE=1 (needs cargo).
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -18,7 +19,7 @@ while [ $# -gt 0 ]; do
 	case "$1" in
 	--prefix) PREFIX=$2; shift 2 ;;
 	--uninstall) UNINSTALL=1; shift ;;
-	-h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	-h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	*) echo "install-cli: unknown option $1 (try --help)" >&2; exit 1 ;;
 	esac
 done
@@ -50,9 +51,17 @@ step() {
 }
 
 cd "${REPO}"
-step "1/4 Installing dependencies..." "${VP}" install --frozen-lockfile
-step "2/4 Building the web app..." "${VP}" -C apps/web build
-step "3/4 Building the spriessen command..." "${VP}" -C apps/cli build
+# The desktop app (apps/desktop) is gated: DESKTOP_APP_ACTIVE=1 adds the
+# Rust build step and its install; the default install never needs cargo.
+DESKTOP="${DESKTOP_APP_ACTIVE:-0}"
+STEPS=4
+[ "${DESKTOP}" = "1" ] && STEPS=5
+step "1/${STEPS} Installing dependencies..." "${VP}" install --frozen-lockfile
+step "2/${STEPS} Building the web app..." "${VP}" -C apps/web build
+step "3/${STEPS} Building the spriessen command..." "${VP}" -C apps/cli build
+if [ "${DESKTOP}" = "1" ]; then
+	step "4/${STEPS} Building the desktop app..." sh scripts/build-desktop.sh
+fi
 NODE=$("${VP}" node -e 'process.stdout.write(process.execPath)')
 NODE_VERSION=$("${NODE}" -p 'process.versions.node')
 case "${NODE_VERSION}" in
@@ -64,7 +73,7 @@ case "${NODE_VERSION}" in
 	;;
 esac
 
-echo "4/4 Writing ${TARGET}..."
+echo "${STEPS}/${STEPS} Writing ${TARGET}..."
 mkdir -p "${PREFIX}"
 cat >"${TARGET}" <<EOF
 #!/bin/sh

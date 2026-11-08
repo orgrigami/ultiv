@@ -9,6 +9,7 @@ This file is the rulebook for working in the repo. The detail lives in `docs/`:
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                       | where everything lives, package by package (core, ext, mind faculties, server routes, CLI, agent) |
 | [docs/FEATURES.md](docs/FEATURES.md)                                               | each feature's rule and the files that keep it (tasks, approvals, deadlines, branching, evals, …) |
 | [docs/WEB.md](docs/WEB.md)                                                         | the web client: routes, components, styling tokens, the tool-call lens, file previews             |
+| [docs/DESKTOP.md](docs/DESKTOP.md)                                                 | the desktop client: the Rune app, its gate, the chord sidecar, headless checks, parity status     |
 | [docs/PROVIDERS.md](docs/PROVIDERS.md)                                             | models.dev catalog, provider wiring, efforts, compaction, Jev                                     |
 | [docs/NAMING.md](docs/NAMING.md)                                                   | Spriessen vs. the kept `ultiv` names, departments → teams, and what must never be renamed         |
 | [docs/SECURITY.md](docs/SECURITY.md), [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | owner scoping, path confinement, VM isolation, nodes, tokens; what isolation claims               |
@@ -53,7 +54,7 @@ Keep them true: a change that moves behaviour updates the doc that describes it 
 - `vp test` — Vitest from the root over every workspace's tests (`packages/about`, `packages/contracts`, `packages/core`, `packages/ext`, `packages/mind`, `apps/server`, `apps/web`, `apps/agent`, `apps/cli` — the CLI's TUI tests render headless through OpenTUI's test renderer; one package: `vp run --filter @spriessen/core test` — `apps/web` has no `test` script, so filter by path there: `vp test apps/web`).
 - `vp -C apps/web build` — production build of `apps/web` (root `vp build` needs the `-C` target; `vpr build` wraps this and the CLI build).
 - `vp -C apps/cli build` — the `spriessen` command's bundle (`apps/cli/dist`, every package import external): plain Node then runs the TSX terminal UI through `apps/cli/bin/spriessen.mjs`. Without it, `vp node apps/cli/src/main.ts …` runs every command except the UI, and `vpx apps/cli/src/main.ts` runs the UI from source. Docs: `docs/CLI.md`.
-- `scripts/install.sh` — the one-line `curl … | sh` installer: clones (or fast-forwards) the source into `~/.spriessen/sources`, creates `~/.spriessen/.env` (0600, fresh `VAULT_KEY`) once, then runs install-cli.sh. `spriessen update` / `spriessen data [move]` are the CLI's own update and data commands.
+- `scripts/install.sh` — the one-line `curl … | sh` installer: clones (or fast-forwards) the source into `~/.spriessen/sources`, creates `~/.spriessen/.env` (0600, fresh `VAULT_KEY`) once, then runs install-cli.sh. `spriessen update` / `spriessen data [move]` are the CLI's own update and data commands; `spriessen update --force` reruns the whole install even when current. `DESKTOP_APP_ACTIVE=1` adds the desktop build (Rust/cargo) to install-cli.sh (`scripts/build-desktop.sh`); the default install never needs it (`cd apps/desktop && cargo test` is that crate's own gate — docs/DESKTOP.md).
 - `sh scripts/install-cli.sh` — installs the `spriessen` command from this checkout (dependencies, both builds, a launcher in `~/.local/bin` pinned to the Node `vp node` resolves; `--prefix`, `--uninstall`). A shell script on purpose: `vp node` cannot run inside a nested `vp run`.
 - `vp run smoke` — boots the whole server stack on an ephemeral port, offline (`apps/server/src/smoke.ts`; delegates to the server workspace script because `vp node` cannot resolve node inside a nested `vp run`), and exercises the REST surface: owner-scoped sessions, artifact upload/download, webhook auth, cron validation, task spawn.
 - `vp install --frozen-lockfile` — verifies the lockfile is in sync and passes supply-chain policy.
@@ -86,6 +87,7 @@ Not run automatically (long-running or live):
 | `apps/web`                                    | React 19 + TanStack Router + shadcn on Base UI + Tailwind 4 client (docs/WEB.md)                                                                            |
 | `apps/cli`                                    | the `spriessen` command: line commands, the OpenTUI terminal UI, serve/daemon/node (docs/CLI.md)                                                            |
 | `apps/agent`                                  | the node agent behind bash's `node` target                                                                                                                  |
+| `apps/desktop`                                | the Rune desktop client (Rust): REST + `/push` + a Node chord sidecar; gated by `DESKTOP_APP_ACTIVE=1` (docs/DESKTOP.md)                                    |
 
 ## Rules that cut across features
 

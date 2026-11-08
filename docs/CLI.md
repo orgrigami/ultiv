@@ -49,8 +49,11 @@ and the service files where systemd/launchd require them. `spriessen data`
 prints every location. Backing up is copying `~/.spriessen` minus `sources/`.
 
 **Updating:** `spriessen update` fetches, fast-forwards the source, rebuilds
-and restarts any installed daemon; `--check` only lists what is new. Running
-the install line again does the same. Neither merges, rebases or touches your
+and restarts any installed daemon; `--check` only lists what is new;
+`--force` reruns the whole install even when the checkout is already current
+(a full rebuild, the desktop build included when `DESKTOP_APP_ACTIVE=1`,
+skipping nothing for being up to date). Running the install line again does
+the same. Neither merges, rebases or touches your
 edits: with uncommitted changes, local commits, a detached HEAD or no
 upstream they say why and change nothing.
 

@@ -369,9 +369,9 @@ const HOST: readonly CommandSpec[] = [
     name: "update",
     group: "Host",
     summary: "pull the checkout, rebuild, restart daemons",
-    usage: ["update [--check]"],
-    flags: { check: "only list what is new" },
-    booleans: ["check"],
+    usage: ["update [--check] [--force]"],
+    flags: { check: "only list what is new", force: "rebuild even when already current" },
+    booleans: ["check", "force"],
     run: async (parsed) => (await import("./commands/update.ts")).updateCommand(parsed),
   },
   {

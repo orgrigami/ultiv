@@ -28,7 +28,15 @@ try {
   ({ Session } = await import("@spriessen/contracts"));
 } catch {
   const apps = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-  const entry = path.join(apps, "server", "node_modules", "@spriessen", "contracts", "src", "index.ts");
+  const entry = path.join(
+    apps,
+    "server",
+    "node_modules",
+    "@spriessen",
+    "contracts",
+    "src",
+    "index.ts",
+  );
   ({ Session } = await import(pathToFileURL(entry).href));
 }
 
@@ -109,7 +117,17 @@ async function reopen(id) {
           queued: opened.queued.get() ?? [],
         },
       });
-    for (const cell of [opened.transcript, opened.phase, opened.lastError, opened.pending, opened.usage, opened.model, opened.effort, opened.conversationId, opened.queued]) {
+    for (const cell of [
+      opened.transcript,
+      opened.phase,
+      opened.lastError,
+      opened.pending,
+      opened.usage,
+      opened.model,
+      opened.effort,
+      opened.conversationId,
+      opened.queued,
+    ]) {
       record.unsubs.push(cell.subscribe(relay));
     }
     relay();
@@ -164,7 +182,12 @@ async function handle(msg) {
         approved: Boolean(msg.approved),
         ...(msg.always ? { always: true } : {}),
       });
-      send({ op: "decided", id: msg.id, callId: msg.callId, stored: result?.stored?.length ?? null });
+      send({
+        op: "decided",
+        id: msg.id,
+        callId: msg.callId,
+        stored: result?.stored?.length ?? null,
+      });
       return;
     }
     case "interrupt": {

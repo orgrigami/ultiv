@@ -1,12 +1,15 @@
 /**
- * `spriessen update [--check]`: bring this install up to date from its git
- * checkout. Fetches, then only fast-forwards — it never merges, rebases or
- * touches local edits: a checkout with changes to tracked files, a detached
- * HEAD, no upstream, or local commits the upstream lacks is left alone with
- * a sentence saying why. After the pull it re-runs scripts/install-cli.sh
- * (the NEW one, so install changes ship too) into the folder this launcher
- * lives in, and restarts each installed daemon (server, node) so they run
- * the new code. `--check` stops after saying what is new.
+ * `spriessen update [--check] [--force]`: bring this install up to date from
+ * its git checkout. Fetches, then only fast-forwards — it never merges,
+ * rebases or touches local edits: a checkout with changes to tracked files, a
+ * detached HEAD, no upstream, or local commits the upstream lacks is left
+ * alone with a sentence saying why. After the pull it re-runs
+ * scripts/install-cli.sh (the NEW one, so install changes ship too) into the
+ * folder this launcher lives in, and restarts each installed daemon (server,
+ * node) so they run the new code. `--check` stops after saying what is new.
+ * `--force` re-runs the whole install even when the checkout is already
+ * current — a rebuild, and (with DESKTOP_APP_ACTIVE=1) the desktop build —
+ * without skipping any step for being up to date.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -105,25 +108,34 @@ const show = (plan: Extract<Plan, { kind: "behind" }>): void => {
 export const updateCommand = async (parsed: Parsed): Promise<number> => {
   const repo = repoRoot();
   const git = realRun(repo);
+  const force = boolFlag(parsed, "force");
   const plan = planUpdate(git);
   if (plan.kind === "blocked") {
     console.error(plan.why);
     return 1;
   }
-  if (plan.kind === "current") {
+  if (plan.kind === "current" && boolFlag(parsed, "check")) {
     console.log(`Already up to date (${plan.branch}).`);
     return 0;
   }
-  show(plan);
-  if (boolFlag(parsed, "check")) {
-    console.log("Run `spriessen update` to install them.");
+  if (plan.kind === "current" && !force) {
+    console.log(`Already up to date (${plan.branch}). Rebuild anyway with --force.`);
     return 0;
   }
-  if (git("git", ["merge", "--ff-only", "--quiet", "@{u}"]) === undefined) {
-    console.error(
-      "The pull didn't fast-forward cleanly; nothing was changed. Try `git pull` in the checkout.",
-    );
-    return 1;
+  if (plan.kind === "current") {
+    console.log(`Already up to date (${plan.branch}); rebuilding anyway (--force).`);
+  } else {
+    show(plan);
+    if (boolFlag(parsed, "check")) {
+      console.log("Run `spriessen update` to install them.");
+      return 0;
+    }
+    if (git("git", ["merge", "--ff-only", "--quiet", "@{u}"]) === undefined) {
+      console.error(
+        "The pull didn't fast-forward cleanly; nothing was changed. Try `git pull` in the checkout.",
+      );
+      return 1;
+    }
   }
   const install = spawnSync(
     "sh",
