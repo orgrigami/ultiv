@@ -63,7 +63,9 @@ function link() {
     host.connect(webSocketLink(socket), { principal: { kind: "guest" } });
     send({ op: "link", status: "live" });
     for (const id of refs.keys()) reopen(id);
-    for (const id of pendingAttach.splice(0)) reopen(id);
+    const waiting = [...pendingAttach];
+    pendingAttach.clear();
+    for (const id of waiting) reopen(id);
   });
   socket.addEventListener("close", () => {
     for (const ref of refs.values()) release(ref);
@@ -93,6 +95,41 @@ function release(ref) {
   }
 }
 
+// The presentation lens: tool entries ride the web's own owner words.
+let presentationOf = null;
+async function loadLens() {
+  try {
+    ({ presentationOf } = await import("@spriessen/present/tool-text"));
+  } catch {
+    const apps = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const entry = path.join(
+      apps,
+      "server",
+      "node_modules",
+      "@spriessen",
+      "present",
+      "src",
+      "tool-text.ts",
+    );
+    ({ presentationOf } = await import(pathToFileURL(entry).href));
+  }
+}
+
+// Project one transcript entry for the Rust side: tool steps carry the
+// presentation (hidden ones drop out), everything else passes as is.
+function project(entries) {
+  if (!Array.isArray(entries)) return entries;
+  return entries
+    .map((entry) => {
+      if (entry?.kind !== "tool") return entry;
+      if (presentationOf === null) return entry;
+      const presentation = presentationOf(entry.step);
+      if (presentation.kind === "hidden") return null;
+      return { ...entry, presentation: presentation.view };
+    })
+    .filter((entry) => entry !== null);
+}
+
 async function reopen(id) {
   const held = refs.get(id)?.held ?? {};
   releaseOrForget(id);
@@ -106,7 +143,7 @@ async function reopen(id) {
         id,
         loaded: opened.conversationId.get() !== null,
         state: {
-          transcript: opened.transcript.get() ?? [],
+          transcript: project(opened.transcript.get() ?? []),
           phase: opened.phase.get() ?? "idle",
           lastError: opened.lastError.get() ?? null,
           pending: opened.pending.get() ?? null,
@@ -221,4 +258,7 @@ async function handle(msg) {
 }
 
 send({ op: "ready" });
+loadLens().catch(() => {
+  // Without the lens the tool rows still show their plain words.
+});
 link();

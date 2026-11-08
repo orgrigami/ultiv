@@ -2,6 +2,9 @@
 //! the web's own chord client) and speaks JSON lines to it. Events land in
 //! the net inbox; sends go through the sidecar's stdin.
 
+// Every event variant carries the sidecar line's full shape.
+#![allow(dead_code)]
+
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::{Arc, Mutex};

@@ -6,6 +6,8 @@ use crate::net::{Job, Net};
 use std::collections::HashMap;
 
 /// The four nav sections plus their screens, mirroring `lib/nav.ts`.
+// Some variants wait for their screens (the parity list in docs/DESKTOP.md).
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Route {
     /// `/`: the current bot's main chat (or the onboarding when no bots).
@@ -45,6 +47,8 @@ pub enum ProfileTab {
 }
 
 impl ProfileTab {
+    /// The URL id the web uses for this tab (?tab=…).
+    #[allow(dead_code)]
     pub fn id(self) -> &'static str {
         match self {
             ProfileTab::Overview => "overview",
@@ -77,6 +81,7 @@ impl ProfileTab {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_id(id: &str) -> ProfileTab {
         match id {
             "instructions" => ProfileTab::Instructions,
@@ -148,6 +153,7 @@ pub enum Gate {
 
 /// One work-dock tab (`lib/work-stack.ts` kinds).
 #[derive(Clone, Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum DockTab {
     Task(String),
     File(String),
@@ -201,6 +207,7 @@ pub struct App {
     pub push: &'static str,
     pub theme: ThemeMode,
     /// The composer's draft, kept per open chat (cleared on send).
+    #[allow(dead_code)]
     pub draft: String,
     /// The quick switcher's state while open.
     pub switcher: Option<Switcher>,
@@ -226,6 +233,8 @@ pub struct App {
     pub chat_loaded: bool,
     pub chat_phase: String,
     pub chat_session: Option<String>,
+    /// The chat's own gated call waiting on the owner (Session.pending).
+    pub chat_pending: Option<serde_json::Value>,
     pub chat_draft: rune::TextEdit,
     pub room_draft: rune::TextEdit,
     pub history_query: rune::TextEdit,
@@ -233,6 +242,8 @@ pub struct App {
     pub previews: HashMap<String, String>,
     /// The quick switcher's query field.
     pub switcher_edit: rune::TextEdit,
+    /// The onboarding card's bot-name field.
+    pub onboard_name: rune::TextEdit,
 }
 
 /// One message the transcript holds, projected from a chord transcript entry.
@@ -241,26 +252,58 @@ pub struct ChatMessage {
     pub role: String,
     pub text: String,
     pub streaming: bool,
+    /// Tool rows: the lens's one-line detail, and the duration word.
+    pub detail: Option<String>,
+    pub duration: Option<String>,
 }
 
 impl ChatMessage {
-    /// From a contracts TranscriptEntry: input/output are the two voices,
-    /// notes render quiet; tool rows arrive later through the lens.
+    /// From a contracts TranscriptEntry. Tool rows arrive already projected
+    /// through `@spriessen/present` (the sidecar runs the lens); a tool entry
+    /// without its presentation passes as plain words.
     pub fn of(entry: &serde_json::Value) -> Option<ChatMessage> {
         let kind = entry.get("kind")?.as_str()?;
-        let (role, words, streaming) = match kind {
-            "input" => ("user", entry.get("text")?.as_str()?, false),
-            "output" => (
+        let plain = |role: &str, words: &str, streaming: bool| {
+            Some(ChatMessage {
+                role: role.into(),
+                text: words.into(),
+                streaming,
+                detail: None,
+                duration: None,
+            })
+        };
+        match kind {
+            "input" => plain("user", entry.get("text")?.as_str()?, false),
+            "output" => plain(
                 "assistant",
                 entry.get("text")?.as_str()?,
                 entry.get("streaming").and_then(serde_json::Value::as_bool).unwrap_or(false),
             ),
-            "note" => ("note", entry.get("text")?.as_str()?, false),
-            "thinking" => ("thinking", entry.get("text")?.as_str()?, false),
-            _ => return None,
-        };
-        Some(ChatMessage { role: role.into(), text: words.into(), streaming })
+            "note" => plain("note", entry.get("text")?.as_str()?, false),
+            "thinking" => plain("thinking", entry.get("text")?.as_str()?, false),
+            "tool" => tool_message(entry),
+            _ => None,
+        }
     }
+}
+
+/// A tool row from the lens's view: title by status, detail, duration word.
+fn tool_message(entry: &serde_json::Value) -> Option<ChatMessage> {
+    let view = entry.get("presentation")?;
+    let running = entry["step"]["status"] == "running";
+    let title = if running { view.get("live")? } else { view.get("done")? }.as_str()?.to_string();
+    let detail = view.get("detail").and_then(serde_json::Value::as_str).map(String::from);
+    let duration = entry["step"]["durationMs"]
+        .as_f64()
+        .filter(|ms| *ms >= 3000.0)
+        .map(|ms| format!("{:.0}s", (ms / 1000.0).round()));
+    Some(ChatMessage {
+        role: "tool".into(),
+        text: title,
+        streaming: running,
+        detail,
+        duration,
+    })
 }
 
 impl Default for App {
@@ -318,11 +361,13 @@ impl Default for App {
             chat_loaded: false,
             chat_phase: "idle".into(),
             chat_session: None,
+            chat_pending: None,
             chat_draft: rune::TextEdit::new(String::new()),
             room_draft: rune::TextEdit::new(String::new()),
             history_query: rune::TextEdit::new(String::new()),
             previews: HashMap::new(),
             switcher_edit: rune::TextEdit::new(String::new()),
+            onboard_name: rune::TextEdit::new(String::new()),
         }
     }
 }
@@ -360,6 +405,7 @@ impl App {
     }
 
     /// The bot a session belongs to, by id.
+    #[allow(dead_code)]
     pub fn bot_of_session(&self, session_id: &str) -> Option<&ProfileInfo> {
         let profile = self.sessions.iter().find(|s| s.id == session_id)?.profile.clone();
         self.profiles.iter().find(|p| p.id == profile)
@@ -374,6 +420,7 @@ impl App {
     }
 
     /// Running and queued task count (the busy set the chrome derives).
+    #[allow(dead_code)]
     pub fn busy_count(&self) -> usize {
         self.tasks.iter().filter(|t| t.status == "running" || t.status == "queued").count()
     }

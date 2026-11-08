@@ -35,7 +35,7 @@ pub fn run(shared: std::sync::Arc<Shared>) {
             }
             Err(e) => {
                 shared.inbox.lock().unwrap().push_back(Event::PushStatus("connecting"));
-                let _ = e;
+                shared.inbox.lock().unwrap().push_back(Event::Done("push".into(), false, Some(e)));
             }
         }
         // A generation bump means new auth: reconnect at once, else back off.
@@ -73,12 +73,12 @@ fn wait_backoff(shared: &std::sync::Arc<Shared>, secs: u64) -> bool {
 type Ws = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
 
 fn connect(auth: &super::api::Auth) -> Result<Ws, String> {
+    use tungstenite::client::IntoClientRequest;
     let url = push_url(&auth.server);
-    let request = tungstenite::handshake::client::Request::builder()
-        .uri(&url)
-        .header("Cookie", auth.cookie.clone().unwrap_or_default())
-        .body(())
-        .map_err(|e| e.to_string())?;
+    let mut request = url.into_client_request().map_err(|e| e.to_string())?;
+    request
+        .headers_mut()
+        .insert("Cookie", auth.cookie.clone().unwrap_or_default().parse().map_err(|e| format!("{e}"))?);
     tungstenite::connect(request).map(|(ws, _)| ws).map_err(|e| e.to_string())
 }
 

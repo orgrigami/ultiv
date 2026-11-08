@@ -50,6 +50,7 @@ fn apply_bridge(app: &mut App) -> bool {
                     let entries = state.get("transcript").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
                     app.chat = entries.iter().filter_map(crate::state::ChatMessage::of).collect();
                     app.chat_phase = state.get("phase").and_then(serde_json::Value::as_str).unwrap_or("idle").to_string();
+                    app.chat_pending = state.get("pending").filter(|p| !p.is_null()).cloned();
                     changed = true;
                 }
             }
@@ -307,6 +308,23 @@ fn done(app: &mut App, tag: String, ok: bool, msg: Option<String>) {
         }
         app.toast = Some("Saved".into());
         app.toast_at = Some(now_millis());
+        // The mutations that change a cache refresh it right away.
+        if tag.starts_with("create-profile:") || tag.starts_with("patch-profile:") {
+            app.net.fetch(Fetch::Profiles);
+            app.net.fetch(Fetch::Sessions);
+        } else if tag.starts_with("cron") {
+            app.net.fetch(Fetch::Cron);
+        } else if tag.starts_with("hook") {
+            app.net.fetch(Fetch::Webhooks);
+        } else if tag == "pause" || tag == "set-model" || tag == "set-tasks-max" {
+            app.net.fetch(Fetch::Settings);
+        } else if tag.starts_with("cancel:") || tag.starts_with("retry:") {
+            app.net.fetch(Fetch::Tasks);
+            app.net.fetch(Fetch::NeedsYou);
+        } else if tag.starts_with("decide:") {
+            app.net.fetch(Fetch::Approvals);
+            app.net.fetch(Fetch::NeedsYou);
+        }
         return;
     }
     if let Some(m) = msg {

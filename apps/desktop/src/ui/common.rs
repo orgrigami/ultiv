@@ -76,7 +76,7 @@ pub fn section_label(words: &str, dark: bool) -> El {
 /// The one card-of-rows container: `rounded-xl` with `p-1` (named-thing lists).
 pub fn list_card(dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    el().key("list").w_full().padding(space::S1).radius(15.0).fill(t.card).border(1.0, t.hairline)
+    col().key("list").w_full().padding(space::S1).radius(15.0).fill(t.card).border(1.0, t.hairline)
 }
 
 /// One row inside a list card: a 56px two-line row that hovers and presses.
@@ -193,6 +193,7 @@ pub fn is_dark(s: &App, cx: &Cx<App>) -> bool {
 }
 
 /// The rows' shared motion (the web's 120-200 ms world).
+#[allow(dead_code)]
 pub fn row_motion() -> rune::Spring {
     motion::SNAPPY
 }

@@ -9,6 +9,7 @@ use rune::{col, el, text, Color, El};
 use rune_kit::{Button, ButtonVariant, IconButton};
 use rune::Icon;
 
+#[allow(dead_code)]
 pub static PLUS: Icon = Icon {
     name: "sp-plus",
     view: 16.0,
@@ -19,6 +20,7 @@ pub static SEARCH: Icon = Icon {
     view: 16.0,
     body: r#"<circle cx="7" cy="7" r="4" stroke="currentColor" stroke-width="1.75" fill="none"/><path d="M10 10l3 3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>"#,
 };
+#[allow(dead_code)]
 pub static CLOCK: Icon = Icon {
     name: "sp-clock",
     view: 16.0,

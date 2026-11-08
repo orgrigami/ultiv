@@ -51,6 +51,7 @@ pub mod ty {
     pub const TITLE: TextStyle = TextStyle::new(20.0, 500.0).lh(28.0);
     /// Readouts and code: mono, tabular figures.
     pub const MONO: TextStyle = TextStyle::new(13.0, 400.0).lh(16.0).mono();
+    #[allow(dead_code)]
     pub const MONO_MED: TextStyle = TextStyle::new(13.0, 500.0).lh(16.0).mono();
 }
 
@@ -76,7 +77,9 @@ pub struct Tokens {
     /// `--muted`: the owner's message card ground.
     pub muted: Color,
     /// `--primary` and its ink: where the owner acts.
+    #[allow(dead_code)]
     pub primary: Color,
+    #[allow(dead_code)]
     pub primary_fg: Color,
     /// `--ring`.
     pub ring: Color,
@@ -191,6 +194,7 @@ pub fn kit(dark: bool) -> Kit {
 
 /// The kit plus the core `Theme` for hand-drawn surfaces (the chrome the kit
 /// doesn't cover), as the settings example pairs them.
+#[allow(dead_code)]
 pub fn painted(dark: bool) -> (Kit, Theme, Tokens) {
     (kit(dark), rune::tok::theme(dark), tokens(dark))
 }

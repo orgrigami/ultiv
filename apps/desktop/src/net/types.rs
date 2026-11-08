@@ -2,6 +2,10 @@
 //! (camelCase, optional fields as the contracts opt them). The long tail of
 //! admin payloads stays `serde_json::Value` and extracts at its view.
 
+// Every struct keeps the wire's full shape even where a screen reads a slice
+// of it yet; the unread fields are for the screens still to come.
+#![allow(dead_code)]
+
 use serde::Deserialize;
 
 fn null<T>() -> Option<T> {

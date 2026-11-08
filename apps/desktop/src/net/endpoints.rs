@@ -1,6 +1,10 @@
 //! Endpoint dispatch: the fetches and mutations the screens ask for, one
 //! arm each, straight over `api::Client`. Mirrors `apps/server/src/rest`.
 
+// The endpoint table covers the whole REST surface the web client uses, so
+// a few arms wait for their screens.
+#![allow(dead_code)]
+
 use super::api::{ApiResult, Client, Verb};
 use serde_json::json;
 
@@ -60,6 +64,7 @@ pub enum Mutation {
     PatchCron { id: String, enabled: bool },
     TryCron(String),
     TestWebhook(String),
+    CreateProfile { name: String, description: Option<String> },
 }
 
 fn path_of(f: &Fetch) -> String {
@@ -133,6 +138,7 @@ pub fn tag_of(m: &Mutation) -> String {
         Mutation::PatchCron { id, .. } => format!("cron:{id}"),
         Mutation::TryCron(id) => format!("cron-try:{id}"),
         Mutation::TestWebhook(id) => format!("hook-test:{id}"),
+        Mutation::CreateProfile { name, .. } => format!("create-profile:{name}"),
     }
 }
 
@@ -190,5 +196,11 @@ pub fn run_mutation(client: &Client, m: &Mutation) -> ApiResult<serde_json::Valu
         Mutation::TestWebhook(id) => {
             super::api::send_value(client, Verb::Post, &format!("/api/webhooks/{id}/test"), json!({ "payload": { "test": true } }))
         }
+        Mutation::CreateProfile { name, description } => super::api::send_value(
+            client,
+            Verb::Post,
+            "/api/profiles",
+            json!({ "name": name, "description": description }),
+        ),
     }
 }

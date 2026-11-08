@@ -25,11 +25,8 @@ fn setup(s: &mut App, waker: rune::Waker) {
     s.bridge.spawn(waker, &s.server, s.cookie.as_deref().unwrap_or(""));
 }
 
-fn poll(s: &mut App, now: f64, tx: &mut rune::Tx) -> bool {
+fn poll(s: &mut App, _now: f64, tx: &mut rune::Tx) -> bool {
     let events = s.net.take();
-    if std::env::var("SPRIESSEN_TRACE").is_ok() && now < 600.0 {
-        eprintln!("poll: t={now:.2} events={} changed_pre", events.len());
-    }
     let changed = tick(s, events);
     if route_changed(s) {
         update::refresh_route(s);
