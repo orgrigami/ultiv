@@ -21,6 +21,12 @@ pub enum Event {
     Payload(Fetch, serde_json::Value),
     /// A raw-bytes fetch arrived (image previews).
     Bytes(String, Arc<Vec<u8>>),
+    /// One live cast frame (base64 image, its page size and location).
+    CastFrame { id: String, data: String, w: f64, h: f64, url: String, title: String },
+    /// The cast's VM answered; taps act from here.
+    CastReady(String),
+    /// The cast ended (the ask finished, failed or was cancelled).
+    CastClosed(String),
     /// A mutation finished: tag names the caller, ok whether it landed,
     /// and the message carries a failure's words (or the sign-in cookie).
     Done(String, bool, Option<String>),
@@ -57,6 +63,9 @@ pub enum Job {
     Fetch(Fetch),
     Mutate(Mutation, String),
     SetAuth(Auth),
+    Download { id: String, name: String },
+    Cast { id: String },
+    CastAct { id: String, body: serde_json::Value, tag: String },
 }
 
 impl Net {
@@ -92,6 +101,21 @@ impl Net {
     /// `tag` comes back in `Event::Done` so the screen that asked can react.
     pub fn mutate(&self, m: Mutation, tag: &str) {
         let _ = self.tx.send(Job::Mutate(m, tag.to_string()));
+    }
+
+    /// Save an artifact into `~/Downloads/spriessen/`.
+    pub fn download(&self, id: String, name: String) {
+        let _ = self.tx.send(Job::Download { id, name });
+    }
+
+    /// Open the takeover's live cast (its own SSE reader thread).
+    pub fn cast(&self, id: String) {
+        let _ = self.tx.send(Job::Cast { id });
+    }
+
+    /// One owner act on the live view.
+    pub fn cast_act(&self, id: String, body: serde_json::Value, tag: String) {
+        let _ = self.tx.send(Job::CastAct { id, body, tag });
     }
 
     /// Point the worker at a server (and cookie); the push thread reconnects.
@@ -178,6 +202,47 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
                     waker();
                 }
             },
+            Job::Cast { id } => {
+                // Its own thread: the stream never ends while the cast lives.
+                let shared = shared.clone();
+                let waker = waker.clone();
+                let client = client.auth.clone();
+                std::thread::Builder::new()
+                    .name("spriessen-cast".into())
+                    .spawn(move || cast_thread(client, shared, waker, id))
+                    .expect("spawn cast thread");
+            }
+            Job::CastAct { id, body, tag } => {
+                let path = format!("/api/browser/takeover/{id}/cast/act");
+                match api::send_value(&client, api::Verb::Post, &path, body) {
+                    Ok(_) => {
+                        shared.deliver(Event::Done(tag, true, None));
+                        waker();
+                    }
+                    Err(ApiError::Expired) => {
+                        shared.deliver(Event::Expired);
+                        waker();
+                    }
+                    Err(ApiError::Failed(msg)) => {
+                        shared.deliver(Event::Done(tag, false, Some(msg)));
+                        waker();
+                    }
+                }
+            }
+            Job::Download { id, name } => match download(&client, &id, &name) {
+                Ok(path) => {
+                    shared.deliver(Event::Done(format!("download:{id}"), true, Some(path)));
+                    waker();
+                }
+                Err(ApiError::Expired) => {
+                    shared.deliver(Event::Expired);
+                    waker();
+                }
+                Err(ApiError::Failed(msg)) => {
+                    shared.deliver(Event::Done(format!("download:{id}"), false, Some(msg)));
+                    waker();
+                }
+            },
         }
     }
 }
@@ -190,6 +255,87 @@ fn cookie_of(v: &serde_json::Value) -> Option<String> {
         .and_then(serde_json::Value::as_str)
         .map(String::from)
         .or_else(|| v.get("id").and_then(serde_json::Value::as_str).map(String::from))
+}
+
+/// Fetch the bytes and write them beside the rest of the downloads.
+fn download(client: &api::Client, id: &str, name: &str) -> api::ApiResult<String> {
+    let bytes = api::get_bytes(client, &format!("/api/artifacts/{id}"))?;
+    let dir = std::env::var("HOME")
+        .map(|home| std::path::PathBuf::from(home).join("Downloads").join("spriessen"))
+        .map_err(|_| api::ApiError::Failed("no home folder".into()))?;
+    std::fs::create_dir_all(&dir).map_err(|e| api::ApiError::Failed(format!("{e}")))?;
+    let safe: String = name.chars().map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' }).collect();
+    let path = dir.join(safe);
+    std::fs::write(&path, &bytes).map_err(|e| api::ApiError::Failed(format!("{e}")))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// The cast SSE reader: `event:`/`data:` pairs into typed events, until the
+/// stream closes (which is the cast ending).
+fn cast_thread(auth: Auth, shared: Arc<Shared>, waker: rune::Waker, id: String) {
+    let mut client = api::Client::new();
+    client.auth = auth;
+    let resp = match client.request(api::Verb::Get, &format!("/api/browser/takeover/{id}/cast"), None) {
+        Ok(r) => r,
+        Err(e) => {
+            shared.inbox.lock().unwrap().push_back(Event::Done(format!("cast:{id}"), false, Some(match e {
+                ApiError::Expired => "sign in required".into(),
+                ApiError::Failed(m) => m,
+            })));
+            waker();
+            return;
+        }
+    };
+    let reader = resp.into_body().into_reader();
+    let mut lines = std::io::BufReader::new(reader);
+    let (mut event, mut data) = (String::new(), String::new());
+    loop {
+        let mut line = String::new();
+        match std::io::BufRead::read_line(&mut lines, &mut line) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        let line = line.trim_end_matches(['\n', '\r']);
+        if line.is_empty() {
+            // Dispatch the completed pair.
+            if !event.is_empty() && !data.is_empty() {
+                let payload: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
+                let e = cast_event(&id, &event, payload);
+                shared.inbox.lock().unwrap().push_back(e);
+                waker();
+            }
+            (event, data) = (String::new(), String::new());
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("event: ") {
+            event = rest.to_string();
+        } else if let Some(rest) = line.strip_prefix("data: ") {
+            data = rest.to_string();
+        }
+    }
+    shared.inbox.lock().unwrap().push_back(Event::CastClosed(id));
+    waker();
+}
+
+/// One SSE pair into the event the view consumes.
+fn cast_event(id: &str, event: &str, payload: serde_json::Value) -> Event {
+    match event {
+        "frame" => Event::CastFrame {
+            id: id.to_string(),
+            data: payload.get("data").and_then(serde_json::Value::as_str).unwrap_or("").to_string(),
+            w: payload.get("w").and_then(serde_json::Value::as_f64).unwrap_or(0.0),
+            h: payload.get("h").and_then(serde_json::Value::as_f64).unwrap_or(0.0),
+            url: payload.get("url").and_then(serde_json::Value::as_str).unwrap_or("").to_string(),
+            title: payload.get("title").map(|t| t.to_string()).unwrap_or_default(),
+        },
+        "ready" => Event::CastReady(id.to_string()),
+        "cast-error" => Event::Done(
+            format!("cast:{id}"),
+            false,
+            Some(payload.get("error").and_then(serde_json::Value::as_str).unwrap_or("the cast failed").to_string()),
+        ),
+        _ => Event::CastClosed(id.to_string()),
+    }
 }
 
 impl Fetch {

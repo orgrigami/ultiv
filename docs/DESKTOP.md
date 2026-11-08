@@ -59,30 +59,34 @@ Scenes: `now`, `crew`, `settings`, `routines`, `history`, `rooms`, `tools`,
 
 ## Parity status
 
-Working: sign-in gate (bootstrap and sign-in), rail with roster and Recents,
-Chats with the live chord transcript, send via the composer, the tool-call
-lens rows (the web's owner words through `@spriessen/present` in the
-sidecar), the reaction chips and the Branch button on the owner's messages,
-all four approval cards (decision with Always allow, secret fields to the
-vault, the question card with one-tap options, and the bot-create form with
-its override), Stop while the bot works, Needs you with approve/deny and
-parked retry, Now (working/finished/goals/files), Crew and bot profiles with
-pill tabs including the Persona/Instructions editors, the memory v2 panel,
-the eval cases, and the browser-takeover ask list, Settings (server check,
-default model, task default, pause, nodes pairing with the one-time token,
-theme, sign out), Routines (enable/trial, webhook test), Past chats with the
-words said, Bot talks with the owner composer, Tools tabs with the skills
-overview (per-bot namespaces, detail with the enable switch, proposal
-verdicts) and vault, org teams (create, pages with rename, the bots whose
-home they are), the work dock (max five tabs, task timelines, file previews:
-images decode through the rune cache, CSV/TSV draw tables, text renders
-mono), and the quick switcher (Cmd/Ctrl-K, N).
+**1-on-1 with `apps/web`, mobile mode excepted.** Working, end to end: the
+sign-in gate (bootstrap and sign-in), the rail (wordmark, New chat, Find,
+the four sections, the crew roster, Recents), Chats with the live chord
+transcript (send, queue, Stop, streaming caret), the full tool-call lens —
+owner-worded rows that expand into the shaped per-kind bodies (search hits,
+HTTP round trips, terminal, files, records, pages, raw output, plain lines,
+quoted bodies with tags) and error notes — the reaction chips and Branch on
+the owner's messages, all four approval cards (decision with Always allow,
+secret fields to the vault, the question card with one-tap options, and the
+bot-create form with its override), Needs you (approve/deny, parked retry,
+dismissals), Now (working/finished/goals/files), Crew and bot profiles with
+all eleven pill tabs: overview (make main, hide, unhide), Persona and
+Instructions editors with Save, the memory v2 panel, eval cases with Run
+all and the run history per check, tables, the takeover ask list driving
+the LIVE cast in the dock (frames over SSE, tap/type/nav/reload, Finish and
+Step away), Routines, Access, Files, Activity, Tests, Settings (server
+check, default model, task default, pause, nodes pairing with the one-time
+token, theme, sign out), Routines (enable/trial, webhook test), Past chats
+with the words said, Bot talks with the owner composer, Tools (connectors,
+skills with detail + enable + proposal verdicts, vault), org teams (create,
+rename, the bots whose home they are, published templates with Copy here /
+Unpublish, the org's grants with revoke), the work dock (max five tabs,
+task timelines, file previews: images through the rune cache, CSV/TSV
+tables, markdown rendered or as source, wrap, copy, download to
+`~/Downloads/spriessen/`, fullscreen), and the quick switcher (Cmd/Ctrl-K,
+N, Esc).
 
-Behind the web: the lens's expanded per-kind bodies (shaped search/HTTP/
-terminal views — rows carry titles and details only), file previews' toolbar
-(source/wrap/copy/download/fullscreen), org grants and templates, eval RUNS
-(the cases list reads here), the takeover live cast (SSE; the desktop lists
-asks), reactions the owner sets (the web only shows the bot's), and
-per-field editors on the deeper settings forms. Web Push is replaced by the
-OS; `docs/WEB.md` remains the behavior authority for everything both clients
-share.
+Deliberately different, none of it mobile: the phone tab bar, bottom
+sheets, safe-area chrome and Web Push (the OS owns notifications) do not
+exist on a desktop window; `docs/WEB.md` remains the behavior authority for
+everything both clients share.

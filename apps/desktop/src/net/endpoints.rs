@@ -56,6 +56,12 @@ pub enum Fetch {
     SkillProposals(String),
     /// A bot's saved eval cases.
     Evals(String),
+    /// The eval run history.
+    EvalRuns,
+    /// A team's published templates.
+    Templates(String),
+    /// The org's active vault/connector grants.
+    Grants,
 }
 
 /// The mutations, tagged at the call site so `Event::Done` routes the answer.
@@ -90,6 +96,12 @@ pub enum Mutation {
     CreateTeam(String),
     PatchTeam { id: String, name: String },
     DecideWithInput { conversation: String, call: String, approved: bool, input: serde_json::Value },
+    EvalRun { bot: String, case_ids: Vec<String> },
+    TakeoverFinish(String),
+    TakeoverCancel(String),
+    TemplateCopy { id: String, team: String },
+    TemplateUnpublish(String),
+    RevokeGrant(String),
 }
 
 fn path_of(f: &Fetch) -> String {
@@ -130,6 +142,9 @@ fn path_of(f: &Fetch) -> String {
         Fetch::SkillDetail { profile, name } => format!("/api/skills/{profile}/{name}"),
         Fetch::SkillProposals(profile) => format!("/api/skills/{profile}/proposals"),
         Fetch::Evals(bot) => format!("/api/evals?bot={bot}"),
+        Fetch::EvalRuns => "/api/evals/runs".into(),
+        Fetch::Templates(team) => format!("/api/org/templates?team={team}"),
+        Fetch::Grants => "/api/org/grants".into(),
     }
 }
 
@@ -196,6 +211,12 @@ pub fn tag_of(m: &Mutation) -> String {
         Mutation::CreateTeam(name) => format!("create-team:{name}"),
         Mutation::PatchTeam { id, .. } => format!("patch-team:{id}"),
         Mutation::DecideWithInput { call, .. } => format!("decide:{call}"),
+        Mutation::EvalRun { bot, .. } => format!("eval-run:{bot}"),
+        Mutation::TakeoverFinish(id) => format!("takeover:{id}"),
+        Mutation::TakeoverCancel(id) => format!("takeover:{id}"),
+        Mutation::TemplateCopy { team, .. } => format!("template:{team}"),
+        Mutation::TemplateUnpublish(id) => format!("template:{id}"),
+        Mutation::RevokeGrant(id) => format!("grant:{id}"),
     }
 }
 
@@ -308,5 +329,25 @@ pub fn run_mutation(client: &Client, m: &Mutation) -> ApiResult<serde_json::Valu
             &format!("/api/approvals/{conversation}/{call}"),
             json!({ "approved": approved, "input": input }),
         ),
+        Mutation::EvalRun { bot, case_ids } => super::api::send_value(
+            client,
+            Verb::Post,
+            "/api/evals/run",
+            json!({ "botId": bot, "caseIds": case_ids }),
+        ),
+        Mutation::TakeoverFinish(id) => {
+            super::api::send_value(client, Verb::Post, &format!("/api/browser/takeover/{id}/finish"), json!({}))
+        }
+        Mutation::TakeoverCancel(id) => super::api::send_value(client, Verb::Delete, &format!("/api/browser/takeover/{id}"), json!({})),
+        Mutation::TemplateCopy { id, team } => super::api::send_value(
+            client,
+            Verb::Post,
+            &format!("/api/org/templates/{id}/copy"),
+            json!({ "teamId": team }),
+        ),
+        Mutation::TemplateUnpublish(id) => {
+            super::api::send_value(client, Verb::Delete, &format!("/api/org/templates/{id}"), json!({}))
+        }
+        Mutation::RevokeGrant(id) => super::api::send_value(client, Verb::Delete, &format!("/api/org/grants/{id}"), json!({})),
     }
 }

@@ -83,7 +83,9 @@ pub fn view(s: &App, team_id: &str, dark: bool) -> El {
             common::list_card(dark).children(members)
         })
         .child(common::section_label("Shared folder", dark))
-        .child(text("Team templates and the shared vault live here once the org carries them.".to_string()).font(ty::UI).color(t.muted_fg));
+        .child(templates_section(s, team_id, dark))
+        .child(common::section_label("Vault grants", dark))
+        .child(grants_section(s, dark));
     el()
         .key("team")
         .w_full()
@@ -98,4 +100,112 @@ pub fn view(s: &App, team_id: &str, dark: bool) -> El {
                 .scroll(rune::ScrollSpec { stick_bottom: false })
                 .child(page),
         )
+}
+
+/// The team's published templates: Copy here for the target team, Unpublish
+/// to take it down.
+fn templates_section(s: &App, team_id: &str, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    let k = crate::theme::kit(dark);
+    let Some(templates) = s.templates.get(team_id) else {
+        return common::empty_state("Loading the team's templates…", dark);
+    };
+    if templates.is_empty() {
+        return common::empty_state("Nothing published as a template yet.", dark);
+    }
+    let rows: Vec<El> = templates
+        .iter()
+        .map(|tm| {
+            let name = crate::net::types::row_str(tm, "name");
+            let kind = crate::net::types::row_str(tm, "kind");
+            let id = crate::net::types::row_str(tm, "id");
+            let copy_pair = (id.clone(), team_id.to_string());
+            let unpublish_id = id.clone();
+            el()
+                .key(format!("template:{id}"))
+                .w_full()
+                .min_h(56.0)
+                .px(space::S3)
+                .py(space::S2)
+                .gap(space::S2)
+                .center_y()
+                .child(
+                    col()
+                        .gap(2.0)
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .child(text(if name.is_empty() { "A template".to_string() } else { name }).font(ty::UI_MED).color(t.fg).max_lines(1))
+                        .children((!kind.is_empty()).then(|| text(kind).font(ty::META).color(t.muted_fg))),
+                )
+                .children(std::iter::once(
+                    rune_kit::Button::new("Copy here")
+                        .variant(rune_kit::ButtonVariant::Outline)
+                        .on_press(move |s: &mut App| {
+                            let (id, team) = copy_pair.clone();
+                            let tag = format!("template:{team}");
+                            s.net.mutate(crate::net::endpoints::Mutation::TemplateCopy { id, team }, &tag);
+                        })
+                        .build(&k),
+                ))
+                .children(std::iter::once(
+                    rune_kit::Button::new("Unpublish")
+                        .variant(rune_kit::ButtonVariant::Ghost)
+                        .on_press(move |s: &mut App| {
+                            let id = unpublish_id.clone();
+                            s.net.mutate(crate::net::endpoints::Mutation::TemplateUnpublish(id.clone()), &format!("template:{id}"));
+                        })
+                        .build(&k),
+                ))
+        })
+        .collect();
+    common::list_card(dark).children(rows)
+}
+
+/// The org's active grants, with revoke.
+fn grants_section(s: &App, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    let k = crate::theme::kit(dark);
+    let Some(grants) = &s.grants else {
+        return common::empty_state("Loading the grants…", dark);
+    };
+    if grants.is_empty() {
+        return common::empty_state("No vault or connector grants are live.", dark);
+    }
+    let rows: Vec<El> = grants
+        .iter()
+        .map(|grant| {
+            let id = crate::net::types::row_str(grant, "id");
+            let kind = grant.get("resource").map(|r| crate::net::types::row_str(r, "kind")).unwrap_or_default();
+            let home = grant.get("resource").map(|r| crate::net::types::row_str(r, "home")).unwrap_or_default();
+            let grantee = grant.get("grantee").map(|g| crate::net::types::row_str(g, "team")).unwrap_or_default();
+            let words = if grantee.is_empty() { kind.clone() } else { format!("{kind} → {grantee}") };
+            let revoke_id = id.clone();
+            el()
+                .key(format!("grant:{id}"))
+                .w_full()
+                .min_h(56.0)
+                .px(space::S3)
+                .py(space::S2)
+                .gap(space::S2)
+                .center_y()
+                .child(
+                    col()
+                        .gap(2.0)
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .child(text(if words.is_empty() { "A grant".to_string() } else { words }).font(ty::UI).color(t.fg).max_lines(1))
+                        .children((!home.is_empty()).then(|| text(home).font(ty::META).color(t.muted_fg).max_lines(1))),
+                )
+                .children(std::iter::once(
+                    rune_kit::Button::new("Revoke")
+                        .variant(rune_kit::ButtonVariant::Outline)
+                        .on_press(move |s: &mut App| {
+                            let id = revoke_id.clone();
+                            s.net.mutate(crate::net::endpoints::Mutation::RevokeGrant(id.clone()), &format!("grant:{id}"));
+                        })
+                        .build(&k),
+                ))
+        })
+        .collect();
+    common::list_card(dark).children(rows)
 }

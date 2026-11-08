@@ -160,6 +160,7 @@ pub enum DockTab {
     Memory { profile: String, name: String, query: Option<String> },
     Needs,
     Room(String),
+    Takeover(String),
 }
 
 pub struct App {
@@ -196,6 +197,12 @@ pub struct App {
     pub proposals: HashMap<String, Vec<Row>>,
     /// Saved eval cases by bot id ("all" for the unfiltered list).
     pub evals: HashMap<String, Vec<Row>>,
+    /// The run history, newest first.
+    pub eval_runs: Vec<Row>,
+    /// A team's published templates, by team id.
+    pub templates: HashMap<String, Vec<Row>>,
+    /// The org's active grants.
+    pub grants: Option<Vec<Row>>,
     pub vault: Vec<Row>,
     pub bindings: Vec<Row>,
     pub mcp: Vec<Row>,
@@ -266,6 +273,8 @@ pub struct App {
     pub bot_files_saved: HashMap<String, String>,
     /// The bot's reaction on each owner message (the `react` tool's chips).
     pub chat_reactions: HashMap<String, String>,
+    /// The lens rows expanded past their title (keyed by transcript id).
+    pub lens_open: std::collections::HashSet<String>,
     /// The chat's own gated call waiting on the owner (Session.pending).
     /// The secret card's field editors, by call id (field key + editor).
     pub secret_edits: HashMap<String, Vec<(String, rune::TextEdit)>>,
@@ -273,6 +282,14 @@ pub struct App {
     pub question_edit: rune::TextEdit,
     /// The bot-create card's editable proposal fields, by call id.
     pub bot_create: HashMap<String, BotCreateDraft>,
+    /// Files viewed as source instead of rendered (markdown).
+    pub preview_source: std::collections::HashSet<String>,
+    /// Files viewed wrapped (text kinds).
+    pub preview_wrap: std::collections::HashSet<String>,
+    /// The artifact id in fullscreen, if any.
+    pub fullscreen: Option<String>,
+    /// The live takeover cast the dock is driving.
+    pub cast: Option<Cast>,
     /// The quick switcher's query field.
     pub switcher_edit: rune::TextEdit,
     /// The onboarding card's bot-name field.
@@ -282,6 +299,39 @@ pub struct App {
     /// The team page's rename field, and which team it edits.
     pub team_rename: rune::TextEdit,
     pub team_rename_id: Option<String>,
+}
+
+/// One live browser takeover: the latest frame and where the page sits.
+pub struct Cast {
+    pub id: String,
+    pub data: String,
+    pub w: f64,
+    pub h: f64,
+    pub url: String,
+    pub title: String,
+    pub ready: bool,
+    pub image: Option<rune::Image>,
+    /// The field the owner types into (sends `type` acts).
+    pub typed: rune::TextEdit,
+    /// The address bar (sends `nav` acts).
+    pub nav: rune::TextEdit,
+}
+
+impl Cast {
+    pub fn new(id: String) -> Cast {
+        Cast {
+            id,
+            data: String::new(),
+            w: 0.0,
+            h: 0.0,
+            url: String::new(),
+            title: String::new(),
+            ready: false,
+            image: None,
+            typed: rune::TextEdit::new(String::new()),
+            nav: rune::TextEdit::new(String::new()),
+        }
+    }
 }
 
 /// The three fields the owner most often corrects on a proposed bot.
@@ -309,6 +359,10 @@ pub struct ChatMessage {
     pub duration: Option<String>,
     /// The transcript id (owner messages carry their reaction chip).
     pub id: Option<String>,
+    /// Tool rows: the lens's whole view (structured body, lines, tags).
+    pub view: Option<serde_json::Value>,
+    /// Error rows: the tool's output words, cut for the note.
+    pub error: Option<String>,
 }
 
 impl ChatMessage {
@@ -330,6 +384,8 @@ impl ChatMessage {
                 detail: None,
                 duration: None,
                 id: id.clone(),
+                view: None,
+                error: None,
             })
         };
         match kind {
@@ -351,6 +407,15 @@ impl ChatMessage {
 /// Without a presentation (the lens lives in the sidecar; REST activity steps
 /// arrive raw) the row falls back to plain owner words for the name.
 fn tool_message(entry: &serde_json::Value, id: Option<String>) -> Option<ChatMessage> {
+    let error = (entry["step"]["status"] == "error")
+        .then(|| {
+            entry["step"]["output"]
+                .as_str()
+                .unwrap_or("it failed")
+                .chars()
+                .take(300)
+                .collect::<String>()
+        });
     let running = entry["step"]["status"] == "running";
     let failed = entry["step"]["status"] == "error";
     let name = entry["step"]["name"].as_str().unwrap_or("a tool");
@@ -375,6 +440,8 @@ fn tool_message(entry: &serde_json::Value, id: Option<String>) -> Option<ChatMes
         detail,
         duration,
         id,
+        view: entry.get("presentation").cloned(),
+        error,
     })
 }
 
@@ -408,6 +475,9 @@ impl Default for App {
             skill_detail: None,
             proposals: HashMap::new(),
             evals: HashMap::new(),
+            eval_runs: Vec::new(),
+            templates: HashMap::new(),
+            grants: None,
             vault: Vec::new(),
             bindings: Vec::new(),
             mcp: Vec::new(),
@@ -451,9 +521,14 @@ impl Default for App {
             bot_files: HashMap::new(),
             bot_files_saved: HashMap::new(),
             chat_reactions: HashMap::new(),
+            lens_open: std::collections::HashSet::new(),
             secret_edits: HashMap::new(),
             question_edit: rune::TextEdit::new(String::new()),
             bot_create: HashMap::new(),
+            preview_source: std::collections::HashSet::new(),
+            preview_wrap: std::collections::HashSet::new(),
+            fullscreen: None,
+            cast: None,
             switcher_edit: rune::TextEdit::new(String::new()),
             onboard_name: rune::TextEdit::new(String::new()),
             team_name: rune::TextEdit::new(String::new()),

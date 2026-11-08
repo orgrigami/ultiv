@@ -6,6 +6,7 @@ description = "The Spriessen native desktop client (Rune)"
 publish = false
 
 [dependencies]
+base64 = "0.23.1"
 rune = { git = "https://github.com/anomalyco/rune", rev = "a7f276c3630f85a06a0230295da4d2bd172d8d3b" }
 rune-kit = { git = "https://github.com/anomalyco/rune", rev = "a7f276c3630f85a06a0230295da4d2bd172d8d3b", features = [
   "markdown",

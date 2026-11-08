@@ -94,6 +94,40 @@ fn apply_bridge(app: &mut App) -> bool {
 fn apply_one(app: &mut App, e: Event) -> bool {
     match e {
         Event::Payload(f, v) => payload(app, f, v),
+        Event::CastFrame { id, data, w, h, url, title } => {
+            let is_live = app.cast.as_ref().map(|c| c.id == id).unwrap_or(false);
+            if is_live {
+                let bytes = base64_decode(&data);
+                let image = app.img_cache.as_ref().filter(|_| !bytes.is_empty()).map(|cache| cache.load(bytes));
+                if let Some(cast) = app.cast.as_mut() {
+                    cast.data = data;
+                    cast.w = w;
+                    cast.h = h;
+                    cast.url = url;
+                    cast.title = title;
+                    if image.is_some() {
+                        cast.image = image;
+                    }
+                }
+            }
+            true
+        }
+        Event::CastReady(id) => {
+            if let Some(cast) = app.cast.as_mut() {
+                if cast.id == id {
+                    cast.ready = true;
+                }
+            }
+            true
+        }
+        Event::CastClosed(id) => {
+            if let Some(cast) = &mut app.cast {
+                if cast.id == id {
+                    cast.ready = false;
+                }
+            }
+            true
+        }
         Event::Bytes(id, bytes) => {
             let key = format!("img:{id}");
             if let Some(cache) = app.img_cache.clone() {
@@ -244,6 +278,19 @@ fn payload(app: &mut App, f: Fetch, v: serde_json::Value) -> bool {
         Fetch::Evals(bot) => {
             app.evals.insert(bot, rows(v));
             app.mark_loaded("evals");
+        }
+        Fetch::EvalRuns => {
+            app.eval_runs = rows(v);
+            app.mark_loaded("eval-runs");
+        }
+        Fetch::Templates(team) => {
+            let tag = format!("templates:{team}");
+            app.templates.insert(team, v.get("templates").and_then(serde_json::Value::as_array).cloned().unwrap_or_default());
+            app.mark_loaded(&tag);
+        }
+        Fetch::Grants => {
+            app.grants = Some(rows(v));
+            app.mark_loaded("grants");
         }
         Fetch::Vault => {
             app.vault = rows(v);
@@ -417,6 +464,15 @@ fn done(app: &mut App, tag: String, ok: bool, msg: Option<String>) {
             app.net.fetch(Fetch::Org);
         } else if tag.starts_with("decide:") {
             app.net.fetch(Fetch::Approvals);
+        } else if let Some(bot) = tag.strip_prefix("eval-run:") {
+            let _ = bot;
+            app.net.fetch(Fetch::EvalRuns);
+            app.net.fetch(Fetch::Evals(bot.to_string()));
+        } else if let Some(team) = tag.strip_prefix("template:") {
+            app.net.fetch(Fetch::Org);
+            app.net.fetch(Fetch::Templates(team.to_string()));
+        } else if let Some(_id) = tag.strip_prefix("grant:") {
+            app.net.fetch(Fetch::Grants);
         } else if tag.starts_with("pair-node:") {
             // The answer carries the token; the one time it is ever visible.
             app.node_token = msg.clone();
@@ -502,6 +558,7 @@ pub fn refresh_route(app: &mut App) {
             }
             if *tab == crate::state::ProfileTab::Tests {
                 f.push(Fetch::Evals(id.clone()));
+                f.push(Fetch::EvalRuns);
             }
             f
         }
@@ -554,6 +611,12 @@ fn sync_chat(app: &mut App) -> bool {
 
 fn err_text<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
+}
+
+/// base64 → bytes (the cast's JPEG frames).
+fn base64_decode(text: &str) -> Vec<u8> {
+    use base64::Engine as _;
+    base64::engine::general_purpose::STANDARD.decode(text.trim()).unwrap_or_default()
 }
 
 fn now_millis() -> f64 {

@@ -111,42 +111,132 @@ fn tab_body(s: &App, bot_id: &str, tab: ProfileTab, dark: bool) -> El {
     }
 }
 
-/// The Tests tab: the bot's saved eval cases, each with its reference reply
-/// and the expects. Runs stay on the web client for now; the cases read here.
+/// The Tests tab: the bot's saved eval cases with their reference replies,
+/// a Run-all button, and the run history with per-check words.
 fn tests_tab(s: &App, bot_id: &str, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
+    let k = crate::theme::kit(dark);
     let Some(cases) = s.evals.get(bot_id) else {
         return common::empty_state("Loading the saved cases…", dark);
     };
+    let run_all = rune_kit::Button::new("Run all cases")
+        .variant(rune_kit::ButtonVariant::Submit)
+        .disabled(cases.is_empty())
+        .on_press({
+            let bot = bot_id.to_string();
+            let ids = cases.iter().filter_map(|c| crate::net::types::row_str(c, "id").into()).collect::<Vec<String>>();
+            move |s: &mut App| {
+                let (bot, ids) = (bot.clone(), ids.clone());
+                s.net.mutate(crate::net::endpoints::Mutation::EvalRun { bot: bot.clone(), case_ids: ids }, &format!("eval-run:{bot}"));
+            }
+        })
+        .build(&k);
+    let mut parts: Vec<El> = Vec::new();
     if cases.is_empty() {
-        return common::empty_state("No saved cases yet. Capture one from a chat on the web client.", dark);
+        parts.push(common::empty_state("No saved cases yet. Capture one from a chat on the web client.", dark));
+    } else {
+        let rows: Vec<El> = cases
+            .iter()
+            .map(|c| {
+                let title = crate::net::types::row_str(c, "title");
+                let input = crate::net::types::row_str(c, "input");
+                let reply = c.get("reference").and_then(|r| r.get("reply")).and_then(serde_json::Value::as_str).unwrap_or("");
+                let expects = c.get("expect").and_then(serde_json::Value::as_array).map(Vec::len).unwrap_or(0);
+                el()
+                    .key(format!("eval:{}", crate::net::types::row_str(c, "id")))
+                    .w_full()
+                    .px(space::S3)
+                    .py(space::S2)
+                    .gap(space::S1)
+                    .child(text(if title.is_empty() { "A saved case".into() } else { title }).font(ty::UI_MED).color(t.fg).max_lines(1))
+                    .child(text(input).font(ty::UI).color(t.muted_fg).max_lines(2))
+                    .children((!reply.is_empty()).then(|| {
+                        text(format!("Reference: {reply}")).font(ty::META).color(t.muted_fg).max_lines(2)
+                    }))
+                    .children((expects > 0).then(|| {
+                        text(format!("{expects} check{}", if expects == 1 { "" } else { "s" })).font(ty::META).color(t.live)
+                    }))
+            })
+            .collect();
+        parts.push(common::list_card(dark).children(rows));
     }
-    let rows: Vec<El> = cases
+    parts.push(run_all);
+    parts.push(run_history(s, dark));
+    col().key("tests-tab").gap(space::S3).children(parts)
+}
+
+/// The run history: status, the model, and each case's checks with words.
+fn run_history(s: &App, dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    if !s.has("eval-runs") {
+        return common::empty_state("Loading the runs…", dark);
+    }
+    if s.eval_runs.is_empty() {
+        return common::empty_state("No runs yet.", dark);
+    }
+    let rows: Vec<El> = s
+        .eval_runs
         .iter()
-        .map(|c| {
-            let title = crate::net::types::row_str(c, "title");
-            let input = crate::net::types::row_str(c, "input");
-            let reply = c.get("reference").and_then(|r| r.get("reply")).and_then(serde_json::Value::as_str).unwrap_or("");
-            let expects = c.get("expect").and_then(serde_json::Value::as_array).map(Vec::len).unwrap_or(0);
-            el()
-                .key(format!("eval:{}", crate::net::types::row_str(c, "id")))
-                .w_full()
-                .px(space::S3)
-                .py(space::S2)
-                .gap(space::S1)
-                .child(text(if title.is_empty() { "A saved case".into() } else { title }).font(ty::UI_MED).color(t.fg).max_lines(1))
-                .child(text(input).font(ty::UI).color(t.muted_fg).max_lines(2))
-                .children((!reply.is_empty()).then(|| {
-                    text(format!("Reference: {reply}")).font(ty::META).color(t.muted_fg).max_lines(2)
-                }))
-                .children((expects > 0).then(|| {
-                    text(format!("{expects} check{}", if expects == 1 { "" } else { "s" })).font(ty::META).color(t.live)
-                }))
+        .map(|run| {
+            let status = crate::net::types::row_str(run, "status");
+            let model = crate::net::types::row_str(run, "model");
+            let color = match status.as_str() {
+                "running" => t.live,
+                "failed" => t.deny,
+                "done" => t.success,
+                _ => t.muted_fg,
+            };
+            let mut results: Vec<El> = Vec::new();
+            if let Some(list) = run.get("results").and_then(serde_json::Value::as_array) {
+                for (i, r) in list.iter().enumerate() {
+                    let ok = r.get("ok").and_then(serde_json::Value::as_bool).unwrap_or(false);
+                    let case_id = crate::net::types::row_str(r, "caseId");
+                    let case_title = s
+                        .evals
+                        .values()
+                        .flat_map(|cases| cases.iter())
+                        .find(|c| crate::net::types::row_str(c, "id") == case_id)
+                        .map(|c| crate::net::types::row_str(c, "title"))
+                        .unwrap_or_else(|| case_id.clone());
+                    let failed_checks: Vec<String> = r["checks"]
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default()
+                        .iter()
+                        .filter(|c| c.get("ok").and_then(serde_json::Value::as_bool) != Some(true))
+                        .filter_map(|c| c.get("name").and_then(serde_json::Value::as_str).map(String::from))
+                        .collect();
+                    results.push(
+                        rune::row()
+                            .key(format!("res:{i}"))
+                            .gap(space::S2)
+                            .center_y()
+                            .child(el().key("dot").size(7.0, 7.0).radius(3.5).fill(if ok { t.success } else { t.deny }))
+                            .child(text(case_title).font(ty::UI).color(t.fg).max_lines(1).grow(1.0))
+                            .children((!failed_checks.is_empty()).then(|| {
+                                text(format!("failed: {}", failed_checks.join(", "))).font(ty::META).color(t.deny).max_lines(1)
+                            })),
+                    );
+                }
+            }
+            col()
+                .key(format!("run:{}", crate::net::types::row_str(run, "id")))
+                .gap(space::S2)
+                .child(
+                    rune::row()
+                        .key("run-head")
+                        .gap(space::S2)
+                        .center_y()
+                        .child(text(status.clone()).font(ty::META_MED).color(color))
+                        .children((!model.is_empty()).then(|| text(model).font(ty::MONO).color(t.muted_fg).max_lines(1))),
+                )
+                .children(results)
         })
         .collect();
     col()
-        .key("tests-tab")
-        .gap(space::S3)
+        .key("run-history")
+        .gap(space::S2)
+        .child(common::section_label("Runs", dark))
         .child(common::list_card(dark).children(rows))
 }
 
@@ -392,6 +482,16 @@ fn browser_tab(s: &App, dark: bool) -> El {
                         .children((!url.is_empty()).then(|| text(url).font(ty::MONO).color(t.muted_fg).max_lines(1))),
                 )
                 .child(text("waiting".to_string()).font(ty::META).color(t.live))
+                .children(std::iter::once({
+                    let take_id = crate::net::types::row_str(ask, "id");
+                    rune_kit::Button::new("Take it here")
+                        .variant(rune_kit::ButtonVariant::Submit)
+                        .on_press(move |s: &mut App| {
+                            let take_id = take_id.clone();
+                            crate::ui::open_dock(s, crate::state::DockTab::Takeover(take_id));
+                        })
+                        .build(&crate::theme::kit(dark))
+                }))
         })
         .collect();
     common::list_card(dark).children(rows)

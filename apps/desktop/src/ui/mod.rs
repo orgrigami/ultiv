@@ -3,6 +3,7 @@
 pub mod common;
 pub mod dock;
 pub mod gate;
+pub mod lens;
 pub mod rail;
 pub mod screens;
 pub mod switcher;
@@ -62,6 +63,7 @@ fn shell(s: &App, cx: &mut Cx<App>, dark: bool) -> El {
         .fill(t.background)
         .child(main_row)
         .children(switcher::view(s, dark))
+        .children(dock::fullscreen_view(s, dark))
         .children(toast(s, cx, dark))
 }
 

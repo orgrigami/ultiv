@@ -3184,6 +3184,7 @@ dependencies = [
 name = "spriessen-desktop"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "rune",
  "rune-kit",
  "serde",

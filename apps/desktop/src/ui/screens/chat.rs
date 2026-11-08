@@ -437,7 +437,7 @@ fn transcript_rows(s: &App, dark: bool) -> Vec<El> {
         let key = format!("msg:{i}");
         match m.role.as_str() {
             "user" | "owner" => rows.push(owner_row(s, key, m, dark)),
-            "tool" | "tool-error" => rows.push(tool_row(key, m, dark)),
+            "tool" | "tool-error" => rows.push(tool_row(s, key, m, dark)),
             "note" | "thinking" => rows.push(quiet_row(key, m, dark)),
             _ => rows.push(bot_row(key, m, dark)),
         }
@@ -506,7 +506,7 @@ pub fn bot_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
 
 /// A tool row through the lens: the working mark or the family dot, the
 /// owner-worded title, its detail, and a tabular duration past 3 s.
-pub fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn tool_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
     let dot = if m.streaming {
         t.live
@@ -515,8 +515,14 @@ pub fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     } else {
         t.success
     };
-    rune::row()
-        .key(key)
+    let row_key = m.id.clone().unwrap_or_else(|| key.clone());
+    let open = s.lens_open.contains(&row_key);
+    let more = !m.streaming && crate::ui::lens::has_more(m);
+    let chevron = more.then(|| {
+        text(if open { "▾" } else { "▸" }.to_string()).font(ty::META).color(t.muted_fg)
+    });
+    let mut row = rune::row()
+        .key(format!("row:{row_key}"))
         .w_full()
         .gap(space::S2)
         .center_y()
@@ -526,6 +532,26 @@ pub fn tool_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
             text(d).font(ty::META).color(t.muted_fg).max_lines(1).grow(1.0)
         }))
         .children(m.duration.clone().map(|d| text(d).font(ty::MONO).color(t.muted_fg)))
+        .children(chevron);
+    if more {
+        let toggle_key = row_key.clone();
+        row = row
+            .hover(t.wash(0.04))
+            .focusable(true)
+            .on_press(move |s: &mut App| {
+                let k = toggle_key.clone();
+                if s.lens_open.contains(&k) {
+                    s.lens_open.remove(&k);
+                } else {
+                    s.lens_open.insert(k);
+                }
+            });
+    }
+    col()
+        .key(key)
+        .w_full()
+        .child(row)
+        .children(open.then(|| crate::ui::lens::body(s, m, dark)))
 }
 
 /// The quiet lines: thinking and progress notes.
