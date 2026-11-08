@@ -338,6 +338,18 @@ export const api = {
   settingsModel: (): Promise<SettingsModel> => getJson<SettingsModel>("/api/settings/model"),
   setSettingsModel: (input: { ref: string; effort: string } | null): Promise<SettingsModel> =>
     send<SettingsModel>("/api/settings/model", "PUT", input),
+  settingsFallback: (): Promise<{ fallbackModel: { ref: string; effort: string } | null }> =>
+    getJson<{ fallbackModel: { ref: string; effort: string } | null }>(
+      "/api/settings/fallback-model",
+    ),
+  setSettingsFallback: (
+    input: { ref: string; effort: string } | null,
+  ): Promise<{ fallbackModel: { ref: string; effort: string } | null }> =>
+    send<{ fallbackModel: { ref: string; effort: string } | null }>(
+      "/api/settings/fallback-model",
+      "PUT",
+      input,
+    ),
   settingsTasks: (): Promise<TaskSettings> => getJson<TaskSettings>("/api/settings/tasks"),
   setSettingsTasks: (maxRunningTasks: number | null): Promise<TaskSettings> =>
     send<TaskSettings>("/api/settings/tasks", "PUT", { maxRunningTasks }),

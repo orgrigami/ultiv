@@ -30,17 +30,37 @@ const rig = async (
     limitOf?: () => Promise<number>;
     isPaused?: () => Promise<boolean>;
     spendOf?: () => Promise<{ today: number; budget: number | null }>;
+    fallbackModel?: () => Promise<{ id: string; effort: string } | null>;
     binder?: () => Promise<{ owner: string; profileId: string } | null>;
   } = { limitOf: async () => 1 },
+  extra: {
+    /** The first step throws instead of answering (a dead provider). */
+    readonly failFirst?: boolean;
+    /** A second faux provider (the fallback model rides it). */
+    readonly second?: {
+      readonly faux: ReturnType<typeof fauxProvider>;
+      readonly replies: readonly string[];
+    };
+  } = {},
 ) => {
   const faux = fauxProvider();
   const models = createModels();
   models.setProvider(faux.provider);
+  let secondRef: string | undefined;
+  if (extra.second !== undefined) {
+    models.setProvider(extra.second.faux.provider);
+    extra.second.faux.setResponses(
+      extra.second.replies.map((text) => async () => fauxAssistantMessage(fauxText(text))),
+    );
+    const probe = extra.second.faux.getModel();
+    secondRef = `${probe.provider}/${probe.id}`;
+  }
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
   let started!: () => void;
   const blocked = new Promise<void>((resolve) => (started = resolve));
   const steps: FauxResponseStep[] = replies.map((text, index) => async () => {
+    if (extra.failFirst === true && index === 0) throw new Error("provider down");
     if (index === 0) {
       started();
       await gate;
@@ -72,10 +92,29 @@ const rig = async (
     }
     throw new Error("task never settled");
   };
-  return { harness, tasks, spawn, row, settled, blocked, release };
+  return { harness, tasks, spawn, row, settled, blocked, release, secondRef };
 };
 
 describe("task queue (faux model)", () => {
+  it("a failed run retries once on the fallback model and reports its answer", async () => {
+    const second = fauxProvider();
+    let fallbackRef = "";
+    const r = await rig(
+      ["never"],
+      {
+        limitOf: async () => 1,
+        fallbackModel: async () => ({ id: fallbackRef, effort: "" }),
+      },
+      { failFirst: true, second: { faux: second, replies: ["rescued"] } },
+    );
+    fallbackRef = r.secondRef ?? "";
+    const a = await r.spawn("a");
+    const settled = await r.settled(a.id);
+    expect(settled.status).toBe("done");
+    expect(settled.result).toBe("rescued");
+    await r.harness.close(ctx);
+  });
+
   it("the daily token budget refuses spawns with a sentence, and holds queued ones", async () => {
     const spend = { today: 100, budget: 5_000 as number | null };
     const r = await rig(["first", "second"], {

@@ -27,6 +27,8 @@ export const taskWiring = (
     readonly spendOf?: (
       bot: { readonly owner: string; readonly profileId: string } | null,
     ) => Promise<{ readonly today: number; readonly budget: number | null }>;
+    /** The workspace fallback model, catalog-validated; null = none. */
+    readonly fallbackModel?: () => Promise<{ readonly id: string; readonly effort: string } | null>;
   } = {},
   root: string = artifactsDir(),
 ): TaskWiring => ({
@@ -48,4 +50,5 @@ export const taskWiring = (
     : {}),
   ...(extras.stopJobsOf !== undefined ? { stopJobsOf: extras.stopJobsOf } : {}),
   ...(extras.spendOf !== undefined ? { spendOf: extras.spendOf } : {}),
+  ...(extras.fallbackModel !== undefined ? { fallbackModel: extras.fallbackModel } : {}),
 });

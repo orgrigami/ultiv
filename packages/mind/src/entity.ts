@@ -241,6 +241,13 @@ const mindLayerRaw = (
               budget: profile?.policies.dailyTokenBudget ?? null,
             };
           },
+          fallbackModel: async () => {
+            const stored = await profiles.workspaceFallbackModel().catch(() => null);
+            if (stored === null) return null;
+            return models.find(stored.ref) !== undefined
+              ? { id: stored.ref, effort: stored.effort }
+              : null;
+          },
         }),
       );
       // The search sidecar: derived, rebuildable, closed with the mind.

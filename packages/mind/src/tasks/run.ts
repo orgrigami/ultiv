@@ -5,11 +5,13 @@
  * this module only runs it.
  */
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { Effect } from "effect";
 import { ownerErrorText } from "@spriessen/core";
 import type { TaskInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { findTask, taskConversationKey, updateTask } from "./store.ts";
+import type { TaskModel } from "./model.ts";
 import { settleStructured } from "./structured.ts";
 import { NOT_STARTED, owed, wakeParent, type TaskFile } from "./wake.ts";
 
@@ -54,6 +56,12 @@ export interface TaskWiring {
   readonly spendOf?: (
     bot: TaskBot | null,
   ) => Promise<{ readonly today: number; readonly budget: number | null }>;
+  /**
+   * The workspace fallback model (Settings › Fallback model), validated
+   * against the live catalog; null = none. A failed task run gets ONE
+   * rescue attempt on it (run.ts).
+   */
+  readonly fallbackModel?: () => Promise<TaskModel | null>;
 }
 
 /** Mutable wiring shared by the service's parts. */
@@ -217,6 +225,54 @@ const finishRun = async (
   );
 };
 
+/** One full attempt: the turn, the follower drain, the settled row. */
+const runOnce = async (rt: TaskRuntime, task: TaskInfo, input: string): Promise<void> => {
+  const conversation = await Effect.runPromise(rt.converse.ensure(taskConversationKey(task.id)));
+  const first = await Effect.runPromise(rt.converse.turn(conversation, input));
+  const text = await drainFollowers(rt, task.id, conversation, first.text);
+  await finishRun(rt, task, conversation, text);
+};
+
+const fallbackNote = (ref: string): string =>
+  `[fallback] The usual model could not finish this run; it continues on ${ref} from where the ` +
+  "transcript left off. Before repeating anything that reached outside (a message, a post, a " +
+  "change to files or a service), check whether it already happened.";
+
+/**
+ * One rescue attempt on the workspace fallback model, for a FAILED run: the
+ * overnight story — the default model's provider dying at 3am no longer parks
+ * every task. The conversation's own model is restored afterwards; a rescue
+ * that fails again stands (the row then carries the ORIGINAL failure).
+ */
+const rescueOnFallback = async (rt: TaskRuntime, task: TaskInfo): Promise<boolean> => {
+  if (rt.wiring.fallbackModel === undefined) return false;
+  const fallback = await rt.wiring.fallbackModel().catch(() => null);
+  if (fallback === null) return false;
+  const conversation = await Effect.runPromise(rt.converse.ensure(taskConversationKey(task.id)));
+  const previous = await Effect.runPromise(rt.converse.agentOf(conversation)).catch(
+    () => undefined,
+  );
+  console.warn(`task ${task.id}: retrying once on the fallback model ${fallback.id}`);
+  await Effect.runPromise(
+    rt.converse.configure(conversation, {
+      model: fallback.id,
+      effort: fallback.effort === "" ? null : (fallback.effort as ModelThinkingLevel),
+    }),
+  );
+  try {
+    await runOnce(rt, task, fallbackNote(fallback.id));
+    return true;
+  } finally {
+    // The conversation goes back to its own model, whatever the rescue did.
+    await Effect.runPromise(
+      rt.converse.configure(conversation, {
+        model: previous?.model ?? null,
+        effort: previous?.effort ?? null,
+      }),
+    ).catch(() => undefined);
+  }
+};
+
 /**
  * Settles one run of a task in the background: the registry doc carries the
  * outcome, the spawning conversation is woken with it, and the queue gets
@@ -227,10 +283,11 @@ export const runTask = (rt: TaskRuntime, task: TaskInfo, input: string): void =>
   const { converse } = rt;
   void (async () => {
     try {
-      const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(task.id)));
-      const first = await Effect.runPromise(converse.turn(conversation, input));
-      const text = await drainFollowers(rt, task.id, conversation, first.text);
-      await finishRun(rt, task, conversation, text);
+      try {
+        await runOnce(rt, task, input);
+      } catch (cause) {
+        if (!(await rescueOnFallback(rt, task).catch(() => false))) throw cause;
+      }
     } catch (cause) {
       // The owner reads this in Needs you: a sentence, not the bare tag
       // ("spriessen/External"). The full cause goes to the server log.

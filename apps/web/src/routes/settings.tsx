@@ -19,6 +19,7 @@ import { PushToggle } from "@/components/push-toggle";
 import { OrgSection } from "@/components/org-admin";
 import { NodesPanel } from "@/components/nodes-panel";
 import { WorkspaceDefaultSection } from "@/components/workspace-default";
+import { WorkspaceFallbackSection } from "@/components/workspace-fallback";
 import { TaskDefaultSection } from "@/components/task-default";
 import { PauseSection } from "@/components/pause-section";
 import { Mark } from "@/components/state-mark";
@@ -74,6 +75,7 @@ function SettingsPage() {
     <Page title="Settings" lead="This server and this device. Each bot's own settings are in Crew.">
       <ServerSection check={check} error={error} reload={load} />
       <WorkspaceDefaultSection />
+      <WorkspaceFallbackSection />
       <TaskDefaultSection />
       <PauseSection />
       <NodesPanel />

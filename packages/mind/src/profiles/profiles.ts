@@ -15,7 +15,7 @@ import { agentForProfile } from "./agent.ts";
 import { isChatKind } from "./chat-tools.ts";
 import type { BotFilesService } from "./bot-files.ts";
 import { conversationIndex } from "./conversation-index.ts";
-import { mainOps, pauseOps, settingsModelOps, taskLimitOps } from "./main.ts";
+import { fallbackModelOps, mainOps, pauseOps, settingsModelOps, taskLimitOps } from "./main.ts";
 import { lifecycleOps, rowOps } from "./rows.ts";
 import { keyOps, sessionOps } from "./sessions.ts";
 import { branchOps } from "./branch.ts";
@@ -85,6 +85,7 @@ export const profilesService = (deps: {
     ...lifecycleOps(ctx),
     ...mainOps(ctx),
     ...settingsModelOps(ctx),
+    ...fallbackModelOps(ctx),
     ...taskLimitOps(ctx),
     ...pauseOps(ctx),
     ...sessionOps(ctx),

@@ -112,6 +112,12 @@ export interface ProfilesService {
   readonly workspacePaused: () => Promise<boolean>;
   /** Set or clear the global pause. */
   readonly setWorkspacePaused: (paused: boolean) => Promise<void>;
+  /** The workspace fallback model for failed task runs; null = none. */
+  readonly workspaceFallbackModel: () => Promise<{ ref: string; effort: string } | null>;
+  /** Store or clear the fallback model; null clears it. */
+  readonly setWorkspaceFallbackModel: (
+    model: { ref: string; effort: string } | null,
+  ) => Promise<void>;
   /** The ids of every indexed chat conversation (not tasks); built from the stored rows. */
   readonly chatConversations: () => Promise<readonly string[]>;
   /** The conversation scope index: persona, audit and artifact scoping read this. */

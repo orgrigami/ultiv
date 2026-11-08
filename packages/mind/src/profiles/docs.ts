@@ -122,15 +122,22 @@ export type SettingsValue = {
   defaultModel: { ref: string; effort: string } | null;
   maxRunningTasks: number | null;
   paused: boolean;
+  fallbackModel: { ref: string; effort: string } | null;
 };
 
 export const SettingsDoc = defineDoc<SettingsValue>({
   kind: "ultiv.settings",
-  version: 4,
+  version: 5,
   scope: "session",
-  initial: () => ({ main: {}, defaultModel: null, maxRunningTasks: null, paused: false }),
+  initial: () => ({
+    main: {},
+    defaultModel: null,
+    maxRunningTasks: null,
+    paused: false,
+    fallbackModel: null,
+  }),
   // v1 carried only `main`; v2 added the default model, v3 the task limit,
-  // v4 the pause: stamp what is missing.
+  // v4 the pause, v5 the fallback model: stamp what is missing.
   migrate: (value) => {
     const old = value as Partial<SettingsValue>;
     return {
@@ -138,6 +145,7 @@ export const SettingsDoc = defineDoc<SettingsValue>({
       defaultModel: old.defaultModel ?? null,
       maxRunningTasks: old.maxRunningTasks ?? null,
       paused: old.paused ?? false,
+      fallbackModel: old.fallbackModel ?? null,
     } as unknown as SettingsValue;
   },
   checkpointWhen: () => true,
