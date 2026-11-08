@@ -10,33 +10,26 @@
 //   stdout: {"op":"ready"} | {"op":"link","status":"live"|"lost"} |
 //           {"op":"session","id",...state} | {"op":"error","message"}
 //
-// Deps resolve from the spriessen checkout's node_modules (the install layout
-// or the workspace root); BRIDGE_MODULE_ROOT overrides the walk-up.
+// Deps resolve by walking up from this file: the workspace root's
+// node_modules (dev) or the install's (~/.spriessen/sources). BRIDGE_MODULE_ROOT
+// never needed — the walk-up reaches whichever checkout runs the app.
 
 import { createRequire } from "node:module";
-import { readdirSync } from "node:fs";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import path from "node:path";
 import readline from "node:readline";
+import { createHost, webSocketLink } from "@earendil-works/chord";
+import WebSocket from "ws";
 
-const root = moduleRoot();
-const require = createRequire(path.join(root, "noop.js"));
-const { createHost, webSocketLink } = require("@earendil-works/chord");
-const { Session } = require("@spriessen/contracts");
-const WebSocket = require("ws");
-
-function moduleRoot() {
-  if (process.env.BRIDGE_MODULE_ROOT) return process.env.BRIDGE_MODULE_ROOT;
-  let dir = path.dirname(new URL(import.meta.url).pathname);
-  for (let i = 0; i < 8; i++) {
-    const candidate = path.join(dir, "node_modules", "@earendil-works");
-    try {
-      readdirSync(candidate);
-      return path.join(dir, "node_modules");
-    } catch {
-      dir = path.dirname(dir);
-    }
-  }
-  return path.join(process.env.HOME ?? "", ".spriessen", "sources", "node_modules");
+// The contracts are a workspace package: resolvable beside the server when
+// the app runs from a checkout, never from a bare node_modules root.
+let Session;
+try {
+  ({ Session } = await import("@spriessen/contracts"));
+} catch {
+  const apps = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+  const entry = path.join(apps, "server", "node_modules", "@spriessen", "contracts", "src", "index.ts");
+  ({ Session } = await import(pathToFileURL(entry).href));
 }
 
 const flag = (name) => {
@@ -52,6 +45,7 @@ let socket = null;
 let host = null;
 let attempts = 0;
 const refs = new Map(); // id -> SessionRef with unsubscribers
+const pendingAttach = new Set(); // ids asked for before the link opened
 
 function link() {
   socket = new WebSocket(url, { headers: { Cookie: cookie } });
@@ -61,6 +55,7 @@ function link() {
     host.connect(webSocketLink(socket), { principal: { kind: "guest" } });
     send({ op: "link", status: "live" });
     for (const id of refs.keys()) reopen(id);
+    for (const id of pendingAttach.splice(0)) reopen(id);
   });
   socket.addEventListener("close", () => {
     for (const ref of refs.values()) release(ref);
@@ -145,9 +140,15 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
 
 async function handle(msg) {
   switch (msg.op) {
-    case "attach":
-      await reopen(String(msg.id));
+    case "attach": {
+      const id = String(msg.id);
+      if (host === null) {
+        pendingAttach.add(id);
+        return;
+      }
+      await reopen(id);
       return;
+    }
     case "detach":
       releaseOrForget(String(msg.id));
       return;

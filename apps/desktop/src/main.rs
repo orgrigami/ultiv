@@ -25,12 +25,18 @@ fn setup(s: &mut App, waker: rune::Waker) {
     s.bridge.spawn(waker, &s.server, s.cookie.as_deref().unwrap_or(""));
 }
 
-fn poll(s: &mut App, _now: f64, _tx: &mut rune::Tx) -> bool {
+fn poll(s: &mut App, now: f64, tx: &mut rune::Tx) -> bool {
     let events = s.net.take();
+    if std::env::var("SPRIESSEN_TRACE").is_ok() && now < 600.0 {
+        eprintln!("poll: t={now:.2} events={} changed_pre", events.len());
+    }
     let changed = tick(s, events);
     if route_changed(s) {
         update::refresh_route(s);
     }
+    // Keep poll pumping while replies are in flight: a wake each poll costs
+    // one poll a frame, and a still app draws nothing when poll says false.
+    tx.wake_after(std::time::Duration::from_millis(30));
     changed
 }
 
@@ -82,9 +88,24 @@ fn main() {
         setup: Some(setup),
         poll: Some(poll),
         on_key: Some(keys),
+        scenes: SCENES,
         families: ("Inter", "ui-monospace"),
         ..AppSpec::new("Spriessen", (1180.0, 780.0), App::default, ui::view)
     });
 }
+
+/// Headless scenes: each names the screen a snapshot wants.
+static SCENES: &[(&str, fn(&mut App))] = &[
+    ("now", |s: &mut App| s.route = Route::Now),
+    ("crew", |s: &mut App| s.route = Route::Crew),
+    ("settings", |s: &mut App| s.route = Route::Settings),
+    ("routines", |s: &mut App| s.route = Route::Routines),
+    ("history", |s: &mut App| s.route = Route::History),
+    ("rooms", |s: &mut App| s.route = Route::Rooms),
+    ("tools", |s: &mut App| s.route = Route::Tools(state::ToolsTab::Connectors)),
+    ("light", |s: &mut App| s.theme = state::ThemeMode::Light),
+];
+
+use state::Route;
 
 use rune::AppSpec;

@@ -58,7 +58,9 @@ mod file_modes {
     }
 }
 
-/// The auth pair the worker should start with.
+/// The auth pair the worker should start with. `SPRIESSEN_COOKIE` overrides
+/// the saved session (headless checks and tests use it).
 pub fn initial_auth() -> Auth {
-    Auth { server: server_url(), cookie: load_cookie() }
+    let env_cookie = std::env::var("SPRIESSEN_COOKIE").ok().filter(|c| !c.is_empty());
+    Auth { server: server_url(), cookie: env_cookie.or_else(load_cookie) }
 }

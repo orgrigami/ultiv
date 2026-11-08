@@ -9,6 +9,8 @@ fn null<T>() -> Option<T> {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     pub id: String,
     pub profile: String,
@@ -22,12 +24,16 @@ pub struct SessionInfo {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ProfileModel {
     pub id: String,
     pub effort: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ProfilePolicies {
     #[serde(default)]
     pub approval_mode: String,
@@ -46,6 +52,8 @@ fn bool_or_missing<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<bool
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ProfileInfo {
     pub id: String,
     pub name: String,
@@ -65,6 +73,8 @@ pub struct ProfileInfo {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
     pub id: String,
     pub label: String,
@@ -79,6 +89,8 @@ pub struct ModelInfo {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct TaskInfo {
     pub id: String,
     pub session_id: String,
@@ -104,17 +116,23 @@ pub struct TaskInfo {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct TaskBot {
     pub profile_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct TaskUpdate {
     pub at: f64,
     pub text: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct Approval {
     pub conversation_id: String,
     pub profile: String,
@@ -130,6 +148,8 @@ pub struct Approval {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct NeedsYou {
     #[serde(default)]
     pub tidy: Option<serde_json::Value>,
@@ -142,6 +162,8 @@ pub struct NeedsYou {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ArtifactInfo {
     pub id: String,
     pub name: String,
@@ -159,6 +181,8 @@ pub struct ArtifactInfo {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ArtifactSource {
     pub session_id: String,
     pub title: String,
@@ -169,12 +193,16 @@ pub struct ArtifactSource {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ArtifactTaskRef {
     pub id: String,
     pub title: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct ServerCheck {
     #[serde(default)]
     pub node: Option<String>,
@@ -191,6 +219,8 @@ pub struct ServerCheck {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceSettings {
     #[serde(default)]
     pub paused: Option<bool>,

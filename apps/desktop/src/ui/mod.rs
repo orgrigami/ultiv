@@ -62,7 +62,7 @@ fn shell(s: &App, cx: &mut Cx<App>, dark: bool) -> El {
         .fill(t.background)
         .child(main_row)
         .children(switcher::view(s, dark))
-        .children(toast(s, dark))
+        .children(toast(s, cx, dark))
 }
 
 fn screen(s: &App, cx: &mut Cx<App>, dark: bool) -> El {
@@ -108,19 +108,22 @@ pub fn open_dock(s: &mut App, tab: crate::state::DockTab) {
     dock::request(s, &tab);
 }
 
-fn toast(s: &App, dark: bool) -> Vec<El> {    let Some(words) = &s.toast else { return vec![] };
+fn toast(s: &App, cx: &mut Cx<App>, dark: bool) -> Vec<El> {
+    let Some(words) = &s.toast else { return vec![] };
     // 2.5 s, like a quiet status word; cleared in poll.
     if common::now_millis() - s.toast_at.unwrap_or(0.0) > 2500.0 {
         return vec![];
     }
     let t = crate::theme::tokens(dark);
+    let width = cx.window_layout("shell").map(|r| r[2]).unwrap_or(800.0);
+    let side = ((width - 420.0) / 2.0).max(12.0);
     vec![el()
         .key("toast")
-        .absolute(0.0, 0.0)
+        .absolute(side, 12.0)
         .child(
             el()
                 .key("toast-card")
-                .mt(12.0)
+                .w(420.0)
                 .px(16.0)
                 .py(10.0)
                 .radius(10.0)

@@ -106,6 +106,10 @@ impl Net {
 fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: rune::Waker) {
     let mut client = api::Client::new();
     while let Ok(job) = rx.recv() {
+        let trace = std::env::var("SPRIESSEN_TRACE").is_ok();
+        if trace {
+            eprintln!("net: job in");
+        }
         match job {
             Job::SetAuth(auth) => {
                 *shared.auth.lock().unwrap() = auth.clone();
@@ -114,14 +118,23 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
             }
             Job::Fetch(f) => match endpoints::run_fetch(&client, &f) {
                 Ok(v) => {
+                    if trace {
+                        eprintln!("net: fetch ok {}", f.tag());
+                    }
                     shared.deliver(Event::Payload(f, v));
                     waker();
                 }
                 Err(ApiError::Expired) => {
+                    if trace {
+                        eprintln!("net: fetch expired {}", f.tag());
+                    }
                     shared.deliver(Event::Expired);
                     waker();
                 }
                 Err(ApiError::Failed(m)) => {
+                    if trace {
+                        eprintln!("net: fetch failed {} {m}", f.tag());
+                    }
                     shared.deliver(Event::Done(f.tag(), false, Some(m)));
                     waker();
                 }

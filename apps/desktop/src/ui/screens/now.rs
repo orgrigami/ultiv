@@ -38,7 +38,7 @@ pub fn view(s: &App, dark: bool) -> El {
                 .min_h(0.0)
                 .scroll(rune::ScrollSpec { stick_bottom: false })
                 .child(
-                    el()
+                    col()
                         .key("now-page")
                         .w_full()
                         .padding(space::S6)
