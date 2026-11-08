@@ -23,7 +23,7 @@ request needs a session, loopback included.
   and it runs before any route: one refusal shape (`401 {"error": "sign in
   required"}`) for everything, so a probe learns nothing per route.
 - The passcode is stored only as a slow hash: scrypt (N=16384, r=8, p=1)
-  with a random salt, in `AUTH_DIR/auth.json` (default `var/auth`, 0600).
+  with a random salt, in `AUTH_DIR/auth.json` (default `auth` in the data folder, 0600).
   Nothing else about it is stored; a wrong passcode never names which part
   was wrong. Writes go to a temp file beside it, then a rename. A damaged
   `auth.json` fails closed: the passcode counts as set and nothing matches
@@ -96,7 +96,9 @@ through `resolveInside(root, ...parts)` from `@spriessen/core`
   (artifacts, vault items, skill files) treat an escape as "not found"
   (`tryResolveInside`), so a probe can't tell an escape from a missing item.
 - Covered: artifacts (store, REST routes, the `artifact_*` tools, chat
-  attachments, profile purge), the durable fs sidecars, the vault, MCP config
+  attachments, file versions and their restore route, profile purge), the
+  bot's file tree (`artifact_write` paths, uploads, screenshots and grants
+  all go through `putFile` and `treePath`), the durable fs sidecars, the vault, MCP config
   and OAuth files, credential bindings, skills and skill proposals, and the
   local shell backend (which also syncs back only regular files, never
   symlinks, like the VM's `find -type f`).
@@ -111,6 +113,12 @@ through `resolveInside(root, ...parts)` from `@spriessen/core`
   to no bot. Reads are open; edit and delete are gated, so Manual, Jev and
   YOLO apply as for any gated tool. After an edit or delete, bash reloads
   the tree before its next script (`fs/workspace-epoch.ts`).
+- `artifact_write` takes a path in the same tree, under the same refusals;
+  writing a taken path replaces that file and keeps the old bytes as a
+  hidden version of the SAME bot's file (`fs/versions.ts`), served by id
+  only through the owner-scoped artifact routes. A file another bot grants
+  lands in `received/` under a free name, never over one of the recipient's
+  files. See docs/BOT-FILES.md.
 - `extract_document_text` (same file) reads a PDF or .docx from that tree, or
   a shared artifact by id from the bot's own artifact folder only, so another
   owner's ids come back unknown. The readers (`packages/ext/src/docs/extract.ts`)
@@ -278,6 +286,20 @@ mailbox request to a bot whose tool list has no `message` is answered at
 once with a dead-letter reply ("… cannot reply: the message tool is not in
 its tool list"), never a silent timeout (`canReply` in
 `packages/mind/src/mailbox/delivery.ts`).
+
+Chats hold fewer tools than the bot has. Every conversation that is not a
+task (main chats, sessions, DM and webhook thread chats) is offered only
+the coordination tools in `CHAT_TOOLS`
+(`packages/mind/src/profiles/chat-tools.ts`), stored as the chat's
+`modelTools` filter BY NAME, so a tool installed later never widens it; a
+`beforeTool` hook refuses any other call a chat makes anyway. The tools
+that read or act on the world (web, shell, files, code, outside requests,
+connector tools, codemode) run only in task conversations, which keep the
+bot's allowlist and the same approvals. This narrows what a chat can be
+talked into doing in a single turn (outside content quoted into a chat
+cannot reach a work tool there); it is not a second allowlist, and the
+allowlist and host-access switch above still bound what a task gets.
+Existing chats are healed at boot (`entity-chats.ts`).
 A queued host-direct call is refused at DECIDE time when the switch went
 false after the card was parked (the `approval` resource's `hostBlocked`,
 checked first in `can()`; both decide paths ask `hostSwitchRefusal`).
@@ -660,7 +682,7 @@ exclusion `bash` has). The screenshot is written into the bot's own
 `.tmp` inside its mode-700 home (umask 0600, so no other bot in a shared
 VM can read it), pulled out over the sandbox fs channel, capped (1280 px
 window; the model only gets bytes under the same base64 budget artifact
-images use) and stored as an artifact of that bot's own tree — the owner
+images use) and stored in that bot's own tree under `screenshots/` — the owner
 sees the image card in the app. Page text, page title and screenshot are
 UNTRUSTED INPUT (prompt injection): the tool description and output say so.
 
@@ -719,7 +741,8 @@ and logs a count when anything moved.
   subscriptions are moved, not copied; the folder move is a rename. Rolling the CODE back
   restores the old labels' reachability only for data that was never
   moved — a moved row reads `owner`. For a controlled rollback, restore
-  the data folder from backup (`var/`, plus `AUTH_DIR` if the passcode
+  the data folder from backup (`~/.spriessen/data`, or `var/` on an install
+  from before the home, plus `AUTH_DIR` if the passcode
   should go too). Tested by `packages/mind/src/migrate/owners.test.ts`
   (repeatable, transcripts preserved, old memory keys intact) and the
   storage moves in `apps/server/src/auth/migrate-storage.test.ts`.

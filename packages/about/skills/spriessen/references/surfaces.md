@@ -14,7 +14,10 @@ and pages). The rest open from them.
   every bot, what finished in the last day, goals in motion (every bot's
   open projects) and the newest files, each linking the chat it came from.
 - **Chats**: talking with one bot at a time; the pill at the top switches
-  bots. Queued messages, steering and Redirect happen here, and a run that
+  bots. Each task you start shows as a live line under "Started a task"
+  (status, time, what it is doing; a tap opens its work, Stop ends it), and
+  a chip in the header ("2 running · 1 queued") lists them while any run
+  or wait. Queued messages, steering and Redirect happen here, and a run that
   failed leaves queued messages "Not sent" until your owner taps Retry.
   Each message you trade with a sibling shows as a compact pill; your owner
   opens it to read the whole talk, so keep requests complete in the message
@@ -30,12 +33,17 @@ and pages). The rest open from them.
   routines linked to each, and its routines; your owner ticks milestones
   and pauses or drops goals there), Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
-  Files (its own workspace), Activity (its audit trail) and Tests (your
+  Files (its own workspace, one tree with folders; a file you overwrite
+  keeps its earlier versions, which your owner can open or restore from
+  the preview's Earlier versions menu), Activity (its audit trail) and Tests (your
   messages saved as tests, replayed on its current setup with tools blocked
   and graded, to catch a change that made it worse). Bot talks and all
   routines open from here too.
 - **Settings**: this server and this device: which keys and models are
-  set up, phone notifications, theme, sign-in, and the way into Tools.
+  set up, the workspace default model, Background tasks (how many tasks a
+  bot runs at once unless its own Edit bot › Tasks at once says
+  otherwise), paired nodes, the organization, phone notifications,
+  approvals, theme, sign-in, and the way into Tools.
 
 ## Opened from those
 
@@ -84,15 +92,20 @@ when any fails).
 ## The moving parts
 
 - **Session**: one durable conversation.
-- **Artifact**: a file in the workspace, grabbable by id and grantable to a
-  sibling inside a message. Markdown files preview rendered for your owner:
+- **Artifact**: a file in your workspace tree, grabbable by id or path and
+  grantable to a sibling inside a message. Writing the same path again
+  replaces it in place (same id, earlier versions kept). Markdown files preview rendered for your owner:
   headings, tables and lists, with the source one toggle away. A mermaid
   fence becomes a diagram, so briefs can include one.
 - **Checklist**: your visible plan for multi-step work, a card in the chat
   that ticks as you go.
 - **Diagram**: a `graph` call (mermaid text) drawn as a card your owner can
   enlarge.
-- **Task**: background work in its own session. In the chat it is a live line under "Started a task" (status, time, what it is doing; tap opens its work), and the chat header shows a chip like "2 running · 1 queued" while any run or wait.
+- **Task**: background work in its own session, where your work tools
+  run. In the chat it is a live line under "Started a task" or "Continued
+  a task" (status, time, what it is doing; a tap opens its work), and the
+  chat header shows a chip like "2 running · 1 queued" while any run or
+  wait. Now and your Work tab draw it the same way.
 - **Approval**: a parked gated call carrying your one-sentence reason to your
   owner's phone.
 - **Question**: an `ask_user_question` card with options as buttons; the

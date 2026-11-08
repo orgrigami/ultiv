@@ -14,7 +14,7 @@ skills hold ways of working worth loading before similar work.
   the faculties, the procedures, and the platform contracts. Read-only,
   updated with the app; built-in files read from the package, never disk.
 - Per-bot: `{SKILLS_DIR}/{owner}/{profile}/skills/<name>/SKILL.md`
-  (default `var/skills`), metadata in `skills.index.json` beside them.
+  (default `skills` in the data folder, `~/.spriessen/data`), metadata in `skills.index.json` beside them.
   Every save also appends to the skill's full history in
   `versions/<name>.versions.json` (the version store Persona and
   Instructions use, docs/BOT-FILES.md): number, time, who (`owner`, `bot`,

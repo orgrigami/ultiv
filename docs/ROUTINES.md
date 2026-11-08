@@ -145,6 +145,16 @@ one wake carrying every payload, each with its own receipt.
 
 ## Cron
 
+- **Where a fire runs** (`run` on the job): `"task"`, the `schedule_set`
+  default for new jobs, runs each fire as a background task
+  (`tasks/background.ts` `spawnBackgroundRoutine`) on the bot's background
+  model, with the bot's whole toolset (chats hold only the coordination
+  tools, see docs/FEATURES.md). Its result lands in the bot's main chat as
+  a `ultiv.task-report` NOTE the model reads with its next turn; no turn
+  starts and the chat is never interrupted. `"chat"` (older jobs read as
+  chat) wakes the main chat itself with the `[cron …]` input. A background
+  fire counts against the bot's task limit like any task and queues behind
+  it. A job linked to a project carries the link onto its task.
 - **Trials** (`packages/mind/src/routines/trial.ts`, `mind.trials`): a
   schedule's prompt run AS its bot, on the model and with the exact input
   the live fire would use (`trialInputOf`), in a fresh conversation

@@ -1,9 +1,16 @@
-# BOT-FILES.md: Persona and Instructions
+# BOT-FILES.md: a bot's files
+
+Three things live here: the two plain-text files that shape a bot (Persona
+and Instructions), the bot's own file tree (everything it and its owner
+put in its workspace, with earlier versions), and the read tools for code
+in that tree.
+
+## Persona and Instructions
 
 Each bot has two plain-text files the owner can read and edit. Memory and
 skills don't change.
 
-## The two files
+### The two files
 
 - **Persona**: who the bot is. Its identity, tone and style.
 - **Instructions**: what the bot does. Its rules, workflows and when to ask
@@ -12,17 +19,18 @@ skills don't change.
 Both are plain text. Markdown is allowed. There's no frontmatter and no
 schema. Persona holds up to 8,000 characters and Instructions up to 16,000.
 
-## Where they live
+### Where they live
 
 `{BOT_FILES_DIR}/{owner}/{profile}/persona.versions.json` and
 `instructions.versions.json` hold the files. `BOT_FILES_DIR` defaults to
-`var/bot-files`, relative to the server's cwd like `ARTIFACTS_DIR`. Each
+`bot-files` in the data folder (`~/.spriessen/data`, like `ARTIFACTS_DIR`;
+an install from before the home keeps `var/bot-files`). Each
 file is the full version list, and the last entry is the current text.
 Paths go through the shared confinement helper (`resolveInside` in
 `@spriessen/core`). Writes go to a temp file and are renamed into place,
 so a crash never leaves a half-written file.
 
-## Versions
+### Versions
 
 - Every save creates a version with its number, the time, who or what saved
   it (`owner`, `bot`, `migration`, `learning`), and a one-line reason.
@@ -34,7 +42,7 @@ so a crash never leaves a half-written file.
 - Skills use the same version store (`packages/mind/src/versions/store.ts`).
   It lives beside the skill store, under `{SKILLS_DIR}/{owner}/{profile}/versions/`.
 
-## Prompt order
+### Prompt order
 
 Every request's system prompt is built in this order:
 
@@ -42,14 +50,17 @@ Every request's system prompt is built in this order:
    and its role, then **Persona**, then **Instructions**, then the owner's
    time zone, the identity line, the voice and the operating rules, then
    the sibling roster.
-2. Core memory (`memory_core`), the same as today.
-3. The skills index (`skills`), the same as today.
-4. The other sections (connectors, running tasks), in install order.
+2. Core memory (`memory_core`).
+3. The skills index (`skills`).
+4. The other sections, in install order: the memories recalled for this
+   message (`recalled_memories`), open projects (`open_projects`), running
+   tasks (`running_tasks`), connectors (`connectors`), and in a chat (never
+   a task) the `chat_role` line that sends work to tasks.
 5. Then the chat.
 
 Memory still comes before skills, as it did before.
 
-## Instructions and approval rules (D7)
+### Instructions and approval rules (D7)
 
 "When to ask first" lives in two places:
 
@@ -62,7 +73,7 @@ Instructions text can never loosen an approval rule or change the approval
 mode. The broker reads only the bot's `policies`, never the files. The
 prompt says so next to the Instructions.
 
-## Migration from the old persona field
+### Migration from the old persona field
 
 - At boot, and the first time a bot's files are read, a bot with no
   Persona file gets one with its current `persona` field as version 1
@@ -77,7 +88,7 @@ prompt says so next to the Instructions.
   nothing is lost except Instructions text. To run the migration again,
   stop the server, delete `BOT_FILES_DIR`, and start it again.
 
-## Owner surface
+### Owner surface
 
 - `GET /api/profiles/:id/files` returns both files and their current
   versions.
@@ -91,6 +102,60 @@ All of these are owner-scoped. Another owner's bot gets the same 404 that
 an unknown bot gets. On the profile page, the Instructions tab edits both
 files, lists versions newest first, and restores any older one. The
 Overview's Details show both files.
+
+## The bot's file tree
+
+Every bot has ONE tree of files (`packages/ext/src/fs/`): the same tree
+`bash` sees under `/home`, the file tools read and edit, and the app lists
+on the Crew › Files tab. It is a `DurableFs` over the bot's artifact store
+(`ARTIFACTS_DIR/{owner}/{profile}`): each file is a blob plus a JSON
+sidecar carrying its `path` and `updatedAt`, and the path index lives in
+the reserved `vfs-index` pair. Every change re-reads the index first, so a
+stale writer (an open bash session) never drops another writer's file.
+
+### Who writes where
+
+Every writer that is not bash goes through `fs/tree.ts` `putFile`, and
+each write bumps the workspace epoch so an open VM reloads before its
+next run.
+
+| Writer                               | Path                                   | A taken path           |
+| ------------------------------------ | -------------------------------------- | ---------------------- |
+| `artifact_write`                     | the path the bot gives                 | replaced in place      |
+| an owner's upload (chat attachments) | `uploads/<name>`                       | a free `name (2).ext`  |
+| a browser screenshot                 | `screenshots/<name>`                   | a free `name (2).ext`  |
+| a file another bot grants            | `received/<name>`                      | a free `name (2).ext`  |
+| `bash` in the VM                     | wherever the script writes under /home | synced back as written |
+
+Replacing in place keeps the file's id, so chat cards that showed the old
+content now show the new. Use a new path for a separate file.
+
+### Versions
+
+An overwrite keeps the old bytes as a hidden version (`fs/versions.ts`):
+its own blob and sidecar with `versionOf` pointing at the head, never
+listed, still served by id (so an old card can still open what it showed).
+The newest `MAX_VERSIONS` (10) are kept; files under a build or
+dependency folder (`SKIP_DIRS`: `node_modules`, `.git`, `dist`, `build`,
+`__pycache__`, `.venv`, `venv`, `.coverage`, `.worktrees`, `.next`) and
+files over 2 MB keep none.
+
+- `GET /api/artifacts/:id/versions` lists them; `POST
+  /api/artifacts/:id/versions/:vid/restore` makes one current again (the
+  current bytes become a version in turn). Both are owner-scoped.
+- The file preview's Earlier versions menu (`components/file-versions.tsx`)
+  opens and restores them.
+- Deleting a file (`removeFile`) removes every path to it, its versions
+  and its bytes.
+
+### Files from before the tree
+
+Files written before every writer went through the tree sit in the store
+with no path. At server boot `fs/adopt.ts` places them, once and
+repeatably: text files of one name become one file (the newest at the
+name, the older ones as its versions); anything else (images, PDFs) takes
+its name or a free numbered variant. Nothing is deleted; the legacy root
+stays loose.
 
 ## Code structure tools
 

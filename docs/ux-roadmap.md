@@ -178,7 +178,7 @@ read as a deprecated fallback; `x-spriessen-user` / `x-spriessen-token` with
 the old headers still accepted; device keys move to `spriessen.*` on first
 read; the offline cache is renamed and the old one cleared. Stored record
 names, tool ids, the vault salt and the sandbox image keep the old prefix for
-compatibility (see AGENTS.md, Naming).
+compatibility (see docs/NAMING.md).
 
 **Spelling fixed to Spriessen** (2026-10-31): DONE — the first pass spelt it
 with "ei"; every name, package, env key, header, device key, the built-in
@@ -256,7 +256,7 @@ chat renders identically. The rooms list reads the same language: ListRow
 rows lead with the pair's overlapping characters, the topic as the muted
 second line, and the last activity as a mono tabular readout; the page lead
 is one plain clause and the empty state is a plain line (EmptyState), not an
-illustration. Remaining: none — the rooms-surface description in AGENTS.md
+illustration. Remaining: none — the rooms-surface description (now in docs/ARCHITECTURE.md)
 ("tunnel records") is unchanged and still accurate.
 
 **Bot talks are read-only to the owner** (2026-11-04, later the same day,
@@ -285,3 +285,19 @@ and no polling. Successful calls leave the transcript before grouping, so a
 reaction-only reply draws just the chip; a refused call shows as a normal
 trace row. The CLI prints "<bot> reacted 👍 Got it". Task conversations
 cannot react. Every bot has the tool, allowlisted or not.
+
+## Tasks-in-the-chat wave: DONE (2026-11-08)
+
+**Chats coordinate, tasks work.** Every chat is offered only the
+coordination tools (`CHAT_TOOLS`); the web, the shell, files and code run
+in background tasks, so the chat stays free for the owner. **Tasks queue
+over a per-bot limit** (Settings › Background tasks, Edit bot › Tasks at
+once), `task_message` continues a finished task, and the wake lists the
+files the run saved. **The floating task pill is gone**: a task shows where
+it was started, as a live line under "Started a task" / "Continued a task"
+(status, time, what it is doing; tap opens its work; Stop), and a header
+chip beside the approval chip reads "2 running · 1 queued" while any run or
+wait. Every surface (chat, header list, Now, the Work tab) draws a task
+with the same `TaskRow` / `TaskLine` and `taskMeta`. **One file tree per
+bot**: writing a path replaces the file and keeps its earlier versions (the
+preview's Earlier versions menu).

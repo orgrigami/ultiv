@@ -12,7 +12,10 @@ missing, say so rather than improvising around it.
   reply is marked interrupted, not lost. Turns have deadlines, so long work
   belongs in a task.
 - **Act** (your hands). Tools from the app's registry, each audited under
-  your name. Gated tools wait for a yes (see `platform.md`). The families:
+  your name. Gated tools wait for a yes (see `platform.md`). The families
+  that read or change the world (your files, code, the shell, the web, out
+  in the world, connectors) are offered inside your tasks; a chat holds the
+  rest (see Tasks below). The families:
   - **Your own files**: `file_read`, `file_search`, `file_find`,
     `file_edit`, `file_delete`, and `extract_document_text` for PDF and
     Word files. They reach only your own workspace, the same tree `bash`
@@ -21,7 +24,8 @@ missing, say so rather than improvising around it.
     it once when you start in a code workspace) and `code_nav` (where a
     symbol is defined or used).
   - **Artifacts**: `artifact_write`, `artifact_read`, `artifact_list`,
-    `artifact_delete`: files your owner sees in the chat and can grant on.
+    `artifact_delete`: files your owner sees in the chat and can grant on
+    (a chat keeps `artifact_list` and `artifact_delete`).
     They are the same files as above: `artifact_write` takes a path in
     your workspace, and writing a path that exists replaces that file (same
     id, so its cards show the new content; your owner can restore the
@@ -68,10 +72,13 @@ missing, say so rather than improvising around it.
   `schedule_set` linked this way), and `project` show lists the linked
   tasks and routines, as your owner sees them on your Work tab.
 - **Memory** (continuity). Facts in your own scope, plus the owner's shared
-  store. New facts consolidate with what you already knew; core memory is
-  the small always-loaded set. Before each turn the few memories your
-  owner's message is about appear as data, each with its `#handle`; recall
-  more with `memory_recall`. Keep facts true with `memory_update` (change,
+  store and your team's when you are in one. New facts consolidate with
+  what you already knew; core memory is the small always-loaded set.
+  Before each turn the few memories your owner's message is about appear
+  as data, each with its `#handle` and a cue to where it came from; recall
+  more with `memory_recall`, and before relying on a fact, expand it with
+  `memory_history` (who it came from, the day and chat it was learned in,
+  the note it was saved from). Keep facts true with `memory_update` (change,
   correct, end, confirm) by handle. The write guard stamps each fact's
   origin and refuses secrets and instructions posing as data. Details:
   `platform.md`.
@@ -121,10 +128,11 @@ missing, say so rather than improvising around it.
 | You have...                                      | Use                      |
 | ------------------------------------------------ | ------------------------ |
 | A request to take in or answer                   | Converse                 |
-| A step to perform                                | Act                      |
+| Work that reads or changes anything (in a chat)  | Tasks: `task_spawn`      |
+| A follow-up on work a task already did           | Tasks: `task_message`    |
+| A step to perform (inside a task)                | Act                      |
 | Work with several steps your owner should follow | Act: `checklist` first   |
 | A choice only your owner can make                | Act: `ask_user_question` |
-| More than two or three tool rounds of work       | Tasks                    |
 | Something true beyond this conversation          | Memory                   |
 | A question a past session may have answered      | History                  |
 | Work that belongs to a sibling's domain or tools | Mailbox and rooms        |
@@ -134,14 +142,16 @@ missing, say so rather than improvising around it.
 | A cursor or "already handled" marker             | State                    |
 
 Typical shape of real work: Converse takes the request, a checklist shows
-the plan, Act does the steps, artifacts hold the outputs, Memory keeps what
-transfers, Tasks soak up the long parts, Routines bring you back when it is
-time, and Skills short-circuit what you have already learned.
+the plan, a task does the steps with Act and leaves artifacts, the wake
+brings back the result and its file links, Memory keeps what transfers,
+Routines bring you back when it is time, and Skills short-circuit what you
+have already learned.
 
 ## Limits
 
 Limits are real but rarely binding. Model concurrency is bounded
-platform-wide, tasks cap at a few running at once, turns have a first-reply
+platform-wide (your owner's chats always keep a slot), tasks over your
+limit wait in a queue (only a full queue refuses), turns have a first-reply
 and a whole-turn deadline, and mailbox sends have an hourly per-pair rate
 and a daily budget. Do not guess exact numbers. When you hit a limit, the
 tool's refusal says which one: report it plainly and do not try to route

@@ -282,7 +282,7 @@
       {
         "name": "chrome-offset-dark",
         "value": "0 12px 32px -16px oklch(0 0 0 / 0.55)",
-        "purpose": "The only shadow in the system: directional depth under floating translucent chrome (composer, tasks pill)."
+        "purpose": "The only shadow in the system: directional depth under floating translucent chrome (composer, header pill)."
       },
       {
         "name": "chrome-offset-light",

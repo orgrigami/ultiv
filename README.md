@@ -31,33 +31,36 @@ Open http://localhost:5173 and create your first bot. **Settings** shows a quick
 
 ## What it does
 
-- **One place for everything.** The phone tab bar and the desktop sidebar both show Now, Chats, Crew and Settings, plus Find (Cmd/Ctrl-K on a keyboard, a tab on phones) that jumps to any bot, chat or screen; N starts a new chat and ? lists the shortcuts. Now is the check-in: Needs you first — pending approvals (approve or deny right there), work that restarts cut off too many times in a row (with a Retry button, since it won't run again by itself), failed tasks, routines that gave up and memory tidy suggestions — then what's running across every bot, what finished in the last day, every bot's open goals and the newest files, each linking the chat it came from. Chats is the chat with your current bot and Past chats (from the chat's "…" menu, or the sidebar's Recents). On a wide screen, a task, a file or a bot's memory opens in a work pane beside the chat. Crew lists your bots; each one has its own character and a profile with Memory, Routines, Access, Files and Activity tabs that show their counts.
+- **One place for everything.** The phone tab bar and the desktop sidebar both show Now, Chats, Crew and Settings, plus Find (Cmd/Ctrl-K on a keyboard, a tab on phones) that jumps to any bot, chat or screen; N starts a new chat and ? lists the shortcuts. Now is the check-in: Needs you first — pending approvals (approve or deny right there), work that restarts cut off too many times in a row (with a Retry button, since it won't run again by itself), failed tasks, routines that gave up and memory tidy suggestions — then what's running across every bot, what finished in the last day, every bot's open goals and the newest files, each linking the chat it came from. Chats is the chat with your current bot and Past chats (from the chat's "…" menu, or the sidebar's Recents). On a wide screen, a task, a file or a bot's memory opens in a work pane beside the chat. Crew lists your bots; each one has its own character and a profile with Instructions, Memory, Work, Routines, Access, Files, Activity and Tests tabs that show their counts.
 - **Memory that stays true.** Before each reply a bot sees the few things it remembers that your message is about, and it keeps facts current: when something changed, was wrong or stopped holding, it updates that fact instead of piling up contradictions, and the weekly tidy flags any that disagree. You can do the same from its Memory panel, where each fact links to the chat it was learned in. Past chats searches the words said in every bot's chats (each bot only ever searches its own), in English or Indonesian, misspellings and "last week" included.
-- **Bots with their own state.** Each one has a persona, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
+- **Bots with their own state.** Each one has a persona and instructions, memory, files, a tool allowlist, cron schedules and an audit trail. Bots can find each other, send each other messages with deadlines, and work together in shared rooms.
 - **An org with teams.** Bots can belong to teams. Each home — the org, each team — has one microVM shared by its bots and a shared folder of its own; team folders mount read-write into the org VM and the org's folder mounts read-only into team VMs, all with size caps. Messaging reaches across homes; `bash` never does — a bot's scripts always run in its own home's VM.
 - **Any model, per bot or per chat.** Every provider whose key you set shows up in the model picker, grouped by provider. Each bot can have its own default model and effort level, and you can switch either in the middle of a chat.
 - **One bash tool, three targets.** `bash` runs scripts in a [microsandbox](https://microsandbox.dev) microVM by default — a real Linux box with python, network off unless you allowlist hosts for the bot's home; files it writes end up in the bot's file store. `target: "host"` runs directly on your computer, `target: "node"` on another machine you've paired (Settings → Nodes). Each target has its own approval rules — a rule for one target never approves another — and only bots you've granted host access can use either beyond-VM target. A long command (a build, a test run) can run as a background job: the bot stays free to answer you, and the job's result wakes it when it ends.
 - **A vault for credentials.** Items are sealed with AES-256-GCM, and bots only see names and masked hints. When a bot needs to use a secret, the credential broker makes the HTTP request itself, only to the hosts, methods and paths that secret is bound to. Responses are scrubbed before the bot sees them.
 - **Routines.** Bots can wake on cron schedules, on webhooks they set up themselves, or on sensors (RSS, a calendar ICS feed, watched URLs). Schedules respect time zones. Webhooks are validated against a schema, retried, and dead-lettered if they keep failing.
 - **Routines that cost little attention.** A schedule, a watch or a webhook can start as a trial: each run shows what it would have done (the tools it tried and what it would have said) while nothing actually runs, until you press Go live; Try now runs one trial on demand. A routine with nothing new ends with "nothing to report", which shows as one quiet line and sends no notification. A webhook can give each outside thread (a GitHub issue, a Slack thread) its own chat, and take work only from the senders you list: anyone else's post only adds context to a thread's chat and never wakes the bot.
-- **Background tasks.** A bot can hand long work to a sub-agent and keep chatting. The task runs in its own conversation and reports back when it's done. If the server restarts, tasks pick up where they left off, checking first that nothing they already sent goes out twice. Background work never crowds out your chats: at the model concurrency limit (`MODEL_MAX_CONCURRENCY`) your messages go first, and one slot always stays free for them.
+- **Chats talk, tasks work.** In a chat a bot plans, remembers and coordinates; anything that reads or changes the world (the web, the shell, files, code, outside services) runs in a background task it starts, so the chat stays free for you. Each task shows as a live line under "Started a task" in the chat (status, time, what it's doing; tap it to open its work), and a chip in the header reads "2 running · 1 queued" while any run or wait. When a task ends, the bot is woken with the result and links to the files it saved. A follow-up on the same work continues that task with everything it already found.
+- **Background tasks that queue.** Each bot runs a limited number of tasks at once (3 unless you change it: Settings › Background tasks for every bot, Edit bot › Tasks at once for one); the rest wait as queued and start by themselves. If the server restarts, tasks pick up where they left off, checking first that nothing they already sent goes out twice. Background work never crowds out your chats: at the model concurrency limit (`MODEL_MAX_CONCURRENCY`) your messages go first, and one slot always stays free for them. A bot can run its tasks and routines on a cheaper background model (Edit bot › Background model).
+- **Files with history.** Each bot has one file tree: what it writes, what you upload (`uploads/`), page screenshots (`screenshots/`) and files other bots hand it (`received/`). Writing the same path again replaces the file in place and keeps the earlier version, which the file preview's Earlier versions menu opens or restores. Every file links the chat it came from.
+- **Goals, tests and branches.** A bot can track a goal over days as a project with milestones, and link the tasks and routines that serve it (its Work tab). Save any of your messages as a behaviour test (the flask under it) and replay the tests on the bot's current model and tools, with every tool blocked, to catch a change that made it worse. Edit one of your messages or continue from a reply to branch into a new chat; the old one stays.
 - **Approvals.** Tools with side effects wait on an approval card. Each bot can instead let Jev judge its calls or run them without asking; see [Approval modes](#approval-modes). "Always allow" saves a rule for that tool, and it never covers the calls that always ask. You get a push notification when a bot is waiting on you.
 - **Queued messages never send by themselves after a failed turn.** If a turn fails or is cut off while you have messages waiting, they stay in the queue marked "Not sent", with a Retry chip that sends them in order (or take any back with its ×).
 - **Restarts don't drop a reply.** A turn the server's restart cut off carries on when it comes back, and the chat shows the bot working again. A turn cut off too many times in a row stops and shows in Needs you (on Now), with Retry.
 - **No silent hangs.** If the model sends nothing for 60 seconds, or a turn runs longer than 15 minutes, the bot stops and says why in the chat. Anything it already wrote stays, and queued messages stay queued. Each bot can get more (or less) time in its edit dialog; time spent waiting on your approval doesn't count.
-- **Images and files in chat.** The + menu in the composer attaches images or any other file, and you can paste or drag them in too: up to 8 per message, 10 MB each. They're saved to the bot's file store when you send. Big photos are scaled down first. The model sees images directly only if it accepts image input; otherwise the bot gets a pointer to the file, and the composer warns you. Bots can also look at image files in their store with `artifact_read`.
+- **Images and files in chat.** The + menu in the composer attaches images or any other file, and you can paste or drag them in too: up to 8 per message, 10 MB each. They're saved to the bot's `uploads/` folder when you send. Big photos are scaled down first. The model sees images directly only if it accepts image input; otherwise the bot gets a pointer to the file, and the composer warns you. Bots can also look at image files in their store with `artifact_read`.
 - **MCP connectors.** Add HTTP, SSE or stdio MCP servers from the UI, or let a bot add one (that also goes through an approval card). OAuth and headers pulled from the vault are supported, and there are a few presets.
 - **Installable on your phone.** The web app is a PWA with Web Push for finished tasks, pending approvals and routine replies. The service worker only caches the offline shell.
 
 ## Models
 
-The model list comes from [models.dev](https://models.dev). The server downloads it on first start, keeps a copy in `apps/server/var/models-dev.json`, and checks for updates once a day, so new models show up without a restart or an upgrade. Only models that can chat and call tools are listed.
+The model list comes from [models.dev](https://models.dev). The server downloads it on first start, keeps a copy in the data folder (`~/.spriessen/data/models-dev.json`), and checks for updates once a day, so new models show up without a restart or an upgrade. Only models that can chat and call tools are listed.
 
 - **Turning a provider on:** set its key in `.env` under the name models.dev uses for it. The provider pages on models.dev show the variable, e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `KENARI_API_KEY`.
 - **The default model:** `SPRIESSEN_MODEL=provider/model`, e.g. `anthropic/claude-sonnet-4-6`. Without it, new chats use `kenari/deepseek-v4-1-flash` when Kenari is set up, otherwise the first model in the list.
 - **Fewer providers in the picker:** `SPRIESSEN_PROVIDERS=anthropic,kenari` lists only those, even if other keys are set. OpenRouter alone adds about 300 models, so this helps.
-- **Kenari stays fresher than models.dev:** the gateway's own `https://kenari.id/v1/models` listing is fetched alongside models.dev (cached in `apps/server/var/kenari-models.json`, revalidated every 6 hours) and **replaces** the Kenari model set — models already live on the gateway appear, retired ones drop. `KENARI_MODELS_URL=off` disables it; `MODELS_DEV_URL=off` keeps the whole catalog offline.
-- **Models models.dev doesn't have, or a local server:** add them to `apps/server/var/models.local.json`, in the same format as models.dev. The file is read on every catalog refresh. This adds an Ollama server:
+- **Kenari stays fresher than models.dev:** the gateway's own `https://kenari.id/v1/models` listing is fetched alongside models.dev (cached in `~/.spriessen/data/kenari-models.json`, revalidated every 6 hours) and **replaces** the Kenari model set — models already live on the gateway appear, retired ones drop. `KENARI_MODELS_URL=off` disables it; `MODELS_DEV_URL=off` keeps the whole catalog offline.
+- **Models models.dev doesn't have, or a local server:** add them to `~/.spriessen/data/models.local.json` (`MODELS_OVERLAY` moves it), in the same format as models.dev. The file is read on every catalog refresh. This adds an Ollama server:
 
   ```json
   {
@@ -103,7 +106,7 @@ Every setting in `.env` is optional, and the keys and URLs below can be left bla
 
 Product keys start with `SPRIESSEN_`. The names from before the rename (`ULTIV_MODEL`, `ULTIV_PROVIDERS`, …) still work as a deprecated fallback and print a one-time warning at startup; the new name wins when both are set. The same goes for the webhook `x-ultiv-token` header, still accepted next to `x-spriessen-token`. (No user header is read any more: identity comes from the sign-in session.)
 
-`.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `SPRIESSEN_MAX_RUNNING_TASKS` (background tasks one bot can run at once, default 3), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `SPRIESSEN_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
+`.env.example` lists the rest, with a comment on each. A few tuning knobs aren't in it: `SPRIESSEN_MAX_RUNNING_TASKS` (background tasks one bot runs at once when neither Settings nor the bot sets it, default 3), `SPRIESSEN_BACKGROUND_MODEL` (the model tasks and background routines use when the bot has none), `MAILBOX_DEADLINE_MS` (how long a bot-to-bot request waits, default 15 minutes), `SKILLS_DIR`, `SPRIESSEN_SANDBOX_IMAGE`, and the memory flags in `docs/MEMORY.md`.
 
 Back up `VAULT_KEY` somewhere other than this machine. If you lose it or change it, every saved vault item becomes unreadable, and there's no key rotation yet.
 
@@ -159,10 +162,13 @@ In every mode, these always come to you as a card: a credential's first use on a
 ```
 apps/server         Node 26 server: REST, chord replication, triggers (cron/webhooks/sensors). Thin layer over the mind.
 apps/web            React 19 + TanStack Router + shadcn (Base UI) + Tailwind 4 client
-packages/core       tagged errors and the bridge between promises and Effect
-packages/ext        tools, plugins, registry, vault, credential broker, shells
+apps/cli            the spriessen command: terminal UI, line commands, serve/daemon/node
+apps/agent          the node agent that runs bash's node target on a paired machine
+packages/core       the home and data folder, tagged errors, the bridge between promises and Effect
+packages/ext        tools, plugins, registry, vault, credential broker, shells, each bot's file tree
 packages/mind       the bots themselves: models, converse, decide, act, generate, tasks, profiles, routines, memory
-packages/contracts  TypeBox chord contracts shared by server and web
+packages/contracts  TypeBox contracts shared by server, web and CLI
+packages/present    the owner-facing words both clients share (tool calls, approval cards)
 packages/about      the built-in skills every bot gets: Spriessen's own docs, as Agent Skills
 ```
 
@@ -179,14 +185,22 @@ vp exec tsc -p packages/ext/tsconfig.json   # typecheck one workspace (all ten h
 vp test                                     # unit tests (offline: no models.dev, no providers)
 SPRIESSEN_REAL_VM=1 vp test --run packages/ext/src/shell/real-vm.test.ts   # opt-in: the isolation suite on real VMs (boots throwaway microVMs, ~15 s)
 vp -C apps/web build                        # production web build
+vp -C apps/cli build                        # the spriessen command's bundle
 vp run smoke                                # starts the whole stack offline on a random port and hits the REST API
 ```
 
-Before a change goes in, I run `vp check`, the ten typechecks, `vp test`, the web build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
+Before a change goes in, I run `vp check`, the ten typechecks, `vp test`, the web build, the CLI build and `vp run smoke`, in that order. To try your real providers and Jev (needs keys): `vp node --env-file=.env packages/mind/src/probe.ts`.
 
 ## More docs
 
-- `AGENTS.md`: developer guide (layout, `vp` rules, the checks above, conventions, pitfalls)
+- `SETUP.md`: guided setup, for a coding agent to walk you through
+- `AGENTS.md`: developer rules (`vp` only, the checks above, conventions, pitfalls) and a map of the docs below
+- `docs/ARCHITECTURE.md`: where everything lives, package by package
+- `docs/FEATURES.md`: each feature's rule and the files that keep it
+- `docs/WEB.md`, `docs/PROVIDERS.md`, `docs/NAMING.md`: the web client, models and Jev, old and new names
+- `docs/CLI.md`: the `spriessen` command
+- `docs/LIVE.md`: how the app updates live without polling
+- `docs/BOT-FILES.md`: Persona and Instructions, the bot's file tree, the code tools
 - `docs/ROUTINES.md`: how cron, webhooks and sensors stay durable and get delivered
 - `docs/MEMORY.md`: how memory works (tiers, recall, guard, tidy)
 - `docs/SKILLS.md`: how skills are stored, loaded, installed and improved

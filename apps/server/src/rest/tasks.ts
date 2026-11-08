@@ -35,7 +35,7 @@ export async function taskRoutes(
     const list = (await Effect.runPromise(mind.tasks.list())).filter((task) =>
       maySee(args.owner, task),
     );
-    // Running tasks carry their latest step for the task pill (a few at most)
+    // Running tasks carry their latest step for the live task line and header chip
     // and any approval waiting on the task conversation, so the chat that
     // spawned the task can surface the card without opening the task sheet.
     // A task turn parks at most one gate (a gated tool awaits before the turn

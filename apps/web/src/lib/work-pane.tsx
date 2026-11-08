@@ -1,5 +1,5 @@
 /**
- * The work pane's state, shared app-wide: the chat, the task pill, file cards
+ * The work pane's state, shared app-wide: the chat, task lines, file cards
  * and memory chips open things here. On desktop (≥1024px) the pane sits
  * beside the chat; below that the same content opens as a full-screen sheet.
  */

@@ -95,8 +95,9 @@ hashing); this file is the map of trust.
   approval rules outrank any Instructions text), their memory partitions
   (`ultiv.mem.*` doc families per `owner`/profile — plus, for a team
   bot, its team's shared store, written only through admin-accepted
-  proposals), their files tree (`{ARTIFACTS_DIR}/{owner}/{bot}`), their
-  artifact store partition, their vault scope (contacts readable, secrets
+  proposals), their one file tree (`{ARTIFACTS_DIR}/{owner}/{bot}`: artifacts,
+  uploads, screenshots, received grants and earlier versions alike), their
+  vault scope (contacts readable, secrets
   only through the broker), the tools their allowlist permits, and the
   mailbox/rooms they participate in. The conversation-to-profile index
   (`packages/mind/src/profiles/conversation-index.ts`) is the map every scope
@@ -166,7 +167,7 @@ hashing); this file is the map of trust.
   calls before any card while the effective flag is false, and its tools
   leave the bot's list until the switch turns back on.
 - **The sandboxed `bash`** (microsandbox microVM) is the containment for
-  ordinary bot scripts: the bot's files tree is synced in from artifacts,
+  ordinary bot scripts: the bot's file tree is synced in from its store,
   and the only host folders inside a VM are the sanctioned bind mounts —
   each home's `/home/shared`, the org-wide `/home/org-shared`, and in the
   org VM the `/home/team-shared/<team id>` stores. From phase 4 the

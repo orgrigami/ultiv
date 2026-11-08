@@ -69,7 +69,21 @@ conversation→profile index):
 - Bot discovery — `bots_list` / `bot_info` (`profiles/bots*.ts`): siblings'
   public facts only (role, persona's first line, contact rights, tool
   groups, busy/idle). The prompt roster stays one capped line per sibling.
-- `generate`, `memory`, `audit`, `profiles`, `schedules`, `sensors`, `state`.
+- `memory` (`memory/`, contract in `docs/MEMORY.md`) — facts with history,
+  recall before each turn with a source cue per line, a write guard, and a
+  weekly tidy that only proposes. `search/` is its derived FTS5 sidecar;
+  `history/` searches one bot's own chats.
+- `skills` (`skills/`, `docs/SKILLS.md`) — each bot's procedure library,
+  with the built-in `spriessen` skill from `@spriessen/about`.
+- `projects` — goals over days (`project` tool), with tasks and routines
+  linked by #handle.
+- `evals` — behaviour tests saved from an owner message, replayed with every
+  tool blocked and graded.
+- `routines`, `schedules`, `sensors`, `webhooks` — the trigger side
+  (`docs/ROUTINES.md`), including trials that run a fire without acting.
+- `checklist` — the visible plan card in a chat.
+- `generate`, `audit`, `profiles` (bots, chats, rooms, the main bot,
+  per-profile agents), `org` (teams), `nodes`, `state`.
 
 The three listeners (`tasks.listen`, `approvals.listen`,
 `mailbox.onExpired`) are how the server's Web Push notifier learns what to

@@ -87,6 +87,9 @@ describe("the built-in skill matches the app", () => {
     for (const stale of [
       "seat conversation", // rooms are tunnels between the bots' own threads
       "drop a line into", // owners read bot talks, never post in them
+      "above the composer", // tasks live in the chat and the header chip, not a pill
+      "tool rounds of work", // chats hand all work to tasks, not just long work
+      "cap at a few", // tasks over the limit queue; only a full queue refuses
     ]) {
       expect(text.includes(stale), stale).toBe(false);
     }

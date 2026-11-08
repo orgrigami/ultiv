@@ -187,7 +187,7 @@ spriessen chats [--bot Wren] | chats show [<id>] [--last 3] | chats new [--bot W
 spriessen search "invoice last week" [--bot Wren] [--since 2026-11-01] [--who owner|bot]
 spriessen memory [--bot Wren] [--find "words"] [--all]   # core lines, then facts by importance
 spriessen routines [--bot Wren]                          # schedules, last run, last error
-spriessen tasks [--bot Wren] [--all] | tasks show <id> | tasks stop <id>
+spriessen tasks [--bot Wren] [--all] | tasks show <id> | tasks stop <id>   # running and queued first
 spriessen projects [--bot Wren]                          # goals over days, with the next milestone
 spriessen models | models default [<id>]                 # * = the workspace default new chats start on
 spriessen tests [--bot Wren] | tests run [--bot Wren] [--model kenari/x]

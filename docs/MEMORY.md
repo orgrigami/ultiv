@@ -2,8 +2,8 @@
 
 Status: implemented (2026-11-04), on top of v2 (2026-10-28). This is the
 contract for the memory faculty described in RFC 0001 §9. The truth stays
-pi-durable docs in `var/harness.sqlite`; a derived search sidecar
-(`var/search.sqlite`, see [Search sidecar](#search-sidecar)) indexes facts
+pi-durable docs in `harness.sqlite` in the data folder (`~/.spriessen/data`); a derived search sidecar
+(`search.sqlite` beside it, see [Search sidecar](#search-sidecar)) indexes facts
 and conversations for full-text search. No graph database, no paid service,
 no network unless the optional local embedding model is turned on.
 
@@ -34,7 +34,7 @@ renamed to Spriessen. They are internal storage names, not branding, and
 renaming them would mean migrating the owner's data, so they stay.
 
 All are `scope: "session"`, family docs keyed `owner:<o>` (owner store),
-`profile:<o>:<id>` (a bot's own store) or `team:<o>:<id>` (a team's
+`profile:<o>:<id>` (a bot's own store) or `dept:<o>:<id>` (a team's
 shared store). Bots never see a sibling's store.
 
 ## Facts
@@ -295,7 +295,7 @@ fact out of Purge's reach.
 
 `packages/mind/src/search/`: one SQLite file through Node's built-in
 `node:sqlite` (FTS5, no extension, no dependency). `SEARCH_DB`, default
-`var/search.sqlite`; a mind opened on injected test storage keeps it in
+`search.sqlite` in the data folder; a mind opened on injected test storage keeps it in
 memory. It is **derived**: the docs and transcripts stay the truth, a schema
 change rebuilds it (`SEARCH_SCHEMA_VERSION`), and deleting the file only
 costs a re-index.
@@ -422,7 +422,7 @@ end day, and links "Learned in …" to the chat it came from.
 | `EMBEDDING_URL`           | —                        | the base URL (`openai-compatible`)                                     |
 | `EMBEDDING_API_KEY`       | —                        | its key, if it needs one (`openai-compatible`)                         |
 | `EMBEDDING_INCLUDE_TOOLS` | off                      | `on` = send tool results to a remote model too                         |
-| `SEARCH_DB`               | `var/search.sqlite`      | the search sidecar (derived, rebuildable)                              |
+| `SEARCH_DB`               | `<data>/search.sqlite`   | the search sidecar (derived, rebuildable)                              |
 | `SEARCH_WARMUP_MS`        | `60000`                  | when the boot indexing of conversations runs                           |
 | `MEMORY_TIDY_CRON`        | `0 9 * * 0`              | tidy schedule (croner, Asia/Jakarta)                                   |
 

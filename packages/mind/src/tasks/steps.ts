@@ -1,6 +1,6 @@
 /**
  * A running task's recent steps as short plain lines: what task_status shows
- * the bot and what the owner's task pill shows as "last step".
+ * the bot and what the owner's live task line shows as "last step".
  */
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { LiveState } from "@earendil-works/pi-durable";
