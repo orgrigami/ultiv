@@ -13,6 +13,7 @@ import type {
   ScopeHolder,
   BindingStore,
   VaultStore,
+  CastSessions,
   TakeoverRegistry,
 } from "@spriessen/ext";
 import type { GenerateOptions } from "./generate/generate.ts";
@@ -117,6 +118,8 @@ export interface MindWiring {
   readonly usageRef?: { current?: UsageSink };
   /** The browser-takeover registry (ext), surfaced to the server's REST. */
   readonly browserTakeovers?: TakeoverRegistry;
+  /** The owner's live browser casts (ext), the takeover's driving seat. */
+  readonly browserCasts?: CastSessions;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

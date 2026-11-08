@@ -366,6 +366,7 @@ const mindLayerRaw = (
         ...(wiring.browserTakeovers !== undefined
           ? { browserTakeovers: wiring.browserTakeovers }
           : {}),
+        ...(wiring.browserCasts !== undefined ? { browserCasts: wiring.browserCasts } : {}),
         org,
         ...routines,
         mcp: mcp.manager,
@@ -436,6 +437,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     converseRef,
     usageRef: {},
     browserTakeovers: browserSession.takeovers,
+    browserCasts: browserSession.casts,
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }

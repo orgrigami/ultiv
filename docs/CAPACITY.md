@@ -25,6 +25,13 @@ in `packages/ext/var/probe/` and is not committed.
   `data:` URL **inside the 512 MiB limit**, writing the screenshot. Host RSS
   peaked around 410 MiB for that VM (page cache from the install included).
   The dbus errors on stderr are headless noise and do not affect the shot.
+- **The live cast on top of the browser** (the takeover's streaming view,
+  Nov 2026): the cast driver is a second python3 process beside chromium
+  (stdlib only), streaming a JPEG frame only when the view repaints — a
+  static page sends nothing after it settles. Not yet measured: the cast's
+  own memory/CPU overhead and per-frame sizes under real pages. Casts are
+  bounded by construction: one per conversation while its takeover is open,
+  a 30 min hard cap, wound down when the last viewer leaves.
 
 ## Reading
 

@@ -389,11 +389,17 @@ export const api = {
       botName: string;
     }[];
   }> => getJson("/api/browser/takeover"),
-  browserTakeoverAct: (
+  browserTakeoverCastAct: (
     id: string,
-    body: { kind: string; selector?: string; text?: string; key?: string },
-  ): Promise<{ ok: boolean; png: string; url: string; title: string; error: string | null }> =>
-    send(`/api/browser/takeover/${encodeURIComponent(id)}/act`, "POST", body),
+    act:
+      | { a: "tap"; x: number; y: number; id: string }
+      | { a: "type"; text: string }
+      | { a: "key"; key: string }
+      | { a: "scroll"; dx: number; dy: number }
+      | { a: "nav"; url: string }
+      | { a: "reload" },
+  ): Promise<{ ok: boolean }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/cast/act`, "POST", act),
   browserTakeoverFinish: (id: string): Promise<{ ok: boolean }> =>
     send(`/api/browser/takeover/${encodeURIComponent(id)}/finish`, "POST", {}),
   browserTakeoverCancel: (id: string): Promise<{ ok: boolean }> =>

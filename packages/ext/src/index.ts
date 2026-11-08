@@ -16,6 +16,8 @@ export * from "./plugins/bash-jobs.ts";
 export * from "./plugins/browser.ts";
 export * from "./plugins/browser-session.ts";
 export * from "./browser/driver.ts";
+export * from "./browser/cast-driver.ts";
+export * from "./browser/cast.ts";
 export * from "./browser/takeover.ts";
 export * from "./plugins/files.ts";
 export * from "./plugins/graph.ts";

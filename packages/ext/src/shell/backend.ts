@@ -75,6 +75,30 @@ export interface ShellBackend {
    * backend that cannot lose its workspace never says so.
    */
   needsPrepare?(): boolean;
+  /**
+   * Run a script that STAYS alive and talks over its stdio (the browser
+   * cast). Undefined when this backend cannot stream: the caller treats the
+   * capability as absent, never as an error. The stream ends by itself at
+   * `timeoutMs` at the latest.
+   */
+  stream?(script: string, cwd: string, timeoutMs: number): Promise<ShellStream>;
+}
+
+/**
+ * A LONG-RUNNING exec whose stdout streams to the caller while it lives and
+ * whose stdin the caller can write: the browser cast rides this (screencast
+ * frames out, the owner's input acts in). Smaller than `exec` on purpose —
+ * there is no result, only the events the stream emits before it dies.
+ */
+export interface ShellStream {
+  /** stdout/stderr chunks as they arrive (bytes, undecoded). */
+  readonly onChunk: (listener: (chunk: { stdout: boolean; data: Uint8Array }) => void) => void;
+  /** The stream ended (exit, kill or timeout); the reason is already emitted. */
+  readonly onExit: (listener: (code: number) => void) => void;
+  /** Write to the process's stdin; resolves once handed to the runtime. */
+  readonly write: (data: string | Uint8Array) => Promise<void>;
+  /** End now: the stdin side closes and the process tree is killed. */
+  readonly stop: () => Promise<void>;
 }
 
 /**
@@ -191,6 +215,44 @@ export const localShellBackend: ShellBackendFactory = (
       });
     });
 
+  const startStream = (script: string, cwd: string, timeoutMs: number): ShellStream => {
+    const child = spawn("/bin/bash", ["-c", script], {
+      cwd: guestToHost(cwd),
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
+    });
+    const chunkers: ((chunk: { stdout: boolean; data: Uint8Array }) => void)[] = [];
+    const exiters: ((code: number) => void)[] = [];
+    let exited = false;
+    const finish = (code: number): void => {
+      if (exited) return;
+      exited = true;
+      for (const exit of exiters) exit(code);
+    };
+    child.stdout.on("data", (chunk: Buffer) => {
+      for (const emit of chunkers) emit({ stdout: true, data: new Uint8Array(chunk) });
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      for (const emit of chunkers) emit({ stdout: false, data: new Uint8Array(chunk) });
+    });
+    child.on("error", () => finish(127));
+    child.on("close", (code) => finish(code ?? 1));
+    return {
+      onChunk: (listener) => chunkers.push(listener),
+      onExit: (listener) => exiters.push(listener),
+      write: async (data) => {
+        if (child.stdin.writable)
+          await new Promise<void>((resolve, reject) => {
+            child.stdin.write(data, (error) => (error === undefined ? resolve() : reject(error)));
+          });
+      },
+      stop: async () => {
+        child.stdin.end();
+        child.kill("SIGKILL");
+      },
+    };
+  };
+
   return {
     prepare: async (files) => {
       writeAll(files);
@@ -198,5 +260,6 @@ export const localShellBackend: ShellBackendFactory = (
     exec: (script, cwd, timeoutMs, abortSignal) => run(script, cwd, timeoutMs, abortSignal),
     listFiles: async () => walk(homeDir, ""),
     readFile: async (path) => new Uint8Array(readFileSync(resolveInside(homeDir, path))),
+    stream: async (script, cwd, timeoutMs) => startStream(script, cwd, timeoutMs),
   };
 };

@@ -230,6 +230,8 @@ def page_facts(tab):
 
 
 def main():
+    if len(sys.argv) < 2:
+        fail("usage: driver '<json command>' (or import for the cast)")
     try:
         command = json.loads(sys.argv[1])
     except Exception:
@@ -315,7 +317,8 @@ def main():
         fail("%s: %s" % (type(cause).__name__, cause))
 
 
-main()
+if __name__ == "__main__":
+    main()
 `;
 
 /** Install the driver once per VM (idempotent), then run one command. */

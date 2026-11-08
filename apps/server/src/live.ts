@@ -21,7 +21,8 @@ export type LiveKind =
   | "skills"
   | "memory"
   | "evals"
-  | "projects";
+  | "projects"
+  | "takeovers";
 
 class LiveHub {
   private clients = new Set<WebSocket>();
@@ -92,6 +93,8 @@ export const liveKindsForTool = (name: string): LiveKind[] => {
   if (/^(bot|team)_(create|update|move|pause|delete)$/.test(name)) {
     return ["profiles", "sessions"];
   }
+  // A browser session call may have OPENED (or replaced) a takeover ask.
+  if (/^browser_(session|open)$/.test(name)) return ["takeovers"];
   return [];
 };
 
@@ -118,5 +121,10 @@ export const liveKindsFor = (method: string, path: string): LiveKind[] => {
   if (prefix("/api/vault") || prefix("/api/vault-bindings")) return ["vault"];
   if (prefix("/api/skills")) return ["skills"];
   if (prefix("/api/memory")) return ["memory"];
+  // A takeover's lifecycle changes the list (opened by the bot elsewhere,
+  // finished or stepped away here); the cast's own traffic — frames and
+  // acts — changes nothing, so it signals nothing.
+  if (/^\/api\/browser\/takeover\/[^/]+\/finish$/.test(path)) return ["takeovers"];
+  if (prefix("/api/browser/takeover") && method === "DELETE") return ["takeovers"];
   return [];
 };

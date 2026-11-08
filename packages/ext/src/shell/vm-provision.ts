@@ -209,6 +209,8 @@ export interface ExecBuilderShape {
   timeout(ms: number): ExecBuilderShape;
   user(user: string): ExecBuilderShape;
   env(key: string, value: string): ExecBuilderShape;
+  /** Pipe stdin (the cast's act channel); absent on fake test builders. */
+  stdinPipe?(): ExecBuilderShape;
 }
 
 export const applyBotExec = <B>(

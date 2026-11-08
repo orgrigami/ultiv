@@ -697,6 +697,25 @@ images use) and stored in that bot's own tree under `screenshots/` — the owner
 sees the image card in the app. Page text, page title and screenshot are
 UNTRUSTED INPUT (prompt injection): the tool description and output say so.
 
+**The interactive session and the owner's live cast.** `browser_session`
+(`packages/ext/src/plugins/browser-session.ts`) drives the SAME in-VM
+chromium (one per home VM, profile under `/tmp`, cookies never sealed into
+model-readable files): reads are ungated, acts (click/type/press) are
+gated, and password fields are refused outright — the model must never
+carry a secret to type it. The sanctioned path for a wall is op `takeover`:
+the OWNER drives the page through the live cast
+(`packages/ext/src/browser/cast.ts`), whose SSE stream and act routes are
+owner-scoped exactly like every other takeover route (another owner's row
+answers like a missing one). The cast changes no isolation boundary: the
+owner's navigations run under the SAME home-VM network policy as the bot's
+(the allowlist gates the owner too), the frames are page pixels — untrusted
+content shown as an image, never parsed — and the owner's keystrokes are
+NEVER logged or audited (a typed password goes browser → TLS → server
+memory → the VM's stdin, nothing else; the audit records the takeover's
+open and finish, not its driving). The stream is one-way (frames out, acts
+in over POST), capped at 30 minutes, and winds down when the last viewer
+leaves.
+
 ## Owner scoping and the one account
 
 There is exactly one account: the passcode signs you in as `owner`

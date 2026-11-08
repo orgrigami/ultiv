@@ -478,6 +478,56 @@ export const sandboxShellBackend =
 
       exec: (script, cwd, timeoutMs, abortSignal) => run(script, cwd, timeoutMs, abortSignal),
 
+      // The browser cast's long-running exec: frames stream out over stdout
+      // events, the owner's input acts ride stdin (an explicit pipe — the
+      // default stdin is null, and a sink over a null stdin writes nowhere).
+      // Runs as the bot user like every other exec.
+      stream: async (script, streamCwd, timeoutMs) => {
+        const sandbox = await ensureVm();
+        const handle = await sandbox.execStreamWith("bash", (b) => {
+          const shaped = applyBotExec(b, script, streamCwd, timeoutMs, user) as {
+            stdinPipe?: () => unknown;
+          };
+          shaped.stdinPipe?.();
+          return shaped as never;
+        });
+        const sink = await handle.takeStdin();
+        const chunkers: ((chunk: { stdout: boolean; data: Uint8Array }) => void)[] = [];
+        const exiters: ((code: number) => void)[] = [];
+        let exited = false;
+        const finish = (code: number): void => {
+          if (exited) return;
+          exited = true;
+          for (const exit of exiters) exit(code);
+        };
+        // The handle is push-less: only iterating produces the events.
+        void (async () => {
+          try {
+            for await (const event of handle) {
+              if (event.kind === "stdout") {
+                for (const emit of chunkers) emit({ stdout: true, data: event.data });
+              } else if (event.kind === "stderr") {
+                for (const emit of chunkers) emit({ stdout: false, data: event.data });
+              } else if (event.kind === "exited") finish(event.code);
+            }
+          } catch {
+            finish(-1);
+          }
+        })();
+        return {
+          onChunk: (listener) => chunkers.push(listener),
+          onExit: (listener) => exiters.push(listener),
+          write: async (data) => {
+            if (sink !== null) await sink.write(data);
+          },
+          stop: async () => {
+            await sink?.close().catch(() => undefined);
+            await handle.kill().catch(() => undefined);
+            await handle[Symbol.asyncDispose]().catch(() => undefined);
+          },
+        };
+      },
+
       listFiles: async (): Promise<readonly string[]> => {
         // The token first: a VM recreated since `prepare` (by this session
         // or another) has no token — that empty tree is a LOST workspace,

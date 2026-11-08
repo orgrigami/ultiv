@@ -18,7 +18,7 @@ import type { RoomsService } from "./profiles/rooms.ts";
 import type { MailboxService } from "./mailbox/mailbox.ts";
 import type { UsageService } from "./usage/usage.ts";
 import type { TablesService } from "./tables/tables.ts";
-import type { TakeoverRegistry } from "@spriessen/ext";
+import type { CastSessions, TakeoverRegistry } from "@spriessen/ext";
 import type { OrgService } from "./org/service.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { MemoryService } from "./memory/memory.ts";
@@ -70,6 +70,8 @@ export interface MindService {
   readonly tables: TablesService;
   /** The browser-takeover registry (absent when the browser session is not wired). */
   readonly browserTakeovers?: TakeoverRegistry;
+  /** The owner's live browser casts (the takeover's driving seat). */
+  readonly browserCasts?: CastSessions;
   /** The org: one per install, flat teams, members, grants, templates. */
   readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */
