@@ -10,7 +10,7 @@ export const Route = createFileRoute("/routines")({
 function RoutinesPage() {
   const { sessions } = useApp();
   return (
-    <Page title="Routines">
+    <Page title="Routines" lead="Scheduled work, webhooks and watches across the crew.">
       <RoutinesContent profiles={sessions.profiles} />
     </Page>
   );

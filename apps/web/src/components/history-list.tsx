@@ -1,10 +1,11 @@
 import { CharacterEmpty } from "@/components/character-empty";
-import { SearchIcon, SquarePenIcon, Trash2Icon } from "lucide-react";
+import { SearchIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { useNewChat, useOpenChat } from "@/components/app-nav";
+import { useOpenChat } from "@/components/app-nav";
 import { BotAvatar } from "@/components/bot-avatar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { RowButton } from "@/components/ui/row-button";
 import { useApp } from "@/lib/app-state";
@@ -23,7 +24,6 @@ import { SectionHeader } from "@/components/ui/section-header";
 export function HistoryList() {
   const { sessions } = useApp();
   const open = useOpenChat();
-  const newChat = useNewChat();
   const [query, setQuery] = useState("");
   const all = pastChats({ sessions: sessions.sessions, profiles: sessions.profiles });
   const rows =
@@ -40,7 +40,7 @@ export function HistoryList() {
             aria-hidden
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
           />
-          <InputGroup className="h-10 rounded-full">
+          <InputGroup className="h-11 rounded-full">
             <InputGroupInput
               type="search"
               value={query}
@@ -50,16 +50,6 @@ export function HistoryList() {
             />
           </InputGroup>
         </label>
-        <Button
-          variant="outline"
-          size="xl"
-          pill
-          disabled={!newChat.ready}
-          title={newChat.ready ? undefined : "Waiting for the server"}
-          onClick={() => void newChat.start()}
-        >
-          <SquarePenIcon data-icon="inline-start" /> New chat
-        </Button>
       </div>
       <MessageSearch query={query} />
       {query !== "" && rows.length > 0 && <SectionHeader title="Chats" className="px-1" />}
@@ -67,17 +57,18 @@ export function HistoryList() {
         all.length === 0 ? (
           <CharacterEmpty title="No chats yet">Say hello on the Chat tab.</CharacterEmpty>
         ) : (
-          <p className="text-muted-foreground px-1 py-6 text-center text-sm">
-            No chat matches that.
-          </p>
+          <EmptyState>No chat matches that.</EmptyState>
         )
       ) : (
-        <ul aria-label="Past chats" className="bg-card divide-border divide-y rounded-2xl border">
+        <ul
+          aria-label="Past chats"
+          className="bg-card divide-border divide-y rounded-xl border p-1"
+        >
           {rows.map((row) => (
             <li key={row.id} className="flex items-center gap-1 pr-1">
               <RowButton
                 onClick={() => open(row)}
-                className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-2xl py-2 pl-3"
+                className="hover:bg-muted/60 press flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-lg py-2 pl-2.5"
               >
                 <BotAvatar id={row.botId} name={row.botName} />
                 <span className="flex min-w-0 flex-1 flex-col">

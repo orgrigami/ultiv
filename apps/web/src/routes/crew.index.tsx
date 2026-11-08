@@ -32,20 +32,21 @@ function CrewPage() {
   const { view } = useOrg();
   const hasTeams = (view?.teams.length ?? 0) > 0;
   return (
-    <Page title="Crew" lead="Your bots. Open one to see its memory, routines and access.">
-      <SectionHeader
-        title="Bots"
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setCreatingTeam(true)}>
-              <PlusIcon /> New team
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
-              <PlusIcon /> New bot
-            </Button>
-          </div>
-        }
-      />
+    <Page
+      title="Crew"
+      lead="Your bots. Open one to see its memory, routines and access."
+      actions={
+        <>
+          <Button variant="outline" size="sm" onClick={() => setCreatingTeam(true)}>
+            <PlusIcon /> New team
+          </Button>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            New bot
+          </Button>
+        </>
+      }
+    >
+      <SectionHeader title="Bots" />
       <CrewList
         variant="page"
         activeId={undefined}
