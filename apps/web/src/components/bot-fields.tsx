@@ -148,7 +148,7 @@ export function AutoApproveField({
             key={tool}
             variant="secondary"
             size="chip"
-            className="max-w-full"
+            className="max-w-full min-w-0"
             title={describeAllowEntry(tool).full}
           >
             <span className="truncate font-mono">{describeAllowEntry(tool).label}</span>
@@ -255,7 +255,7 @@ export function AllowlistField({
                   key={tool}
                   variant="secondary"
                   size="chip"
-                  className="max-w-full"
+                  className="max-w-full min-w-0"
                   title={entries.find((entry) => entry.name === tool)?.description ?? tool}
                 >
                   <span className="truncate font-mono">{tool}</span>

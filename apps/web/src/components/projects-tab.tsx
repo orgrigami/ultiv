@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ErrorState } from "@/components/ui/empty-state";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SkeletonRows } from "@/components/ui/skeleton";
+import { Tile } from "@/components/ui/tile";
 import { api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import { notifyError } from "@/lib/notify";
@@ -83,7 +84,7 @@ function ProjectCard({ project }: { project: ProjectRow }) {
       .finally(() => setBusy(false));
   };
   return (
-    <li aria-busy={busy} className="bg-card flex flex-col gap-2 rounded-2xl border px-3.5 py-3">
+    <Tile radius="2xl" render={<li aria-busy={busy} />} className="flex flex-col gap-2 px-3.5 py-3">
       <header className="flex items-baseline gap-2">
         <span className="min-w-0 flex-1 text-sm font-medium break-words">{project.title}</span>
         <Badge variant={project.status === "active" ? "secondary" : "outline"}>
@@ -136,7 +137,7 @@ function ProjectCard({ project }: { project: ProjectRow }) {
         <ProjectWorkList work={project.work} botId={project.profileId} />
       )}
       <ProjectActions project={project} change={change} />
-    </li>
+    </Tile>
   );
 }
 

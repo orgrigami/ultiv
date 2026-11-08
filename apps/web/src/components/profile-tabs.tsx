@@ -133,7 +133,7 @@ export function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: Profile
         ))}
       </div>
       <SectionHeader title="Details" />
-      <dl className="bg-card divide-border divide-y rounded-2xl border">
+      <dl className="bg-card divide-border divide-y rounded-xl border">
         <Fact label="Persona">
           <span className="line-clamp-4 whitespace-pre-wrap">
             {bot.persona !== "" ? bot.persona : "Not set"}
@@ -152,7 +152,7 @@ export function OverviewTab({ bot, counts }: { bot: ProfileInfo; counts: Profile
         <Fact label="Created">{formatWhen(bot.createdAt)}</Fact>
       </dl>
       <SectionHeader title="Manage" />
-      <ListCard className="rounded-2xl">
+      <ListCard>
         <BotHomeField bot={bot} isMain={isMain} />
         {!isMain && !archived && (
           <ManageRow

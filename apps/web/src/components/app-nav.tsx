@@ -288,15 +288,14 @@ function FindTab() {
   const quick = useQuickSwitch();
   if (quick === null) return null;
   return (
-    <button
-      type="button"
+    <RowButton
       onClick={quick.openSwitcher}
       aria-label="Find a chat, bot or page"
       className={cn(TAB, "text-muted-foreground")}
     >
       <SearchIcon className="size-6 shrink-0" />
       Find
-    </button>
+    </RowButton>
   );
 }
 

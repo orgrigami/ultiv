@@ -30,7 +30,6 @@ import { Dialog, DialogContent, DialogTitle, TALL_SHEET } from "@/components/ui/
 import { useApp } from "@/lib/app-state";
 import { useMedia, WIDE } from "@/lib/use-media";
 import { InWorkPane, useWorkPane, type WorkPaneState } from "@/lib/work-pane";
-import { cn } from "@/lib/utils";
 import type { WorkItem } from "@/lib/work-stack";
 
 /** One small icon per kind, so a strip tab reads at a glance. */
@@ -72,34 +71,28 @@ function TabStrip({ pane }: { pane: WorkPaneState }) {
         const Icon = KIND_ICON[tab.item.kind];
         const { title } = titleOf(tab.item);
         return (
-          <div
-            key={tab.key}
-            className={cn(
-              "flex shrink-0 items-center overflow-hidden rounded-lg border",
-              active
-                ? "border-border/70 bg-secondary text-secondary-foreground"
-                : "border-transparent hover:bg-muted",
-            )}
-          >
-            <button
+          <div key={tab.key} className="flex shrink-0 items-center">
+            <Button
               type="button"
+              variant="toggle"
+              size="sm"
+              pill
               aria-pressed={active}
               title={title}
               onClick={() => pane.select(tab.key)}
-              className="focus-visible:ring-ring/50 press flex min-h-8 cursor-pointer items-center gap-1.5 py-1 pr-1 pl-2 text-xs outline-none focus-visible:ring-3 pointer-coarse:min-h-11"
             >
               <Icon className="size-3.5 shrink-0" />
               <span className="max-w-24 truncate sm:max-w-28">{title}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               aria-label={`Close ${title}`}
               onClick={() => pane.closeTab(tab.key)}
-              className="focus-visible:ring-ring/50 text-muted-foreground flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none hover:text-foreground focus-visible:ring-3 pointer-coarse:size-8"
             >
-              <XIcon className="size-3.5" />
-              <span className="sr-only">Close</span>
-            </button>
+              <XIcon />
+            </Button>
           </div>
         );
       })}
