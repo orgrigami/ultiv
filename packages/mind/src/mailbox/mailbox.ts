@@ -18,6 +18,7 @@ import { scrubSecrets } from "@spriessen/core";
 import {
   armDeadline,
   cancelEntry,
+  cancelSentFrom,
   deliver,
   endpointFor,
   makeEngine,
@@ -121,6 +122,12 @@ export interface MailboxService {
   readonly purgeProfile: (owner: string, profileId: string) => Promise<number>;
   /** Cancel a pending message; the sender is told. A finished one is returned unchanged. */
   readonly cancel: (owner: string, id: string) => Promise<MailboxEntry>;
+  /**
+   * Stop propagation: cancel every pending message SENT from these
+   * conversations (a stopped work tree), without waking the sender. Returns
+   * how many were settled.
+   */
+  readonly cancelSentFrom: (conversations: readonly string[]) => Promise<number>;
   /** Boot: redeliver pending messages, fire or re-arm deadlines, re-send owed wakes. */
   readonly recover: () => Promise<RecoveryReport>;
 }
@@ -333,6 +340,7 @@ export const mailboxService = (deps: MailboxDeps): MailboxService => {
       return () => void e.expiredListeners.delete(fn);
     },
     cancel: (owner, id) => cancelEntry(e, owner, id),
+    cancelSentFrom: (conversations) => cancelSentFrom(e, conversations),
     recover: () => recover(e),
   };
   return service;

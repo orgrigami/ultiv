@@ -323,6 +323,7 @@ export const sandboxShellBackend =
       script: string,
       cwd: string,
       timeoutMs: number,
+      abortSignal?: AbortSignal,
     ): Promise<ShellExecResult> => {
       const sandbox = await ensureVm();
       const before = await enforceCaps();
@@ -332,10 +333,50 @@ export const sandboxShellBackend =
       }
       // A little slack: the guest clock and mtimes have second granularity.
       const since = Math.floor(Date.now() / 1000) - 2;
-      const output = await sandbox.execWith(
-        "bash",
-        (b) => applyBotExec(b, script, cwd, timeoutMs, user) as never,
-      );
+      let stopped = false;
+      const onStop = (): void => {
+        stopped = true;
+      };
+      abortSignal?.addEventListener("abort", onStop, { once: true });
+      let output;
+      try {
+        const exec = sandbox.execWith(
+          "bash",
+          (b) => applyBotExec(b, script, cwd, timeoutMs, user) as never,
+        );
+        if (abortSignal === undefined) {
+          output = await exec;
+        } else {
+          // The loser of the race must never surface as an unhandled rejection.
+          exec.catch(() => undefined);
+          output = await Promise.race([
+            exec,
+            new Promise<never>((_, reject) => {
+              const giveUp = (): void => reject(new Error("work-tree stop"));
+              if (abortSignal.aborted) giveUp();
+              else abortSignal.addEventListener("abort", giveUp, { once: true });
+            }),
+          ]);
+        }
+      } catch (cause) {
+        if (!stopped) throw cause;
+        // The raced exec keeps running in the VM; kill this bot's processes
+        // there. With a per-bot user, pkill -U is exactly this bot's shell
+        // work; a root home has no per-bot boundary, so its timeout stays
+        // the bound (the stopped job's wake is suppressed either way).
+        if (user !== undefined) {
+          await sandbox
+            .execWith(
+              "bash",
+              (b) =>
+                applyBotExec(b, `pkill -9 -U ${user.uid} || true`, HOME, 15_000, user) as never,
+            )
+            .catch(() => undefined);
+        }
+        return { stdout: "", stderr: "[bash] stopped with the work tree", exitCode: 124 };
+      } finally {
+        abortSignal?.removeEventListener("abort", onStop);
+      }
       let result: ShellExecResult = {
         stdout: output.stdout(),
         stderr: output.stderr(),
@@ -425,7 +466,7 @@ export const sandboxShellBackend =
         }
       },
 
-      exec: (script, cwd, timeoutMs) => run(script, cwd, timeoutMs),
+      exec: (script, cwd, timeoutMs, abortSignal) => run(script, cwd, timeoutMs, abortSignal),
 
       listFiles: async (): Promise<readonly string[]> => {
         // The token first: a VM recreated since `prepare` (by this session

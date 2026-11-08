@@ -1,7 +1,8 @@
 /**
  * What the tasks faculty needs from the rest of the mind once it exists:
- * each bot's running limit (its policy, else the workspace default) and the
- * files a task's conversation wrote, for the parent's wake.
+ * each bot's running limit (its policy, else the workspace default), the
+ * files a task's conversation wrote (for the parent's wake), and the
+ * work-tree stop extras (mailbox settlement, background-job kills).
  */
 import {
   artifactsDir,
@@ -17,6 +18,12 @@ import type { TaskWiring } from "./run.ts";
 export const taskWiring = (
   profiles: Pick<ProfilesService, "get" | "workspaceTaskLimit">,
   holder: ScopeHolder | undefined,
+  extras: {
+    /** Settle pending mail sent FROM stopped conversations (stop propagation). */
+    readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
+    /** Kill background bash jobs running in stopped conversations. */
+    readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
+  } = {},
   root: string = artifactsDir(),
 ): TaskWiring => ({
   limitOf: async (bot) => {
@@ -31,4 +38,8 @@ export const taskWiring = (
       .filter((info) => touchedAt(info) >= since)
       .map((info) => ({ id: info.id, name: info.name }));
   },
+  ...(extras.cancelMailSentFrom !== undefined
+    ? { cancelMailSentFrom: extras.cancelMailSentFrom }
+    : {}),
+  ...(extras.stopJobsOf !== undefined ? { stopJobsOf: extras.stopJobsOf } : {}),
 });

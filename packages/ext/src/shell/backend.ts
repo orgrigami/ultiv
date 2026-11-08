@@ -52,8 +52,18 @@ export interface SharedWrite {
 export interface ShellBackend {
   /** Reset the workspace to exactly `files`, ready for exec. */
   prepare(files: readonly ShellFile[]): Promise<void>;
-  /** Run a script with the given cwd (absolute, `/home`-rooted). */
-  exec(script: string, cwd: string, timeoutMs: number): Promise<ShellExecResult>;
+  /**
+   * Run a script with the given cwd (absolute, `/home`-rooted). An optional
+   * `signal` stops the run: the promise settles with a killed-style result
+   * and the script's processes are gone (best effort where the runtime
+   * allows). Backends that cannot kill simply run to their timeout.
+   */
+  exec(
+    script: string,
+    cwd: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<ShellExecResult>;
   /** Paths of every file in the workspace, relative to `/home`. */
   listFiles(): Promise<readonly string[]>;
   /** Read one workspace file's bytes. */
@@ -128,7 +138,12 @@ export const localShellBackend: ShellBackendFactory = (
     return paths.sort();
   };
 
-  const run = (script: string, cwd: string, timeoutMs: number): Promise<ShellExecResult> =>
+  const run = (
+    script: string,
+    cwd: string,
+    timeoutMs: number,
+    abortSignal?: AbortSignal,
+  ): Promise<ShellExecResult> =>
     new Promise((resolve) => {
       const child = spawn("/bin/bash", ["-c", script], {
         cwd: guestToHost(cwd),
@@ -137,6 +152,14 @@ export const localShellBackend: ShellBackendFactory = (
       });
       let stdout = "";
       let stderr = "";
+      const onStop = (): void => {
+        child.kill("SIGKILL");
+      };
+      // A signal that was aborted before this exec started must still kill.
+      if (abortSignal !== undefined) {
+        if (abortSignal.aborted) onStop();
+        else abortSignal.addEventListener("abort", onStop, { once: true });
+      }
       child.stdout.on("data", (chunk: Buffer) => {
         stdout += chunk.toString("utf8");
       });
@@ -160,6 +183,7 @@ export const localShellBackend: ShellBackendFactory = (
         finish(127);
       });
       child.on("close", (code, signal) => {
+        abortSignal?.removeEventListener("abort", onStop);
         if (signal !== null) {
           stderr += `\n[bash] killed by ${signal} after ${timeoutMs}ms`;
           finish(124);
@@ -171,7 +195,7 @@ export const localShellBackend: ShellBackendFactory = (
     prepare: async (files) => {
       writeAll(files);
     },
-    exec: (script, cwd, timeoutMs) => run(script, cwd, timeoutMs),
+    exec: (script, cwd, timeoutMs, abortSignal) => run(script, cwd, timeoutMs, abortSignal),
     listFiles: async () => walk(homeDir, ""),
     readFile: async (path) => new Uint8Array(readFileSync(resolveInside(homeDir, path))),
   };

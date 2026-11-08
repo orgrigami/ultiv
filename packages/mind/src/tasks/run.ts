@@ -11,7 +11,7 @@ import type { TaskInfo } from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import { findTask, taskConversationKey, updateTask } from "./store.ts";
 import { settleStructured } from "./structured.ts";
-import { owed, wakeParent, type TaskFile } from "./wake.ts";
+import { NOT_STARTED, owed, wakeParent, type TaskFile } from "./wake.ts";
 
 /** The bot a task runs as. */
 export type TaskBot = NonNullable<TaskInfo["bot"]>;
@@ -34,6 +34,13 @@ export interface TaskWiring {
   readonly limitOf?: (bot: TaskBot | null) => Promise<number>;
   /** Files a task's conversation wrote since a time, for the parent's wake. */
   readonly filesOf?: (conversationId: string, since: number) => Promise<readonly TaskFile[]>;
+  /**
+   * Stop propagation (tree.ts): settle pending mailbox mail sent FROM these
+   * conversations without waking them. Wired to the mailbox service.
+   */
+  readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
+  /** Stop propagation: kill background bash jobs running in these conversations. */
+  readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
 }
 
 /** Mutable wiring shared by the service's parts. */
@@ -132,6 +139,41 @@ export const wakeWithFiles = async (rt: TaskRuntime, id: string): Promise<void> 
       ? []
       : await rt.wiring.filesOf(String(cid), since).catch(() => []);
   await wakeParent(rt.converse, id, files);
+};
+
+/**
+ * Stop a running or queued task: abort a run, mark cancelled, wake the
+ * parent — or, with `quiet` (the owner stopped the whole chat), never.
+ * Idempotent: only a running or queued task is cancelled. The TREE the task
+ * spawned (mail, jobs) is settled by tree.ts, after this returns.
+ */
+export const cancelTask = async (rt: TaskRuntime, id: string, quiet: boolean): Promise<boolean> => {
+  const { converse } = rt;
+  const task = await Effect.runPromise(findTask(converse, id));
+  if (task === undefined || (task.status !== "running" && task.status !== "queued")) return false;
+  // Stop the work first, then write the outcome: the runner honors the
+  // cancelled status and keeps its hands off when it settles.
+  if (task.status === "running") {
+    const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(id)));
+    await Effect.runPromise(converse.interrupt(conversation));
+  }
+  const notStarted = task.status === "queued" && (task.runs ?? 1) === 1;
+  await Effect.runPromise(
+    updateTask(converse, id, (current) => {
+      if (current.status !== "running" && current.status !== "queued") return current;
+      const { next: _next, ...rest } = current;
+      return {
+        ...rest,
+        status: "cancelled",
+        error: notStarted ? NOT_STARTED : "cancelled by the user",
+        finishedAt: Date.now(),
+        ...(quiet ? { notified: true } : owed(current)),
+      };
+    }),
+  );
+  await wakeWithFiles(rt, id).catch(() => undefined);
+  await rt.pump().catch(() => undefined);
+  return true;
 };
 
 /** The settled row's fields for a finished run (done), unless it was cancelled meanwhile. */

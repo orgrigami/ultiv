@@ -417,6 +417,53 @@ const withdrawQueued = async (e: Engine, entry: MailboxEntry): Promise<void> => 
   }
 };
 
+/**
+ * Stop propagation: settle every PENDING message sent FROM these
+ * conversations (a stopped task's tree) as cancelled. The sender is NOT
+ * woken — its conversation is being stopped, and a NACK wake there would
+ * start a fresh turn on work the owner just cancelled. A message already
+ * being answered by the recipient keeps running; its reply finds the
+ * envelope cancelled and signals nothing.
+ */
+export const cancelSentFrom = async (
+  e: Engine,
+  conversations: readonly string[],
+): Promise<number> => {
+  if (conversations.length === 0) return 0;
+  const from = new Set(conversations);
+  const pending = (await readEntries(e.deps.converse)).filter(
+    (entry) =>
+      entry.status === "pending" &&
+      entry.originConversation != null &&
+      from.has(entry.originConversation),
+  );
+  let stopped = 0;
+  for (const entry of pending) {
+    const cancelled = await updatePending(e.deps.converse, entry.envelope.id, {
+      status: "cancelled",
+      error: "cancelled: the sender's work was stopped",
+      settledAt: Date.now(),
+      senderNotified: true,
+    });
+    if (cancelled === undefined) continue;
+    clearDeadline(e, cancelled.envelope.id);
+    stopped += 1;
+    e.deps.audit.record({
+      at: Date.now(),
+      kind: "mailbox",
+      conversationId: "mailbox",
+      profile: cancelled.envelope.from,
+      callId: cancelled.envelope.id,
+      name: "stopped",
+      durationMs: null,
+      ok: false,
+      error: "cancelled with the sender's work tree",
+    });
+    await withdrawQueued(e, cancelled);
+  }
+  return stopped;
+};
+
 /** The owner cancels a pending message; the sender is told not to wait for it. */
 export const cancelEntry = async (e: Engine, owner: string, id: string): Promise<MailboxEntry> => {
   const entry = await findEntry(e.deps.converse, id);

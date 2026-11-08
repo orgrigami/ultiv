@@ -101,6 +101,12 @@ export interface MindWiring {
   ) => Promise<void>;
   /** Re-arms the server's cron scheduler after a schedule-registry change. */
   readonly onSchedulesChanged?: () => Promise<void>;
+  /**
+   * The background-job kill switch (ext bash-jobs): the bash plugin tracks
+   * each job's abort signal on it, and work-tree stops (tasks/tree.ts) kill
+   * every job a stopped conversation started.
+   */
+  readonly jobKiller?: (conversations: readonly string[]) => number;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

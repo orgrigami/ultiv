@@ -37,6 +37,62 @@ export interface BashJobHost {
   readonly started: (job: BashJob) => void;
   /** A job ended: wake its conversation with this text, once. */
   readonly finished: (job: BashJob, text: string) => void;
+  /**
+   * A job was STOPPED with its conversation's work tree: its record is
+   * cleared and NOTHING is woken — a result for work the owner cancelled
+   * would start a new turn on a stopped conversation.
+   */
+  readonly stopped: (job: BashJob) => void;
+}
+
+/** A background job's stop handle: its abort signal, and whether the stop was a kill. */
+export interface TrackedJob {
+  readonly signal: AbortSignal;
+  /** True exactly once after a kill took the job (the finished wake is suppressed). */
+  readonly cancelled: () => boolean;
+}
+
+/**
+ * Kill switch for background jobs, shared between the bash plugin (which
+ * tracks each job's abort signal) and the work-tree stop (which kills every
+ * job a stopped conversation started). The processes die where the runtime
+ * allows; everywhere else the 30-minute cap bounds them and the wake is
+ * suppressed either way.
+ */
+export class JobKiller {
+  private readonly jobs = new Map<
+    string,
+    { readonly job: BashJob; readonly control: AbortController; killed: boolean }
+  >();
+
+  /** Track one starting job; pass `tracked.signal` into its exec. */
+  track(job: BashJob): TrackedJob {
+    const entry = { job, control: new AbortController(), killed: false };
+    this.jobs.set(job.id, entry);
+    return {
+      signal: entry.control.signal,
+      cancelled: () => entry.killed,
+    };
+  }
+
+  /** Forget a finished job (its exec settled on its own). */
+  release(jobId: string): void {
+    this.jobs.delete(jobId);
+  }
+
+  /** Kill every job started by these conversations; how many were killed. */
+  killConversations(conversations: readonly string[]): number {
+    const ids = new Set(conversations);
+    let killed = 0;
+    for (const [id, entry] of this.jobs) {
+      if (!ids.has(entry.job.conversationId)) continue;
+      entry.killed = true;
+      entry.control.abort();
+      this.jobs.delete(id);
+      killed += 1;
+    }
+    return killed;
+  }
 }
 
 /** Running jobs by conversation, and by VM workspace dir. */

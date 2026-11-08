@@ -27,6 +27,7 @@ import {
   createScopeHolder,
   emailConfigured,
   emailPlugin,
+  JobKiller,
   makeRegistry,
   Registry,
   tinyfishConfigured,
@@ -211,7 +212,18 @@ const mindLayerRaw = (
       // Messages a crash interrupted are redelivered (idempotently) on boot.
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
       // Tasks run as their bot: bind (and resume) only once the index exists.
-      void tasks.attach(profiles.bindTask, taskWiring(profiles, wiring.holder));
+      void tasks.attach(
+        profiles.bindTask,
+        taskWiring(profiles, wiring.holder, {
+          cancelMailSentFrom: (conversations) => mailbox.cancelSentFrom(conversations),
+          ...(wiring.jobKiller !== undefined
+            ? {
+                stopJobsOf: async (conversations: readonly string[]) =>
+                  wiring.jobKiller?.(conversations) ?? 0,
+              }
+            : {}),
+        }),
+      );
       // The search sidecar: derived, rebuildable, closed with the mind.
       const searchDb = yield* Effect.acquireRelease(
         Effect.sync(() => openSearchDb(wiring.searchDbPath)),
@@ -353,7 +365,12 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
   const vaultRoot = vaultConfigured() ? (options.vault?.dir ?? vaultDir()) : null;
   const vaultStore = vaultRoot !== null ? makeVaultStore(vaultRoot) : null;
   const bindings = vaultRoot !== null ? makeBindingStore(vaultRoot) : null;
+  // One kill switch for background bash jobs: the bash plugin tracks each
+  // job's abort signal on it; work-tree stops (tasks/tree.ts) reach it
+  // through the task wiring.
+  const jobKiller = new JobKiller();
   const wiring: MindWiring = {
+    jobKiller: (conversations) => jobKiller.killConversations(conversations),
     holder,
     searchDbPath: searchDbPathOf(options),
     vaultStore,
@@ -407,6 +424,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         bashPlugin({
           holder,
           jobs: bashJobHost(() => wiring.converseRef.current),
+          jobKiller,
           ...(wiring.nodeExec !== undefined
             ? { nodes: nodeShellFacadeOf(wiring.converseRef, wiring.nodeExec) }
             : {}),

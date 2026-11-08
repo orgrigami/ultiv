@@ -70,6 +70,7 @@ import {
 import {
   JOB_TIMEOUT_MS,
   JobBoard,
+  JobKiller,
   MAX_JOBS_PER_CONVERSATION,
   jobFinishedText,
   jobStartedReply,
@@ -109,6 +110,12 @@ export interface BashOptions {
    * conversation with each result. Without it `background: true` is refused.
    */
   readonly jobs?: BashJobHost;
+  /**
+   * The kill switch for those jobs (work-tree stops reach it through the
+   * mind's task wiring). Without it jobs still run to their cap; a work-tree
+   * stop then only suppresses their wake.
+   */
+  readonly jobKiller?: JobKiller;
 }
 
 // ---- mode 1: the durable workspace in a microVM -------------------------
@@ -169,6 +176,7 @@ const sandboxTool = (
   nodes?: NodeShellTransport,
   nodeSessions?: Map<string, NodeSession>,
   jobs?: BashJobHost,
+  jobKiller?: JobKiller,
 ): Tool => {
   const board = new JobBoard();
   // The home world is resolved on EVERY call: a cached session keeps its
@@ -266,6 +274,9 @@ const sandboxTool = (
         wrapScript(args.script),
         session.cwd,
         run.background ? JOB_TIMEOUT_MS : EXEC_TIMEOUT_MS,
+        // Only a background job's kill signal: a foreground call's turn
+        // abort (Redirect) deliberately lets its running tool round finish.
+        run.background ? run.signal : undefined,
       );
     } catch (cause) {
       return execFailure("bash", cause);
@@ -301,14 +312,19 @@ const sandboxTool = (
     if (board.count(conversationId) >= MAX_JOBS_PER_CONVERSATION) return tooManyJobs();
     const job = newJob(conversationId, target, args.script);
     const dir = target === "vm" ? dirOf(conversationId) : null;
+    const tracked = jobKiller?.track(job);
     board.add(job, dir);
     jobs.started(job);
-    void runCall(args, conversationId, { signal: undefined, background: true })
+    void runCall(args, conversationId, { signal: tracked?.signal, background: true })
       .then(outcomeOf)
       .catch((cause: unknown) => ({ text: `failed: ${String(cause)}`, exitCode: 1 }))
       .then(({ text, exitCode }) => {
         board.remove(job, dir);
-        jobs.finished(job, jobFinishedText(job, text, exitCode));
+        jobKiller?.release(job.id);
+        // A kill (work-tree stop) never wakes: the conversation was stopped,
+        // and a result there would start a turn on cancelled work.
+        if (tracked?.cancelled() === true) jobs.stopped(job);
+        else jobs.finished(job, jobFinishedText(job, text, exitCode));
       });
     return jobStartedReply(job);
   };
@@ -422,6 +438,7 @@ export const bashPlugin = (options: BashOptions = {}): Plugin => {
           options.nodes,
           nodeSessions,
           options.jobs,
+          options.jobKiller,
         ),
       ),
     ],

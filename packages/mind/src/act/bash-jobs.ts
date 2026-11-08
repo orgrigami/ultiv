@@ -78,6 +78,8 @@ export const bashJobHost = (converseOf: () => ConverseService | undefined): Bash
         await write(converse, (jobs) => jobs.filter((row) => row.id !== job.id));
         await wake(converse, job.conversationId, text, `bash-job:${job.id}`);
       }),
+    stopped: (job: BashJob) =>
+      later((converse) => write(converse, (jobs) => jobs.filter((row) => row.id !== job.id))),
   };
 };
 
