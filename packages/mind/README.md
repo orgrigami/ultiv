@@ -37,12 +37,16 @@ conversation→profile index):
   `credential`, never the secret). A credential's first use on a host raises
   its own approval card that "Always allow" never covers. HTTP is the first
   adapter; others implement the same `CredentialAdapterImpl` shape.
-- `tasks` — background sub-agent turns in their own conversations. The
-  parent bot steers a running task with `task_message` (arrives as
-  `[from parent]`); a long task posts rare progress lines to its owner with
-  `notify_owner` (one per 2 min, 280 chars); at most
-  `SPRIESSEN_MAX_RUNNING_TASKS` (3) run per bot. The web shows them as the task
-  pill above the composer. `tasks.listen` hears each task settle.
+- `tasks` — background sub-agent turns in their own conversations, where
+  all of a bot's work runs (chats are offered only coordination tools:
+  `profiles/chat-tools.ts`). The parent bot steers a running task with
+  `task_message` (arrives as `[from parent]`), which also continues a
+  finished task in its own context; a long task posts rare progress lines
+  to its owner with `notify_owner` (one per 2 min, 280 chars). A bot runs
+  at most its limit at once (`policies.maxRunningTasks`, else Settings'
+  default, else `SPRIESSEN_MAX_RUNNING_TASKS`, else 3); the rest queue
+  (`tasks/queue.ts`). The parent's wake lists the files the run wrote.
+  `tasks.listen` hears each task settle.
 - `mailbox` — bot-to-bot messages through contextual rooms. Each request has
   a deadline, `MAILBOX_DEADLINE_MS` (default 15 minutes); an unanswered one
   expires and NACKs the sender. `mailbox.onExpired` hears it.

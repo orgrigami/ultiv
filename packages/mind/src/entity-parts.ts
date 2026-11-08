@@ -22,6 +22,7 @@ import { ENTITY_NAME } from "./act/identity.ts";
 import { runningTasksSection } from "./act/task-live.ts";
 import { skillsExtension } from "./skills/section.ts";
 import { turnContext, turnIsOutside } from "./skills/learn.ts";
+import { chatToolsExtension } from "./profiles/chat-tools.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { AuditService } from "./audit/audit.ts";
 import type { ConverseService } from "./converse/converse.ts";
@@ -97,6 +98,8 @@ export const installFaculties = (
   const projectRef = projectRefOf(f.converse);
   piRegistry.install(act.extension());
   piRegistry.install(codemodeExtension());
+  // Chats coordinate, tasks work: a chat's call to a work tool is refused.
+  piRegistry.install(chatToolsExtension((id) => profiles.scopeOf(id)?.kind));
   piRegistry.install(profilesExtension(profiles, ENTITY_NAME, f.teamInstructions));
   piRegistry.install(memoryCoreExtension(memory, profiles));
   // Recall before each turn: the few memories the latest input is about.

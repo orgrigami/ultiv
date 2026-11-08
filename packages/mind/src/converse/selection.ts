@@ -79,6 +79,7 @@ export const selectionOps = (
         ...(model !== undefined ? { model: model === null ? null : parseRef(model) } : {}),
         ...(effort !== undefined ? { thinkingLevel: effort } : {}),
         ...(selection.tools !== undefined ? { tools: selection.tools } : {}),
+        ...(selection.modelTools !== undefined ? { modelTools: selection.modelTools } : {}),
       };
       return Effect.asVoid(
         asEffect("agent configure", conversation.configure(change, BACKGROUND_CONTEXT)),

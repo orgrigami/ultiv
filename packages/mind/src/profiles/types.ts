@@ -1,6 +1,12 @@
 /** The Profiles service surface and the shared context its parts build on. */
 import type { AgentChange } from "@earendil-works/pi-durable";
-import type { HomeRef, ProfileCreate, ProfileInfo, SessionInfo } from "@spriessen/contracts";
+import type {
+  HomeRef,
+  ProfileCreate,
+  ProfileInfo,
+  SessionInfo,
+  SessionKind,
+} from "@spriessen/contracts";
 import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { SaveMeta } from "../versions/store.ts";
@@ -102,11 +108,17 @@ export interface ProfilesService {
   readonly workspaceTaskLimit: () => Promise<number | null>;
   /** Store the workspace task limit (1..TASK_LIMIT_MAX); null clears it. */
   readonly setWorkspaceTaskLimit: (limit: number | null) => Promise<void>;
+  /** The ids of every indexed chat conversation (not tasks); built from the stored rows. */
+  readonly chatConversations: () => Promise<readonly string[]>;
   /** The conversation scope index: persona, audit and artifact scoping read this. */
   readonly scopeOf: (conversationId: string) => ConversationScope | undefined;
   readonly profileOf: (conversationId: string) => ProfileInfo | undefined;
-  /** The agent a profile's new conversations start with (model default + allowlist). */
-  readonly agentFor: (profile: ProfileInfo) => AgentChange;
+  /**
+   * The agent a profile's new conversations start with (model default +
+   * allowlist); a chat `kind` (anything but "task") also gets the chat-only
+   * tool filter (chat-tools.ts).
+   */
+  readonly agentFor: (profile: ProfileInfo, kind?: SessionKind) => AgentChange;
 }
 
 /** What each part of the service shares: storage, the index, and the whole service. */

@@ -51,6 +51,7 @@ import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
 import { deadlinesExtension, limitsOf, turnDeadlines } from "./converse/deadlines.ts";
 import { Tasks, tasksLayer } from "./tasks/tasks.ts";
 import { taskWiring } from "./tasks/wiring.ts";
+import { healChats } from "./entity-chats.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
@@ -118,13 +119,6 @@ const mindLayerRaw = (
         approvals,
         audit,
         (conversationId) => profilesRef?.profileOf(conversationId)?.id ?? null,
-        {
-          // The background-work nudge fires only when a spawn is possible:
-          // not from inside a task (over the limit, a spawn queues).
-          maySpawn: async (conversationId) =>
-            profilesRef !== undefined &&
-            !(await Effect.runPromise(tasks.isTaskConversation(conversationId))),
-        },
         wiring.hostAccess,
       );
       // One runtime, one entity per profile: the profiles service owns the
@@ -306,6 +300,9 @@ const mindLayerRaw = (
       const { projects, evals, trials } = yield* Effect.promise(() =>
         wireLateFaculties(piRegistry, { converse, profiles, decide, models, audit, tasks }),
       );
+      // Chats coordinate, tasks work: chats made before the split get the
+      // chat-only tool filter before any of their turns resumes.
+      yield* Effect.promise(() => healChats(converse, profiles));
       converse.resume();
       return {
         evals,

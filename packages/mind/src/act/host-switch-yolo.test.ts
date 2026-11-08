@@ -68,14 +68,7 @@ describe("the switch vs the approval modes", () => {
     const runs: { script: string; target?: string }[] = [];
     const approvals = makeApprovals();
     approvals.setHooks({ autoApprove: () => true }); // yolo
-    const act = actService(
-      registry([bash(runs)]),
-      approvals,
-      audit,
-      undefined,
-      undefined,
-      () => false,
-    );
+    const act = actService(registry([bash(runs)]), approvals, audit, undefined, () => false);
     for (const target of ["host", "node"]) {
       const result = await execute(act, "c1", { script: "ls", target });
       expect(result.isError, target).toBe(true);
@@ -90,7 +83,7 @@ describe("the switch vs the approval modes", () => {
     const approvals = makeApprovals();
     approvals.setHooks({ autoApprove: () => true }); // yolo
     let consulted = 0;
-    const act = actService(registry([bash(runs)]), approvals, audit, undefined, undefined, () => {
+    const act = actService(registry([bash(runs)]), approvals, audit, undefined, () => {
       consulted += 1;
       return false;
     });
@@ -115,7 +108,6 @@ describe("the switch vs the approval modes", () => {
       registry([bash(runs)]),
       approvals,
       audit,
-      undefined,
       undefined,
       async () => allowed,
     );

@@ -1,8 +1,9 @@
 /** The agent a profile's new conversations start with: model default + tool allowlist. */
 import type { AgentChange } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
-import type { ProfileInfo } from "@spriessen/contracts";
+import type { ProfileInfo, SessionKind } from "@spriessen/contracts";
 import { parseRef } from "../providers/refs.ts";
+import { chatModelTools, isChatKind } from "./chat-tools.ts";
 
 /** Tools a profile loses whatever its allowlist says: sandboxed tools without a sandbox. */
 const SANDBOX_TOOLS = ["bash", "browser_open"];
@@ -21,6 +22,12 @@ export const agentForProfile = (
    * and always stay. Absent in bare tests: the catalog is the registry.
    */
   allTools?: () => readonly { readonly name: string }[],
+  /**
+   * The kind of conversation this agent is for: a chat (anything but a task)
+   * is offered only the chat tools (chat-tools.ts); a task, or no kind, the
+   * whole allowed set.
+   */
+  kind?: SessionKind,
 ): AgentChange => {
   // Sandbox off removes the tool outright (never falls back to the host
   // shell — that would quietly change what every approval was approving).
@@ -64,5 +71,6 @@ export const agentForProfile = (
         }
       : {}),
     tools: allowed,
+    ...(isChatKind(kind) ? { modelTools: chatModelTools() } : {}),
   };
 };

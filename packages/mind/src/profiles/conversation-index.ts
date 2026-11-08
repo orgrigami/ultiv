@@ -44,7 +44,7 @@ const scopeOfRow = (row: SessionInfo): ConversationScope => ({
 
 export const conversationIndex = (
   converse: ConverseService,
-  agentFor: (profile: ProfileInfo) => AgentChange,
+  agentFor: (profile: ProfileInfo, kind?: ConversationScope["kind"]) => AgentChange,
 ): ConversationIndex => {
   const scopes = new Map<string, ConversationScope>();
   const profiles = new Map<string, ProfileInfo>();
@@ -113,10 +113,12 @@ export const conversationIndex = (
     },
     keyOfRow,
     ensureConversationFor: async (key, profile, scope) => {
-      const change = agentFor(profile);
+      const change = agentFor(profile, scope.kind);
       // `tools: null` (nothing excluded) is the host default, not an override.
       const hasOverride =
-        change.model !== undefined || (change.tools !== undefined && change.tools !== null);
+        change.model !== undefined ||
+        change.modelTools !== undefined ||
+        (change.tools !== undefined && change.tools !== null);
       await run(converse.ensure(key, hasOverride ? change : undefined));
       const cid = await run(converse.conversationIdOf(key));
       if (cid !== undefined) {

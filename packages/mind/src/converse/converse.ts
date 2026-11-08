@@ -163,6 +163,8 @@ export interface ConverseService {
       readonly effort?: ModelThinkingLevel | null;
       /** The tool set (an allowlist or sandbox exclusion); null clears the override. */
       readonly tools?: AgentChange["tools"];
+      /** The tools offered to the model (chats: the chat tools); null offers every enabled one. */
+      readonly modelTools?: AgentChange["modelTools"];
     },
   ) => Effect.Effect<void, External>;
   /** The raw transcript entries of one conversation, newest first (history search). */
@@ -238,7 +240,10 @@ const ensureConversation = (
     const created = yield* asEffect(
       "conversation create",
       harness.createConversation(
-        { ownership: { kind: "ownerless" }, agent: agentOverride ?? agent },
+        // The override EDITS the base agent: a bot without a model of its own
+        // (or a chat with only a tool filter) still starts on the workspace
+        // default the base carries.
+        { ownership: { kind: "ownerless" }, agent: { ...agent, ...agentOverride } },
         BACKGROUND_CONTEXT,
       ),
     );

@@ -127,13 +127,15 @@ const trialTurn = async (
   const conversationId = String(conversation.id);
   // Held before the first input reaches the model.
   await deps.guard.add(conversationId);
-  const agent = deps.profiles.agentFor(profile);
+  // The trial meets the tools of the live fire: a chat's, or a task's.
+  const agent = deps.profiles.agentFor(profile, routine.run === "task" ? "task" : "session");
   const model = modelOf(deps, routine, profile);
   await run(
     deps.converse.configure(conversation, {
       model: model?.id ?? null,
       effort: model === null || model.effort === "" ? null : (model.effort as ModelThinkingLevel),
       ...(agent.tools !== undefined ? { tools: agent.tools } : {}),
+      ...(agent.modelTools !== undefined ? { modelTools: agent.modelTools } : {}),
     }),
   );
   await run(deps.converse.turn(conversation, routine.input));

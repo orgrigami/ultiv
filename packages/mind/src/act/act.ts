@@ -9,7 +9,6 @@ import type { RegistryService, Tool } from "@spriessen/ext";
 import { HOST_REFUSAL, isBeyondVmCall } from "../org/host-switch.ts";
 import { withApproval, type ApprovalsService } from "../approvals.ts";
 import { withAudit, type AuditService } from "../audit/audit.ts";
-import { withTaskNudge, type NudgeGate } from "./nudge.ts";
 
 export interface ActService {
   readonly tools: () => readonly Tool[];
@@ -22,8 +21,6 @@ export const actService = (
   approvals: ApprovalsService,
   audit: AuditService,
   profileOf?: (conversationId: string) => string | null | undefined,
-  /** Set when the tasks faculty is present: long stretches get nudged to it. */
-  nudge?: NudgeGate | undefined,
   /**
    * The host capability, resolved per conversation (undefined = the owner's
    * bots keep today's behaviour). A beyond-VM call (bash targeting `host`
@@ -49,8 +46,7 @@ export const actService = (
     .map(gate)
     .map((tool) =>
       profileOf === undefined ? withAudit(audit, tool) : withAudit(audit, tool, profileOf),
-    )
-    .map((tool) => (nudge === undefined ? tool : withTaskNudge(tool, nudge)));
+    );
   const extension = defineExtension({
     name: "ultius.act",
     tools,

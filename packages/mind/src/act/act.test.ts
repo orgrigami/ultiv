@@ -67,7 +67,6 @@ describe("Act", () => {
       approvals,
       audit,
       undefined,
-      undefined,
       () => false,
     );
     const tool = act.extension().tools?.find((entry) => entry.name === "bash");
@@ -88,7 +87,6 @@ describe("Act", () => {
       registry([{ ...echo, name: "bash", gated: true }]),
       approvals,
       audit,
-      undefined,
       undefined,
       () => true,
     );

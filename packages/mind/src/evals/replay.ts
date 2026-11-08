@@ -58,13 +58,15 @@ export const replayCase = async (
     const conversationId = String(conversation.id);
     // Blocked before the first input reaches the model.
     await deps.guard.add(conversationId);
-    const agent = deps.profiles.agentFor(profile);
+    // A replayed chat message meets the chat's tools: it hands work to a task.
+    const agent = deps.profiles.agentFor(profile, "session");
     const effort = model === null ? (profile.model?.effort ?? "") : "";
     await run(
       deps.converse.configure(conversation, {
         model: model ?? profile.model?.id ?? null,
         effort: effort === "" ? null : (effort as ModelThinkingLevel),
         ...(agent.tools !== undefined ? { tools: agent.tools } : {}),
+        ...(agent.modelTools !== undefined ? { modelTools: agent.modelTools } : {}),
       }),
     );
     await run(deps.converse.turn(conversation, item.input));

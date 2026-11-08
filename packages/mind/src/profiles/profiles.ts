@@ -12,6 +12,7 @@ import type { ConverseService } from "../converse/converse.ts";
 import type { GenerateService } from "../generate/generate.ts";
 import type { ProfileInfo } from "@spriessen/contracts";
 import { agentForProfile } from "./agent.ts";
+import { isChatKind } from "./chat-tools.ts";
 import type { BotFilesService } from "./bot-files.ts";
 import { conversationIndex } from "./conversation-index.ts";
 import { mainOps, settingsModelOps, taskLimitOps } from "./main.ts";
@@ -58,13 +59,14 @@ export const profilesService = (deps: {
   /** Retires a moved bot's user from its old home's VM (slice 2); best effort. */
   readonly retireUserFromHome?: ProfilesContext["retireUserFromHome"];
 }): ProfilesService => {
-  const agentFor: ProfilesService["agentFor"] = (profile) =>
+  const agentFor: ProfilesService["agentFor"] = (profile, kind) =>
     agentForProfile(
       profile,
       deps.tools,
       deps.implied,
       deps.hostExcluded?.(profile) ?? [],
       deps.allTools,
+      kind,
     );
   const index = conversationIndex(deps.converse, agentFor);
   const ctx: ProfilesContext = {
@@ -88,6 +90,10 @@ export const profilesService = (deps: {
     ...keyOps(ctx),
     ...branchOps(ctx),
     scopeOf: (conversationId) => index.scopes.get(String(conversationId)),
+    chatConversations: async () => {
+      await index.ensure();
+      return [...index.scopes].flatMap(([id, scope]) => (isChatKind(scope.kind) ? [id] : []));
+    },
     profileOf: (conversationId) => index.profiles.get(String(conversationId)),
     agentFor,
     ...(deps.files !== undefined ? { files: deps.files } : {}),
