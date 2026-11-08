@@ -35,7 +35,7 @@ import { recentSteps } from "./steps.ts";
 import type { TaskModel } from "./model.ts";
 import { schemaBrief } from "./structured.ts";
 import { messageTask, type MessageOptions, type MessageOutcome } from "./continue.ts";
-import { placementOf, pumpQueue, queueFullMessage } from "./queue.ts";
+import { budgetMessage, overBudget, placementOf, pumpQueue, queueFullMessage } from "./queue.ts";
 import {
   bindTask,
   cancelTask,
@@ -222,6 +222,15 @@ const spawnTask =
             // under the bot before the task is admitted: the first turn
             // already runs as the bot.
             const bot = await bindTask(rt, id, input.conversationId, null);
+            // At or over the daily token budget: refuse with a sentence the
+            // model relays — queueing would only pile work for tomorrow. (The
+            // just-bound conversation stays empty and row-less: invisible.)
+            if (bot !== null) {
+              const over = await overBudget(rt, bot);
+              if (over !== undefined) {
+                return { refused: budgetMessage(over.today, over.budget) };
+              }
+            }
             const placement = await placementOf(rt, all, { ...probe, ...(bot ? { bot } : {}) });
             if (placement === "full") return { full: true as const };
             if (input.model !== undefined) {
@@ -240,6 +249,7 @@ const spawnTask =
         catch: (cause) => new External({ op: "task spawn", cause }),
       }),
       (placed) => {
+        if ("refused" in placed) return Effect.fail(new InvalidInput({ reason: placed.refused }));
         if (placed.full) return Effect.fail(new InvalidInput({ reason: queueFullMessage() }));
         if (placed.task.status === "running") runTask(rt, placed.task, placed.brief);
         return Effect.succeed(placed.task);

@@ -345,6 +345,10 @@ export const api = {
     getJson<{ paused: boolean }>("/api/settings/pause"),
   setSettingsPause: (paused: boolean): Promise<{ paused: boolean }> =>
     send<{ paused: boolean }>("/api/settings/pause", "PUT", { paused }),
+  botUsage: (profileId: string): Promise<{ budget: number | null; today: number }> =>
+    getJson<{ budget: number | null; today: number }>(
+      `/api/usage?profile=${encodeURIComponent(profileId)}`,
+    ),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

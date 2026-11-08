@@ -16,6 +16,7 @@ import type { TasksService } from "./tasks/tasks.ts";
 import type { ProfilesService } from "./profiles/profiles.ts";
 import type { RoomsService } from "./profiles/rooms.ts";
 import type { MailboxService } from "./mailbox/mailbox.ts";
+import type { UsageService } from "./usage/usage.ts";
 import type { OrgService } from "./org/service.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { MemoryService } from "./memory/memory.ts";
@@ -61,6 +62,8 @@ export interface MindService {
   readonly rooms: RoomsService;
   /** Inter-entity messaging on per-pair DM threads. */
   readonly mailbox: MailboxService;
+  /** The daily spend ledger (usage/usage.ts): tokens per profile per day. */
+  readonly usage: UsageService;
   /** The org: one per install, flat teams, members, grants, templates. */
   readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */

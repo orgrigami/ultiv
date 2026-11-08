@@ -46,6 +46,14 @@ export interface TaskWiring {
    * (spawns queue, the pump holds). Wired to the settings doc.
    */
   readonly isPaused?: () => Promise<boolean>;
+  /**
+   * The bot's spend today and its daily token budget (null = uncapped):
+   * at or over budget, new spawns are refused with a sentence the model
+   * relays, and queued tasks wait for the next day.
+   */
+  readonly spendOf?: (
+    bot: TaskBot | null,
+  ) => Promise<{ readonly today: number; readonly budget: number | null }>;
 }
 
 /** Mutable wiring shared by the service's parts. */

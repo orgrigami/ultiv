@@ -11,6 +11,7 @@ export type LimitsForm = {
   readonly firstTokenSec?: string;
   readonly turnMin?: string;
   readonly taskLimit?: string;
+  readonly tokenBudget?: string;
 };
 
 function NumberField({
@@ -49,11 +50,14 @@ function NumberField({
 export function BotLimits({
   form,
   taskDefault,
+  spendToday,
   onChange,
 }: {
   form: LimitsForm;
   /** The workspace default the empty task field means (Settings). */
   taskDefault: number | undefined;
+  /** What the bot already spent today (the daily ledger); absent = unknown. */
+  spendToday?: number | undefined;
   onChange: (next: LimitsForm) => void;
 }) {
   return (
@@ -93,6 +97,21 @@ export function BotLimits({
         <span className="text-muted-foreground text-xs">
           This bot's chats hand their work to background tasks. More than this many wait in its
           queue and start by themselves. Leave empty for the default in Settings.
+        </span>
+      </div>
+      <div className="flex flex-col gap-1 text-sm">
+        <span>Daily budget</span>
+        <NumberField
+          label="Tokens per day"
+          field="dailyTokenBudget"
+          placeholder="uncapped"
+          value={form.tokenBudget ?? ""}
+          onChange={(tokenBudget) => onChange({ ...form, tokenBudget })}
+        />
+        <span className="text-muted-foreground text-xs">
+          At the budget no new tasks start until tomorrow; the bot tells you when it happens. Chats
+          with you always run.
+          {spendToday !== undefined && ` Today so far: ${spendToday.toLocaleString()} tokens.`}
         </span>
       </div>
     </>

@@ -23,6 +23,10 @@ export const taskWiring = (
     readonly cancelMailSentFrom?: (conversations: readonly string[]) => Promise<number>;
     /** Kill background bash jobs running in stopped conversations. */
     readonly stopJobsOf?: (conversations: readonly string[]) => Promise<number>;
+    /** The bot's spend today and its daily token budget (the ledger + policies). */
+    readonly spendOf?: (
+      bot: { readonly owner: string; readonly profileId: string } | null,
+    ) => Promise<{ readonly today: number; readonly budget: number | null }>;
   } = {},
   root: string = artifactsDir(),
 ): TaskWiring => ({
@@ -43,4 +47,5 @@ export const taskWiring = (
     ? { cancelMailSentFrom: extras.cancelMailSentFrom }
     : {}),
   ...(extras.stopJobsOf !== undefined ? { stopJobsOf: extras.stopJobsOf } : {}),
+  ...(extras.spendOf !== undefined ? { spendOf: extras.spendOf } : {}),
 });

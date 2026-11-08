@@ -26,9 +26,12 @@ const ctx = BACKGROUND_CONTEXT;
 /** A tasks service whose bots run one task at a time; the first reply waits for `release`. */
 const rig = async (
   replies: readonly string[],
-  wiring: { limitOf?: () => Promise<number>; isPaused?: () => Promise<boolean> } = {
-    limitOf: async () => 1,
-  },
+  wiring: {
+    limitOf?: () => Promise<number>;
+    isPaused?: () => Promise<boolean>;
+    spendOf?: () => Promise<{ today: number; budget: number | null }>;
+    binder?: () => Promise<{ owner: string; profileId: string } | null>;
+  } = { limitOf: async () => 1 },
 ) => {
   const faux = fauxProvider();
   const models = createModels();
@@ -55,7 +58,7 @@ const rig = async (
     model: { provider: model.provider, modelId: model.id },
   });
   const tasks = tasksService(converse);
-  await tasks.attach(async () => null, wiring);
+  await tasks.attach(wiring.binder === undefined ? async () => null : wiring.binder, wiring);
   const spawn = (prompt: string) =>
     Effect.runPromise(
       tasks.spawn({ sessionId: "", owner: "agent", conversationId: "chat-1", prompt }),
@@ -73,6 +76,34 @@ const rig = async (
 };
 
 describe("task queue (faux model)", () => {
+  it("the daily token budget refuses spawns with a sentence, and holds queued ones", async () => {
+    const spend = { today: 100, budget: 5_000 as number | null };
+    const r = await rig(["first", "second"], {
+      limitOf: async () => 1,
+      spendOf: async () => ({ today: spend.today, budget: spend.budget }),
+      binder: async () => ({ owner: "agent", profileId: "p1" }),
+    });
+    const a = await r.spawn("a");
+    await r.blocked;
+    const b = await r.spawn("b");
+    expect(a.status).toBe("running");
+    expect(b.status).toBe("queued");
+    // The budget lands mid-queue: nothing new is admitted…
+    spend.today = 5_000;
+    const refused = await Effect.runPromise(
+      Effect.result(
+        r.tasks.spawn({ sessionId: "", owner: "agent", conversationId: "chat-1", prompt: "nope" }),
+      ),
+    );
+    expect(refused._tag).toBe("Failure");
+    // …and the queued one waits for the next day, not the freed slot.
+    r.release();
+    expect((await r.settled(a.id)).status).toBe("done");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect((await r.row(b.id)).status).toBe("queued");
+    await r.harness.close(ctx);
+  });
+
   it("the global pause holds starts; resuming pumps what fits", async () => {
     let paused = true;
     const r = await rig(["first"], {

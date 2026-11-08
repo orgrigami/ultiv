@@ -60,6 +60,7 @@ export const validatePatch = (
   checkNumber("firstTokenDeadlineSec", patch.policies?.firstTokenDeadlineSec);
   checkNumber("turnDeadlineMin", patch.policies?.turnDeadlineMin);
   checkNumber("maxRunningTasks", patch.policies?.maxRunningTasks);
+  checkNumber("dailyTokenBudget", patch.policies?.dailyTokenBudget);
   // autoApprove entries compile into RegExp on every gated call (the hook is
   // synchronous), so the stored list is bounded and each entry is shape- and
   // wildcard-checked: a pathological glob must not stall the gate.

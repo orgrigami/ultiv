@@ -39,6 +39,7 @@ import { historyRoutes } from "./rest/history.ts";
 import { settingsRoutes } from "./rest/settings.ts";
 import { taskSettingsRoutes } from "./rest/settings-tasks.ts";
 import { pauseRoutes } from "./rest/pause.ts";
+import { usageRoutes } from "./rest/usage.ts";
 import { serverCheckRoutes } from "./rest/server-check.ts";
 import { skillRoutes } from "./rest/skills.ts";
 import { roomRoutes } from "./rest/rooms.ts";
@@ -278,6 +279,7 @@ async function route(args: RouteArgs): Promise<void> {
   if (await settingsRoutes(args)) return;
   if (await taskSettingsRoutes(args)) return;
   if (await pauseRoutes(args)) return;
+  if (await usageRoutes(args)) return;
   if (await serverCheckRoutes(args)) return;
   if (await skillRoutes(args)) return;
   if (await mailboxRoutes(args)) return;

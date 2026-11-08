@@ -12,7 +12,7 @@ import type { Plugin, ScopeHolder, BindingStore, VaultStore } from "@spriessen/e
 import type { GenerateOptions } from "./generate/generate.ts";
 import type { McpOptions } from "./mcp/index.ts";
 import type { MindAdmin, MindAuthz } from "./admin/index.ts";
-import type { ConverseService } from "./converse/converse.ts";
+import type { ConverseService, UsageSink } from "./converse/converse.ts";
 
 export interface MindOptions {
   /** Durable storage override; default is SQLite at HARNESS_DB (tests pass MemoryStorage). */
@@ -107,6 +107,8 @@ export interface MindWiring {
    * every job a stopped conversation started.
    */
   readonly jobKiller?: (conversations: readonly string[]) => number;
+  /** Late-bound spend sink: the entity fills it once the profile index exists. */
+  readonly usageRef?: { current?: UsageSink };
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

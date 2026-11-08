@@ -62,6 +62,7 @@ import { adminTools } from "./admin/index.ts";
 import { questionTools } from "./ask/question.ts";
 import { roomsService } from "./profiles/rooms.ts";
 import { mailboxService } from "./mailbox/mailbox.ts";
+import { usageService, usageSinkOf } from "./usage/usage.ts";
 import { teamInstructionsOf, teamOfProfile, orgService } from "./org/service.ts";
 import {
   defaultDeleteTeamStore,
@@ -211,6 +212,16 @@ const mindLayerRaw = (
       );
       // Messages a crash interrupted are redelivered (idempotently) on boot.
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
+      // The daily spend ledger: every settled turn's tokens land here, and a
+      // bot's dailyTokenBudget gates its task admission (queue.ts).
+      const usage = usageService(converse);
+      if (wiring.usageRef !== undefined) {
+        wiring.usageRef.current = usageSinkOf({
+          converse,
+          usage,
+          scopeOf: (conversationId) => profiles.scopeOf(conversationId),
+        });
+      }
       // Tasks run as their bot: bind (and resume) only once the index exists.
       void tasks.attach(
         profiles.bindTask,
@@ -222,6 +233,14 @@ const mindLayerRaw = (
                   wiring.jobKiller?.(conversations) ?? 0,
               }
             : {}),
+          spendOf: async (bot) => {
+            if (bot === null) return { today: 0, budget: null };
+            const profile = await profiles.get(bot.owner, bot.profileId).catch(() => undefined);
+            return {
+              today: await usage.today(bot.owner, bot.profileId),
+              budget: profile?.policies.dailyTokenBudget ?? null,
+            };
+          },
         }),
       );
       // The search sidecar: derived, rebuildable, closed with the mind.
@@ -331,6 +350,7 @@ const mindLayerRaw = (
         rooms,
         mailbox,
         skills,
+        usage,
         org,
         ...routines,
         mcp: mcp.manager,
@@ -377,6 +397,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     vaultRoot,
     bindings,
     converseRef,
+    usageRef: {},
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }
@@ -445,7 +466,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
       return yield* makeRegistry(plugins);
     }),
   ).pipe(Layer.provide(decideLayer.pipe(Layer.merge(approvals)).pipe(Layer.merge(audit))));
-  const converse = converseLayer(options.storage).pipe(
+  const converse = converseLayer(options.storage, wiring.usageRef ?? {}).pipe(
     Layer.provide(
       models
         .pipe(Layer.merge(registry))
