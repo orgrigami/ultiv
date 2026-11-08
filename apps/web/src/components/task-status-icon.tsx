@@ -7,6 +7,7 @@ export function TaskStatusIcon({ status, className }: { status: TaskStatus; clas
   const base = cn("size-4 shrink-0", className);
   if (status === "running")
     return <Mark kind="working" tone="live" className={cn(base, "live-breathe")} />;
+  if (status === "queued") return <Mark kind="pending" tone="muted" className={base} />;
   if (status === "done") return <Mark kind="done" tone="ok" className={base} />;
   if (status === "failed") return <Mark kind="error" tone="signal" className={base} />;
   return <Mark kind="disabled" tone="muted" className={base} />;

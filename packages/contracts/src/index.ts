@@ -60,8 +60,8 @@ export {
   ProfileApprovalModeSchema,
   ProfileModelSchema,
   ProfilePoliciesSchema,
-  DEADLINE_FIELDS,
-  deadlineProblem,
+  POLICY_NUMBER_FIELDS,
+  policyNumberProblem,
 } from "./profiles.ts";
 export type {
   ProfileInfo,
@@ -70,7 +70,7 @@ export type {
   ProfileApprovalMode,
   ProfileModel,
   ProfilePolicies,
-  DeadlineField,
+  PolicyNumberField,
 } from "./profiles.ts";
 export {
   OrgRoleSchema,
@@ -188,12 +188,21 @@ export { HistoryGroupSchema, HistoryHitSchema, HistorySearchSchema } from "./his
 export type { HistoryGroup, HistoryHit, HistorySearch } from "./history.ts";
 export { RoomInfoSchema, RoomListSchema } from "./rooms.ts";
 export type { RoomInfo, RoomList } from "./rooms.ts";
-export { TaskInfoSchema, TaskListSchema, TaskRowSchema, TaskStatusSchema } from "./tasks.ts";
+export {
+  TASK_LIMIT_DEFAULT,
+  TASK_LIMIT_MAX,
+  TaskInfoSchema,
+  TaskListSchema,
+  TaskRowSchema,
+  TaskSettingsSchema,
+  TaskStatusSchema,
+} from "./tasks.ts";
 export type {
   Json,
   TaskInfo,
   TaskList,
   TaskRow,
+  TaskSettings,
   TaskStatus,
   TaskUpdate,
   WaitingApproval,

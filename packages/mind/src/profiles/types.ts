@@ -98,6 +98,10 @@ export interface ProfilesService {
   readonly setWorkspaceDefaultModel: (
     model: { ref: string; effort: string } | null,
   ) => Promise<void>;
+  /** The stored workspace default for tasks a bot runs at once; null = not set (env, then built in). */
+  readonly workspaceTaskLimit: () => Promise<number | null>;
+  /** Store the workspace task limit (1..TASK_LIMIT_MAX); null clears it. */
+  readonly setWorkspaceTaskLimit: (limit: number | null) => Promise<void>;
   /** The conversation scope index: persona, audit and artifact scoping read this. */
   readonly scopeOf: (conversationId: string) => ConversationScope | undefined;
   readonly profileOf: (conversationId: string) => ProfileInfo | undefined;

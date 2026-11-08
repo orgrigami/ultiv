@@ -186,14 +186,20 @@ export function sameQueue(a: readonly QueuedInput[], b: readonly QueuedInput[]):
 
 /**
  * The chat's Stop, extended to its background tasks: every task this chat
- * spawned that is still running is cancelled quietly (no wake — the owner
- * just stopped this chat). Returns how many were stopped.
+ * spawned that is still queued or running is cancelled quietly (no wake —
+ * the owner just stopped this chat). Queued ones go first, so a freed slot
+ * never starts one of them. Returns how many were stopped.
  */
 export async function stopChatTasks(mind: MindService, conversationId: string): Promise<number> {
-  const tasks = await Effect.runPromise(mind.tasks.list());
+  const tasks = (await Effect.runPromise(mind.tasks.list())).filter(
+    (task) => task.conversationId === conversationId,
+  );
+  const order = [
+    ...tasks.filter((task) => task.status === "queued"),
+    ...tasks.filter((task) => task.status === "running"),
+  ];
   let stopped = 0;
-  for (const task of tasks) {
-    if (task.status !== "running" || task.conversationId !== conversationId) continue;
+  for (const task of order) {
     if (await Effect.runPromise(mind.tasks.cancel(task.id, { quiet: true }))) stopped += 1;
   }
   return stopped;

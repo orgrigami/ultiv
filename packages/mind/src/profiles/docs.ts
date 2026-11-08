@@ -111,26 +111,31 @@ export const validTimezone = (tz: string): boolean => {
 
 /**
  * Owner-level settings: which profile is the main bot (exactly one at a
- * time) and the stored workspace default model (null = not set; the
- * environment's SPRIESSEN_MODEL applies until the owner stores one).
+ * time), the stored workspace default model (null = not set; the
+ * environment's SPRIESSEN_MODEL applies until the owner stores one) and the
+ * stored default for how many background tasks a bot runs at once (null =
+ * SPRIESSEN_MAX_RUNNING_TASKS, else the built-in default).
  */
-export const SettingsDoc = defineDoc<{
+export type SettingsValue = {
   main: Record<string, string>;
   defaultModel: { ref: string; effort: string } | null;
-}>({
+  maxRunningTasks: number | null;
+};
+
+export const SettingsDoc = defineDoc<SettingsValue>({
   kind: "ultiv.settings",
-  version: 2,
+  version: 3,
   scope: "session",
-  initial: () => ({ main: {}, defaultModel: null }),
-  // v1 carried only `main`: stamp the default-model field it never had.
-  migrate: (value) =>
-    ({
-      main: value.main ?? {},
-      defaultModel: (value as { defaultModel?: unknown }).defaultModel ?? null,
-    }) as unknown as {
-      main: Record<string, string>;
-      defaultModel: { ref: string; effort: string } | null;
-    },
+  initial: () => ({ main: {}, defaultModel: null, maxRunningTasks: null }),
+  // v1 carried only `main`, v2 added the default model: stamp what is missing.
+  migrate: (value) => {
+    const old = value as Partial<SettingsValue>;
+    return {
+      main: old.main ?? {},
+      defaultModel: old.defaultModel ?? null,
+      maxRunningTasks: old.maxRunningTasks ?? null,
+    } as unknown as SettingsValue;
+  },
   checkpointWhen: () => true,
 });
 

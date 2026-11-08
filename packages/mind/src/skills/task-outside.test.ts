@@ -141,7 +141,7 @@ describe("a task inherits the outside mark", () => {
     } as unknown as TasksService;
     const marks: Record<string, boolean> = { "c-owner": false, "c-webhook": true };
     const tools = taskTools(tasks, profiles, {
-      outsideTurn: async (id) => marks[id] ?? true,
+      turnOf: async (id) => ({ outside: marks[id] ?? true, owner: id === "c-owner" }),
     });
     const tool = (name: string) => tools.find((t) => t.name === name)!;
     for (const conversationId of ["c-owner", "c-webhook"]) {
@@ -158,7 +158,9 @@ describe("a task inherits the outside mark", () => {
     }
     expect(spawned).toMatchObject([{ prompt: "dig" }, { prompt: "dig", outside: true }]);
     expect((spawned[0] as { outside?: boolean }).outside).toBeUndefined();
-    expect(steered).toEqual([undefined, { outside: true }]);
+    // The owner's own turn also puts the task on the owner lane.
+    expect((spawned[0] as { lane?: string }).lane).toBe("owner");
+    expect(steered).toEqual([{ lane: "owner" }, { outside: true }]);
   });
 
   it("turnIsOutside: owner and routine turns are clean unless they read outside content", () => {

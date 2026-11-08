@@ -1,16 +1,17 @@
 /**
- * Talking to running tasks: `task_message` steers one with new instructions
- * (owner-steering semantics), and the "running tasks" prompt section keeps
- * the bot aware of what it has in flight. The section shows a stable start
- * time, not a live age, so it does not churn the prompt every request.
+ * Talking to tasks: `task_message` steers a running one, adds to a queued
+ * one's input, or continues a finished one with its own context
+ * (tasks/continue.ts), and the "running tasks" prompt section keeps the bot
+ * aware of what it has in flight. The section shows a stable start time, not
+ * a live age, so it does not churn the prompt every request.
  */
-import type { OutsideTurn } from "./task-tools.ts";
+import { factsOf, type TurnFacts } from "./task-tools.ts";
 import { Effect } from "effect";
 import { Type } from "typebox";
 import type { PromptSection } from "@earendil-works/pi-durable";
 import type { TaskInfo } from "@spriessen/contracts";
 import { defineTool, type Tool } from "@spriessen/ext";
-import { titleOf, type TasksService } from "../tasks/tasks.ts";
+import { titleOf, type MessageOutcome, type TasksService } from "../tasks/tasks.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 
 /** A plain text tool reply. */
@@ -36,20 +37,40 @@ export const tasksVisibleTo = (
 };
 
 const MessageParams = Type.Object({
-  id: Type.String({ description: "The running task's id." }),
+  id: Type.String({ description: "The task's id (running, queued or finished)." }),
   text: Type.String({ description: "The new instruction, self-contained." }),
 });
+
+/** The tool's reply per outcome; errors are the refusals. */
+const MESSAGE_REPLIES: Record<MessageOutcome, { readonly text: string; readonly error?: true }> = {
+  sent: { text: "sent; it picks this up at its next step." },
+  continued: {
+    text: "continued: it runs again with its earlier work in context. End your turn; you are woken with the result.",
+  },
+  queued: {
+    text: "continued, queued: it runs again when one of your running tasks finishes. End your turn.",
+  },
+  finishing: {
+    text: "not sent: it is reporting its result right now. You are woken with it; send again then.",
+    error: true,
+  },
+  full: { text: "not sent: your task queue is full.", error: true },
+  unknown: { text: "not sent: no such task of yours.", error: true },
+};
 
 export const messageTool = (
   tasks: TasksService,
   profiles: ProfilesService,
-  outsideTurn?: OutsideTurn,
+  turnOf?: TurnFacts,
 ): Tool =>
   defineTool({
     name: "task_message",
     description:
-      "Send new instructions to one of your RUNNING background tasks (a change of scope, an " +
-      "answer it needs). It lands at the task's next step. Fails if the task is not running.",
+      "Send new instructions to one of your background tasks. A running task picks them up at " +
+      "its next step; a queued one starts with them; a FINISHED one (done, failed or " +
+      "cancelled) is continued: it runs again with all of its earlier work in context and " +
+      'wakes you with the new result. Use it for follow-ups on the same work ("make it ' +
+      'shorter", "add prices") instead of spawning a fresh task.',
     parameters: MessageParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), sent: Type.Boolean() }),
     execute: async (args, api) => {
@@ -59,24 +80,21 @@ export const messageTool = (
         await Effect.runPromise(tasks.list()),
       );
       const task = visible.find((candidate) => candidate.id === args.id);
-      const outside =
-        task !== undefined &&
-        ((await outsideTurn?.(String(api.conversationId)).catch(() => true)) ?? false);
-      const outcome =
-        task === undefined
-          ? "not_running"
+      const facts =
+        task === undefined ? undefined : await factsOf(turnOf, String(api.conversationId));
+      const outcome: MessageOutcome =
+        task === undefined || facts === undefined
+          ? "unknown"
           : await Effect.runPromise(
-              tasks.message(args.id, args.text, outside ? { outside: true } : undefined),
+              tasks.message(args.id, args.text, {
+                ...(facts.outside ? { outside: true } : {}),
+                ...(facts.owner ? { lane: "owner" as const } : {}),
+              }),
             );
-      if (outcome !== "sent") {
-        const why =
-          task === undefined
-            ? `no task ${args.id} of yours`
-            : `task ${args.id} is ${task.status === "running" ? "finishing" : task.status}`;
-        return { ...textReply(`not sent: ${why}. Spawn a new task instead.`, true) };
-      }
+      const reply = MESSAGE_REPLIES[outcome];
+      if (reply.error === true) return textReply(`task ${args.id} ${reply.text}`, true);
       return {
-        ...textReply(`sent to task ${args.id}; it picks this up at its next step.`),
+        ...textReply(`task ${args.id} ${reply.text}`),
         structuredOutput: { id: args.id, sent: true },
       };
     },
@@ -126,14 +144,16 @@ const clock = (at: number, zone: string | undefined): string => {
 
 /** The running-tasks lines for one conversation; undefined when nothing runs. */
 export const runningTasksText = (
-  running: readonly TaskInfo[],
+  live: readonly TaskInfo[],
   zone: string | undefined,
 ): string | undefined => {
-  if (running.length === 0) return undefined;
-  const lines = running.map(
-    (task) => `- ${task.id} "${titleOf(task)}" (started ${clock(task.createdAt, zone)})`,
+  if (live.length === 0) return undefined;
+  const lines = live.map((task) =>
+    task.status === "queued"
+      ? `- ${task.id} "${titleOf(task)}" (queued)`
+      : `- ${task.id} "${titleOf(task)}" (started ${clock(task.startedAt ?? task.createdAt, zone)})`,
   );
-  return `Running tasks (steer with task_message; results wake you):\n${lines.join("\n")}`;
+  return `Your tasks in flight (task_message steers one; results wake you):\n${lines.join("\n")}`;
 };
 
 /** The section: only for the bot's own chats, never inside a task. */
@@ -146,7 +166,9 @@ export const runningTasksSection = (
     const cid = String(input.conversationId);
     if (profiles.scopeOf(cid)?.kind === "task") return undefined;
     const all = await Effect.runPromise(tasks.list());
-    const running = tasksVisibleTo(profiles, cid, all).filter((task) => task.status === "running");
-    return runningTasksText(running, profiles.profileOf(cid)?.timezone);
+    const live = tasksVisibleTo(profiles, cid, all).filter(
+      (task) => task.status === "running" || task.status === "queued",
+    );
+    return runningTasksText(live, profiles.profileOf(cid)?.timezone);
   },
 });

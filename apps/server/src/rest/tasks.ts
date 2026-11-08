@@ -1,11 +1,6 @@
 /** Task routes: spawn/status/list/remove/activity over the mind's tasks faculty. */
 import type { LiveState } from "@earendil-works/pi-durable";
-import {
-  MAX_RUNNING_TASKS,
-  runningCapMessage,
-  taskConversationKey,
-  tasksVisibleTo,
-} from "@spriessen/mind";
+import { taskConversationKey } from "@spriessen/mind";
 import { projectTranscript } from "@spriessen/mind";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Effect } from "effect";
@@ -88,28 +83,25 @@ export async function taskRoutes(
             ),
           )) ?? null)
         : null;
-    if (spawnerConversationId !== null) {
-      const running = tasksVisibleTo(
-        mind.profiles,
-        spawnerConversationId,
-        await Effect.runPromise(mind.tasks.list()),
-      ).filter((task) => task.status === "running");
-      if (running.length >= MAX_RUNNING_TASKS) {
-        json(429, { error: runningCapMessage(running) });
-        return true;
-      }
-    }
     // The task runs AS the bot whose session spawned it (spawn binds it before
     // the first turn) — unscoped only when no session context was given.
-    const task = await Effect.runPromise(
-      mind.tasks.spawn({
-        sessionId: body.sessionId ?? "",
-        owner: args.owner,
-        conversationId: spawnerConversationId,
-        prompt: body.prompt,
-      }),
+    // Over the bot's limit the task queues; a full queue is a 429.
+    const spawned = await Effect.runPromise(
+      Effect.result(
+        mind.tasks.spawn({
+          sessionId: body.sessionId ?? "",
+          owner: args.owner,
+          conversationId: spawnerConversationId,
+          prompt: body.prompt,
+        }),
+      ),
     );
-    json(200, task);
+    if (spawned._tag === "Failure") {
+      if (spawned.failure._tag !== "spriessen/InvalidInput") throw spawned.failure;
+      json(429, { error: spawned.failure.reason });
+      return true;
+    }
+    json(200, spawned.success);
     return true;
   }
   // The activity view: progress (projected transcript tail), the task's own

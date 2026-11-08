@@ -12,7 +12,17 @@ import type { Api } from "../client/http.ts";
 import { ago, clip, paintFor, print, shortId, when } from "../render/out.ts";
 import { apiFor, botFilter, findTask, namesOf } from "./context.ts";
 
-const MARK: Record<string, string> = { running: "…", done: "✓", failed: "✗", cancelled: "-" };
+const MARK: Record<string, string> = {
+  queued: "◦",
+  running: "…",
+  done: "✓",
+  failed: "✗",
+  cancelled: "-",
+};
+
+/** Live work sorts first: running, then queued. */
+const liveRank = (status: string): number =>
+  status === "running" ? 2 : status === "queued" ? 1 : 0;
 
 const markOf = (status: string): string => {
   const paint = paintFor();
@@ -33,11 +43,7 @@ const listTasks = async (parsed: Parsed): Promise<void> => {
   const [rows, names, bot] = await Promise.all([api.tasks(), namesOf(api), botFilter(api, parsed)]);
   const shown = rows
     .filter((task) => bot === undefined || task.bot?.profileId === bot.id)
-    .sort(
-      (a, b) =>
-        Number(b.status === "running") - Number(a.status === "running") ||
-        b.createdAt - a.createdAt,
-    )
+    .sort((a, b) => liveRank(b.status) - liveRank(a.status) || b.createdAt - a.createdAt)
     .slice(0, boolFlag(parsed, "all") ? undefined : 20);
   const paint = paintFor();
   print(parsed, shown, () =>
@@ -48,9 +54,11 @@ const listTasks = async (parsed: Parsed): Promise<void> => {
             const who = names.get(task.bot?.profileId ?? "") ?? "";
             const model = task.model !== undefined ? ` · ${task.model}` : "";
             const doing =
-              task.status === "running" && task.lastStep !== undefined
-                ? paint.dim(` — ${clip(task.lastStep, 40)}`)
-                : "";
+              task.status === "queued"
+                ? paint.dim(" — queued")
+                : task.status === "running" && task.lastStep !== undefined
+                  ? paint.dim(` — ${clip(task.lastStep, 40)}`)
+                  : "";
             return `${markOf(task.status)} ${paint.dim(shortId(task.id))}  ${clip(titleOf(task), 40).padEnd(40)} ${paint.dim(`${who}${model} · ${ago(task.createdAt)}`)}${doing}`;
           }),
           "",
@@ -100,7 +108,7 @@ const showTask = async (parsed: Parsed, wanted: string): Promise<void> => {
 const stopTask = async (parsed: Parsed, wanted: string): Promise<number> => {
   const api = apiFor(parsed);
   const task = await findTask(api, wanted);
-  if (task.status !== "running") {
+  if (task.status !== "running" && task.status !== "queued") {
     console.log(`That task already ${task.status === "done" ? "finished" : task.status}.`);
     return 0;
   }

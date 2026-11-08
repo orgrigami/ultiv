@@ -2,7 +2,8 @@
  * task_message against the real engine (faux model, MemoryStorage): a parent
  * message steers a running task at its next step, one sent while the task is
  * only writing its reply gets its own turn (whose answer becomes the result),
- * and a settled task refuses messages.
+ * and a settled task is continued: it runs again with its earlier work in
+ * context.
  */
 import { describe, expect, it } from "vite-plus/test";
 import { Type } from "typebox";
@@ -32,7 +33,7 @@ const userTexts = (context: unknown): string[] =>
     );
 
 /** A task whose first step blocks (in a tool, or while "writing") until released. */
-const rig = async (blockIn: "tool" | "reply") => {
+const rig = async (blockIn: "tool" | "reply", extra: readonly string[] = []) => {
   const faux = fauxProvider();
   const models = createModels();
   models.setProvider(faux.provider);
@@ -74,6 +75,7 @@ const rig = async (blockIn: "tool" | "reply") => {
           step(fauxAssistantMessage(fauxText("revised answer"))),
         ],
   );
+  for (const text of extra) faux.appendResponses([step(fauxAssistantMessage(fauxText(text)))]);
   const model = faux.getModel();
   const harness = await Harness.open(
     new MemoryStorage(),
@@ -91,7 +93,7 @@ const rig = async (blockIn: "tool" | "reply") => {
   const settled = async () => {
     for (let i = 0; i < 200; i += 1) {
       const row = await Effect.runPromise(tasks.get(task.id));
-      if (row?.status !== "running") return row;
+      if (row?.status !== "running" && row?.status !== "queued") return row;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
     throw new Error("task never settled");
@@ -111,9 +113,7 @@ describe("task_message (faux model)", () => {
     expect(r.requests).toHaveLength(2);
     expect(r.requests[0]?.[0]).toContain("[task brief]");
     expect(r.requests[1]).toContain("[from parent] also check prices");
-    // A settled task refuses new instructions.
-    expect(await Effect.runPromise(r.tasks.message(r.task.id, "more"))).toBe("not_running");
-    expect(await Effect.runPromise(r.tasks.message("nope", "more"))).toBe("not_running");
+    expect(await Effect.runPromise(r.tasks.message("nope", "more"))).toBe("unknown");
     await r.harness.close(ctx);
   });
 
@@ -143,6 +143,24 @@ describe("task_message (faux model)", () => {
     expect(row?.status).toBe("done");
     expect(row?.result).toBe("revised answer");
     expect(r.requests.at(-1)).toContain("[from parent] make it shorter");
+    await r.harness.close(ctx);
+  });
+
+  it("continues a settled task with its earlier work in context, waking per run", async () => {
+    const r = await rig("tool", ["third answer"]);
+    await r.blocked;
+    r.release();
+    const first = await r.settled();
+    expect(first?.result).toBe("done with both");
+    expect(await Effect.runPromise(r.tasks.message(r.task.id, "now in a table"))).toBe("continued");
+    const running = await Effect.runPromise(r.tasks.get(r.task.id));
+    expect(running).toMatchObject({ status: "running", runs: 2, result: null, finishedAt: null });
+    const second = await r.settled();
+    expect(second).toMatchObject({ status: "done", result: "third answer", runs: 2 });
+    // The continuation's request carries the brief and the first run's work.
+    const last = r.requests.at(-1) ?? [];
+    expect(last[0]).toContain("[task brief]");
+    expect(last.at(-1)).toBe("[from parent] now in a table");
     await r.harness.close(ctx);
   });
 });

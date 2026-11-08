@@ -6,7 +6,8 @@ import { taskTools } from "../act/task-tools.ts";
 import { projectRefOf } from "../projects/links.ts";
 import { openMind } from "../entity.ts";
 import { stepLine } from "./steps.ts";
-import { MAX_RUNNING_TASKS, TasksDoc } from "./tasks.ts";
+import { TasksDoc } from "./tasks.ts";
+import { taskLimitOf, workspaceTaskLimitOf } from "./limits.ts";
 
 const running = (id: string, conversationId: string, profileId: string): TaskInfo => ({
   id,
@@ -23,17 +24,16 @@ const running = (id: string, conversationId: string, profileId: string): TaskInf
 });
 
 describe("Task limits and status", () => {
-  it("refuses a spawn over the per-bot running cap, naming the running ones", async () => {
+  it("queues a spawn over the bot's running limit, and lists it as queued", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const { converse, profiles } = handle.mind;
     const bot = await profiles.create("harry", { name: "Scout", onboard: false });
+    await profiles.update("harry", bot.id, { policies: { ...bot.policies, maxRunningTasks: 2 } });
     const main = await Effect.runPromise(
       converse.ensure(await profiles.keyOfRow(await profiles.ensureMain("harry", bot.id))),
     );
     const mainId = String(main.id);
-    const rows = Array.from({ length: MAX_RUNNING_TASKS }, (_, i) =>
-      running(`r${i}`, mainId, bot.id),
-    );
+    const rows = [running("r0", mainId, bot.id), running("r1", mainId, bot.id)];
     await Effect.runPromise(
       converse.docs.commit(async (tx) => {
         (await tx.doc(TasksDoc)).tasks = [...rows, running("other", "x", "someone-else")];
@@ -44,10 +44,11 @@ describe("Task limits and status", () => {
       tools
         .find((tool) => tool.name === name)!
         .execute(args as never, { conversationId: main.id } as never, undefined as never);
-    const refused = JSON.stringify(await call("task_spawn", { prompt: "one more" }));
-    expect(refused).toContain(`the limit is ${MAX_RUNNING_TASKS}`);
-    expect(refused).toContain("r0");
-    expect(refused).not.toContain("other");
+    const queued = JSON.stringify(await call("task_spawn", { prompt: "one more" }));
+    expect(queued).toContain("queued");
+    const list = JSON.stringify(await call("task_list", {}));
+    expect(list).toContain('"status":"queued"');
+    expect(list).not.toContain("other");
     const status = JSON.stringify(await call("task_status", { id: "r0" }));
     expect(status).toContain('"steps"');
     expect(status).toContain("work r0");
@@ -91,5 +92,14 @@ describe("Task limits and status", () => {
       stepLine({ id: 2, kind: "output", at: 0, text: "Found  3\nflights", streaming: false }),
     ).toBe("Wrote: Found 3 flights");
     expect(stepLine({ id: 3, kind: "input", at: 0, text: "x" })).toBeUndefined();
+  });
+
+  it("takes the bot's own limit, else the stored default, else the built-in one", () => {
+    expect(taskLimitOf(5, 2)).toBe(5);
+    expect(taskLimitOf(null, 2)).toBe(2);
+    expect(taskLimitOf(undefined, null)).toBe(workspaceTaskLimitOf(null).maxRunningTasks);
+    // Out of range reads as unset.
+    expect(taskLimitOf(99, 4)).toBe(4);
+    expect(workspaceTaskLimitOf(7)).toEqual({ maxRunningTasks: 7, source: "db" });
   });
 });

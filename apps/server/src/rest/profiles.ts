@@ -120,6 +120,14 @@ export async function profileRoutes(args: RouteArgs): Promise<boolean> {
       if (patch.model !== undefined || toolsChanged) {
         await applyAgentPreference(args, updated, toolsChanged);
       }
+      // A raised task limit starts queued work at once.
+      if (
+        (patch.policies as { maxRunningTasks?: unknown } | undefined)?.maxRunningTasks !== undefined
+      ) {
+        void mind.tasks
+          .refill()
+          .catch((cause: unknown) => console.error("task refill failed:", cause));
+      }
       // Work running right now hears what changed (profiles/access-notice.ts).
       const notice = accessChangeText(owned, updated, (bot) => mind.profiles.agentFor(bot).tools);
       if (notice !== null) {

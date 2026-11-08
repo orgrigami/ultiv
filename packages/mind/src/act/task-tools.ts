@@ -10,12 +10,7 @@ import { Effect } from "effect";
 import { Type } from "typebox";
 import { definePlugin, toolCapability, type Plugin, type Tool } from "@spriessen/ext";
 import { defineTool } from "@spriessen/ext";
-import {
-  MAX_RUNNING_TASKS,
-  runningCapMessage,
-  titleOf,
-  type TasksService,
-} from "../tasks/tasks.ts";
+import { titleOf, type TasksService } from "../tasks/tasks.ts";
 import type { ProfilesService } from "../profiles/profiles.ts";
 import { messageTool, notifyTool, tasksVisibleTo, textReply } from "./task-live.ts";
 import { backgroundModelFor } from "../tasks/model.ts";
@@ -78,10 +73,23 @@ const REFUSE_NESTED =
   "compounds cost). Do the work yourself in this conversation, or finish and let the parent decide.";
 
 /**
- * Whether a conversation's current turn had outside content (learn.ts
- * `turnIsOutside`); a spawned or steered task inherits it. Absent: clean.
+ * What the spawning (or steering) turn was: `outside` when it had outside
+ * content (learn.ts `turnIsOutside`; the task inherits it), `owner` when the
+ * owner's own message started it (the task then rides the owner lane).
+ * Absent: clean, and not the owner's.
  */
-export type OutsideTurn = (conversationId: string) => Promise<boolean>;
+export type TurnFacts = (
+  conversationId: string,
+) => Promise<{ readonly outside: boolean; readonly owner: boolean }>;
+
+/** The facts of a turn, failing safe: outside, and not the owner's. */
+export const factsOf = async (
+  turnOf: TurnFacts | undefined,
+  conversationId: string,
+): Promise<{ readonly outside: boolean; readonly owner: boolean }> =>
+  turnOf === undefined
+    ? { outside: false, owner: false }
+    : await turnOf(conversationId).catch(() => ({ outside: true, owner: false }));
 
 /** A spawn's `project` handle → the project id, or the refusal sentence. */
 const linkOf = async (
@@ -101,21 +109,21 @@ const linkOf = async (
 const spawnTool = (
   tasks: TasksService,
   profiles: ProfilesService,
-  outsideTurn: OutsideTurn | undefined,
+  turnOf: TurnFacts | undefined,
   knownModel: (ref: string) => boolean,
   projectRef: ProjectRef | undefined,
 ): Tool =>
   defineTool({
     name: "task_spawn",
     description:
-      "Start a background task: your own sub-agent turn, run in its own durable conversation. " +
-      "Prefer it whenever the work needs more than two or three tool rounds: research across " +
-      "several pages, reading many files, long scripts, batch jobs, anything you " +
-      "would rather not hold this conversation open for. Keep inline only what is quick or " +
-      "needs your owner's taste mid-way. When you spawn, tell your owner in a sentence what " +
-      "is running and that you will report the result, then END YOUR TURN: you are woken " +
-      "automatically with the result as a new input when the task settles. Do NOT poll " +
-      "task_status in a loop.",
+      "Start a background task: your own sub-agent, run in its own durable conversation with " +
+      "your full set of work tools. Work happens in tasks: research, reading pages or files, " +
+      "scripts, edits, anything that needs your work tools. Write the prompt self-contained " +
+      "(the task does not see this chat). When you spawn, tell your owner in a sentence what " +
+      "is running, then END YOUR TURN: you are woken with the result, and links to the files " +
+      "it saved, when it settles. Over your limit of tasks at once it waits in your queue and " +
+      "starts by itself. For a follow-up on the same work, continue the task with " +
+      "task_message instead of spawning a new one. Do NOT poll task_status in a loop.",
     parameters: SpawnParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), status: Type.String() }),
     execute: async (args, api) => {
@@ -123,12 +131,6 @@ const spawnTool = (
       if (await Effect.runPromise(tasks.isTaskConversation(spawning))) {
         return textReply(REFUSE_NESTED, true);
       }
-      const running = tasksVisibleTo(
-        profiles,
-        spawning,
-        await Effect.runPromise(tasks.list()),
-      ).filter((task) => task.status === "running");
-      if (running.length >= MAX_RUNNING_TASKS) return textReply(runningCapMessage(running), true);
       const choice = backgroundModelFor(
         profiles.profileOf(spawning),
         {
@@ -143,24 +145,40 @@ const spawnTool = (
       if (schemaProblem !== null) return textReply(schemaProblem, true);
       const link = await linkOf(profiles, projectRef, spawning, args.project);
       if (typeof link === "string") return textReply(link, true);
-      const outside = (await outsideTurn?.(spawning).catch(() => true)) ?? false;
-      const task = await Effect.runPromise(
-        tasks.spawn({
-          sessionId: args.sessionId ?? "",
-          owner: AGENT_OWNER,
-          conversationId: spawning,
-          prompt: args.prompt,
-          ...(args.title !== undefined ? { title: args.title } : {}),
-          ...(outside ? { outside: true } : {}),
-          ...(choice.model !== undefined ? { model: choice.model } : {}),
-          // Tool arguments arrive as parsed JSON.
-          ...(args.result_schema !== undefined ? { resultSchema: args.result_schema as Json } : {}),
-          ...link,
-        }),
+      const facts = await factsOf(turnOf, spawning);
+      const spawned = await Effect.runPromise(
+        Effect.result(
+          tasks.spawn({
+            sessionId: args.sessionId ?? "",
+            owner: AGENT_OWNER,
+            conversationId: spawning,
+            prompt: args.prompt,
+            ...(args.title !== undefined ? { title: args.title } : {}),
+            ...(facts.outside ? { outside: true } : {}),
+            ...(facts.owner ? { lane: "owner" as const } : {}),
+            ...(choice.model !== undefined ? { model: choice.model } : {}),
+            // Tool arguments arrive as parsed JSON.
+            ...(args.result_schema !== undefined
+              ? { resultSchema: args.result_schema as Json }
+              : {}),
+            ...link,
+          }),
+        ),
       );
+      if (spawned._tag === "Failure") {
+        const error = spawned.failure;
+        if (error._tag === "spriessen/InvalidInput")
+          return textReply(`refused: ${error.reason}`, true);
+        throw error;
+      }
+      const task = spawned.success;
+      const state =
+        task.status === "queued"
+          ? "queued: it starts by itself when one of your running tasks finishes"
+          : "running";
       return {
         ...textReply(
-          `task ${task.id} running. End your turn now; you will be woken with the result.`,
+          `task ${task.id} ${state}. End your turn now; you will be woken with the result.`,
         ),
         structuredOutput: { id: task.id, status: task.status },
       };
@@ -202,14 +220,16 @@ const cancelTool = (tasks: TasksService): Tool =>
   defineTool({
     name: "task_cancel",
     description:
-      "Stop a running background task by id: its conversation is aborted and the task is marked " +
-      "cancelled. Your owner can also stop tasks from the app.",
+      "Stop a running or queued background task by id: its conversation is aborted and the " +
+      "task is marked cancelled. Your owner can also stop tasks from the app.",
     parameters: StatusParams,
     structuredOutputSchema: Type.Object({ id: Type.String(), cancelled: Type.Boolean() }),
     execute: async (args) => {
       const cancelled = await Effect.runPromise(tasks.cancel(args.id));
       return {
-        ...textReply(cancelled ? `task ${args.id} cancelled` : `task ${args.id} was not running`),
+        ...textReply(
+          cancelled ? `task ${args.id} cancelled` : `task ${args.id} was not running or queued`,
+        ),
         structuredOutput: { id: args.id, cancelled },
       };
     },
@@ -238,7 +258,7 @@ export const taskTools = (
   tasks: TasksService,
   profiles: ProfilesService,
   options: {
-    readonly outsideTurn?: OutsideTurn | undefined;
+    readonly turnOf?: TurnFacts | undefined;
     /** The live catalog check for a task's model; absent (bare tests): every ref passes. */
     readonly knownModel?: (ref: string) => boolean;
     /** Resolves `project` handles (projects/links.ts); absent: a `project` is refused. */
@@ -248,14 +268,14 @@ export const taskTools = (
   spawnTool(
     tasks,
     profiles,
-    options.outsideTurn,
+    options.turnOf,
     options.knownModel ?? (() => true),
     options.projectRef,
   ),
   statusTool(tasks),
   cancelTool(tasks),
   listTool(tasks, profiles),
-  messageTool(tasks, profiles, options.outsideTurn),
+  messageTool(tasks, profiles, options.turnOf),
   notifyTool(tasks),
 ];
 

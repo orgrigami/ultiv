@@ -14,7 +14,7 @@ import type { ProfileInfo } from "@spriessen/contracts";
 import { agentForProfile } from "./agent.ts";
 import type { BotFilesService } from "./bot-files.ts";
 import { conversationIndex } from "./conversation-index.ts";
-import { mainOps, settingsModelOps } from "./main.ts";
+import { mainOps, settingsModelOps, taskLimitOps } from "./main.ts";
 import { lifecycleOps, rowOps } from "./rows.ts";
 import { keyOps, sessionOps } from "./sessions.ts";
 import { branchOps } from "./branch.ts";
@@ -83,6 +83,7 @@ export const profilesService = (deps: {
     ...lifecycleOps(ctx),
     ...mainOps(ctx),
     ...settingsModelOps(ctx),
+    ...taskLimitOps(ctx),
     ...sessionOps(ctx),
     ...keyOps(ctx),
     ...branchOps(ctx),

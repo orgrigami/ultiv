@@ -79,6 +79,7 @@ export * from "./providers/models.ts";
 export * from "./tasks/tasks.ts";
 export { recentSteps, stepLine } from "./tasks/steps.ts";
 export * from "./tasks/model.ts";
+export { taskLimitOf, workspaceTaskLimitOf } from "./tasks/limits.ts";
 export * from "./tasks/background.ts";
 export { TASK_REPORT_KIND } from "./tasks/wake.ts";
 export { tasksVisibleTo } from "./act/task-live.ts";

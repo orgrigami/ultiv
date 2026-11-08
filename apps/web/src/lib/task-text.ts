@@ -25,9 +25,12 @@ export function formatElapsed(ms: number): string {
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
-/** How long a task ran (or has been running, against `now`). */
-export function taskElapsed(task: Pick<TaskInfo, "createdAt" | "finishedAt">, now: number): string {
-  return formatElapsed((task.finishedAt ?? now) - task.createdAt);
+/** How long a task's latest run took (or has been running, against `now`); a queued one waits. */
+export function taskElapsed(
+  task: Pick<TaskInfo, "createdAt" | "startedAt" | "finishedAt">,
+  now: number,
+): string {
+  return formatElapsed((task.finishedAt ?? now) - (task.startedAt ?? task.createdAt));
 }
 
 /** What the task is doing: its latest progress update, else its latest step. */
@@ -37,6 +40,7 @@ export function taskLatest(task: Pick<TaskInfo, "updates" | "lastStep">): string
 }
 
 const STATUS_WORD = {
+  queued: "Queued",
   running: "Running",
   done: "Done",
   failed: "Failed",

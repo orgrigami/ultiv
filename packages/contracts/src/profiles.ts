@@ -1,4 +1,5 @@
 import { Type, type Static } from "typebox";
+import { TASK_LIMIT_MAX } from "./tasks.ts";
 
 /** A profile's starting model/effort for new chats; null = the mind's default. */
 export const ProfileModelSchema = Type.Object({
@@ -74,25 +75,32 @@ export const ProfilePoliciesSchema = Type.Object({
    * `SPRIESSEN_BACKGROUND_MODEL` when set, else the bot's own chat model.
    */
   backgroundModel: Type.Optional(Type.Union([ProfileModelSchema, Type.Null()])),
+  /**
+   * Background tasks this bot runs at once; more wait in its queue and start
+   * as slots free. Null or absent = the workspace default (Settings).
+   */
+  maxRunningTasks: Type.Optional(Type.Union([Type.Number(), Type.Null()])),
 });
 
 export type ProfilePolicies = Static<typeof ProfilePoliciesSchema>;
 
 /**
- * The per-bot deadlines' bounds and the labels the Edit-bot dialog shows. The
- * server's refusal and the dialog's own check use the same words.
+ * The per-bot numbers' bounds (deadlines, the task limit) and the labels the
+ * Edit-bot dialog shows. The server's refusal and the dialog's own check use
+ * the same words.
  */
-export const DEADLINE_FIELDS = {
+export const POLICY_NUMBER_FIELDS = {
   firstTokenDeadlineSec: { label: "First reply (seconds)", min: 10, max: 1_800 },
   turnDeadlineMin: { label: "Whole turn (minutes)", min: 1, max: 720 },
+  maxRunningTasks: { label: "Tasks at once", min: 1, max: TASK_LIMIT_MAX },
 } as const;
 
-export type DeadlineField = keyof typeof DEADLINE_FIELDS;
+export type PolicyNumberField = keyof typeof POLICY_NUMBER_FIELDS;
 
-/** What is wrong with a deadline value, in the dialog's words; null when it is fine (absent = default). */
-export const deadlineProblem = (field: DeadlineField, value: unknown): string | null => {
+/** What is wrong with a policy number, in the dialog's words; null when it is fine (absent = default). */
+export const policyNumberProblem = (field: PolicyNumberField, value: unknown): string | null => {
   if (value === undefined || value === null) return null;
-  const { label, min, max } = DEADLINE_FIELDS[field];
+  const { label, min, max } = POLICY_NUMBER_FIELDS[field];
   return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max
     ? null
     : `${label} must be a whole number from ${min} to ${max}. Leave it empty for the default.`;

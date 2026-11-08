@@ -2,21 +2,24 @@
  * The Tasks faculty: background work the entity runs in its own durable
  * conversation — the mind's sub-agent surface. `spawn` admits a prompt into a
  * fresh conversation and settles it in the background; when a task settles it
- * WAKES the conversation that spawned it with the outcome, so the parent ends
- * its turn instead of polling. A task runs AS its bot: the binder (wired by
- * the entity once the profiles index exists) creates the task's conversation
- * with the bot's own model and tools and indexes it under the bot BEFORE the
- * first turn, and the bot is kept on the row so a restart rebinds it.
+ * WAKES the conversation that spawned it with the outcome (and the files it
+ * wrote), so the parent ends its turn instead of polling. A task runs AS its
+ * bot: the binder (wired by the entity once the profiles index exists)
+ * creates the task's conversation with the bot's own model and tools and
+ * indexes it under the bot BEFORE the first turn, and the bot is kept on the
+ * row so a restart rebinds it. A bot runs at most its limit of tasks at once;
+ * the rest queue and start as slots free. A settled task can be CONTINUED
+ * with a message: it runs again with its own context.
  * Restarts do not kill tasks: once bound, every still-running task is resumed
  * with a continuation input (the transcript is durable), and only a genuinely
  * dead run ends up failed. REST and the act's task tools read the same doc.
- * Parts: store.ts (the doc), wake.ts (the parent wake).
+ * Parts: store.ts (the doc), run.ts (one run), queue.ts (slots),
+ * continue.ts (messages and continuations), wake.ts (the parent wake).
  */
 import { randomUUID } from "node:crypto";
-import type { Conversation, Submission } from "@earendil-works/pi-durable";
 import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import { Context, Effect, Layer } from "effect";
-import { External, ownerErrorText, readEnv } from "@spriessen/core";
+import { External, InvalidInput } from "@spriessen/core";
 import type { Json, TaskInfo, TaskList } from "@spriessen/contracts";
 import { Converse, type ConverseService } from "../converse/converse.ts";
 import {
@@ -29,30 +32,33 @@ import {
 } from "./store.ts";
 import { notifyOwner, type NotifyOutcome } from "./notify.ts";
 import { recentSteps } from "./steps.ts";
-import { owed, wakeParent } from "./wake.ts";
+import { NOT_STARTED, owed } from "./wake.ts";
 import type { TaskModel } from "./model.ts";
-import { schemaBrief, settleStructured } from "./structured.ts";
+import { schemaBrief } from "./structured.ts";
+import { messageTask, type MessageOptions, type MessageOutcome } from "./continue.ts";
+import { placementOf, pumpQueue, queueFullMessage } from "./queue.ts";
+import {
+  bindTask,
+  runTask,
+  serial,
+  wakeWithFiles,
+  type TaskBinder,
+  type TaskBot,
+  type TaskRuntime,
+  type TaskWiring,
+} from "./run.ts";
 
 export { TasksDoc, taskConversationKey, titleOf } from "./store.ts";
 export { TASK_UPDATE_KIND, NOTIFY_CHARS, NOTIFY_INTERVAL_MS } from "./notify.ts";
-
-/** The bot a task runs as. */
-export type TaskBot = NonNullable<TaskInfo["bot"]>;
-
-/**
- * Binds a task conversation to its bot: ensures the conversation under `key`
- * (created with the bot's agent when new) and indexes it as the bot's task.
- * `stored` is the bot already on the row (resume); otherwise it is resolved
- * from the spawning conversation. Null when there is no bot (unscoped spawn).
- */
-export type TaskBinder = (
-  key: string,
-  parentConversationId: string | null,
-  stored: TaskBot | null,
-) => Promise<TaskBot | null>;
+export { FROM_PARENT, type MessageOutcome } from "./continue.ts";
+export type { TaskBinder, TaskBot, TaskWiring } from "./run.ts";
 
 export interface TasksService {
-  /** Start a background turn in a fresh conversation; returns it running. */
+  /**
+   * Start a background turn in a fresh conversation; returns it running, or
+   * queued when the bot is at its limit. Fails InvalidInput when the bot's
+   * queue is full.
+   */
   readonly spawn: (input: {
     readonly sessionId: string;
     readonly owner: string;
@@ -67,39 +73,41 @@ export interface TasksService {
     readonly model?: TaskModel;
     /** How the outcome reaches the spawning chat (TaskInfo.report); default "wake". */
     readonly report?: "wake" | "note";
+    /** The owner's own message asked for it: its requests ride the owner lane. */
+    readonly lane?: "owner";
     /** A JSON Schema the result must match (structured.ts); checked by the caller. */
     readonly resultSchema?: Json;
     /** The bot's project the task works toward (projects/links.ts); resolved by the caller. */
     readonly projectId?: string;
-  }) => Effect.Effect<TaskInfo, External>;
+  }) => Effect.Effect<TaskInfo, External | InvalidInput>;
   readonly get: (id: string) => Effect.Effect<TaskInfo | undefined, External>;
   readonly list: () => Effect.Effect<TaskList, External>;
   /**
-   * Stop a running task: abort its conversation, mark cancelled, wake the
-   * parent once — or, with `quiet` (the owner stopped the whole chat), never.
+   * Stop a running or queued task: abort its conversation, mark cancelled,
+   * wake the parent once — or, with `quiet` (the owner stopped the whole
+   * chat), never.
    */
   readonly cancel: (
     id: string,
     options?: { readonly quiet?: boolean },
   ) => Effect.Effect<boolean, External>;
   /**
-   * Remove a task from the registry entirely; a still-running task is
+   * Remove a task from the registry entirely; a still-running or queued task is
    * cancelled first (and its parent woken). The durable transcript stays.
    */
   readonly remove: (
     id: string,
   ) => Effect.Effect<{ readonly removed: boolean; readonly cancelled: boolean }, External>;
   /**
-   * Steer a RUNNING task with new instructions, like the owner steering a
-   * chat: the text lands at the task's next step (or right after its current
-   * reply). "not_running" when the task is unknown or already settled.
+   * Message a task (continue.ts): steer it while it runs, add to its input
+   * while it waits, or continue it — a new run with its own context — once
+   * it settled.
    */
   readonly message: (
     id: string,
     text: string,
-    /** `outside`: the steering turn had outside content; the row is marked for good. */
-    options?: { readonly outside?: boolean },
-  ) => Effect.Effect<"sent" | "not_running", External>;
+    options?: MessageOptions,
+  ) => Effect.Effect<MessageOutcome, External>;
   /** A task's last few steps as plain lines, oldest first ([] when none). */
   readonly steps: (id: string, count?: number) => Promise<string[]>;
   /** Post a progress line into the parent chat (rate-limited; never wakes the parent). */
@@ -110,27 +118,23 @@ export interface TasksService {
   readonly onUpdate: (fn: () => void) => () => void;
   /** The task a conversation belongs to, if it is a task's own conversation. */
   readonly taskOf: (conversationId: string) => Effect.Effect<TaskInfo | undefined, External>;
+  /** The model lane a task conversation's requests ride (lanes.ts); "background" unless the owner asked. */
+  readonly laneOf: (conversationId: string) => Promise<"owner" | "background">;
+  /** Start queued work that now fits (call after a running limit was raised). */
+  readonly refill: () => Promise<void>;
   /** True when the conversation belongs to a background task: tasks cannot spawn sub-tasks. */
   readonly isTaskConversation: (conversationId: string) => Effect.Effect<boolean, External>;
   /**
-   * Wire the bot binder and resume still-running tasks. Called once by the
+   * Wire the bot binder (and the limits and files lookups), resume
+   * still-running tasks and start what the queue holds. Called once by the
    * entity after the profiles index exists, so no task turn runs unbound.
    */
-  readonly attach: (binder: TaskBinder) => Promise<void>;
+  readonly attach: (binder: TaskBinder, wiring?: TaskWiring) => Promise<void>;
 }
 
 export class Tasks extends Context.Service<Tasks, TasksService>()("spriessen/mind/Tasks") {}
 
 const TITLE_CHARS = 40;
-
-/** Running tasks one bot may have at once (env SPRIESSEN_MAX_RUNNING_TASKS overrides). */
-export const MAX_RUNNING_TASKS = Math.max(1, Number(readEnv("MAX_RUNNING_TASKS")) || 3);
-
-/** The refusal a spawn over the cap gets, naming what is running. */
-export const runningCapMessage = (running: readonly TaskInfo[]): string =>
-  `You already have ${running.length} tasks running (the limit is ${MAX_RUNNING_TASKS}): ` +
-  `${running.map((task) => task.id).join(", ")}. Wait for one to finish, cancel one, or send ` +
-  "new instructions to one with task_message.";
 
 const RESUME_NOTE =
   "[resume] You were interrupted by a server restart. Continue the task from where the " +
@@ -141,184 +145,43 @@ const RESUME_NOTE =
 /** Framing the task sees once, above its brief (the row keeps the raw prompt). */
 export const TASK_BRIEF =
   "[task brief] You are a background task your bot started; your final reply is the result " +
-  "it receives. A [from parent] line is a new instruction from it: follow it. For long " +
-  "work, post a one-line milestone to your owner with notify_owner (rarely; never the result).";
-
-/** The wake prefix a parent bot's task_message arrives under, in the task's chat. */
-export const FROM_PARENT = "[from parent]";
-
-/** Mutable wiring shared by the service's parts. */
-interface TaskRuntime {
-  readonly converse: ConverseService;
-  binder: TaskBinder | null;
-  /** Parent messages admitted into a running task, settled before it reports. */
-  readonly followers: Map<string, Submission[]>;
-  /** Tasks past their last drain: new messages are refused, not lost. */
-  readonly closing: Set<string>;
-  /** Hear a task settle (done or failed; never a cancel). */
-  readonly listeners: Set<(task: TaskInfo) => void>;
-}
-
-/** Ensure and bind the task's conversation before any turn reaches it. */
-const bindTask = async (
-  rt: TaskRuntime,
-  id: string,
-  parent: string | null,
-  stored: TaskBot | null,
-): Promise<TaskBot | null> => {
-  const key = taskConversationKey(id);
-  const bot = rt.binder === null ? null : await rt.binder(key, parent, stored).catch(() => null);
-  // Unbound (no bot, or the binder failed): the conversation still exists.
-  if (bot === null) await Effect.runPromise(rt.converse.ensure(key));
-  return bot;
-};
+  "it receives. Save deliverables (documents, data, images) as files with artifact_write: " +
+  "they reach your bot as links. A [from parent] line is a new instruction from it: follow " +
+  "it, also after you finished (your bot may continue you). For long work, post a one-line " +
+  "milestone to your owner with notify_owner (rarely; never the result).";
 
 /**
- * Settle the parent messages a task received while it ran. A message steered
- * into the run settles with the same answer; one that arrived as the reply
- * was ending starts its own turn — its answer becomes the task's result.
+ * Stop a running or queued task: abort a run, mark cancelled, wake the
+ * parent. Idempotent — only a running or queued task is cancelled.
  */
-const drainFollowers = async (
-  rt: TaskRuntime,
-  id: string,
-  conversation: Conversation,
-  text: string,
-): Promise<string> => {
-  let latest = text;
-  const queue = (): Submission[] => rt.followers.get(id) ?? [];
-  for (let pass = 0; pass < 2; pass += 1) {
-    // The second pass runs after `closing` is set: nothing can slip in after it.
-    if (pass === 1) rt.closing.add(id);
-    while (queue().length > 0) {
-      const next = queue().shift() as Submission;
-      const settled = await Effect.runPromise(rt.converse.settle(conversation, next));
-      if (settled.text.trim() !== "") latest = settled.text;
-    }
-  }
-  return latest;
-};
-
-/** Admit a parent message into a running task's conversation (steer semantics). */
-const messageTask =
-  (rt: TaskRuntime): TasksService["message"] =>
-  (id, text, options) =>
-    Effect.gen(function* () {
-      const task = yield* findTask(rt.converse, id);
-      if (task === undefined || task.status !== "running" || rt.closing.has(id)) {
-        return "not_running" as const;
-      }
-      // Marked before the text lands, so the steered step already counts as outside.
-      if (options?.outside === true && task.outside !== true)
-        yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
-          writeTasks(
-            rt.converse,
-            tasks.map((row) => (row.id === id ? { ...row, outside: true } : row)),
-          ),
-        );
-      const conversation = yield* rt.converse.ensure(taskConversationKey(id));
-      const submission = yield* rt.converse.submit(conversation, `${FROM_PARENT} ${text}`, "steer");
-      rt.followers.set(id, [...(rt.followers.get(id) ?? []), submission]);
-      return "sent" as const;
-    });
-
-/**
- * Settles a spawned (or resumed) task in the background: the registry doc
- * carries the outcome and the spawning conversation is woken with it. A
- * cancellation wins over both outcomes: once the doc says "cancelled", the
- * runner keeps its hands off.
- */
-const runTask = (rt: TaskRuntime, task: TaskInfo, prompt: string): void => {
+const cancelTask = async (rt: TaskRuntime, id: string, quiet: boolean): Promise<boolean> => {
   const { converse } = rt;
-  void (async () => {
-    try {
-      const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(task.id)));
-      const first = await Effect.runPromise(converse.turn(conversation, prompt));
-      const text = await drainFollowers(rt, task.id, conversation, first.text);
-      const shaped =
-        task.resultSchema === undefined
-          ? undefined
-          : await settleStructured(converse, conversation, task.resultSchema, text);
-      const result = { text: shaped?.result ?? text };
-      await Effect.runPromise(
-        updateTask(converse, task.id, (current) =>
-          current.status === "cancelled"
-            ? current
-            : {
-                ...current,
-                status: "done",
-                result: result.text,
-                ...(shaped !== undefined ? { structured: shaped.structured } : {}),
-                finishedAt: Date.now(),
-                ...owed(current),
-              },
-        ),
-      );
-    } catch (cause) {
-      // The owner reads this in Needs you: a sentence, not the bare tag
-      // ("spriessen/External"). The full cause goes to the server log.
-      console.error(`task ${task.id} failed:`, cause);
-      const error = ownerErrorText(cause).slice(0, 500);
-      await Effect.runPromise(
-        updateTask(converse, task.id, (current) =>
-          current.status === "cancelled"
-            ? current
-            : { ...current, status: "failed", error, finishedAt: Date.now(), ...owed(current) },
-        ),
-      ).catch(() => undefined);
-    }
-    rt.followers.delete(task.id);
-    rt.closing.delete(task.id);
-    await announce(rt, task.id);
-    await wakeParent(converse, task.id);
-  })();
-};
-
-/** Tell listeners a task settled; a cancelled or vanished row stays quiet. */
-const announce = async (rt: TaskRuntime, id: string): Promise<void> => {
-  const settled = await Effect.runPromise(findTask(rt.converse, id)).catch(() => undefined);
-  if (settled === undefined || (settled.status !== "done" && settled.status !== "failed")) return;
-  for (const fn of rt.listeners) {
-    try {
-      fn(settled);
-    } catch (cause) {
-      console.error("task listener failed:", cause);
-    }
+  const task = await Effect.runPromise(findTask(converse, id));
+  if (task === undefined || (task.status !== "running" && task.status !== "queued")) return false;
+  // Stop the work first, then write the outcome: the runner honors the
+  // cancelled status and keeps its hands off when it settles.
+  if (task.status === "running") {
+    const conversation = await Effect.runPromise(converse.ensure(taskConversationKey(id)));
+    await Effect.runPromise(converse.interrupt(conversation));
   }
+  const notStarted = task.status === "queued" && (task.runs ?? 1) === 1;
+  await Effect.runPromise(
+    updateTask(converse, id, (current) => {
+      if (current.status !== "running" && current.status !== "queued") return current;
+      const { next: _next, ...rest } = current;
+      return {
+        ...rest,
+        status: "cancelled",
+        error: notStarted ? NOT_STARTED : "cancelled by the user",
+        finishedAt: Date.now(),
+        ...(quiet ? { notified: true } : owed(current)),
+      };
+    }),
+  );
+  await wakeWithFiles(rt, id).catch(() => undefined);
+  await rt.pump().catch(() => undefined);
+  return true;
 };
-
-/**
- * Stop a running task: abort its conversation, mark cancelled, wake the
- * parent. Idempotent — only a running task is cancelled.
- */
-const cancelTask = (
-  converse: ConverseService,
-  id: string,
-  quiet = false,
-): Effect.Effect<boolean, External> =>
-  Effect.gen(function* () {
-    const task = yield* findTask(converse, id);
-    if (task === undefined || task.status !== "running") return false;
-    // Stop the work first, then write the outcome: the runner honors the
-    // cancelled status and keeps its hands off when it settles.
-    const conversation = yield* converse.ensure(taskConversationKey(id));
-    yield* converse.interrupt(conversation);
-    yield* updateTask(converse, id, (current) =>
-      current.status === "running"
-        ? {
-            ...current,
-            status: "cancelled",
-            error: "cancelled by the user",
-            finishedAt: Date.now(),
-            ...(quiet ? { notified: true } : owed(current)),
-          }
-        : current,
-    );
-    yield* Effect.tryPromise({
-      try: () => wakeParent(converse, id),
-      catch: (cause) => new External({ op: "task cancel wake", cause }),
-    }).pipe(Effect.ignore);
-    return true;
-  });
 
 /** Point a task's conversation at its own model before its first turn. */
 const applyTaskModel = (
@@ -333,123 +196,185 @@ const applyTaskModel = (
     }),
   );
 
+type SpawnInput = Parameters<TasksService["spawn"]>[0];
+
+/** The stored row of a new task, before it is placed. */
+const rowOf = (id: string, input: SpawnInput, bot: TaskBot | null): TaskInfo => {
+  const title = input.title?.trim().slice(0, TITLE_CHARS) ?? "";
+  return {
+    id,
+    sessionId: input.sessionId,
+    owner: input.owner,
+    conversationId: input.conversationId,
+    prompt: input.prompt,
+    status: "running",
+    result: null,
+    error: null,
+    createdAt: Date.now(),
+    finishedAt: null,
+    ...(title !== "" ? { title } : {}),
+    ...(bot !== null ? { bot } : {}),
+    ...(input.outside === true ? { outside: true } : {}),
+    ...(input.model !== undefined ? { model: input.model.id } : {}),
+    ...(input.model !== undefined && input.model.effort !== ""
+      ? { effort: input.model.effort }
+      : {}),
+    ...(input.report === "note" ? { report: "note" as const } : {}),
+    ...(input.lane === "owner" ? { lane: "owner" as const } : {}),
+    ...(input.resultSchema !== undefined ? { resultSchema: input.resultSchema as Json } : {}),
+    ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
+  };
+};
+
 const spawnTask =
   (rt: TaskRuntime): TasksService["spawn"] =>
   (input) =>
-    Effect.gen(function* () {
-      const id = randomUUID();
-      // The conversation exists, with the bot's agent, and is indexed under
-      // the bot before the task is admitted: the first turn already runs as
-      // the bot, and an unrecorded input never leaves an orphan transcript.
-      const bot = yield* Effect.tryPromise({
-        try: () => bindTask(rt, id, input.conversationId, null),
-        catch: (cause) => new External({ op: "task bind", cause }),
-      });
-      if (input.model !== undefined) yield* applyTaskModel(rt.converse, id, input.model);
-      const title = input.title?.trim().slice(0, TITLE_CHARS) ?? "";
-      const task: TaskInfo = {
-        id,
-        sessionId: input.sessionId,
-        owner: input.owner,
-        conversationId: input.conversationId,
-        prompt: input.prompt,
-        status: "running",
-        result: null,
-        error: null,
-        createdAt: Date.now(),
-        finishedAt: null,
-        ...(title !== "" ? { title } : {}),
-        ...(bot !== null ? { bot } : {}),
-        ...(input.outside === true ? { outside: true } : {}),
-        ...(input.model !== undefined ? { model: input.model.id } : {}),
-        ...(input.model !== undefined && input.model.effort !== ""
-          ? { effort: input.model.effort }
-          : {}),
-        ...(input.report === "note" ? { report: "note" as const } : {}),
-        ...(input.resultSchema !== undefined ? { resultSchema: input.resultSchema } : {}),
-        ...(input.projectId !== undefined ? { projectId: input.projectId } : {}),
-      };
-      yield* Effect.flatMap(readTasks(rt.converse), (tasks) =>
-        writeTasks(rt.converse, [...tasks, task]),
-      );
-      const format = input.resultSchema === undefined ? "" : schemaBrief(input.resultSchema);
-      runTask(rt, task, `${TASK_BRIEF}\n\n${input.prompt}${format}`);
-      return task;
-    });
+    Effect.flatMap(
+      Effect.tryPromise({
+        // Bind, place and record under the lock: two spawns never both take
+        // the last slot, and a refused spawn leaves no conversation behind.
+        try: () =>
+          rt.lock(async () => {
+            const id = randomUUID();
+            const probe = { id, conversationId: input.conversationId };
+            const all = await Effect.runPromise(readTasks(rt.converse));
+            // The conversation exists, with the bot's agent, and is indexed
+            // under the bot before the task is admitted: the first turn
+            // already runs as the bot.
+            const bot = await bindTask(rt, id, input.conversationId, null);
+            const placement = await placementOf(rt, all, { ...probe, ...(bot ? { bot } : {}) });
+            if (placement === "full") return { full: true as const };
+            if (input.model !== undefined) {
+              await Effect.runPromise(applyTaskModel(rt.converse, id, input.model));
+            }
+            const format = input.resultSchema === undefined ? "" : schemaBrief(input.resultSchema);
+            const brief = `${TASK_BRIEF}\n\n${input.prompt}${format}`;
+            const row = rowOf(id, input, bot);
+            const task: TaskInfo =
+              placement === "running"
+                ? { ...row, startedAt: row.createdAt }
+                : { ...row, status: "queued", next: brief };
+            await Effect.runPromise(writeTasks(rt.converse, [...all, task]));
+            return { full: false as const, task, brief };
+          }),
+        catch: (cause) => new External({ op: "task spawn", cause }),
+      }),
+      (placed) => {
+        if (placed.full) return Effect.fail(new InvalidInput({ reason: queueFullMessage() }));
+        if (placed.task.status === "running") runTask(rt, placed.task, placed.brief);
+        return Effect.succeed(placed.task);
+      },
+    );
 
 /**
  * Boot-time resume: the in-process runner dies with the old process, but the
  * task's transcript is durable. Rebind each still-running task to its bot
  * (from the row, else from the spawning chat), re-admit a continuation input
- * and re-attach a runner. A task that finished but whose parent was never
- * woken (the crash hit in between) wakes the parent now.
+ * and re-attach a runner; queued tasks are rebound and wait for the pump. A
+ * task that finished but whose parent was never woken (the crash hit in
+ * between) wakes the parent now.
  */
 const resumeRunning = async (rt: TaskRuntime): Promise<void> => {
   const tasks = await Effect.runPromise(readTasks(rt.converse));
   for (const task of tasks) {
-    if (task.status === "running") {
+    if (task.status === "running" || task.status === "queued") {
       const bot = await bindTask(rt, task.id, task.conversationId, task.bot ?? null);
       if (bot !== null && task.bot === undefined) {
         await Effect.runPromise(updateTask(rt.converse, task.id, (row) => ({ ...row, bot })));
       }
-      runTask(rt, task, RESUME_NOTE);
-    } else if (task.notified === false) void wakeParent(rt.converse, task.id);
+      if (task.status === "running")
+        runTask(rt, bot !== null ? { ...task, bot } : task, RESUME_NOTE);
+    } else if (task.notified === false) void wakeWithFiles(rt, task.id);
   }
+  await rt.pump();
 };
 
-const taskOfConversation = (
-  converse: ConverseService,
+const taskOfConversation = async (
+  rt: TaskRuntime,
   conversationId: string,
-): Effect.Effect<TaskInfo | undefined, External> =>
-  Effect.flatMap(readTasks(converse), (tasks) =>
-    Effect.map(
-      Effect.forEach(tasks, (task) => converse.conversationIdOf(taskConversationKey(task.id)), {
-        concurrency: "unbounded",
-      }),
-      (ids) => tasks[ids.findIndex((id) => id !== undefined && String(id) === conversationId)],
-    ),
+): Promise<TaskInfo | undefined> => {
+  const { converse } = rt;
+  const tasks = await Effect.runPromise(readTasks(converse));
+  const known = rt.conversations.get(conversationId);
+  if (known !== undefined) return tasks.find((task) => task.id === known);
+  const ids = await Promise.all(
+    tasks.map((task) => Effect.runPromise(converse.conversationIdOf(taskConversationKey(task.id)))),
   );
+  const index = ids.findIndex((id) => id !== undefined && String(id) === conversationId);
+  const task = tasks[index];
+  if (task !== undefined) rt.conversations.set(conversationId, task.id);
+  return task;
+};
+
+const removeTask =
+  (rt: TaskRuntime): TasksService["remove"] =>
+  (id) =>
+    Effect.tryPromise({
+      try: async () => {
+        const task = await Effect.runPromise(findTask(rt.converse, id));
+        if (task === undefined) return { removed: false, cancelled: false };
+        const live = task.status === "running" || task.status === "queued";
+        const cancelled = live ? await cancelTask(rt, id, false) : false;
+        const tasks = await Effect.runPromise(readTasks(rt.converse));
+        await Effect.runPromise(
+          writeTasks(
+            rt.converse,
+            tasks.filter((candidate) => candidate.id !== id),
+          ),
+        );
+        return { removed: true, cancelled };
+      },
+      catch: (cause) => new External({ op: "task remove", cause }),
+    });
 
 export const tasksService = (converse: ConverseService): TasksService => {
   const rt: TaskRuntime = {
     converse,
     binder: null,
+    wiring: {},
     followers: new Map(),
     closing: new Set(),
     listeners: new Set(),
+    conversations: new Map(),
+    lock: serial(),
+    pump: async () => undefined,
   };
+  rt.pump = pumpQueue(rt);
   let attached = false;
+  const taskOf = (conversationId: string) =>
+    Effect.tryPromise({
+      try: () => taskOfConversation(rt, conversationId),
+      catch: (cause) => new External({ op: "task lookup", cause }),
+    });
   return {
     spawn: spawnTask(rt),
     get: (id) => findTask(converse, id),
     list: () => readTasks(converse),
-    cancel: (id, options) => cancelTask(converse, id, options?.quiet === true),
+    cancel: (id, options) =>
+      Effect.tryPromise({
+        try: () => cancelTask(rt, id, options?.quiet === true),
+        catch: (cause) => new External({ op: "task cancel", cause }),
+      }),
     message: messageTask(rt),
     steps: (id, count) => recentSteps(converse, id, count),
-    remove: (id) =>
-      Effect.gen(function* () {
-        const task = yield* findTask(converse, id);
-        if (task === undefined) return { removed: false, cancelled: false };
-        const cancelled = task.status === "running" ? yield* cancelTask(converse, id) : false;
-        yield* Effect.flatMap(readTasks(converse), (tasks) =>
-          writeTasks(
-            converse,
-            tasks.filter((candidate) => candidate.id !== id),
-          ),
-        );
-        return { removed: true, cancelled };
-      }),
+    remove: removeTask(rt),
     notify: (id, text) => notifyOwner(converse, id, text),
     listen: (fn) => {
       rt.listeners.add(fn);
       return () => void rt.listeners.delete(fn);
     },
     onUpdate: onTaskChange,
-    taskOf: (conversationId) => taskOfConversation(converse, conversationId),
+    taskOf,
     isTaskConversation: (conversationId) =>
-      Effect.map(taskOfConversation(converse, conversationId), (task) => task !== undefined),
-    attach: async (binder) => {
+      Effect.map(taskOf(conversationId), (task) => task !== undefined),
+    laneOf: async (conversationId) => {
+      const task = await taskOfConversation(rt, conversationId).catch(() => undefined);
+      return task?.lane === "owner" ? "owner" : "background";
+    },
+    refill: () => rt.pump(),
+    attach: async (binder, wiring) => {
       rt.binder = binder;
+      if (wiring !== undefined) rt.wiring = wiring;
       if (attached) return;
       attached = true;
       await resumeRunning(rt).catch((cause) => console.error("task resume failed:", cause));

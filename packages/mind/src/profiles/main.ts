@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
 import { normalizeRef } from "../providers/refs.ts";
-import type { ProfileInfo, SessionInfo } from "@spriessen/contracts";
+import { policyNumberProblem, type ProfileInfo, type SessionInfo } from "@spriessen/contracts";
 import {
   MAIN_PREFIX,
   SettingsDoc,
@@ -127,6 +127,22 @@ export const settingsModelOps = (
     },
   };
 };
+
+export const taskLimitOps = (
+  ctx: ProfilesContext,
+): Pick<ProfilesService, "workspaceTaskLimit" | "setWorkspaceTaskLimit"> => ({
+  workspaceTaskLimit: async () =>
+    (await run(ctx.converse.docs.snapshot(SettingsDoc)))?.maxRunningTasks ?? null,
+  setWorkspaceTaskLimit: async (limit) => {
+    const problem = policyNumberProblem("maxRunningTasks", limit);
+    if (problem !== null) throw new InvalidInput({ reason: problem });
+    await run(
+      ctx.converse.docs.commit(async (tx) => {
+        (await tx.doc(SettingsDoc)).maxRunningTasks = limit;
+      }),
+    );
+  },
+});
 
 export const mainOps = (
   ctx: ProfilesContext,

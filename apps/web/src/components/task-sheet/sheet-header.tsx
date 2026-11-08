@@ -13,6 +13,7 @@ import { plural } from "@/lib/plural";
 import { StopTask } from "./stop-task";
 
 const PILL = {
+  queued: "bg-muted text-muted-foreground",
   running: "bg-primary/10 text-primary",
   done: "bg-ok/10 text-ok",
   failed: "bg-destructive/10 text-destructive",
@@ -46,6 +47,7 @@ export function TaskStatusRow({
   doing?: string | undefined;
 }) {
   const running = task.status === "running";
+  const live = running || task.status === "queued";
   const now = useNow(1_000, running);
   return (
     <div className="flex flex-col gap-1.5">
@@ -60,12 +62,12 @@ export function TaskStatusRow({
           {taskStatusWord(task.status)}
         </span>
         <span className="text-muted-foreground text-xs tabular-nums">
-          {running ? "for " : "took "}
-          {taskElapsed(task, now)}
+          {task.status === "queued" ? "waits for a free slot" : running ? "for " : "took "}
+          {task.status !== "queued" && taskElapsed(task, now)}
           {calls > 0 && ` · ${calls} ${plural(calls, "step", "steps")}`}
         </span>
         <span className="flex-1" />
-        {running && <StopTask id={task.id} onStopped={onChanged} />}
+        {live && <StopTask id={task.id} onStopped={onChanged} />}
       </div>
       {running && doing !== undefined && (
         <p

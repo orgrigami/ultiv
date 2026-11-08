@@ -1,7 +1,11 @@
 import { Type, type Static } from "typebox";
 
-/** One background task: an agent turn the entity runs in its own conversation. */
+/**
+ * One background task: an agent turn the entity runs in its own conversation.
+ * "queued" waits for a free slot (the bot's running limit); it starts by itself.
+ */
 export const TaskStatusSchema = Type.Union([
+  Type.Literal("queued"),
   Type.Literal("running"),
   Type.Literal("done"),
   Type.Literal("failed"),
@@ -32,7 +36,23 @@ export const TaskInfoSchema = Type.Object({
   result: Type.Union([Type.String(), Type.Null()]),
   error: Type.Union([Type.String(), Type.Null()]),
   createdAt: Type.Number(),
+  /** When the current run started (a queued task waits first); absent on older rows = createdAt. */
+  startedAt: Type.Optional(Type.Number()),
   finishedAt: Type.Union([Type.Number(), Type.Null()]),
+  /**
+   * How many runs the task has had: a finished task continued with
+   * task_message runs again in its own conversation, with its context.
+   * Absent = 1.
+   */
+  runs: Type.Optional(Type.Number()),
+  /**
+   * The model lane the task's requests ride: "owner" when the owner's own
+   * message started (or continued) it, so it is served like a chat; absent =
+   * background (routines, mail, wakes).
+   */
+  lane: Type.Optional(Type.Literal("owner")),
+  /** The input a queued task runs when its slot frees (queued rows only). */
+  next: Type.Optional(Type.String()),
   /** false = the spawning conversation has not been told the outcome yet (re-sent on boot). */
   notified: Type.Optional(Type.Boolean()),
   /** A short title the bot chose (≤40 chars); absent on older rows — fall back to the prompt. */
@@ -97,6 +117,24 @@ export type TaskRow = Static<typeof TaskRowSchema>;
 
 /** One gate waiting on a task's own conversation (list responses only). */
 export type WaitingApproval = NonNullable<TaskRow["waitingApproval"]>;
+
+/** The most background tasks one bot may run at once (per bot and as the workspace default). */
+export const TASK_LIMIT_MAX = 10;
+
+/** The running limit when neither the bot, Settings nor SPRIESSEN_MAX_RUNNING_TASKS set one. */
+export const TASK_LIMIT_DEFAULT = 3;
+
+/**
+ * GET/PUT /api/settings/tasks: the workspace default for how many background
+ * tasks a bot runs at once, and where it comes from ("db" = stored in
+ * Settings, "env" = SPRIESSEN_MAX_RUNNING_TASKS, "default" = built in).
+ */
+export const TaskSettingsSchema = Type.Object({
+  maxRunningTasks: Type.Number(),
+  source: Type.Union([Type.Literal("db"), Type.Literal("env"), Type.Literal("default")]),
+});
+
+export type TaskSettings = Static<typeof TaskSettingsSchema>;
 
 export const TaskListSchema = Type.Array(TaskRowSchema);
 

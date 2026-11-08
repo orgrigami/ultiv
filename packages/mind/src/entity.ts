@@ -39,7 +39,6 @@ import {
 } from "@spriessen/ext";
 import { Approvals, approvalsLayer } from "./approvals.ts";
 import { actService } from "./act/act.ts";
-import { tasksVisibleTo } from "./act/task-live.ts";
 import { decisionPlugin } from "./act/decision-tools.ts";
 import { brokerFor } from "./act/broker.ts";
 import { describeMind, installFaculties, routineServices, wirePolicies } from "./entity-parts.ts";
@@ -50,7 +49,8 @@ import { Audit, auditLayer } from "./audit/audit.ts";
 import { Converse, converseLayer, type ConverseService } from "./converse/converse.ts";
 import { PiRegistry, piRegistryLayer } from "./converse/pi-registry.ts";
 import { deadlinesExtension, limitsOf, turnDeadlines } from "./converse/deadlines.ts";
-import { Tasks, MAX_RUNNING_TASKS, tasksLayer } from "./tasks/tasks.ts";
+import { Tasks, tasksLayer } from "./tasks/tasks.ts";
+import { taskWiring } from "./tasks/wiring.ts";
 import { profilesService, type ProfilesService } from "./profiles/profiles.ts";
 import { botFiles } from "./profiles/bot-files.ts";
 import { readProfiles } from "./profiles/docs.ts";
@@ -119,18 +119,11 @@ const mindLayerRaw = (
         audit,
         (conversationId) => profilesRef?.profileOf(conversationId)?.id ?? null,
         {
-          // The background-work nudge fires only when a spawn is actually
-          // possible: not from inside a task, and under the running cap.
-          maySpawn: async (conversationId) => {
-            if (profilesRef === undefined) return false;
-            if (await Effect.runPromise(tasks.isTaskConversation(conversationId))) return false;
-            const visible = tasksVisibleTo(
-              profilesRef,
-              conversationId,
-              await Effect.runPromise(tasks.list()),
-            );
-            return visible.filter((task) => task.status === "running").length < MAX_RUNNING_TASKS;
-          },
+          // The background-work nudge fires only when a spawn is possible:
+          // not from inside a task (over the limit, a spawn queues).
+          maySpawn: async (conversationId) =>
+            profilesRef !== undefined &&
+            !(await Effect.runPromise(tasks.isTaskConversation(conversationId))),
         },
         wiring.hostAccess,
       );
@@ -224,7 +217,7 @@ const mindLayerRaw = (
       // Messages a crash interrupted are redelivered (idempotently) on boot.
       void mailbox.recover().catch((cause) => console.error("mailbox recovery failed:", cause));
       // Tasks run as their bot: bind (and resume) only once the index exists.
-      void tasks.attach(profiles.bindTask);
+      void tasks.attach(profiles.bindTask, taskWiring(profiles, wiring.holder));
       // The search sidecar: derived, rebuildable, closed with the mind.
       const searchDb = yield* Effect.acquireRelease(
         Effect.sync(() => openSearchDb(wiring.searchDbPath)),
@@ -311,7 +304,7 @@ const mindLayerRaw = (
       // (connector tools join as their servers connect). One cut off too many
       // times in a row is parked instead and shows in Needs you.
       const { projects, evals, trials } = yield* Effect.promise(() =>
-        wireLateFaculties(piRegistry, { converse, profiles, decide, models, audit }),
+        wireLateFaculties(piRegistry, { converse, profiles, decide, models, audit, tasks }),
       );
       converse.resume();
       return {

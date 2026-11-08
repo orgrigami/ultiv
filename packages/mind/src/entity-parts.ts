@@ -123,13 +123,13 @@ export const installFaculties = (
       tools: taskTools(tasks, profiles, {
         projectRef,
         ...(f.knownModel !== undefined ? { knownModel: f.knownModel } : {}),
-        outsideTurn: async (conversationId) =>
-          turnIsOutside(
-            await turnContext(
-              { converse: f.converse, audit: f.audit, untrustedTool: f.untrustedTool, tasks },
-              conversationId,
-            ),
-          ),
+        turnOf: async (conversationId) => {
+          const turn = await turnContext(
+            { converse: f.converse, audit: f.audit, untrustedTool: f.untrustedTool, tasks },
+            conversationId,
+          );
+          return { outside: turnIsOutside(turn), owner: turn.origin === "owner" };
+        },
       }),
       sections: [runningTasksSection(tasks, profiles)],
     }),
