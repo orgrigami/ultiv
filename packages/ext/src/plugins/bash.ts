@@ -43,7 +43,7 @@ import {
   type ShellExecResult,
   type SharedWrite,
 } from "../shell/backend.ts";
-import { sandboxNameOf, sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
+import { sandboxShellBackend, scopeHash } from "../shell/sandbox-backend.ts";
 import {
   nodeShellBackend,
   type NodeShellNode,

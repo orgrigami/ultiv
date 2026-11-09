@@ -94,6 +94,8 @@ describe("typed tables", () => {
     await handle.close();
   });
 
+  // A thousand sequential row writes: ~4 s alone, three times that under the
+  // full parallel suite — a budget for the machine, not the logic.
   it("caps tables per profile and prunes rows oldest-first", async () => {
     const handle = await openMind({ storage: new MemoryStorage() });
     const bot = await handle.mind.profiles.create("owner", { name: "Keeper" });
@@ -122,5 +124,5 @@ describe("typed tables", () => {
     expect(rows[0]?.data.n).toBe(TABLE_ROW_CAP);
     expect(rows[rows.length - 1]?.data.n).toBe(1);
     await handle.close();
-  });
+  }, 60_000);
 });

@@ -9,7 +9,7 @@
  * home VM is the real sandbox backend, so this machine needs the runtime.
  * Never touches a live server or a live VM.
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
