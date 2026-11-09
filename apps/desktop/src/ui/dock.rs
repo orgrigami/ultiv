@@ -315,7 +315,7 @@ fn task_body(s: &App, id: &str, dark: bool) -> El {
                     "user" | "owner" => crate::ui::screens::chat::owner_row(s, key, m, dark),
                     "tool" | "tool-error" => crate::ui::screens::chat::tool_row(s, key, m, dark),
                     "note" | "thinking" => crate::ui::screens::chat::quiet_row(key, m, dark),
-                    _ => crate::ui::screens::chat::bot_row(key, m, dark),
+                    _ => crate::ui::screens::chat::bot_row(String::new(), key, m, dark),
                 }
             })
             .collect(),

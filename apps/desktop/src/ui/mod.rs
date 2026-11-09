@@ -3,6 +3,7 @@
 pub mod common;
 pub mod dock;
 pub mod gate;
+pub mod icons;
 pub mod lens;
 pub mod rail;
 pub mod screens;
@@ -38,12 +39,13 @@ fn checking(_s: &App, dark: bool) -> El {
 fn shell(s: &App, cx: &mut Cx<App>, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
     let wide = cx.window_layout("shell").map(|r| r[2] >= 1024.0).unwrap_or(true);
+    let top_inset = cx.chrome_insets().height;
     let mut main_row = rune::row()
         .key("shell-row")
         .w_full()
         .h_full()
         .min_h(0.0)
-        .child(rail::view(s, dark))
+        .child(rail::view(s, dark, top_inset))
         .child(
             el()
                 .key("main")

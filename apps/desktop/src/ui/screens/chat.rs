@@ -6,42 +6,90 @@
 use crate::state::App;
 use crate::ui::common::{self, ty};
 use rune::tok::space;
-use rune::{col, el, text, El};
+use rune::{col, el, icon, text, El};
 use rune_kit::{Button, ButtonVariant, TextArea};
 
 pub fn view(s: &App, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
     let k = crate::theme::kit(dark);
     let Some(bot) = s.current_bot() else { return col().key("chat-empty") };
-    let header = el()
+    // The header: compose at the left edge, the switcher pill centered with
+    // the approval chip beside it, the overflow ellipsis at the right.
+    let header = rune::row()
         .key("chat-head")
         .w_full()
-        .px(16.0)
-        .py(space::S3)
+        .px(space::S3)
+        .py(space::S2)
         .gap(space::S2)
         .center_y()
-        .child(common::bot_avatar(s, &bot.id, 24.0, dark))
-        .child(text(bot.name.clone()).font(ty::UI_MED).color(t.fg))
-        .child(approval_chip(s, dark, &k))
-        .child(el().key("head-space").grow(1.0))
+        .child(
+            el()
+                .key("compose")
+                .size(36.0, 36.0)
+                .radius(9.0)
+                .center()
+                .hover(t.wash(0.05))
+                .focusable(true)
+                .on_press(|s: &mut App| {
+                    if let Some(id) = s.current_bot_id() {
+                        let tag = format!("new-chat:{id}");
+                        s.net.mutate(crate::net::endpoints::Mutation::NewChat(id.clone()), &tag);
+                    }
+                })
+                .child(icon(&crate::ui::icons::SQUARE_PEN, 18.0).color(t.fg)),
+        )
+        .child(el().key("head-left").grow(1.0))
+        .child(
+            el()
+                .key("switcher")
+                .px(space::S2)
+                .py(space::S1)
+                .gap(space::S2)
+                .center_y()
+                .radius(999.0)
+                .fill(t.card)
+                .border(1.0, t.hairline)
+                .hover(t.wash(0.04))
+                .focusable(true)
+                .on_press(|s: &mut App| s.route = crate::state::Route::Crew)
+                .child(common::bot_avatar(s, &bot.id, 20.0, dark))
+                .child(text(bot.name.clone()).font(ty::UI_MED).color(t.fg))
+                .child(icon(&crate::ui::icons::CHEVRON_DOWN, 14.0).color(t.muted_fg)),
+        )
+        .child(approval_chip(s, dark))
+        .child(el().key("head-right").grow(1.0))
         .children(stop_button(s, &k))
-        .child(Button::new("New chat").variant(ButtonVariant::Ghost).on_press(|s: &mut App| {
-            if let Some(id) = s.current_bot_id() {
-                let tag = format!("new-chat:{id}");
-                s.net.mutate(crate::net::endpoints::Mutation::NewChat(id.clone()), &tag);
-            }
-        }).build(&k));
-    let transcript = el()
+        .child(
+            el()
+                .key("overflow")
+                .size(36.0, 36.0)
+                .radius(9.0)
+                .center()
+                .hover(t.wash(0.05))
+                .focusable(true)
+                .on_press(|s: &mut App| {
+                    if let Some(id) = s.current_bot_id() {
+                        let tag = format!("new-chat:{id}");
+                        s.net.mutate(crate::net::endpoints::Mutation::NewChat(id.clone()), &tag);
+                    }
+                })
+                .child(icon(&crate::ui::icons::ELLIPSIS, 18.0).color(t.fg)),
+        );
+    // The transcript: one bounded vertical scroll viewport, its content a
+    // centered column no wider than the web's measure, so text wraps and
+    // the composer never overlaps.
+    let transcript = col()
         .key("transcript")
         .w_full()
         .grow(1.0)
         .min_h(0.0)
-        .padding(16.0)
         .scroll(rune::ScrollSpec { stick_bottom: true })
         .child(
             col()
                 .key("transcript-body")
-                .w_full()
+                .w(760.0)
+                .min_w(0.0)
+                .padding(16.0)
                 .gap(space::S3)
                 .children(transcript_rows(s, dark))
                 .children(pending_card(s, dark, &k)),
@@ -408,7 +456,7 @@ fn decide_here(s: &mut App, call: String, approved: bool, always: bool) {
     s.bridge.decide(&session, &call, approved, always);
 }
 
-fn approval_chip(s: &App, dark: bool, _k: &rune_kit::Kit) -> El {
+fn approval_chip(s: &App, dark: bool) -> El {
     if s.approvals.is_empty() {
         return el().key("no-chip");
     }
@@ -439,7 +487,7 @@ fn transcript_rows(s: &App, dark: bool) -> Vec<El> {
             "user" | "owner" => rows.push(owner_row(s, key, m, dark)),
             "tool" | "tool-error" => rows.push(tool_row(s, key, m, dark)),
             "note" | "thinking" => rows.push(quiet_row(key, m, dark)),
-            _ => rows.push(bot_row(key, m, dark)),
+            _ => rows.push(bot_row(s.current_bot().map(|b| b.name.clone()).unwrap_or_default(), key, m, dark)),
         }
     }
     rows
@@ -470,18 +518,22 @@ pub fn owner_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool
             })
             .build(&crate::theme::kit(dark))
     });
-    el().key(key).w_full().child(
+    el().key(key).w_full().min_w(0.0).child(
         col()
             .key("owner-wrap")
+            .w_full()
+            .min_w(0.0)
             .gap(4.0)
             .child(
                 el()
                     .key("owner-card")
+                    .w(560.0)
                     .max_w(560.0)
+                    .min_w(0.0)
                     .padding(space::S3)
                     .radius(20.0)
                     .fill(t.muted.alpha(0.7))
-                    .child(text(m.text.clone()).font(ty::CHAT).color(t.fg)),
+                    .child(text(m.text.clone()).font(ty::CHAT).color(t.fg).w_full().min_w(0.0).wrap()),
             )
             .child(
                 rune::row()
@@ -493,13 +545,24 @@ pub fn owner_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool
     )
 }
 
-pub fn bot_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
+pub fn bot_row(who: String, key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    el().key(key).w_full().child(
+    // The bot's header line (its name) like the web's, then the prose —
+    // wrapped, min-width zeroed so it never overflows.
+    el().key(key).w_full().min_w(0.0).child(
         col()
             .key("bot-prose")
+            .w_full()
+            .min_w(0.0)
             .gap(space::S1)
-            .child(text(m.text.clone()).font(ty::CHAT).color(t.fg))
+            .children((!who.is_empty()).then(|| {
+                rune::row()
+                    .key("bot-who")
+                    .gap(space::S2)
+                    .center_y()
+                    .child(text(who).font(ty::UI_MED).color(t.fg))
+            }))
+            .child(text(m.text.clone()).font(ty::CHAT).color(t.fg).w_full().min_w(0.0).wrap())
             .children(m.streaming.then(|| text("▍".to_string()).font(ty::CHAT).color(t.live))),
     )
 }
@@ -524,6 +587,7 @@ pub fn tool_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool)
     let mut row = rune::row()
         .key(format!("row:{row_key}"))
         .w_full()
+        .min_w(0.0)
         .gap(space::S2)
         .center_y()
         .child(el().key("mark").size(8.0, 8.0).radius(4.0).fill(dot))
@@ -557,37 +621,70 @@ pub fn tool_row(s: &App, key: String, m: &crate::state::ChatMessage, dark: bool)
 /// The quiet lines: thinking and progress notes.
 pub fn quiet_row(key: String, m: &crate::state::ChatMessage, dark: bool) -> El {
     let t = crate::theme::tokens(dark);
-    el().key(key).w_full().child(
-        text(m.text.clone()).font(ty::META).color(t.muted_fg).max_lines(6),
+    el().key(key).w_full().min_w(0.0).child(
+        text(m.text.clone()).font(ty::META).color(t.muted_fg).max_lines(6).w_full().min_w(0.0).wrap(),
     )
 }
 
 fn composer(s: &App, dark: bool, k: &rune_kit::Kit) -> El {
     let t = crate::theme::tokens(dark);
     let who = s.current_bot().map(|b| b.name.clone()).unwrap_or_else(|| "the bot".into());
-    rune::row()
-        .key("composer")
+    // One centered pill: the + menu, the field, the round amber send arrow.
+    col()
+        .key("composer-wrap")
         .w_full()
-        .px(16.0)
-        .pb(16.0)
-        .gap(space::S2)
+        .pb(space::S3)
+        .center_y()
         .child(
-            el()
-                .key("composer-card")
-                .grow(1.0)
+            rune::row()
+                .key("composer")
+                .w_full()
+                .max_w(760.0)
                 .padding(space::S2)
+                .gap(space::S2)
                 .radius(25.0)
                 .fill(t.card)
                 .border(1.0, t.hairline)
+                .shadow(12.0, 32.0, t.fg.alpha(if dark { 0.35 } else { 0.15 }))
                 .child(
-                    TextArea::new(&s.chat_draft)
-                        .placeholder(format!("Ask {who}"))
-                        .on_edit(|s: &mut App| &mut s.chat_draft)
-                        .on_submit(|s: &mut App, _| send_chat(s))
-                        .build(k),
-                ),
+                    el()
+                        .key("attach")
+                        .size(32.0, 32.0)
+                        .radius(999.0)
+                        .center()
+                        .hover(t.wash(0.05))
+                        .child(icon(&crate::ui::icons::PLUS, 18.0).color(t.muted_fg)),
+                )
+                .child(
+                    el()
+                        .key("composer-field")
+                        .grow(1.0)
+                        .min_w(0.0)
+                        .child(
+                            TextArea::new(&s.chat_draft)
+                                .placeholder(format!("Ask {who}"))
+                                .on_edit(|s: &mut App| &mut s.chat_draft)
+                                .on_submit(|s: &mut App, _| send_chat(s))
+                                .build(k),
+                        ),
+                )
+                .children((!s.chat_draft.text.trim().is_empty()).then(|| send_arrow(dark))),
         )
-        .child(Button::new("Send").variant(ButtonVariant::Submit).on_press(|s: &mut App| send_chat(s)).build(k))
+}
+
+/// The round amber send arrow, inside the pill's trailing edge.
+fn send_arrow(dark: bool) -> El {
+    let t = crate::theme::tokens(dark);
+    el()
+        .key("send")
+        .size(32.0, 32.0)
+        .radius(999.0)
+        .center()
+        .fill(t.primary)
+        .hover(t.primary_fg.alpha(0.15))
+        .focusable(true)
+        .on_press(|s: &mut App| send_chat(s))
+        .child(icon(&crate::ui::icons::ARROW_UP, 18.0).color(t.primary_fg))
 }
 
 fn send_chat(s: &mut App) {

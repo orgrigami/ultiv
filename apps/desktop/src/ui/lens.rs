@@ -71,7 +71,7 @@ fn quote(words: &str, dark: bool) -> El {
         .w_full()
         .pl(space::S3)
         .border(2.0, t.hairline)
-        .child(text(words.to_string()).font(ty::UI).color(t.fg).max_lines(14))
+        .child(text(words.to_string()).font(ty::UI).color(t.fg).max_lines(14).w_full().wrap())
 }
 
 fn lines_block(lines: &[serde_json::Value], dark: bool) -> El {
@@ -86,6 +86,7 @@ fn lines_block(lines: &[serde_json::Value], dark: bool) -> El {
                     .font(ty::MONO)
                     .color(t.fg)
                     .max_lines(2)
+                    .w_full()
             })
             .collect::<Vec<_>>(),
     )
@@ -116,7 +117,7 @@ fn structured(s: &crate::state::App, body: &serde_json::Value, dark: bool) -> El
                 .key("page-body")
                 .gap(space::S1)
                 .child(text(host.to_string()).font(ty::MONO).color(t.muted_fg).max_lines(1))
-                .child(text(words.to_string()).font(ty::UI).color(t.fg).max_lines(20))
+                .child(text(words.to_string()).font(ty::UI).color(t.fg).max_lines(20).w_full().wrap())
         }
         "output" => code_plate(dark, "", body.get("text").and_then(serde_json::Value::as_str).unwrap_or("")),
         _ => {
@@ -194,7 +195,7 @@ fn record_body(body: &serde_json::Value, dark: bool) -> El {
                     .key(format!("field:{i}"))
                     .gap(space::S3)
                     .child(text(k.to_string()).font(ty::META).color(t.muted_fg).w(110.0))
-                    .child(value.max_lines(2).grow(1.0)),
+                    .child(value.max_lines(2).grow(1.0).min_w(0.0)),
             );
         }
     }
@@ -218,7 +219,7 @@ fn code_plate(dark: bool, label: &str, words: &str) -> El {
     if !label.is_empty() {
         card = card.child(text(label.to_string()).font(ty::MONO_MED).color(t.live).max_lines(1));
     }
-    card = card.child(text(words.to_string()).font(ty::MONO).color(t.fg).max_lines(24));
+    card = card.child(text(words.to_string()).font(ty::MONO).color(t.fg).max_lines(24).w_full().wrap());
     card
 }
 

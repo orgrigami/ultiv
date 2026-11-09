@@ -42,7 +42,7 @@ pub fn bot_avatar(_app: &App, profile_id: &str, size: f32, dark: bool) -> El {
     character_body(c.body, size, hue, t.char_ink)
 }
 
-fn character_body(shape: u32, size: f32, hue: Color, ink: Color) -> El {
+pub fn character_body(shape: u32, size: f32, hue: Color, ink: Color) -> El {
     let eye = size * 0.075;
     let eye_y = size * 0.42;
     let (x1, x2) = (size * 0.34 - eye / 2.0, size * 0.66 - eye / 2.0);
@@ -144,7 +144,7 @@ pub fn empty_state(words: &str, dark: bool) -> El {
         .w_full()
         .padding(space::S6)
         .center()
-        .child(text(words.to_string()).font(ty::UI).color(t.muted_fg))
+        .child(text(words.to_string()).font(ty::UI).color(t.muted_fg).wrap())
 }
 
 /// Relative time words (`lib/format.ts` spirit).
