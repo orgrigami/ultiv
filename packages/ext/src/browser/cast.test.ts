@@ -180,4 +180,21 @@ describe("the cast hub (fake stream)", () => {
     const casts = castSessions({ resolveOf: async () => ({ backend }) });
     await expect(casts.for("conv-1")).rejects.toThrow("cannot stream");
   });
+
+  it("two viewers arriving at once share ONE driver (no second launch on the same browser)", async () => {
+    const { casts, started } = rig();
+    const [a, b] = await Promise.all([casts.for("conv-1"), casts.for("conv-1")]);
+    expect(started).toHaveLength(1);
+    a.release();
+    b.release();
+  });
+
+  it("a stop while the driver launches ends that launch as it lands", async () => {
+    const { casts, process } = rig();
+    const viewer = casts.for("conv-1");
+    await casts.stop("conv-1");
+    const session = await viewer;
+    expect(process.stopped()).toBe(true);
+    await expect(session.act({ a: "reload" })).rejects.toThrow("no longer live");
+  });
 });

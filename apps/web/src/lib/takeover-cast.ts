@@ -4,7 +4,11 @@
  * session cookie) and the small pure helpers the driving view needs —
  * display-pixel to frame-pixel mapping for taps, and the keyboard decision
  * (which keystrokes belong to the page, which stay with the app). The cast
- * is push-only: frames arrive as events, acts are ordinary POSTs.
+ * is push-only: frames arrive as events, acts are ordinary POSTs — sent ONE
+ * AT A TIME, in order: typed text then Enter must reach the page in that
+ * order, and two concurrent POSTs land in whichever order the network picks.
+ * A WATCH cast (a bot's browser with no takeover open) streams the same
+ * frames and never sends an act.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api.ts";
@@ -100,7 +104,30 @@ export const keyDecision = (key: {
 
 const TYPE_FLUSH_MS = 40;
 
-export const useTakeoverCast = (id: string): TakeoverCast => {
+/** What a cast streams: a takeover the owner drives, or a session they only watch. */
+export type CastSource =
+  | { readonly kind: "takeover"; readonly id: string }
+  | { readonly kind: "watch"; readonly conversationId: string };
+
+const streamUrl = (source: CastSource): string =>
+  source.kind === "takeover"
+    ? `/api/browser/takeover/${encodeURIComponent(source.id)}/cast`
+    : `/api/browser/sessions/${encodeURIComponent(source.conversationId)}/cast`;
+
+/** A queue that runs one POST at a time, in the order they were sent. */
+export const actQueue = (post: (act: TakeoverAct) => Promise<unknown>) => {
+  let tail: Promise<unknown> = Promise.resolve();
+  return (act: TakeoverAct): Promise<unknown> => {
+    const next = tail.then(() => post(act));
+    // A failed act never blocks the ones after it.
+    tail = next.catch(() => undefined);
+    return next;
+  };
+};
+
+export const useBrowserCast = (from: CastSource): TakeoverCast => {
+  const id = from.kind === "takeover" ? from.id : null;
+  const url = streamUrl(from);
   const [status, setStatus] = useState<CastStatus>("connecting");
   const [frame, setFrame] = useState<CastFrameView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +138,7 @@ export const useTakeoverCast = (id: string): TakeoverCast => {
 
   useEffect(() => {
     setStatus("connecting");
-    const es = new EventSource(`/api/browser/takeover/${encodeURIComponent(id)}/cast`);
+    const es = new EventSource(url);
     source.current = es;
     const onFrame = (event: MessageEvent<string>): void => {
       try {
@@ -154,7 +181,13 @@ export const useTakeoverCast = (id: string): TakeoverCast => {
       es.close();
       source.current = null;
     };
-  }, [id, attempt]);
+  }, [url, attempt]);
+
+  // One queue per takeover: every act (typing included) goes through it.
+  const enqueue = useMemo(
+    () => (id === null ? null : actQueue((act) => api.browserTakeoverCastAct(id, act))),
+    [id],
+  );
 
   const flush = useCallback((): void => {
     if (typingTimer.current !== null) {
@@ -163,12 +196,16 @@ export const useTakeoverCast = (id: string): TakeoverCast => {
     }
     const text = typing.current;
     typing.current = "";
-    if (text !== "")
-      void api.browserTakeoverCastAct(id, { a: "type", text }).catch(() => undefined);
-  }, [id]);
+    if (text !== "" && enqueue !== null) {
+      void enqueue({ a: "type", text }).catch((cause: unknown) => {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      });
+    }
+  }, [enqueue]);
 
   const send = useCallback(
     (act: TakeoverAct): void => {
+      if (enqueue === null) return;
       if (act.a === "type") {
         // A burst of keystrokes lands as one insertText — one POST, one
         // input event, the way a fast typist reads to the page.
@@ -178,11 +215,11 @@ export const useTakeoverCast = (id: string): TakeoverCast => {
         return;
       }
       flush();
-      void api.browserTakeoverCastAct(id, act).catch((cause: unknown) => {
+      void enqueue(act).catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : String(cause));
       });
     },
-    [flush, id],
+    [flush, enqueue],
   );
 
   useEffect(() => () => flush(), [flush]);
@@ -199,3 +236,7 @@ export const useTakeoverCast = (id: string): TakeoverCast => {
     [status, frame, error, dismissError, reopen, send, flush],
   );
 };
+
+/** The takeover's driving cast (kept for the takeover card). */
+export const useTakeoverCast = (id: string): TakeoverCast =>
+  useBrowserCast(useMemo(() => ({ kind: "takeover" as const, id }), [id]));

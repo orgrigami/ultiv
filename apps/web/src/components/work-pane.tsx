@@ -1,6 +1,6 @@
 /**
  * The work dock: a task's steps and result, a file, a bot's memory, the
- * Needs you list or a room, shown beside the chat. Desktop (≥1024px) gets a
+ * Needs you list, a room or the bots' browsers, shown beside the chat. Desktop (≥1024px) gets a
  * floating panel to the right of whatever screen is open; narrower screens
  * get the active tab as a full-height sheet. The dock holds several tabs at
  * once: the strip at its top switches between them, so a task, a file and
@@ -13,6 +13,7 @@ import {
   BellDotIcon,
   BrainIcon,
   FileIcon,
+  GlobeIcon,
   ListTodoIcon,
   MessagesSquareIcon,
   type LucideIcon,
@@ -22,6 +23,7 @@ import { MemoryContent } from "@/components/memory/memory-panel";
 import { FilePreviewBody, fileSubtitle } from "@/components/file-preview";
 import { FileSourceById } from "@/components/file-source";
 import { NeedsList } from "@/components/needs-list";
+import { BrowsersPanel } from "@/components/browser-takeover-tab";
 import { RoomTimeline } from "@/components/room-timeline";
 import { TaskWork } from "@/components/task-activity";
 import { fullTitle } from "@/components/task-sheet/sheet-header";
@@ -38,6 +40,7 @@ const KIND_ICON: Record<WorkItem["kind"], LucideIcon> = {
   file: FileIcon,
   memory: BrainIcon,
   needs: BellDotIcon,
+  browsers: GlobeIcon,
   room: MessagesSquareIcon,
 };
 
@@ -51,6 +54,8 @@ function titleOf(item: WorkItem): { title: string; subtitle: string | null } {
       return { title: `What ${item.name} remembers`, subtitle: "Memory" };
     case "needs":
       return { title: "Needs you", subtitle: null };
+    case "browsers":
+      return { title: "Browsers", subtitle: "Your bots' browsers, live" };
     case "room":
       return {
         title: item.title,
@@ -131,6 +136,12 @@ function Body({ item }: { item: WorkItem }) {
       return (
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           <NeedsList />
+        </div>
+      );
+    case "browsers":
+      return (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <BrowsersPanel />
         </div>
       );
     case "room":

@@ -13,6 +13,7 @@ import type {
   ScopeHolder,
   BindingStore,
   VaultStore,
+  ActiveBrowsers,
   CastSessions,
   TakeoverRegistry,
 } from "@spriessen/ext";
@@ -120,6 +121,8 @@ export interface MindWiring {
   readonly browserTakeovers?: TakeoverRegistry;
   /** The owner's live browser casts (ext), the takeover's driving seat. */
   readonly browserCasts?: CastSessions;
+  /** Which conversations have a browser going (ext), for the Browsers panel. */
+  readonly browserSessions?: ActiveBrowsers;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

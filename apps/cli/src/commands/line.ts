@@ -1,6 +1,6 @@
 /**
- * What waits on you, from the command line: `needs` (cards, failed tasks,
- * memory reviews, parked work) and `approve` / `deny`. Card ids may be
+ * What waits on you, from the command line: `needs` (cards, browser
+ * takeover asks, failed tasks, memory reviews, parked work) and `approve` / `deny`. Card ids may be
  * shortened like every other id. `approve --all` shows what it is about to
  * approve and asks first (`--yes` skips that); cards that are asked every
  * time on purpose (a credential's or connector's first use, connector
@@ -33,8 +33,15 @@ export const needs = async (parsed: Parsed): Promise<void> => {
   const failed = tasks.filter((task) => task.status === "failed");
   const tidy = extra.tidy.reduce((sum, row) => sum + row.open, 0);
   const parked = extra.parked ?? [];
+  const takeovers = extra.takeovers ?? [];
   print(parsed, { approvals: rows, failed, extra }, () => {
     const lines = rows.map((row) => cardLine(row, names));
+    for (const ask of takeovers) {
+      const who = names.get(ask.profile) ?? "A bot";
+      lines.push(
+        `${paint.amber("◆")} ${who} waits for you at its browser: ${ask.reason} (web app: Browsers)`,
+      );
+    }
     for (const task of failed) {
       const who = names.get(task.bot?.profileId ?? "") ?? "A bot";
       lines.push(

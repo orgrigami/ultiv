@@ -7,6 +7,7 @@
 import type { ChatBot } from "@/components/chat-header";
 import { SessionView } from "@/components/session-view";
 import { TasksChip } from "@/components/tasks-chip";
+import { BrowserChip } from "@/components/browser-chip";
 import { ChatTasksProvider } from "@/lib/chat-tasks";
 import { StopDialog } from "@/components/stop-dialog";
 import { api } from "@/lib/api";
@@ -58,7 +59,12 @@ export function Chat({
         <div className="flex min-h-0 flex-1 flex-col">
           <SessionView
             sessionId={sessionId}
-            tasks={<TasksChip chatTasks={chatTasks} />}
+            tasks={
+              <>
+                <TasksChip chatTasks={chatTasks} />
+                <BrowserChip botId={bot?.id} />
+              </>
+            }
             taskInfo={chatTasks.tasks}
             taskApprovals={taskApprovals}
             onTaskDecide={taskDecide}

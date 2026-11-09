@@ -85,6 +85,9 @@ interface Held {
 export const castSessions = (deps: CastDeps): CastSessions => {
   const idleMs = deps.idleMs ?? 8_000;
   const live = new Map<string, Held>();
+  // A start in flight: a second viewer arriving while the driver launches
+  // joins it instead of launching a second driver on the same browser.
+  const starting = new Map<string, Promise<Held>>();
 
   const teardown = (held: Held): void => {
     if (held.dead) return;
@@ -217,7 +220,16 @@ export const castSessions = (deps: CastDeps): CastSessions => {
         existing.viewers += 1;
         return attach(existing);
       }
-      const fresh = await start(conversationId);
+      let pending = starting.get(conversationId);
+      if (pending === undefined) {
+        pending = start(conversationId).finally(() => starting.delete(conversationId));
+        starting.set(conversationId, pending);
+      }
+      const fresh = await pending;
+      if (fresh.idle !== null) {
+        clearTimeout(fresh.idle);
+        fresh.idle = null;
+      }
       fresh.viewers += 1;
       return attach(fresh);
     },
@@ -229,6 +241,15 @@ export const castSessions = (deps: CastDeps): CastSessions => {
       await existing.stream.write(`${JSON.stringify(input)}\n`);
     },
     stop: async (conversationId) => {
+      // A launch in flight is stopped as soon as it lands.
+      const pending = starting.get(conversationId);
+      if (pending !== undefined) {
+        const held = await pending.catch(() => undefined);
+        if (held !== undefined) {
+          if (held.reason === "") held.reason = "the takeover ended";
+          teardown(held);
+        }
+      }
       const existing = live.get(conversationId);
       if (existing === undefined) return;
       if (existing.reason === "") existing.reason = "the takeover ended";

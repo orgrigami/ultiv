@@ -4,7 +4,7 @@
  * page), and which keystrokes belong to the bot's page rather than the app.
  */
 import { describe, expect, it } from "vite-plus/test";
-import { imagePoint, keyDecision } from "./takeover-cast.ts";
+import { actQueue, imagePoint, keyDecision } from "./takeover-cast.ts";
 
 describe("imagePoint", () => {
   it("maps display pixels to frame pixels at any display width", () => {
@@ -44,5 +44,37 @@ describe("keyDecision", () => {
     expect(keyDecision({ ...bare("e"), altKey: true })).toEqual({ send: "passthrough" });
     expect(keyDecision(bare("Shift"))).toEqual({ send: "passthrough" });
     expect(keyDecision(bare("CapsLock"))).toEqual({ send: "passthrough" });
+  });
+});
+
+describe("actQueue", () => {
+  it("sends acts one at a time, in order — typed text lands before the Enter after it", async () => {
+    const seen: string[] = [];
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const send = actQueue(async (act) => {
+      if (act.a === "type") await slow;
+      seen.push(act.a);
+    });
+    const typed = send({ a: "type", text: "hunter2" });
+    const entered = send({ a: "key", key: "Enter" });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(seen).toEqual([]);
+    release();
+    await Promise.all([typed, entered]);
+    expect(seen).toEqual(["type", "key"]);
+  });
+
+  it("a failed act does not block the ones after it", async () => {
+    const seen: string[] = [];
+    const send = actQueue(async (act) => {
+      if (act.a === "reload") throw new Error("gone");
+      seen.push(act.a);
+    });
+    await expect(send({ a: "reload" })).rejects.toThrow("gone");
+    await send({ a: "key", key: "Tab" });
+    expect(seen).toEqual(["key"]);
   });
 });

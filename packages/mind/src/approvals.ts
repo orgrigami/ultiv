@@ -363,6 +363,11 @@ export interface ApprovalOptions {
   ) => string | undefined | Promise<string | undefined>;
   /** The wait before the parked call auto-denies; the default suits one-click cards. */
   readonly timeout?: Duration.Duration;
+  /**
+   * Which calls the gate holds (a tool whose `op` mixes reads and acts):
+   * a call this answers false runs straight through — no card, no guard.
+   */
+  readonly when?: (args: unknown) => boolean;
 }
 
 /**
@@ -377,6 +382,9 @@ export const withApproval = <TParameters extends object>(
 ): ToolRegistration<TParameters> => ({
   ...tool,
   execute: async (args, api, context) => {
+    if (options?.when !== undefined && !options.when(args)) {
+      return tool.execute(args, api, context);
+    }
     const conversationId = String(api.conversationId);
     const refused = await options?.guard?.(args, api, context);
     if (refused !== undefined) return textResult(refused);

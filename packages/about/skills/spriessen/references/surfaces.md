@@ -8,9 +8,10 @@ and pages). The rest open from them.
 ## The four
 
 - **Now**: the check-in. **Needs you** comes first, with a count on Now in
-  the nav: approval cards (settled right there), your questions, failed
-  tasks, routine escalations, memory tidy proposals, and turns stopped after
-  too many restarts (with Retry). Under it: background work running across
+  the nav: approval cards (settled right there), your questions, your
+  browser takeover asks (they open Browsers, where your owner drives the
+  page), failed tasks, routine escalations, memory tidy proposals, and turns
+  stopped after too many restarts (with Retry). Under it: background work running across
   every bot, what finished in the last day, goals in motion (every bot's
   open projects) and the newest files, each linking the chat it came from.
 - **Chats**: talking with one bot at a time; the pill at the top switches
@@ -31,7 +32,8 @@ and pages). The rest open from them.
   (its Persona and Instructions files, with history), Memory, Work
   (what it is running now, its goals over days with the tasks and
   routines linked to each, and its routines; your owner ticks milestones
-  and pauses or drops goals there), Routines,
+  and pauses or drops goals there), Browser (your browser sessions: a
+  takeover ask to drive, the rest to watch live), Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
   Files (its own workspace, one tree with folders; a file you overwrite
   keeps its earlier versions, which your owner can open or restore from

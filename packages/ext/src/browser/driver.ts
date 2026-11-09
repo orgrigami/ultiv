@@ -17,8 +17,8 @@
  * the sync loop would promote them to artifacts.
  */
 
-/** Where the driver lives inside the VM (outside the wiped workspace). */
-export const DRIVER_PATH = "/tmp/.spriessen-cdp.py";
+import { createHash } from "node:crypto";
+
 /** The VM-loopback port the detached chromium listens on. */
 export const CDP_PORT = 9222;
 /** One chromium per home VM; its profile (cookies) live here, VM-scoped. */
@@ -51,9 +51,46 @@ def up():
         return False
 
 
+def plain_user_agent():
+    """A regular desktop Chrome UA for this chromium's version (no "HeadlessChrome")."""
+    version = "131.0.0.0"
+    try:
+        raw = subprocess.run(
+            ["chromium", "--version"], capture_output=True, text=True, timeout=10
+        ).stdout
+        for word in raw.split():
+            if word[:1].isdigit() and word.count(".") == 3:
+                version = word
+                break
+    except Exception:
+        pass
+    return (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/%s Safari/537.36" % version
+    )
+
+
+# Written beside the profile when a browser launches with the plain identity.
+IDENTITY = PROFILE + "/.identity-v1"
+
+
+def headless_identity():
+    """True when the RUNNING browser was launched before the identity fix."""
+    return not os.path.exists(IDENTITY)
+
+
 def ensure_browser():
     if up():
-        return
+        # A browser launched before the identity fix still says
+        # "HeadlessChrome" (sign-in pages refuse it): relaunch it once on the
+        # same profile — the cookies are on disk and come back with it.
+        if not headless_identity():
+            return
+        subprocess.run(["pkill", "-f", PROFILE], timeout=10, capture_output=True)
+        for _ in range(40):
+            if not up():
+                break
+            time.sleep(0.25)
     os.makedirs(PROFILE, exist_ok=True)
     # Hermetic runtime dirs (see the file header): the bot's TMPDIR may not
     # exist on a fresh VM, and chromium aborts without its singleton-socket
@@ -70,6 +107,13 @@ def ensure_browser():
             "chromium", "--headless=new", "--no-sandbox", "--disable-gpu",
             "--disable-dev-shm-usage", "--disable-extensions", "--hide-scrollbars",
             "--window-size=1280,1600",
+            # Sign-in pages (Google's "this browser or app may not be
+            # secure") refuse a browser that announces automation: no
+            # navigator.webdriver, no automation infobar switch, and the
+            # plain Chrome user agent instead of "HeadlessChrome".
+            "--disable-blink-features=AutomationControlled",
+            "--user-agent=" + plain_user_agent(),
+            "--lang=en-US,en",
             "--user-data-dir=" + PROFILE,
             "--remote-debugging-port=%d" % PORT,
             "about:blank",
@@ -79,6 +123,7 @@ def ensure_browser():
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
+    open(IDENTITY, "w").close()
     for _ in range(80):
         if up():
             return
@@ -320,6 +365,14 @@ def main():
 if __name__ == "__main__":
     main()
 `;
+
+/**
+ * Where the driver lives inside the VM (outside the wiped workspace). The
+ * name carries a hash of the source: the install step writes only a MISSING
+ * file, so a fixed driver must land at a new path or a long-lived VM keeps
+ * running the old one for its whole life.
+ */
+export const DRIVER_PATH = `/tmp/.spriessen-cdp-${createHash("sha256").update(DRIVER_SOURCE).digest("hex").slice(0, 12)}.py`;
 
 /** Install the driver once per VM (idempotent), then run one command. */
 export const driverCallScript = (command: string): string =>

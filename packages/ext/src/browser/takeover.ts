@@ -61,7 +61,19 @@ export interface TakeoverRegistry {
   readonly wait: (id: string) => Promise<TakeoverOutcome>;
   /** Whether the bot's own ACTS must be refused on this conversation now. */
   readonly holds: (conversationId: string) => boolean;
+  /** The open ask on this conversation, if any. */
+  readonly forConversation: (conversationId: string) => TakeoverRow | undefined;
+  /**
+   * Every change of the open set — an ask opened, or closed any way (the cap
+   * and a replacement included, which never pass REST). Returns the unsubscribe.
+   */
+  readonly listen: (listener: (change: TakeoverChange) => void) => () => void;
 }
+
+/** One change of the open set, for live signals and the owner's push. */
+export type TakeoverChange =
+  | { readonly kind: "opened"; readonly row: TakeoverRow }
+  | { readonly kind: "closed"; readonly row: TakeoverRow; readonly outcome: TakeoverOutcome };
 
 export interface TakeoverRegistryOptions {
   /** The cap after which an open ask closes itself (tests shrink it). */
@@ -80,7 +92,18 @@ interface Held {
 export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): TakeoverRegistry => {
   const maxMs = options.maxMs ?? TAKEOVER_MAX_MS;
   const open = new Map<string, Held>();
+  const listeners = new Set<(change: TakeoverChange) => void>();
   let seq = 0;
+
+  const tell = (change: TakeoverChange): void => {
+    for (const listener of listeners) {
+      try {
+        listener(change);
+      } catch {
+        // A listener's failure never breaks the ask's lifecycle.
+      }
+    }
+  };
 
   const settle = (held: Held, outcome: TakeoverOutcome): void => {
     if (!open.has(held.row.id)) return;
@@ -88,6 +111,7 @@ export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): Takeove
     if (held.cap !== null) clearTimeout(held.cap);
     for (const waiter of held.waiters) waiter(outcome);
     options.onClosed?.(held.row.conversationId);
+    tell({ kind: "closed", row: held.row, outcome });
   };
 
   const heldOf = (conversationId: string): Held | undefined =>
@@ -108,6 +132,7 @@ export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): Takeove
       open.set(row.id, held);
       held.cap = setTimeout(() => settle(held, "timed-out"), maxMs);
       held.cap.unref?.();
+      tell({ kind: "opened", row });
       return row;
     },
     list: () =>
@@ -142,5 +167,12 @@ export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): Takeove
         held.waiters.push(resolve);
       }),
     holds: (conversationId) => heldOf(conversationId) !== undefined,
+    forConversation: (conversationId) => heldOf(conversationId)?.row,
+    listen: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 };

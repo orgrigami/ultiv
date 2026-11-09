@@ -95,6 +95,38 @@ describe("needsYouItems", () => {
     expect(items[3]?.title).toBe("2 memory suggestions for Bot a");
   });
 
+  it("lists a browser takeover ask right after approvals, leading to Browsers", () => {
+    const items = needsYouItems({
+      ...base,
+      approvals: [approval()],
+      tasks: [task()],
+      extra: {
+        tidy: [],
+        escalations: [],
+        chats: {},
+        takeovers: [
+          {
+            id: "takeover-1",
+            profile: "b",
+            conversationId: "conv-b",
+            reason: "sign in to the bank",
+            openedAt: NOW - 60_000,
+          },
+        ],
+      },
+    });
+    expect(items.map((item) => item.kind)).toEqual(["approval", "takeover", "failed-task"]);
+    expect(items[1]).toMatchObject({
+      id: "takeover:takeover-1",
+      title: "Bot b needs you at its browser",
+      detail: "sign in to the bank",
+      target: { kind: "browsers", botId: "b" },
+      dismissable: false,
+    });
+    // It nags from every chat, the asking bot's own included: no chat shows it inline.
+    expect(needsElsewhere(items, { botId: "b" }).map((item) => item.kind)).toContain("takeover");
+  });
+
   it("lists a parked task right after approvals, with its Retry id and chat", () => {
     const items = needsYouItems({
       ...base,

@@ -208,6 +208,36 @@ describe("editable and owner-only gates", () => {
     expect(approvals.pendingFor("conv")).toEqual([]);
   });
 
+  it("withApproval: `when` lets the calls it answers false through without a card", async () => {
+    const approvals = makeApprovals();
+    const inner = {
+      name: "browser_session",
+      description: "",
+      parameters: obj({ name: str() }, { open: true }),
+      execute: async (args: { name: string }) => textReply(`ran ${args.name}`),
+    };
+    const gated = withApproval(approvals, inner, {
+      when: (args) => (args as { name: string }).name === "click",
+    });
+    const read = (await gated.execute(
+      { name: "read" },
+      { conversationId: "conv", callId: "w1" } as never,
+      {} as never,
+    )) as { output: { text: string }[] };
+    expect(read.output[0]?.text).toBe("ran read");
+    expect(approvals.pendingFor("conv")).toEqual([]);
+    // An act still parks on the card.
+    const parked = gated.execute(
+      { name: "click" },
+      { conversationId: "conv", callId: "w2" } as never,
+      {} as never,
+    );
+    await Promise.resolve();
+    expect(approvals.pendingFor("conv").map((row) => row.callId)).toEqual(["w2"]);
+    approvals.decide("conv", "w2", false);
+    await parked;
+  });
+
   it("withApproval: an editable approval replaces the arguments with the override", async () => {
     const approvals = makeApprovals();
     let seen: unknown;

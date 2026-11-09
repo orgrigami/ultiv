@@ -45,6 +45,12 @@ export interface NeedsYouExtra {
     readonly kind: string;
     readonly profile: string;
   }[];
+  /** Open browser takeover asks (older servers leave it out). */
+  readonly takeovers?: readonly {
+    readonly id: string;
+    readonly profile: string;
+    readonly reason: string;
+  }[];
 }
 
 /** GET /api/memory/v2?profile=: the parts the terminal shows. */

@@ -13,6 +13,12 @@ import type { Schema } from "@earendil-works/pi-schema";
 export type Tool<TParameters extends Schema = Schema> = ToolRegistration<TParameters> & {
   /** Side-effecting: execution waits for the user's approval. */
   readonly gated?: boolean;
+  /**
+   * For a gated tool that mixes reads and acts in one schema (an `op`
+   * field): which calls the gate holds. Absent = every call; a call this
+   * answers false runs straight through, no card.
+   */
+  readonly gatedWhen?: (args: unknown) => boolean;
 };
 
 export const defineTool = <const TParameters extends Schema>(

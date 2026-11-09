@@ -93,8 +93,6 @@ export const liveKindsForTool = (name: string): LiveKind[] => {
   if (/^(bot|team)_(create|update|move|pause|delete)$/.test(name)) {
     return ["profiles", "sessions"];
   }
-  // A browser session call may have OPENED (or replaced) a takeover ask.
-  if (/^browser_(session|open)$/.test(name)) return ["takeovers"];
   return [];
 };
 

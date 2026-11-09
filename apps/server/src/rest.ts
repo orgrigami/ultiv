@@ -43,6 +43,7 @@ import { usageRoutes } from "./rest/usage.ts";
 import { roomSayRoutes } from "./rest/rooms.ts";
 import { tableRoutes } from "./rest/tables.ts";
 import { takeoverRoutes } from "./rest/takeover.ts";
+import { browserSessionRoutes } from "./rest/browser-sessions.ts";
 import { serverCheckRoutes } from "./rest/server-check.ts";
 import { skillRoutes } from "./rest/skills.ts";
 import { roomRoutes } from "./rest/rooms.ts";
@@ -286,6 +287,7 @@ async function route(args: RouteArgs): Promise<void> {
   if (await roomSayRoutes(args)) return;
   if (await tableRoutes(args)) return;
   if (await takeoverRoutes(args)) return;
+  if (await browserSessionRoutes(args)) return;
   if (await serverCheckRoutes(args)) return;
   if (await skillRoutes(args)) return;
   if (await mailboxRoutes(args)) return;

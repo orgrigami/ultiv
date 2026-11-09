@@ -1,6 +1,7 @@
 /**
- * "Needs you": the short list of things only the owner can settle. Five
- * kinds, in this order: approvals waiting now, work the engine parked after
+ * "Needs you": the short list of things only the owner can settle. Six
+ * kinds, in this order: approvals waiting now, browser takeover asks (a bot
+ * waiting for the owner to drive its browser), work the engine parked after
  * too many restarts in a row (with a Retry button), tasks that failed in the
  * last day, routines that escalated in the last week, and memory tidy
  * suggestions (one row per bot). Pure, so the screen and the badge count agree and the
@@ -31,6 +32,17 @@ export interface NeedsYouExtra {
   chats: Record<string, string>;
   /** Engine tasks parked by the restart limit (older servers leave it out). */
   parked?: ParkedRow[];
+  /** Open browser takeover asks: each a bot call waiting on the owner (older servers leave it out). */
+  takeovers?: TakeoverNeedRow[];
+}
+
+/** A bot asked the owner to drive its browser (a sign-in, a code); its call waits. */
+export interface TakeoverNeedRow {
+  id: string;
+  profile: string;
+  conversationId: string;
+  reason: string;
+  openedAt: number;
 }
 
 /** A parked engine task: cut off by restarts too many times in a row; Retry runs it again. */
@@ -42,13 +54,15 @@ export interface ParkedRow {
   sessionId: string | null;
 }
 
-export type NeedsKind = "approval" | "parked" | "failed-task" | "escalation" | "tidy";
+export type NeedsKind = "approval" | "takeover" | "parked" | "failed-task" | "escalation" | "tidy";
 
 /** Where a row leads: a chat (by session or by bot) or a Crew profile tab. */
 export type NeedsTarget =
   | { kind: "session"; sessionId: string }
   | { kind: "bot-chat"; botId: string }
-  | { kind: "profile"; botId: string; tab: "routines" | "memory" };
+  | { kind: "profile"; botId: string; tab: "routines" | "memory" | "browser" }
+  /** The Browsers panel (the work dock), where a takeover is driven. */
+  | { kind: "browsers"; botId: string };
 
 export interface NeedsItem {
   /** Stable across polls; also the dismiss key. */
@@ -69,10 +83,11 @@ export interface NeedsItem {
 
 const RANK: Record<NeedsKind, number> = {
   approval: 0,
-  parked: 1,
-  "failed-task": 2,
-  escalation: 3,
-  tidy: 4,
+  takeover: 1,
+  parked: 2,
+  "failed-task": 3,
+  escalation: 4,
+  tidy: 5,
 };
 
 export function needsYouItems(input: {
@@ -110,6 +125,22 @@ export function needsYouItems(input: {
           : { kind: "bot-chat", botId: row.profile },
       dismissable: false,
       approval: row,
+    });
+  }
+
+  for (const row of input.extra?.takeovers ?? []) {
+    const name = bots.get(row.profile);
+    if (name === undefined) continue;
+    items.push({
+      id: `takeover:${row.id}`,
+      kind: "takeover",
+      botId: row.profile,
+      botName: name,
+      title: `${name} needs you at its browser`,
+      detail: row.reason,
+      at: row.openedAt,
+      target: { kind: "browsers", botId: row.profile },
+      dismissable: false,
     });
   }
 

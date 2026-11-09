@@ -60,6 +60,15 @@ export const approvalPayload = (bot: string, tool: string, sessionId: string | u
   urgency: "high" as const,
 });
 
+/** A bot's browser takeover ask: its call waits on the owner, like an approval. */
+export const takeoverPayload = (bot: string, profileId: string) => ({
+  title: `${bot} needs you at its browser`,
+  body: "It asked you to take the controls (a sign-in, a code). Open it to drive the page.",
+  url: `/crew/${encodeURIComponent(profileId)}?tab=browser`,
+  tag: `takeover:${profileId}`,
+  urgency: "high" as const,
+});
+
 export const mailboxPayload = (bot: string, to: string, sessionId: string | undefined) => ({
   title: `${bot} got no reply from ${to}`,
   body: "A message between your bots timed out.",
@@ -111,6 +120,27 @@ const onApproval = async (
   );
 };
 
+/** The ask reaches the bot's approvers, like its approval cards do. */
+const onTakeover = async (
+  mind: MindService,
+  notifier: Notifier,
+  conversationId: string,
+): Promise<void> => {
+  const scope = mind.profiles.scopeOf(conversationId);
+  if (scope === undefined) return;
+  const [bot, view, profile] = await Promise.all([
+    botName(mind, scope.owner, scope.profileId),
+    mind.org.view(),
+    mind.profiles.get(scope.owner, scope.profileId),
+  ]);
+  const home =
+    profile !== undefined && profile !== null ? homeOf(profile) : { kind: "org" as const };
+  const approvers = approversFor(view.members, view.org?.owner ?? null, home);
+  await Promise.all(
+    approvers.map((approver) => notifier.notify(approver, takeoverPayload(bot, scope.profileId))),
+  );
+};
+
 const onExpired = async (
   mind: MindService,
   notifier: Notifier,
@@ -137,9 +167,13 @@ export const wirePushEvents = (mind: MindService, notifier: Notifier): (() => vo
     mind.mailbox.onExpired(
       (entry) => void onExpired(mind, notifier, entry).catch(logged("mailbox")),
     ),
+    mind.browserTakeovers?.listen((change) => {
+      if (change.kind !== "opened") return;
+      void onTakeover(mind, notifier, change.row.conversationId).catch(logged("takeover"));
+    }),
   ];
   return () => {
-    for (const stop of stops) stop();
+    for (const stop of stops) stop?.();
   };
 };
 

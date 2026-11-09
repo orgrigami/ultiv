@@ -1,8 +1,9 @@
 /**
  * The browser-session tool against a FAKE backend that answers the driver
  * protocol: page facts on open, the password refusal, a screenshot artifact
- * on shot, the close handwave, and the takeover round trip (the bot's acts
- * refused while the owner holds, the owner driving, the finish wake). The
+ * on shot, the close handwave, the takeover round trip (the bot's acts
+ * refused while the owner holds, the call blocking until the owner closes
+ * it, a stopped turn closing it), the act-only gate and the session list. The
  * in-VM driver itself needs chromium; it is exercised by the opt-in real-VM
  * suite.
  */
@@ -173,5 +174,59 @@ describe("the browser session tool (fake driver)", () => {
     // The hold went with the close.
     expect(facility.takeovers.list()).toEqual([]);
     expect(facility.takeovers.holds("conv-1")).toBe(false);
+  });
+
+  it("gates only the acts: reads, the ask and close run without a card", () => {
+    const { tool } = rig();
+    const gatedWhen = (tool as { gatedWhen?: (args: unknown) => boolean }).gatedWhen;
+    expect(gatedWhen).toBeDefined();
+    for (const op of ["click", "type", "press"]) expect(gatedWhen?.({ op })).toBe(true);
+    for (const op of ["open", "read", "shot", "takeover", "close"]) {
+      expect(gatedWhen?.({ op })).toBe(false);
+    }
+  });
+
+  it("a stopped turn closes its waiting ask (no takeover left for nobody)", async () => {
+    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
+    const changes: string[] = [];
+    facility.takeovers.listen((change) => changes.push(change.kind));
+    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    const stop = new AbortController();
+    const call = capability.tool.execute({ op: "takeover", reason: "the sign-in needs you" }, api, {
+      abortSignal: stop.signal,
+    } as never);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    // The ask is announced the moment it opens — not when the call returns.
+    expect(changes).toEqual(["opened"]);
+    stop.abort();
+    const reply = await call;
+    expect(reply.structuredOutput).toMatchObject({ outcome: "stepped-away" });
+    expect(facility.takeovers.list()).toEqual([]);
+    expect(changes).toEqual(["opened", "closed"]);
+  });
+
+  it("lists the session while it runs and forgets it on close", async () => {
+    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
+    let signals = 0;
+    facility.browsers.listen(() => {
+      signals += 1;
+    });
+    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    await capability.tool.execute(
+      { op: "open", url: "https://example.test/page" },
+      api,
+      {} as never,
+    );
+    expect(facility.browsers.list()).toMatchObject([
+      { conversationId: "conv-1", url: "https://example.test/page", title: "A page" },
+    ]);
+    // The same page again changes nothing the list shows: no signal.
+    await capability.tool.execute({ op: "read" }, api, {} as never);
+    expect(signals).toBe(1);
+    await capability.tool.execute({ op: "close" }, api, {} as never);
+    expect(facility.browsers.list()).toEqual([]);
+    expect(signals).toBe(2);
   });
 });

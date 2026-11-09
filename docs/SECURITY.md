@@ -701,7 +701,7 @@ UNTRUSTED INPUT (prompt injection): the tool description and output say so.
 (`packages/ext/src/plugins/browser-session.ts`) drives the SAME in-VM
 chromium (one per home VM, profile under `/tmp`, cookies never sealed into
 model-readable files): reads are ungated, acts (click/type/press) are
-gated, and password fields are refused outright — the model must never
+gated (`gatedWhen`: the gate holds exactly those ops), and password fields are refused outright — the model must never
 carry a secret to type it. The sanctioned path for a wall is op `takeover`:
 the OWNER drives the page through the live cast
 (`packages/ext/src/browser/cast.ts`), whose SSE stream and act routes are
@@ -714,7 +714,13 @@ NEVER logged or audited (a typed password goes browser → TLS → server
 memory → the VM's stdin, nothing else; the audit records the takeover's
 open and finish, not its driving). The stream is one-way (frames out, acts
 in over POST), capped at 30 minutes, and winds down when the last viewer
-leaves.
+leaves. The Browsers panel's WATCH view (`GET /api/browser/sessions/:conversationId/cast`)
+is the same stream under the `view` decision and has NO act route: only an
+open takeover lets the owner touch the page. The session list carries facts
+only (url, title, when), never page text. Chromium presents a plain desktop
+identity (no `navigator.webdriver`, no "HeadlessChrome" user agent) so
+sign-in pages accept the owner's sign-in; that is presentation, not an
+isolation claim — the VM's network policy is still the reach gate.
 
 ## Owner scoping and the one account
 

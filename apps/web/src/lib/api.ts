@@ -46,6 +46,18 @@ import type {
   ServerCheck,
   TaskActivity,
 } from "./api-types.ts";
+/** One bot browser session as the Browsers panel lists it. */
+export interface BrowserSessionRow {
+  conversationId: string;
+  url: string;
+  title: string;
+  at: number;
+  profileId: string | null;
+  botName: string;
+  /** The open takeover ask on this session (its call waits on you), if any. */
+  takeoverId: string | null;
+}
+
 export type {
   ArtifactRow,
   MemoryV2Chat,
@@ -404,6 +416,9 @@ export const api = {
     send(`/api/browser/takeover/${encodeURIComponent(id)}/finish`, "POST", {}),
   browserTakeoverCancel: (id: string): Promise<{ ok: boolean }> =>
     send(`/api/browser/takeover/${encodeURIComponent(id)}`, "DELETE"),
+  /** The owner's bots' browser sessions (and the takeover ask on each, if any). */
+  browserSessions: (): Promise<{ sessions: BrowserSessionRow[] }> =>
+    getJson("/api/browser/sessions"),
   tools: (): Promise<ToolCatalogEntry[]> => getJson<ToolCatalogEntry[]>("/api/tools"),
   create: (title: string | null, profileId?: string): Promise<{ id: string }> =>
     send<{ id: string }>("/api/sessions", "POST", {

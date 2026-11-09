@@ -19,6 +19,7 @@ export * from "./browser/driver.ts";
 export * from "./browser/cast-driver.ts";
 export * from "./browser/cast.ts";
 export * from "./browser/takeover.ts";
+export * from "./browser/active.ts";
 export * from "./plugins/files.ts";
 export * from "./plugins/graph.ts";
 export * from "./plugins/code-intel.ts";

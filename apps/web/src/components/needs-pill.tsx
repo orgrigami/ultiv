@@ -1,7 +1,8 @@
 /**
  * A small pill above the composer when something needs the owner outside
- * this chat (another bot's approval, a failed task). Tap: the Needs you list
- * opens in the work pane, where approvals settle inline.
+ * this chat (another bot's approval, a failed task, a browser takeover ask).
+ * Tap: the Needs you list opens in the work pane, where approvals settle
+ * inline — or Browsers, when a takeover ask is all there is.
  */
 import { ChevronRightIcon, ShieldQuestionIcon } from "lucide-react";
 import { useApp } from "@/lib/app-state";
@@ -22,7 +23,14 @@ export function NeedsPill({
   if (items.length === 0 || openWork === null) return null;
   return (
     <RowButton
-      onClick={() => openWork({ kind: "needs" })}
+      // A takeover ask alone goes straight to Browsers, where it is driven.
+      onClick={() =>
+        openWork(
+          items.every((item) => item.kind === "takeover")
+            ? { kind: "browsers" }
+            : { kind: "needs" },
+        )
+      }
       className="chrome-float press animate-in fade-in slide-in-from-bottom-1 flex min-h-11 max-w-md items-center gap-2 self-center rounded-full px-4 text-sm duration-200 motion-reduce:animate-none"
     >
       <ShieldQuestionIcon aria-hidden className="text-signal size-4 shrink-0" />

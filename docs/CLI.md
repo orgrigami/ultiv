@@ -192,7 +192,7 @@ spriessen projects [--bot Wren]                          # goals over days, with
 spriessen models | models default [<id>]                 # * = the workspace default new chats start on
 spriessen tests [--bot Wren] | tests run [--bot Wren] [--model kenari/x]
 
-spriessen needs                                          # cards, failed tasks, reviews, parked work
+spriessen needs                                          # cards, browser asks, failed tasks, reviews, parked work
 spriessen approve <id> [--always] | deny <id>            # ids (or their start) from `needs`
 spriessen approve --all [--yes]                          # shows them, asks, then approves
 

@@ -7,7 +7,9 @@
  * 5s polls. Also the engine's parked tasks (cut off by restarts too many
  * times in a row) for the caller's own bots, and
  * POST /api/needs-you/parked/:taskId/retry to run one again; another
- * owner's task gets the same 404 an unknown one does.
+ * owner's task gets the same 404 an unknown one does. And the open browser
+ * takeover asks of the caller's bots: each one is a bot call BLOCKED on the
+ * owner (browser/takeover.ts), settled on the Browsers panel.
  */
 import { Effect } from "effect";
 import type { AuditEvent, MemoryProposal } from "@spriessen/contracts";
@@ -31,9 +33,19 @@ export interface ParkedRow {
   sessionId: string | null;
 }
 
+/** An open browser takeover ask: the bot's call waits until the owner drives and finishes. */
+export interface TakeoverNeed {
+  id: string;
+  profile: string;
+  conversationId: string;
+  reason: string;
+  openedAt: number;
+}
+
 export interface NeedsYouExtra {
   tidy: { profile: string; open: number }[];
   parked: ParkedRow[];
+  takeovers: TakeoverNeed[];
   escalations: AuditEvent[];
   /** Pending approval conversation id -> the app session (chat) it shows in. */
   chats: Record<string, string>;
@@ -45,7 +57,7 @@ export function needsYouExtra(input: {
   audit: readonly AuditEvent[];
   profiles: ReadonlySet<string>;
   now: number;
-}): Omit<NeedsYouExtra, "chats" | "parked"> {
+}): Omit<NeedsYouExtra, "chats" | "parked" | "takeovers"> {
   const tidy = [...input.proposals]
     .map(([profile, proposals]) => ({
       profile,
@@ -88,6 +100,28 @@ async function ownParked(args: RouteArgs): Promise<ParkedRow[]> {
       profile: scope.profileId,
       conversationId: task.conversationId,
       sessionId: sessionId ?? null,
+    });
+  }
+  return rows;
+}
+
+/** The caller's open takeover asks (another owner's are invisible, like missing ones). */
+function ownTakeovers(args: RouteArgs): TakeoverNeed[] {
+  const rows: TakeoverNeed[] = [];
+  for (const row of args.mind.browserTakeovers?.list() ?? []) {
+    const scope = args.mind.profiles.scopeOf(row.conversationId);
+    if (
+      scope === undefined ||
+      !can(args.owner, "change", { type: "chat", owner: scope.owner, id: row.conversationId })
+    ) {
+      continue;
+    }
+    rows.push({
+      id: row.id,
+      profile: scope.profileId,
+      conversationId: row.conversationId,
+      reason: row.reason,
+      openedAt: row.openedAt,
     });
   }
   return rows;
@@ -153,6 +187,7 @@ export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
     }),
     chats,
     parked: await ownParked(args),
+    takeovers: ownTakeovers(args),
   };
   args.json(200, body);
   return true;

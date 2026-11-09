@@ -20,6 +20,8 @@ export type WorkItem =
       readonly query?: string | undefined;
     }
   | { readonly kind: "needs" }
+  /** Every bot's browser: open takeover asks to drive, live sessions to watch. */
+  | { readonly kind: "browsers" }
   | {
       readonly kind: "room";
       readonly roomId: string;
@@ -51,6 +53,8 @@ export function workKey(item: WorkItem): string {
       return `memory:${item.profileId}`;
     case "needs":
       return "needs";
+    case "browsers":
+      return "browsers";
     case "room":
       return `room:${item.roomId}`;
   }

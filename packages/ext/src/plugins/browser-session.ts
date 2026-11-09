@@ -9,7 +9,9 @@
  * target — and refused while an owner takeover holds the conversation (an
  * OPEN is refused too then: the page under the owner's hands never moves).
  * Password fields are refused outright (the model must never carry a secret
- * to type it: the takeover is the sanctioned path). A takeover ask BLOCKS:
+ * to type it: the takeover is the sanctioned path). Only the acts hold for
+ * a card (`gatedWhen`): open, read, shot, close and the ask run straight
+ * through. A takeover ask BLOCKS:
  * the call waits while the owner drives the LIVE CAST (browser/cast.ts —
  * screencast frames out, real input events in, the driving seat, not a form
  * of selectors) and returns the page as it stands when they Finish; every
@@ -28,12 +30,14 @@ import { BROWSER_TIMEOUT_MS } from "../browser/command.ts";
 import { driverCallScript } from "../browser/driver.ts";
 import { browserBackends } from "../browser/backends.ts";
 import { castSessions, type CastSessions } from "../browser/cast.ts";
+import { activeBrowsers, type ActiveBrowsers } from "../browser/active.ts";
 import {
   takeoverRegistry,
   type TakeoverAct,
   type TakeoverRegistry,
   type TakeoverState,
 } from "../browser/takeover.ts";
+import { signalOf, takeoverCall } from "./browser-takeover-call.ts";
 
 export interface BrowserSessionOptions {
   /** Artifact root; default ARTIFACTS_DIR (screenshots are stored there). */
@@ -52,8 +56,10 @@ export interface BrowserSessionOptions {
 export interface BrowserSessionFacility {
   readonly plugin: Plugin;
   readonly takeovers: TakeoverRegistry;
-  /** The owner's live casts (the takeover's driving seat). */
+  /** The owner's live casts (the takeover's driving seat, and the watch view). */
   readonly casts: CastSessions;
+  /** Which conversations have a browser going, and where its page stands. */
+  readonly browsers: ActiveBrowsers;
 }
 
 const fail = (text: string) => ({
@@ -100,6 +106,10 @@ const hostOf = (url: string | undefined): string => {
     return "page";
   }
 };
+
+/** The ops that act on the page: the only calls the approval gate holds. */
+const ACT_OPS: ReadonlySet<unknown> = new Set(["click", "type", "press"]);
+export const isActOp = (op: unknown): boolean => ACT_OPS.has(op);
 
 /** A session command's human summary, for the card and the transcript. */
 export const browserActText = (args: SessionArgs): string => {
@@ -213,6 +223,7 @@ export const browserSessionFacility = (
     onClosed: (conversationId) => void casts.stop(conversationId).catch(() => undefined),
   });
   const casts = castSessions({ resolveOf });
+  const browsers = activeBrowsers();
 
   const tool: Tool = defineTool({
     name: "browser_session",
@@ -243,7 +254,10 @@ export const browserSessionFacility = (
       },
       { open: true },
     ),
-    execute: async (args, api) => {
+    // Only the ACTS hold for a card: reads, the takeover ask and close run
+    // straight through (asking for help is not an act on the page).
+    gatedWhen: (args) => isActOp((args as { op?: unknown } | null)?.op),
+    execute: async (args, api, context) => {
       const conversationId = String(api.conversationId);
       if (
         (args.op === "open" || args.op === "click" || args.op === "type" || args.op === "press") &&
@@ -256,82 +270,17 @@ export const browserSessionFacility = (
         );
       }
       if (args.op === "takeover") {
-        const row = await takeovers.open({
-          conversationId,
-          reason: args.reason ?? "an identity wall needs the owner",
-          act: (act) => stateOf(conversationId, act),
-        });
-        // BLOCK: this call waits while the owner drives the live view, and
-        // returns with the page — no turn ends, no wake to lose. Every close
-        // resolves it; the registry caps the wait so an abandoned ask never
-        // pins this turn (or the hold) forever.
-        const outcome = await takeovers.wait(row.id);
-        if (outcome === "replaced") {
-          return {
-            output: [
-              {
-                type: "text" as const,
-                text:
-                  "a newer takeover ask on this session replaced yours; this call stands down. " +
-                  "Wait for that one's result.",
-              },
-            ],
-            structuredOutput: { ok: true, takeover: row.id, outcome },
-          };
-        }
-        if (outcome === "timed-out") {
-          return {
-            output: [
-              {
-                type: "text" as const,
-                text:
-                  "your owner did not take the controls within the takeover's window, so the ask " +
-                  "closed and the hold lifted. The page stands where you left it (op read); ask " +
-                  "again (op takeover) once your owner is around, or work without signing in.",
-              },
-            ],
-            structuredOutput: { ok: true, takeover: row.id, outcome },
-          };
-        }
-        if (outcome === "stepped-away") {
-          return {
-            output: [
-              {
-                type: "text" as const,
-                text:
-                  "your owner stepped away without finishing; the takeover closed and the hold " +
-                  "lifted. Read the page (op read) to see where it stands, then decide your next " +
-                  "step.",
-              },
-            ],
-            structuredOutput: { ok: true, takeover: row.id, outcome },
-          };
-        }
-        let page: DriverReply;
-        try {
-          page = await command(conversationId, { op: "read" });
-        } catch (cause) {
-          return fail(
-            `your owner finished, but the page could not be read back: ${String(cause).slice(0, 200)}`,
-          );
-        }
-        return {
-          output: [
-            {
-              type: "text" as const,
-              text:
-                `your owner took the controls (${row.reason}) and has finished. The page now ` +
-                `stands:\n\n${pageText(page)}`,
-            },
-          ],
-          structuredOutput: {
-            ok: true,
-            takeover: row.id,
-            outcome,
-            ...(page.url !== undefined ? { url: page.url } : {}),
-            ...(page.title !== undefined ? { title: page.title } : {}),
+        return takeoverCall(
+          {
+            takeovers,
+            act: (act) => stateOf(conversationId, act),
+            read: () => command(conversationId, { op: "read" }),
+            pageText,
           },
-        };
+          conversationId,
+          args.reason ?? "an identity wall needs the owner",
+          signalOf(context),
+        );
       }
       let reply: DriverReply;
       try {
@@ -341,6 +290,7 @@ export const browserSessionFacility = (
       }
       if (reply.ok !== true) {
         const kind = reply.kind ?? "error";
+        if (kind === "browser-down") browsers.drop(conversationId);
         const text =
           kind === "selector"
             ? `No element matches ${args.selector ?? "?"}: read the page again (op read) and check the selector.`
@@ -351,6 +301,8 @@ export const browserSessionFacility = (
                 : (reply.error ?? "the browser session failed");
         return fail(text);
       }
+      if (args.op === "close") browsers.drop(conversationId);
+      else browsers.touch(conversationId, reply.url, reply.title);
       if (args.op === "shot") {
         const shot = await saveShot(conversationId, reply.png ?? "", reply.url);
         const output: { type: "text"; text: string }[] = [
@@ -401,7 +353,7 @@ export const browserSessionFacility = (
       "Interactive browser sessions in the home VM: one chromium between calls, reads ungated, acts approved (and refused during an owner takeover), password fields refused with takeover as the path; the owner's live cast drives the page during a takeover.",
     capabilities: [toolCapability(tool)],
   });
-  return { plugin, takeovers, casts };
+  return { plugin, takeovers, casts, browsers };
 };
 
 /** The plugin alone, for embedders that do not surface takeovers. */

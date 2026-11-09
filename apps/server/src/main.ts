@@ -199,6 +199,15 @@ export async function buildStack(options?: {
     // A bot's project tool and the owner's edits both land here.
     mind.projects.onChange(coalesce(() => liveHub.emit("projects"), 250)),
     watchRunningTasks(mind, () => liveHub.emit("tasks")).stop,
+    // A takeover ask opens INSIDE a blocking tool call (no audit record
+    // until it closes) and can close off-REST (its cap, a replacement, a
+    // stopped turn): the registry itself signals, and the ask is a Needs
+    // you row. Active browser sessions ride the same "takeovers" signal.
+    mind.browserTakeovers?.listen(() => {
+      liveHub.emit("takeovers");
+      liveHub.emit("needs-you");
+    }),
+    mind.browserSessions?.listen(coalesce(() => liveHub.emit("takeovers"), 250)),
     // What bots change through their tools never passes REST: the audit
     // record of each successful call names the slice to refresh.
     mind.audit.listen((event) => {

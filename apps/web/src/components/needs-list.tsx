@@ -2,8 +2,8 @@
  * The Needs you list, shared by the Needs you screen and the work pane.
  * Approvals carry their card inline, so Approve or Deny is one tap from the
  * list (no detour through the chat); a settled one says so for a moment.
- * Failed tasks open their work; the rest open the chat or screen that settles
- * them. Failed tasks and routine escalations can be dismissed once seen.
+ * Failed tasks open their work; a browser takeover ask opens the Browsers
+ * panel; the rest open the chat or screen that settles them. Failed tasks and routine escalations can be dismissed once seen.
  */
 import { CharacterEmpty } from "@/components/character-empty";
 import { useNavigate } from "@tanstack/react-router";
@@ -12,6 +12,7 @@ import {
   CalendarX2Icon,
   CheckIcon,
   ChevronRightIcon,
+  GlobeIcon,
   RotateCcwIcon,
   ShieldQuestionIcon,
   TriangleAlertIcon,
@@ -33,6 +34,7 @@ import { useOpenWork } from "@/lib/work-pane";
 
 const KIND: Record<NeedsKind, { icon: LucideIcon; label: string; tone: string }> = {
   approval: { icon: ShieldQuestionIcon, label: "Approval", tone: "text-signal" },
+  takeover: { icon: GlobeIcon, label: "Browser", tone: "text-signal" },
   parked: { icon: RotateCcwIcon, label: "Stopped", tone: "text-warning" },
   "failed-task": { icon: TriangleAlertIcon, label: "Task failed", tone: "text-warning" },
   escalation: { icon: CalendarX2Icon, label: "Routine", tone: "text-warning" },
@@ -57,6 +59,16 @@ function useOpenTarget(): (item: NeedsItem) => void {
       item.kind === "failed-task" ? tasks.find((row) => `task:${row.id}` === item.id) : undefined;
     if (task !== undefined && openWork !== null) return openWork({ kind: "task", task });
     const target = item.target;
+    if (target.kind === "browsers") {
+      // The Browsers panel beside the screen; without the dock, the bot's tab.
+      if (openWork !== null) return openWork({ kind: "browsers" });
+      void navigate({
+        to: "/crew/$botId",
+        params: { botId: target.botId },
+        search: { tab: "browser" },
+      });
+      return;
+    }
     if (target.kind === "session")
       void navigate({ to: "/c/$sessionId", params: { sessionId: target.sessionId } });
     else if (target.kind === "bot-chat")
@@ -129,7 +141,7 @@ export function NeedsList({
   if (rows.length === 0 && settled.length === 0)
     return (
       <CharacterEmpty title="All clear" className={cn("py-10", className)}>
-        Approvals, failed tasks and memory suggestions show up here.
+        Approvals, browser takeovers, failed tasks and memory suggestions show up here.
       </CharacterEmpty>
     );
 

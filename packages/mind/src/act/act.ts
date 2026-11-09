@@ -39,7 +39,11 @@ export const actService = (
               ? HOST_REFUSAL
               : undefined
         : undefined;
-    return withApproval(approvals, tool, guard !== undefined ? { guard } : undefined);
+    const options = {
+      ...(guard !== undefined ? { guard } : {}),
+      ...(tool.gatedWhen !== undefined ? { when: tool.gatedWhen } : {}),
+    };
+    return withApproval(approvals, tool, Object.keys(options).length > 0 ? options : undefined);
   };
   const tools: readonly Tool[] = registry
     .tools()
