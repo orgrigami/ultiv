@@ -128,13 +128,11 @@ fn apply_one(app: &mut App, e: Event) -> bool {
             }
             true
         }
-        Event::Bytes(id, bytes) => {
+        Event::Bytes { id, image } => {
+            // The handle arrives decoded and ready.
             let key = format!("img:{id}");
-            if let Some(cache) = app.img_cache.clone() {
-                let image = cache.load(bytes.as_ref().clone());
-                app.images.insert(id, image);
-                app.mark_loaded(&key);
-            }
+            app.mark_loaded(&key);
+            app.images.insert(id, image);
             true
         }
         Event::Done(tag, ok, msg) => {

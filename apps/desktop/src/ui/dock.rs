@@ -557,16 +557,23 @@ fn image_preview(s: &App, id: &str, dark: bool) -> El {
         return common::empty_state("Loading the image…", dark);
     }
     match s.images.get(id) {
-        Some(image) => match image.size() {
-            Some(_) => el()
-                .key("image-preview")
-                .w_full()
-                .h(300.0)
-                .radius(10.0)
-                .clip_rounded(10.0)
-                .fill(t.card)
-                .child(el().key("img").w_full().h_full().pixels_fit(image.pixels(), rune::SurfaceFit::Fit)),
-            None => common::empty_state("That image has no size.", dark),
+        Some(image) if !image.is_ready() => common::empty_state("Decoding the image…", dark),
+        Some(image) => match image.error() {
+            Some(err) => {
+                let why = err.to_string();
+                common::empty_state(&format!("That image didn't decode: {why}"), dark)
+            }
+            None => match image.size() {
+                Some(_) => el()
+                    .key("image-preview")
+                    .w_full()
+                    .h(300.0)
+                    .radius(10.0)
+                    .clip_rounded(10.0)
+                    .fill(t.card)
+                    .child(el().key("img").w_full().h_full().pixels_fit(image.pixels(), rune::SurfaceFit::Fit)),
+                None => common::empty_state("Decoding the image…", dark),
+            },
         },
         None => common::empty_state("That image didn't decode.", dark),
     }

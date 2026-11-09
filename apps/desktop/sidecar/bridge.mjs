@@ -54,6 +54,7 @@ let host = null;
 let attempts = 0;
 const refs = new Map(); // id -> SessionRef with unsubscribers
 const pendingAttach = new Set(); // ids asked for before the link opened
+const pendingInputs = {}; // words typed before their session's ref existed
 
 function link() {
   socket = new WebSocket(url, { headers: { Cookie: cookie } });
@@ -66,6 +67,7 @@ function link() {
     const waiting = [...pendingAttach];
     pendingAttach.clear();
     for (const id of waiting) reopen(id);
+    for (const id of refs.keys()) flushInputs(id);
   });
   socket.addEventListener("close", () => {
     for (const ref of refs.values()) release(ref);
@@ -143,45 +145,79 @@ function project(entries) {
 }
 
 async function reopen(id) {
-  const held = refs.get(id)?.held ?? {};
   releaseOrForget(id);
   try {
     const opened = await host.get(Session, { id });
-    const record = { ref: opened, held, unsubs: [] };
+    // Chord cells are subscribe-only here (the web client never calls .get):
+    // each cell's subscription fires with the current value, so hold the
+    // latest of each and relay the whole picture on every fire.
+    const latest = {
+      transcript: [],
+      phase: "idle",
+      lastError: null,
+      pending: null,
+      usage: null,
+      model: null,
+      effort: null,
+      conversationId: null,
+      queued: [],
+    };
+    const record = { ref: opened, unsubs: [] };
     refs.set(id, record);
+    flushInputs(id);
     const relay = () =>
       send({
         op: "session",
         id,
-        loaded: opened.conversationId.get() !== null,
+        loaded: latest.conversationId !== null,
         state: {
-          transcript: project(opened.transcript.get() ?? []),
-          phase: opened.phase.get() ?? "idle",
-          lastError: opened.lastError.get() ?? null,
-          pending: opened.pending.get() ?? null,
-          usage: opened.usage.get() ?? null,
-          model: opened.model.get() ?? null,
-          effort: opened.effort.get() ?? null,
-          conversationId: opened.conversationId.get() ?? null,
-          queued: opened.queued.get() ?? [],
+          transcript: project(latest.transcript),
+          phase: latest.phase ?? "idle",
+          lastError: latest.lastError ?? null,
+          pending: latest.pending ?? null,
+          usage: latest.usage ?? null,
+          model: latest.model ?? null,
+          effort: latest.effort ?? null,
+          conversationId: latest.conversationId ?? null,
+          queued: latest.queued ?? [],
         },
       });
-    for (const cell of [
-      opened.transcript,
-      opened.phase,
-      opened.lastError,
-      opened.pending,
-      opened.usage,
-      opened.model,
-      opened.effort,
-      opened.conversationId,
-      opened.queued,
+    for (const [key, cell] of [
+      ["transcript", opened.transcript],
+      ["phase", opened.phase],
+      ["lastError", opened.lastError],
+      ["pending", opened.pending],
+      ["usage", opened.usage],
+      ["model", opened.model],
+      ["effort", opened.effort],
+      ["conversationId", opened.conversationId],
+      ["queued", opened.queued],
     ]) {
-      record.unsubs.push(cell.subscribe(relay));
+      record.unsubs.push(
+        cell.subscribe((value) => {
+          latest[key] = value;
+          relay();
+        }),
+      );
     }
-    relay();
   } catch (error) {
     send({ op: "error", message: `attach ${id}: ${error?.message ?? error}` });
+  }
+}
+
+// Send the words that arrived before this session's ref existed.
+async function flushInputs(id) {
+  const held = pendingInputs[id];
+  if (!held?.length) return;
+  const ref = refs.get(id)?.ref;
+  if (!ref) return;
+  delete pendingInputs[id];
+  for (const text of held) {
+    try {
+      await ref.input({ text });
+    } catch (error) {
+      send({ op: "error", message: `input ${id}: ${error?.message ?? error}` });
+    }
   }
 }
 
@@ -220,8 +256,15 @@ async function handle(msg) {
       releaseOrForget(String(msg.id));
       return;
     case "input": {
-      const ref = refs.get(String(msg.id))?.ref;
-      await ref?.input({ text: String(msg.text) });
+      const id = String(msg.id);
+      const ref = refs.get(id)?.ref;
+      if (!ref) {
+        // The attach hasn't settled; hold the words like the web holds a
+        // draft, and send them the moment the ref exists.
+        (pendingInputs[id] ??= []).push(String(msg.text));
+        return;
+      }
+      await ref.input({ text: String(msg.text) });
       return;
     }
     case "decide": {

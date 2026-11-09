@@ -19,8 +19,8 @@ use std::sync::{Arc, Mutex};
 pub enum Event {
     /// A fetch's payload arrived (the app maps it into its caches).
     Payload(Fetch, serde_json::Value),
-    /// A raw-bytes fetch arrived (image previews).
-    Bytes(String, Arc<Vec<u8>>),
+    /// A raw-bytes fetch arrived, already decoded through the shared cache.
+    Bytes { id: String, image: rune::Image },
     /// One live cast frame (base64 image, its page size and location).
     CastFrame { id: String, data: String, w: f64, h: f64, url: String, title: String },
     /// The cast's VM answered; taps act from here.
@@ -81,11 +81,18 @@ impl Net {
     }
 
     /// Start the REST worker and the push thread; the waker fires per event.
-    pub fn spawn(&self, waker: rune::Waker, rx: std::sync::mpsc::Receiver<Job>) {
+    /// The image cache rides along so byte fetches decode before delivery.
+    pub fn spawn(
+        &self,
+        waker: rune::Waker,
+        rx: std::sync::mpsc::Receiver<Job>,
+        images: Option<std::sync::Arc<rune::ImageCache>>,
+    ) {
         let rest_shared = self.shared.clone();
+        let rest_images = images.clone();
         std::thread::Builder::new()
             .name("spriessen-rest".into())
-            .spawn(move || rest_worker(rest_shared, rx, waker))
+            .spawn(move || rest_worker(rest_shared, rest_images, rx, waker))
             .expect("spawn rest worker");
         let push_shared = self.shared.clone();
         std::thread::Builder::new()
@@ -129,7 +136,12 @@ impl Net {
     }
 }
 
-fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: rune::Waker) {
+fn rest_worker(
+    shared: Arc<Shared>,
+    images: Option<std::sync::Arc<rune::ImageCache>>,
+    rx: std::sync::mpsc::Receiver<Job>,
+    waker: rune::Waker,
+) {
     let mut client = api::Client::new();
     while let Ok(job) = rx.recv() {
         let trace = std::env::var("SPRIESSEN_TRACE").is_ok();
@@ -150,8 +162,14 @@ fn rest_worker(shared: Arc<Shared>, rx: std::sync::mpsc::Receiver<Job>, waker: r
                                 endpoints::Fetch::ArtifactBytes(id) => id.clone(),
                                 _ => String::new(),
                             };
-                            shared.deliver(Event::Bytes(id, Arc::new(b)));
-                            waker();
+                            // Decode here, off the UI thread, and deliver the
+                            // ready handle so the view never sees a pending one.
+                            if let Some(cache) = &images {
+                                let image = cache.load(b);
+                                let _ = image.wait();
+                                shared.deliver(Event::Bytes { id, image });
+                                waker();
+                            }
                         }
                         Err(ApiError::Expired) => {
                             shared.deliver(Event::Expired);

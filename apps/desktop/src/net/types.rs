@@ -174,7 +174,8 @@ pub struct ArtifactInfo {
     pub mime: String,
     pub bytes: f64,
     pub created_at: f64,
-    pub conversation_id: Option<String>,
+    /// A chat's durable id is a string; REST uploads carry a number.
+    pub conversation_id: Option<serde_json::Value>,
     pub profile: Option<String>,
     #[serde(default)]
     pub path: Option<String>,

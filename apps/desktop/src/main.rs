@@ -19,10 +19,10 @@ fn setup(s: &mut App, waker: rune::Waker) {
     let auth = config::initial_auth();
     s.cookie = auth.cookie.clone();
     let rx = s.rx.take().expect("one job receiver");
-    s.net.spawn(waker.clone(), rx);
+    s.img_cache = Some(std::sync::Arc::new(rune::ImageCache::new(waker.clone())));
+    s.net.spawn(waker.clone(), rx, s.img_cache.clone());
     s.net.set_auth(auth);
     s.net.fetch(Fetch::AuthStatus);
-    s.img_cache = Some(std::sync::Arc::new(rune::ImageCache::new(waker.clone())));
     s.bridge.spawn(waker, &s.server, s.cookie.as_deref().unwrap_or(""));
 }
 
@@ -31,6 +31,15 @@ fn poll(s: &mut App, _now: f64, tx: &mut rune::Tx) -> bool {
     let changed = tick(s, events);
     if route_changed(s) {
         update::refresh_route(s);
+    }
+    if s.auto_open_file && !s.artifacts.is_empty() {
+        s.auto_open_file = false;
+        let id = s.artifacts[0].id.clone();
+        ui::open_file(s, id);
+    }
+    if s.auto_open_file && !s.has("artifacts") && !s.preview_requested {
+        s.preview_requested = true;
+        s.net.fetch(Fetch::Artifacts(8));
     }
     // Keep poll pumping while replies are in flight: a wake each poll costs
     // one poll a frame, and a still app draws nothing when poll says false.
@@ -102,6 +111,7 @@ static SCENES: &[(&str, fn(&mut App))] = &[
     ("rooms", |s: &mut App| s.route = Route::Rooms),
     ("tools", |s: &mut App| s.route = Route::Tools(state::ToolsTab::Connectors)),
     ("light", |s: &mut App| s.theme = state::ThemeMode::Light),
+    ("preview", |s: &mut App| s.auto_open_file = true),
 ];
 
 use state::Route;

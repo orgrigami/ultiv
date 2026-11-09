@@ -288,6 +288,10 @@ pub struct App {
     pub preview_wrap: std::collections::HashSet<String>,
     /// The artifact id in fullscreen, if any.
     pub fullscreen: Option<String>,
+    /// Test affordance: open the first artifact's preview once loaded.
+    pub auto_open_file: bool,
+    /// Its one-time artifacts fetch.
+    pub preview_requested: bool,
     /// The live takeover cast the dock is driving.
     pub cast: Option<Cast>,
     /// The quick switcher's query field.
@@ -528,6 +532,8 @@ impl Default for App {
             preview_source: std::collections::HashSet::new(),
             preview_wrap: std::collections::HashSet::new(),
             fullscreen: None,
+            auto_open_file: false,
+            preview_requested: false,
             cast: None,
             switcher_edit: rune::TextEdit::new(String::new()),
             onboard_name: rune::TextEdit::new(String::new()),
