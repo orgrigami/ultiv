@@ -23,6 +23,7 @@ import {
   type Transport,
 } from "./http-adapter.ts";
 import { makeRedactor, materialForms, type SecretMaterial } from "./redact.ts";
+import { browserLoginTool, type BrowserFillDeps } from "./browser-login-tool.ts";
 
 export const HTTP_REQUEST_TOOL = "http_request";
 /** A distinct card name: per-profile auto-approve never covers a credential's first use. */
@@ -36,6 +37,8 @@ export interface BrokerDeps {
   readonly holder: ScopeHolder;
   readonly hooks: BrokerHooksHolder;
   readonly transport?: Transport;
+  /** The bot's browser, for `browser_login` (absent: the tool is not offered). */
+  readonly browser?: BrowserFillDeps;
 }
 
 const Parameters = obj(
@@ -336,6 +339,9 @@ export const brokerPlugin = (deps: BrokerDeps): Plugin =>
     id: "ultiv.broker",
     version: "1.0.0",
     description:
-      "Credential broker: guarded HTTPS egress that spends vault secrets without revealing them.",
-    capabilities: [toolCapability(httpRequestTool(deps))],
+      "Credential broker: guarded HTTPS egress and browser sign-ins that spend vault secrets without revealing them.",
+    capabilities: [
+      toolCapability(httpRequestTool(deps)),
+      ...(deps.browser !== undefined ? [toolCapability(browserLoginTool(deps, deps.browser))] : []),
+    ],
   });

@@ -7,6 +7,7 @@
  * and the Close, saved sign-ins and history routes only ever reach my bots.
  */
 import { createServer, type Server } from "node:http";
+import { Effect } from "effect";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import type { MindService } from "@spriessen/mind";
 import { activeBrowsers, takeoverRegistry } from "@spriessen/ext";
@@ -19,6 +20,7 @@ let base = "";
 let askId = "";
 const forgot: string[] = [];
 const closed: string[] = [];
+const signIns: string[] = [];
 
 beforeAll(async () => {
   const sessions = activeBrowsers();
@@ -51,6 +53,13 @@ beforeAll(async () => {
       },
     },
     org: { view: async () => undefined },
+    browserSignIn: async (conversationId: string, url: string, botName: string) => {
+      signIns.push(`${conversationId} ${url} ${botName}`);
+      return { ok: true, takeoverId: "t-1" };
+    },
+    converse: {
+      conversationIdOf: (key: string) => Effect.succeed(`conv-of-${key}`),
+    },
     profiles: {
       scopeOf: (conversationId: string) =>
         conversationId.endsWith("-theirs")
@@ -58,6 +67,8 @@ beforeAll(async () => {
           : { owner: OWNER_ID, profileId: "bot-mine" },
       get: async (owner: string, id: string) =>
         id === "bot-theirs" ? undefined : { owner, id, name: "Browsing Bot", teamId: null },
+      ensureMain: async (_owner: string, id: string) => ({ id: `main-${id}` }),
+      keyOfRow: async (row: { id: string }) => row.id,
     },
   } as unknown as MindService;
   server = createServer((req, res) => {
@@ -74,7 +85,14 @@ beforeAll(async () => {
         res.writeHead(status, { "content-type": "application/json" });
         res.end(JSON.stringify(body));
       },
-      readJson: async <T>() => ({}) as T,
+      readJson: <T>(request: typeof req) =>
+        new Promise<T>((resolve) => {
+          let raw = "";
+          request.on("data", (chunk) => {
+            raw += String(chunk);
+          });
+          request.on("end", () => resolve(JSON.parse(raw === "" ? "{}" : raw) as T));
+        }),
       readBody: async () => Buffer.alloc(0),
     };
     void browserSessionRoutes(args).then((handled) => {
@@ -160,5 +178,18 @@ describe("the browser-session routes", () => {
       history: unknown[];
     };
     expect(mine.history).toHaveLength(1);
+  });
+
+  it("signs only my bots in, and only to an http(s) page", async () => {
+    const post = (bot: string, url: string) =>
+      fetch(`${base}/api/browser/bots/${bot}/signin`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+    expect((await post("bot-theirs", "https://x.example/")).status).toBe(404);
+    expect((await post("bot-mine", "javascript:alert(1)")).status).toBe(400);
+    expect((await post("bot-mine", "accounts.example.com")).status).toBe(200);
+    expect(signIns).toEqual(["conv-of-main-bot-mine https://accounts.example.com/ Browsing Bot"]);
   });
 });

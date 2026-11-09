@@ -439,6 +439,12 @@ export const api = {
     getJson("/api/browser/signins"),
   browserForget: (profileId: string): Promise<{ ok: boolean; forgot: boolean }> =>
     send(`/api/browser/signins/${encodeURIComponent(profileId)}`, "DELETE"),
+  /** Sign a bot in yourself: its browser opens the page and you get the controls. */
+  browserSignIn: (
+    profileId: string,
+    url: string,
+  ): Promise<{ ok: boolean; takeoverId?: string; error?: string }> =>
+    send(`/api/browser/bots/${encodeURIComponent(profileId)}/signin`, "POST", { url }),
   browserHistory: (profileId: string): Promise<{ history: BrowserHistoryRow[] }> =>
     getJson(`/api/browser/history/${encodeURIComponent(profileId)}`),
   browserTakeoverFinish: (id: string): Promise<{ ok: boolean }> =>

@@ -6,6 +6,7 @@ import {
   globEscape,
   globToRegExp,
   matchAutoApprove,
+  mayAutoApprove,
   parseAutoApproveEntry,
   validAutoApproveEntry,
 } from "./auto-approve.ts";
@@ -306,5 +307,37 @@ describe("target-aware matching (the merged bash tool)", () => {
   it("an invalid target matches nothing at all", () => {
     expect(kindOf(["bash"], "bash", { script: "ls", target: "sdn" })).toBe("none");
     expect(kindOf(["bash:git *"], "bash", { script: "git status", target: 7 })).toBe("none");
+  });
+});
+
+describe("browser site rules (browser_session@site:<host>)", () => {
+  const act = (input: Record<string, unknown>) => ({ callId: "c", name: "browser_session", input });
+  const rule = "browser_session@site:accounts.example.com";
+
+  it("approve an act that names exactly that site, and nothing else", () => {
+    expect(mayAutoApprove([rule], act({ op: "click", ref: 3, site: "accounts.example.com" }))).toBe(
+      true,
+    );
+    expect(
+      mayAutoApprove([rule], act({ op: "type", ref: 3, text: "x", site: "Accounts.Example.com" })),
+    ).toBe(true);
+    expect(mayAutoApprove([rule], act({ op: "click", ref: 3, site: "evil.example.com" }))).toBe(
+      false,
+    );
+    expect(mayAutoApprove([rule], act({ op: "click", ref: 3 }))).toBe(false);
+    // Uploads never ride a site rule: the card names the file every time.
+    expect(
+      mayAutoApprove([rule], act({ op: "upload", file: "id.png", site: "accounts.example.com" })),
+    ).toBe(false);
+    expect(mayAutoApprove([rule], { callId: "c", name: "bash", input: { script: "ls" } })).toBe(
+      false,
+    );
+  });
+
+  it("are valid entries only for a plain host", () => {
+    expect(validAutoApproveEntry(rule)).toBe(true);
+    expect(validAutoApproveEntry("browser_session@site:accounts.example.com:8443")).toBe(true);
+    expect(validAutoApproveEntry("browser_session@site:*.example.com")).toBe(false);
+    expect(validAutoApproveEntry("browser_session@site:https://x.com")).toBe(false);
   });
 });

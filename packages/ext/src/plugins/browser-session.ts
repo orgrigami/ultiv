@@ -26,6 +26,7 @@ import { browserLife, type BrowserLife } from "../browser/session-life.ts";
 import { signinStore, type SigninStore } from "../browser/signins.ts";
 import { readArtifactBytes, searchArtifacts } from "./artifacts.ts";
 import { browserSessionTool } from "./browser-session-tool.ts";
+import type { BrowserFillDeps } from "../broker/browser-login-tool.ts";
 
 export { browserActText, isActOp } from "./browser-session-tool.ts";
 
@@ -59,6 +60,19 @@ export interface BrowserSessionFacility {
   /** Close, release, forget, history. */
   readonly life: BrowserLife;
   readonly signins: SigninStore | undefined;
+  /** What `browser_login` (the credential broker's browser adapter) needs. */
+  readonly fill: BrowserFillDeps;
+  /**
+   * The owner signs a bot in themselves: open `url` in the bot's browser on
+   * this conversation and hand the owner the controls. When they Finish, the
+   * site counts as signed in and the session closes, saving the sign-in for
+   * the bot's next session; a step-away just closes it.
+   */
+  readonly signInFor: (
+    conversationId: string,
+    url: string,
+    botName: string,
+  ) => Promise<{ ok: true; takeoverId: string } | { ok: false; error: string }>;
 }
 
 const UPLOAD_CAP = 25 * 1024 * 1024;
@@ -188,7 +202,55 @@ export const browserSessionFacility = (
       "Interactive browser sessions in the home VM: one broker-run chromium per VM, one private session per bot, reads ungated, acts approved (per-site rules allowed), password fields refused, downloads and uploads through the bot's files, sign-ins kept sealed; the owner's live cast drives the page during a takeover.",
     capabilities: [toolCapability(tool)],
   });
-  return { plugin, takeovers, casts, browsers, life, signins };
+  const fill: BrowserFillDeps = {
+    pageUrl: async (conversationId) => {
+      const row = browsers.get(conversationId);
+      if (row !== undefined) return row.url;
+      const status = await life.run(conversationId, { op: "status" });
+      const session = status.session as { url?: string } | null | undefined;
+      return session?.url;
+    },
+    fill: (conversationId, request) =>
+      life.run(conversationId, { op: "fill_login", ...request }, { viaStdin: true }),
+    signedIn: (conversationId, host) => life.signedIn(conversationId, host, "a vault login"),
+  };
+  const signInFor: BrowserSessionFacility["signInFor"] = async (conversationId, url, botName) => {
+    const opened = await life.run(conversationId, { op: "open", url });
+    if (opened.ok !== true) {
+      return {
+        ok: false,
+        error:
+          opened.kind === "busy"
+            ? `${botName}'s browser is in use by one of its tasks; close it on Browsers, or try once that task is done.`
+            : (opened.error ?? "the page did not open"),
+      };
+    }
+    let host = "";
+    try {
+      host = new URL(url).host;
+    } catch {
+      host = "the site";
+    }
+    const row = await takeovers.open({ conversationId, reason: `Sign ${botName} in to ${host}` });
+    void takeovers.wait(row.id).then(async (outcome) => {
+      if (outcome === "finished") {
+        const status = await life.run(conversationId, { op: "status" }).catch(() => undefined);
+        const at = (status?.session as { url?: string } | null | undefined)?.url ?? url;
+        try {
+          life.signedIn(conversationId, new URL(at).host, "you signed it in");
+        } catch {
+          // No site to remember.
+        }
+      }
+      await life.close(
+        conversationId,
+        outcome === "finished" ? "your sign-in is saved" : "you stepped away",
+        true,
+      );
+    });
+    return { ok: true, takeoverId: row.id };
+  };
+  return { plugin, takeovers, casts, browsers, life, signins, fill, signInFor };
 };
 
 /** The plugin alone, for embedders that do not surface takeovers. */

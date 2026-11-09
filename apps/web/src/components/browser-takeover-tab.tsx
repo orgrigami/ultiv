@@ -16,10 +16,10 @@ import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { TakeoverLiveCard } from "@/components/takeover-live-card";
 import { BrowserWatchCard } from "@/components/browser-watch-card";
-import { BrowserHistory, SavedSignins } from "@/components/browser-signins";
+import { BrowserHistory, SavedSignins, SignInForBot } from "@/components/browser-signins";
 import { useBrowsers } from "@/lib/use-browsers";
 
-export function BrowsersPanel({ botId }: { botId?: string }) {
+export function BrowsersPanel({ botId, botName }: { botId?: string; botName?: string }) {
   const { asks, watching, failed, reload } = useBrowsers(botId);
   const showBot = botId === undefined;
   if (asks === null || watching === null) {
@@ -50,17 +50,20 @@ export function BrowsersPanel({ botId }: { botId?: string }) {
         page.
       </p>
       <SavedSignins {...(botId !== undefined ? { botId } : {})} />
+      {botId !== undefined && (
+        <SignInForBot botId={botId} botName={botName ?? "this bot"} onStarted={reload} />
+      )}
       {botId !== undefined && <BrowserHistory botId={botId} />}
     </div>
   );
 }
 
 /** Crew › bot › Browser: the same panel, this bot only. */
-export function BrowserTakeoverTab({ botId }: { botId: string }) {
+export function BrowserTakeoverTab({ botId, botName }: { botId: string; botName: string }) {
   return (
     <section aria-label="Browser" className="flex flex-col gap-3">
       <SectionHeader title="Browser" />
-      <BrowsersPanel botId={botId} />
+      <BrowsersPanel botId={botId} botName={botName} />
     </section>
   );
 }

@@ -21,6 +21,7 @@ import type { TablesService } from "./tables/tables.ts";
 import type {
   ActiveBrowsers,
   BrowserLife,
+  BrowserSessionFacility,
   CastSessions,
   SigninStore,
   TakeoverRegistry,
@@ -84,6 +85,8 @@ export interface MindService {
   readonly browserLife?: BrowserLife;
   /** Saved browser sign-ins (sealed); absent without a vault key. */
   readonly browserSignins?: SigninStore;
+  /** The owner signs a bot in (an owner-started takeover on its browser). */
+  readonly browserSignIn?: BrowserSessionFacility["signInFor"];
   /** The org: one per install, flat teams, members, grants, templates. */
   readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */

@@ -314,4 +314,49 @@ describe("the browser session tool (fake broker)", () => {
       "close",
     ]);
   });
+
+  it("the owner signs a bot in: page opened, controls handed over, sign-in kept on Finish", async () => {
+    const saved: string[] = [];
+    const store: SigninStore = {
+      sites: () => undefined,
+      list: () => [],
+      load: () => undefined,
+      save: (_owner, _profile, record) => void saved.push(record.sites.join(",")),
+      forget: () => true,
+    };
+    const seen: Request[] = [];
+    const facility = browserSessionFacility({
+      root: scratch,
+      backend: () =>
+        fakeBackend(seen, {
+          status: { ok: true, session: session({ url: "https://accounts.example.test/done" }) },
+        }),
+      signins: store,
+      holder: { get: () => ({ scopeOf: () => ({ owner: "o", profile: "p" }) }) } as never,
+    });
+    const started = await facility.signInFor("conv-main", "https://accounts.example.test/", "Eve");
+    expect(started).toMatchObject({ ok: true });
+    expect(seen[0]).toMatchObject({ op: "open", url: "https://accounts.example.test/" });
+    const ask = facility.takeovers.list()[0];
+    expect(ask?.reason).toBe("Sign Eve in to accounts.example.test");
+    await facility.takeovers.finish(ask?.id ?? "");
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(saved).toEqual(["example.test"]);
+    expect(seen.at(-1)).toMatchObject({ op: "close", force: true });
+    expect(facility.browsers.list()).toEqual([]);
+  });
+
+  it("refuses to sign in over a task that holds the bot's browser", async () => {
+    const facility = browserSessionFacility({
+      root: scratch,
+      backend: () => fakeBackend([], { open: { ok: false, kind: "busy", error: "task-conv" } }),
+      signins: null,
+    });
+    const started = await facility.signInFor("conv-main", "https://x.example/", "Eve");
+    expect(started).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("in use by one of its tasks"),
+    });
+    expect(facility.takeovers.list()).toEqual([]);
+  });
 });

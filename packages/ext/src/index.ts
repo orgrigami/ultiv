@@ -37,6 +37,8 @@ export * from "./fs/versions.ts";
 export * from "./fs/adopt.ts";
 export * from "./broker/adapter.ts";
 export * from "./broker/bindings.ts";
+export * from "./broker/browser-login-tool.ts";
+export * from "./broker/totp.ts";
 export * from "./broker/hooks.ts";
 export * from "./broker/http-adapter.ts";
 export * from "./broker/http-request-tool.ts";

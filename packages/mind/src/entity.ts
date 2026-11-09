@@ -376,6 +376,7 @@ const mindLayerRaw = (
           : {}),
         ...(wiring.browserLife !== undefined ? { browserLife: wiring.browserLife } : {}),
         ...(wiring.browserSignins !== undefined ? { browserSignins: wiring.browserSignins } : {}),
+        ...(wiring.browserSignIn !== undefined ? { browserSignIn: wiring.browserSignIn } : {}),
         org,
         ...routines,
         mcp: mcp.manager,
@@ -431,6 +432,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     browserCasts: browserSession.casts,
     browserSessions: browserSession.browsers,
     browserLife: browserSession.life,
+    browserSignIn: browserSession.signInFor,
     ...(browserSession.signins !== undefined ? { browserSignins: browserSession.signins } : {}),
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
@@ -471,6 +473,7 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
         bindings,
         holder,
         () => wiring.converseRef.current,
+        browserSession.fill,
       );
       // First-party faculties ride always; vault, TinyFish and Jev only with their keys.
       const base = [

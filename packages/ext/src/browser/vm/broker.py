@@ -93,7 +93,8 @@ class Broker:
                 "--user-data-dir=" + self.profile, "--remote-debugging-pipe", "about:blank",
             ]
             cdp = Cdp(argv, env, os.path.join(self.args.data, "chromium.log"), self.on_event)
-            cdp.call("Target.setDiscoverTargets", {"discover": True}, timeout=30.0)
+            # A loaded machine can take a while to bring chromium up.
+            cdp.call("Target.setDiscoverTargets", {"discover": True}, timeout=90.0)
             self.cdp = cdp
             self.sessions.cdp = cdp
 

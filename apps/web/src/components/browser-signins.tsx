@@ -3,11 +3,15 @@
  * finished a takeover on a site, or a vault login filled) is kept, sealed,
  * so its next session on that site starts signed in; Forget deletes them
  * (and signs a live session out). History is what the bot's browser did —
- * pages, sign-ins, takeovers, files — newest first, for one bot.
+ * pages, sign-ins, takeovers, files — newest first, for one bot. Sign in
+ * for a bot yourself: its browser opens the page and you take the controls
+ * (a takeover above); when you Finish, the sign-in is kept for its next
+ * session.
  */
 import { useCallback, useEffect, useState } from "react";
-import { KeyRoundIcon } from "lucide-react";
+import { KeyRoundIcon, LogInIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SectionHeader } from "@/components/ui/section-header";
 import { api, type BrowserHistoryRow, type BrowserSigninRow } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
@@ -91,6 +95,63 @@ export function BrowserHistory({ botId }: { botId: string }) {
             </li>
           ))}
       </ol>
+    </section>
+  );
+}
+
+export function SignInForBot({
+  botId,
+  botName,
+  onStarted,
+}: {
+  botId: string;
+  botName: string;
+  onStarted: () => Promise<void>;
+}) {
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const start = async (): Promise<void> => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const started = await api.browserSignIn(botId, url.trim());
+      if (!started.ok) setProblem(started.error ?? "The page did not open.");
+      else {
+        setUrl("");
+        await onStarted();
+      }
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section aria-label={`Sign in for ${botName}`} className="flex flex-col gap-2">
+      <SectionHeader title={`Sign in for ${botName}`} />
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (url.trim() !== "") void start();
+        }}
+      >
+        <Input
+          aria-label="Sign-in page address"
+          placeholder="accounts.google.com"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+        />
+        <Button type="submit" variant="outline" disabled={busy || url.trim() === ""}>
+          <LogInIcon /> Open
+        </Button>
+      </form>
+      {problem !== null && <p className="text-destructive text-xs">{problem}</p>}
+      <p className="text-muted-foreground text-xs">
+        Opens the page in {botName}'s browser and gives you the controls. Sign in (passkey, code,
+        whatever it asks), then Finish: {botName} stays signed in there for its next sessions.
+      </p>
     </section>
   );
 }

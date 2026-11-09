@@ -5,7 +5,7 @@
  * secret class, binding presence, adapter, and which bots may use it.
  */
 import type { HomeRef } from "@spriessen/contracts";
-import type { CredentialBinding, VaultItemInfo } from "@spriessen/contracts";
+import type { CredentialAdapter, CredentialBinding, VaultItemInfo } from "@spriessen/contracts";
 import type { VaultSecret, VaultStore } from "../vault.ts";
 import type { BindingStore } from "./bindings.ts";
 import type { SecretMaterial } from "./redact.ts";
@@ -30,6 +30,7 @@ export const findCredential = (
   bindings: BindingStore,
   scope: BrokerScope,
   reference: string,
+  adapter: CredentialAdapter = "http",
 ): Resolved => {
   const visible = vault
     .list(scope.owner, {
@@ -54,8 +55,13 @@ export const findCredential = (
       reason: `"${item.name}" has no binding yet: ask your owner to set where it may be used in the app's Vault`,
     };
   }
-  if (binding.adapter !== "http")
-    return { ok: false, reason: `"${item.name}" is not an HTTP credential` };
+  if (binding.adapter !== adapter) {
+    const what = adapter === "http" ? "an HTTP credential" : "a browser login";
+    return {
+      ok: false,
+      reason: `"${item.name}" is not ${what} (its binding says ${binding.adapter})`,
+    };
+  }
   if (binding.profiles !== null && !binding.profiles.includes(scope.profile)) {
     return { ok: false, reason: `"${item.name}" is not allowed for this bot` };
   }

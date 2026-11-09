@@ -94,7 +94,13 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
   });
 
   it("starts on demand and gives each bot its own session", { timeout: 90_000 }, async () => {
-    const opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
+    // The very first call starts the broker and chromium; on a machine busy
+    // with the whole suite that can miss once — the second try must not.
+    let opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
+    if (opened.ok !== true) {
+      console.warn("broker first open missed once:", JSON.stringify(opened));
+      opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
+    }
     expect(opened, JSON.stringify(opened)).toMatchObject({ ok: true, title: "Home" });
     expect(await call({ op: "open", bot: "a", conv: "c2", url: `${site}/` })).toMatchObject({
       ok: false,

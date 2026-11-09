@@ -27,6 +27,9 @@
  * globs). The action text is data, not instructions: a pattern only ever
  * matches text.
  *
+ * - `"browser_session@site:<host>"` — a browser ACT (click/type/press/dialog)
+ *   that names exactly that site (browser-site-rule.ts; the broker refuses
+ *   the act when the page is elsewhere).
  * - `"bash@host:=<script>"` / `"bash@node:<nodeId>:=<script>"` — the EXACT
  *   entries, the only rules the `host` and `node` targets of the merged
  *   `bash` tool accept. They approve a call whose `script` is
@@ -49,6 +52,12 @@
 import { BASH_TOOL, bashNodeNameOf, bashTargetOf, type BashTarget } from "@spriessen/contracts";
 import type { ApprovalRequest } from "./approvals.ts";
 import { CHAIN_OPS, SUBSHELL_OR_HEREDOC, SUBSTITUTION, destructiveOf } from "./jev-gate.ts";
+import {
+  BROWSER_SITE_PREFIX,
+  isSiteRule,
+  siteRuleEntry,
+  siteRuleMatches,
+} from "./browser-site-rule.ts";
 
 /** Input fields that hold a command or script (same heuristic as jev-gate). */
 const COMMAND_FIELDS = /^(command|cmd|script|code|shell|sql|query)$/i;
@@ -194,6 +203,7 @@ const EXACT_SHAPED = /^bash@(host|node:[A-Za-z0-9_-]+):=([\s\S]*)$|^[A-Za-z0-9_-
 
 export const validAutoApproveEntry = (entry: string): boolean =>
   EXACT_SHAPED.test(entry) ||
+  (isSiteRule(entry) && siteRuleEntry(entry.slice(BROWSER_SITE_PREFIX.length)) === entry) ||
   (/^[A-Za-z0-9_-]+(:[\s\S]*)?$/.test(entry) &&
     (entry.match(/[*?]/g)?.length ?? 0) <= MAX_WILDCARDS);
 
@@ -371,6 +381,11 @@ export const matchAutoApprove = (
   const texts = actionTextsOf(request.input);
   const mayPattern = matchable(texts) && !restricted;
   for (const entry of entries) {
+    // A browser site rule: exact host, acts only (browser-site-rule.ts).
+    if (isSiteRule(entry)) {
+      if (siteRuleMatches(entry, request.name, request.input)) exact = true;
+      continue;
+    }
     const targetEntry = parseTargetExactEntry(entry);
     if (targetEntry !== undefined) {
       if (

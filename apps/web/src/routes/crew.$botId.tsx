@@ -259,7 +259,7 @@ function Profile({
         {active === "tests" && <TestsTab bot={bot} />}
         {active === "projects" && <ProjectsTab bot={bot} />}
         {active === "tables" && <TablesTab bot={bot} />}
-        {active === "browser" && <BrowserTakeoverTab botId={bot.id} />}
+        {active === "browser" && <BrowserTakeoverTab botId={bot.id} botName={bot.name} />}
       </div>
     </Page>
   );

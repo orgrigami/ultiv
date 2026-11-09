@@ -214,7 +214,7 @@ function DecisionCard({
             <Menu.Positioner side="top" align="end" sideOffset={6} {...sheetPositioner}>
               <MenuPopup className="w-72">
                 <SheetHeading>More choices</SheetHeading>
-                {canAlwaysAllow(name) && (
+                {canAlwaysAllow(name, input) && (
                   <Menu.Item
                     className={item}
                     onClick={() => void decide("always", () => onDecide(true, true))}

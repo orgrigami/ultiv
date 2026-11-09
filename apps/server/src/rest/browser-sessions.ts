@@ -3,12 +3,14 @@
  * going (one row per bot, named by the conversation holding it), where each
  * page stands and what it waits on, whether a takeover ask is open on it —
  * plus a WATCH-ONLY live view, the owner's Close, the bots' saved sign-ins
- * (Forget) and each bot's browsing history. Watching is the same cast the
+ * (Forget), signing a bot in yourself (an owner-started takeover on its
+ * main chat's browser) and each bot's browsing history. Watching is the same cast the
  * takeover drives, but this route never accepts acts: the owner drives only
  * through a takeover (rest/takeover.ts), so the page moves under one pair of
  * hands at a time. Another owner's session, sign-ins or history answer
  * exactly like missing ones.
  */
+import { Effect } from "effect";
 import type { RouteArgs } from "./types.ts";
 import { can } from "./can.ts";
 import { ownsProfile } from "./owner-scope.ts";
@@ -78,6 +80,38 @@ const SIZE = /^\/api\/browser\/sessions\/([^/]+)\/cast\/size$/;
 const SESSION = /^\/api\/browser\/sessions\/([^/]+)$/;
 const SIGNINS = /^\/api\/browser\/signins\/([^/]+)$/;
 const HISTORY = /^\/api\/browser\/history\/([^/]+)$/;
+const SIGN_IN = /^\/api\/browser\/bots\/([^/]+)\/signin$/;
+
+const httpUrl = (value: unknown): string | undefined => {
+  if (typeof value !== "string" || value.length > 2_000) return undefined;
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+/** The owner signs a bot in: its main chat's browser, the owner at the controls. */
+const signIn = async (args: RouteArgs, profileId: string): Promise<void> => {
+  const { mind, json } = args;
+  const bot = await ownBot(args, profileId);
+  if (bot === undefined || mind.browserSignIn === undefined) {
+    json(404, { error: "no such bot" });
+    return;
+  }
+  const body = await args.readJson<{ url?: unknown } | null>(args.req);
+  const url = httpUrl(body?.url);
+  if (url === undefined) {
+    json(400, { error: "send { url } — the sign-in page's address" });
+    return;
+  }
+  const session = await mind.profiles.ensureMain(args.owner, profileId);
+  const key = await mind.profiles.keyOfRow(session);
+  const conversationId = String(await Effect.runPromise(mind.converse.conversationIdOf(key)));
+  const started = await mind.browserSignIn(conversationId, url, bot.botName);
+  json(started.ok ? 200 : 409, started);
+};
 
 const castRoutes = async (args: RouteArgs, method: string): Promise<boolean> => {
   const { mind, path, json } = args;
@@ -137,6 +171,11 @@ const signinRoutes = async (args: RouteArgs, method: string): Promise<boolean> =
       return true;
     }
     json(200, { ok: true, forgot: await mind.browserLife.forget(args.owner, profileId) });
+    return true;
+  }
+  const signInMatch = path.match(SIGN_IN);
+  if (signInMatch !== null && method === "POST") {
+    await signIn(args, decodeURIComponent(signInMatch[1] ?? ""));
     return true;
   }
   const history = path.match(HISTORY);

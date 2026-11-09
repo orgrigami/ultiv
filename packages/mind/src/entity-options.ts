@@ -15,6 +15,7 @@ import type {
   VaultStore,
   ActiveBrowsers,
   BrowserLife,
+  BrowserSessionFacility,
   SigninStore,
   CastSessions,
   TakeoverRegistry,
@@ -127,6 +128,7 @@ export interface MindWiring {
   readonly browserSessions?: ActiveBrowsers;
   readonly browserLife?: BrowserLife;
   readonly browserSignins?: SigninStore;
+  readonly browserSignIn?: BrowserSessionFacility["signInFor"];
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

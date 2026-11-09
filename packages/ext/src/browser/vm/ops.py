@@ -327,6 +327,7 @@ def op_fill_login(broker, req):
     sess.touch(act=True)
     page = sess.active()
     facts = page.facts(False)
+    check_site(page, req)
     if not host_allowed(facts.get("url", ""), req.get("hosts")):
         return fail("host", "this page's address is not one the vault item may be used on")
     found = page.evaluate(LOGIN_JS) or []

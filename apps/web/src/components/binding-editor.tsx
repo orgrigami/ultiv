@@ -1,6 +1,7 @@
 /**
- * Where a vault secret may be spent by `http_request`: hosts or URL
- * prefixes, methods, where the secret goes, and which bots may use it.
+ * Where a vault secret may be spent: by `http_request` (hosts or URL
+ * prefixes, methods, where the secret goes) or — a login — by
+ * `browser_login` (the sites the bot may sign in to); and which bots may use it.
  * Every control is a 44px target on touch; it fits a 390px screen.
  */
 import { TriangleAlertIcon } from "lucide-react";
@@ -17,6 +18,7 @@ import {
   HTTP_METHODS,
   inputOf,
   PLACEMENTS,
+  toolOfAdapter,
   type BindingDraft,
 } from "@/lib/binding-text";
 import { cn } from "@/lib/utils";
@@ -50,7 +52,8 @@ function BotsField(props: {
   update: (patch: Partial<BindingDraft>) => void;
 }) {
   const { draft, profiles, update } = props;
-  const gaps = allowlistGaps(profiles, draft.profiles);
+  const tool = toolOfAdapter(draft.adapter);
+  const gaps = allowlistGaps(profiles, draft.profiles, tool);
   return (
     <fieldset className="flex flex-col gap-1.5">
       <legend className="mb-1.5 text-sm font-medium">Bots that may use it</legend>
@@ -72,8 +75,7 @@ function BotsField(props: {
       {gaps.length > 0 && (
         <p className="text-live flex items-start gap-1.5 text-xs">
           <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          {gaps.map((p) => p.name).join(", ")} can't make web requests: their tool list leaves out
-          http_request.
+          {gaps.map((p) => p.name).join(", ")} can't use it: their tool list leaves out {tool}.
         </p>
       )}
     </fieldset>
@@ -119,8 +121,61 @@ function AuthField(props: { draft: BindingDraft; update: (patch: Partial<Binding
   );
 }
 
+/** What web requests need: methods, where the secret goes, plain http to localhost. */
+function WebFields(props: { draft: BindingDraft; update: (patch: Partial<BindingDraft>) => void }) {
+  const { draft, update } = props;
+  return (
+    <>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm font-medium">Methods</legend>
+        <div className="flex flex-wrap gap-2">
+          {HTTP_METHODS.map((method) => (
+            <Chip
+              key={method}
+              label={method}
+              checked={draft.methods.includes(method)}
+              onChange={(on) => update({ methods: toggle(draft.methods, method, on) })}
+            />
+          ))}
+        </div>
+      </fieldset>
+      <AuthField draft={draft} update={update} />
+      <label className="flex min-h-11 items-center gap-2 text-sm">
+        <Checkbox
+          checked={draft.allowLocalhostHttp}
+          onCheckedChange={(on) => update({ allowLocalhostHttp: on === true })}
+        />
+        Allow plain http to localhost (development only)
+      </label>
+    </>
+  );
+}
+
+/** A login is spent on web requests, or signs in, in the bot's browser. */
+function UseField(props: { draft: BindingDraft; update: (patch: Partial<BindingDraft>) => void }) {
+  return (
+    <fieldset className="flex flex-col gap-1.5">
+      <legend className="mb-1.5 text-sm font-medium">Use it for</legend>
+      <div className="flex flex-wrap gap-2">
+        <Chip
+          label="Signing in, in the bot's browser"
+          checked={props.draft.adapter === "browser"}
+          onChange={(on) => props.update({ adapter: on ? "browser" : "http" })}
+        />
+        <Chip
+          label="Web requests (APIs)"
+          checked={props.draft.adapter === "http"}
+          onChange={(on) => props.update({ adapter: on ? "http" : "browser" })}
+        />
+      </div>
+    </fieldset>
+  );
+}
+
 export function BindingEditor(props: {
   itemId: string;
+  /** A login may sign in, in the bot's browser, instead of web requests. */
+  login?: boolean;
   binding: CredentialBinding | undefined;
   profiles: ProfileInfo[];
   onDone: () => void;
@@ -129,6 +184,7 @@ export function BindingEditor(props: {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const update = (patch: Partial<BindingDraft>): void => setDraft({ ...draft, ...patch });
+  const browser = draft.adapter === "browser";
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setBusy(true);
     setError(null);
@@ -149,40 +205,25 @@ export function BindingEditor(props: {
         void run(() => api.bindingSave(props.itemId, inputOf(draft)));
       }}
     >
+      {props.login === true && <UseField draft={draft} update={update} />}
       <label className="flex flex-col gap-1.5 text-sm font-medium">
-        Hosts or URL prefixes (one per line)
+        {browser
+          ? "Sites it may sign in to (one per line)"
+          : "Hosts or URL prefixes (one per line)"}
         <Textarea
           rows={2}
-          placeholder={"api.example.com\nhttps://hooks.example.com/in/"}
+          placeholder={
+            browser ? "accounts.example.com" : "api.example.com\nhttps://hooks.example.com/in/"
+          }
           value={draft.hosts}
           onChange={(event) => update({ hosts: event.target.value })}
         />
       </label>
-      <fieldset className="flex flex-col gap-1.5">
-        <legend className="mb-1.5 text-sm font-medium">Methods</legend>
-        <div className="flex flex-wrap gap-2">
-          {HTTP_METHODS.map((method) => (
-            <Chip
-              key={method}
-              label={method}
-              checked={draft.methods.includes(method)}
-              onChange={(on) => update({ methods: toggle(draft.methods, method, on) })}
-            />
-          ))}
-        </div>
-      </fieldset>
-      <AuthField draft={draft} update={update} />
+      {!browser && <WebFields draft={draft} update={update} />}
       <BotsField draft={draft} profiles={props.profiles} update={update} />
-      <label className="flex min-h-11 items-center gap-2 text-sm">
-        <Checkbox
-          checked={draft.allowLocalhostHttp}
-          onCheckedChange={(on) => update({ allowLocalhostHttp: on === true })}
-        />
-        Allow plain http to localhost (development only)
-      </label>
       {error !== null && <p className="text-destructive text-sm">{error}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" disabled={busy || draft.methods.length === 0}>
+        <Button type="submit" disabled={busy || (!browser && draft.methods.length === 0)}>
           {busy ? "Saving…" : "Save where it can be used"}
         </Button>
         {props.binding !== undefined && (
@@ -200,8 +241,9 @@ export function BindingEditor(props: {
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        HTTPS only. The secret is added on the server and scrubbed from what the bot sees. Its first
-        use on each host, and every request that changes data, asks you first.
+        {browser
+          ? "The bot fills this login (and its one-time code) into a sign-in page only on these sites, after you approve each site once. It never sees the password."
+          : "HTTPS only. The secret is added on the server and scrubbed from what the bot sees. Its first use on each host, and every request that changes data, asks you first."}
       </p>
     </form>
   );

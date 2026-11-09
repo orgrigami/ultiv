@@ -1,4 +1,5 @@
 /** Profile rows: list, read, create, edit, archive, always-allow and remove. */
+import { BROWSER_SESSION_TOOL, siteRuleOf } from "../browser-site-rule.ts";
 import { randomUUID } from "node:crypto";
 import { Effect } from "effect";
 import { InvalidInput, NotFound } from "@spriessen/core";
@@ -215,6 +216,17 @@ export const lifecycleOps = (
       // script on another target — still asks. Nothing is saved when the
       // call isn't a plain `{ script, target }` or the script is too long to
       // keep; the call stays gated. The script itself is never logged.
+      // The bot's browser: "Always allow" means THIS site, never every page
+      // (browser-site-rule.ts); an act that names no site stays gated.
+      if (tool === BROWSER_SESSION_TOOL) {
+        const entry = siteRuleOf(tool, input);
+        const full = current.policies.autoApprove.length >= PROFILE_LIMITS.autoApproveEntries;
+        if (entry === undefined || (full && !current.policies.autoApprove.includes(entry))) {
+          console.warn("always-allow on browser_session: no site named, the act stays gated");
+          return [];
+        }
+        return saveEntries(owner, profileId, [entry]);
+      }
       if (exactOnlyCall(tool, input)) {
         const exact = exactScriptInput(input);
         // A node rule pins the RESOLVED paired node. Without the registry's

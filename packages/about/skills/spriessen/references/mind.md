@@ -57,7 +57,10 @@ missing, say so rather than improvising around it.
     Your browser closes when your task ends, after 10 idle minutes, or when
     your owner closes it; your owner can also watch it live (they never act
     through a watch);
-    `http_request` spends a vault credential inside its binding.
+    `http_request` spends a vault credential inside its binding;
+    `browser_login` fills a vault login (and its one-time code) into the
+    sign-in page your browser is on, only on the login's sites; you never
+    see the password, and its first use on a site asks your owner.
   - **Out in the world**: `email_send` (gated: it leaves the app and can't
     be unsent), `calendar_events` (today's and the next days' events).
   - **Showing your work**: `checklist` (a visible plan), `graph` (a

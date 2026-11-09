@@ -19,6 +19,10 @@ const HINT_KEYS = [
   "query",
   "command",
   "script",
+  "site",
+  "host",
+  "file",
+  "credential",
   "text",
 ];
 
@@ -36,8 +40,13 @@ const KNOWN: Record<string, Known> = {
     risk: "Higher risk: the script can change files and reach the network.",
   },
   browser_session: {
-    action: "act in its browser session",
-    risk: "Higher risk: the click, typing or key press acts on the live page in this bot's browser.",
+    action: "act in its browser",
+    risk: "Higher risk: the click, typing, key press or dialog answer acts on the live page in this bot's browser; an upload sends one of its files to that site.",
+    risky: true,
+  },
+  "browser_login (first use of a credential)": {
+    action: "sign in to a site with a saved login for the first time",
+    risk: "Approving lets it sign in with that login on this site from now on. The bot never sees the password.",
     risky: true,
   },
   email_send: {
@@ -200,8 +209,11 @@ export const isConnectorChange = (name: string): boolean =>
  * host/node targets are covered only for the exact script on the card (see
  * `alwaysAllowText`).
  */
-export const canAlwaysAllow = (name: string): boolean =>
+export const canAlwaysAllow = (name: string, input?: unknown): boolean =>
   name !== "http_request (first use of a credential)" &&
+  name !== "browser_login (first use of a credential)" &&
+  // A browser act is allowed per SITE, and only when it names one (never an upload).
+  (name !== "browser_session" || browserSiteOf(input) !== null) &&
   !name.startsWith("mcp (first use of ") &&
   !isConnectorChange(name) &&
   name !== "secret_request" &&
@@ -214,20 +226,35 @@ const beyondVm = (input: unknown): boolean => {
   return target === "host" || target === "node";
 };
 
+/** The site a browser act names (acts a site rule can cover), or null. */
+const browserSiteOf = (input: unknown): string | null => {
+  if (typeof input !== "object" || input === null) return null;
+  const call = input as Record<string, unknown>;
+  const site = call["site"];
+  const act = ["click", "type", "press", "dialog"].includes(String(call["op"]));
+  return act && typeof site === "string" && site.trim() !== "" ? site.trim().toLowerCase() : null;
+};
+
 /** The "Always allow" menu item's label and explanation for one card. */
 export const alwaysAllowText = (name: string, input?: unknown): { title: string; detail: string } =>
-  name === "bash" && beyondVm(input)
+  name === "browser_session" && browserSiteOf(input) !== null
     ? {
-        title:
-          (input as Record<string, unknown>)["target"] === "host"
-            ? "Always allow this exact command on this computer"
-            : "Always allow this exact command on that node",
-        detail: "Runs this same script again without asking. Any other script still asks.",
+        title: `Always allow on ${browserSiteOf(input) ?? ""}`,
+        detail:
+          "Its clicks, typing and key presses on this site go ahead without asking. Uploads and other sites still ask.",
       }
-    : {
-        title: "Always allow",
-        detail: "Approve now and stop asking before it does this again.",
-      };
+    : name === "bash" && beyondVm(input)
+      ? {
+          title:
+            (input as Record<string, unknown>)["target"] === "host"
+              ? "Always allow this exact command on this computer"
+              : "Always allow this exact command on that node",
+          detail: "Runs this same script again without asking. Any other script still asks.",
+        }
+      : {
+          title: "Always allow",
+          detail: "Approve now and stop asking before it does this again.",
+        };
 
 /**
  * How the Access tab shows one always-allow entry: exact bash target rules
@@ -235,6 +262,11 @@ export const alwaysAllowText = (name: string, input?: unknown): { title: string;
  * everything else as stored.
  */
 export const describeAllowEntry = (entry: string): { label: string; full: string } => {
+  const site = /^browser_session@site:(.+)$/.exec(entry);
+  if (site !== null) {
+    const label = `browser acts on ${site[1] ?? ""}`;
+    return { label, full: label };
+  }
   const target = /^bash@host:=([\s\S]*)$/.exec(entry) ?? null;
   if (target !== null) {
     const script = (target[1] ?? "").replace(/\s+/g, " ").trim();

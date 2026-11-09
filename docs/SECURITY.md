@@ -731,6 +731,20 @@ the home VM's ONE chromium through the browser BROKER
   the bot's own files (resolved inside its tree, never the vault or another
   bot's files), 25 MB at most, and is gated: the card names the file. The
   staging folder dies with the session.
+- **Vault logins in the browser (`browser_login`).** A login bound to the
+  `browser` adapter fills only into the bot's own page, only when the page's
+  host — as the BROWSER reports it, at the moment it types — is one of the
+  binding's sites and the one the owner approved (first use per host raises
+  a card Always allow never covers). The username, password and TOTP code
+  ride the root stream's stdin to the broker, never a command line, a model
+  or a bot file; the audit row names the item and host only. A script on
+  that same, approved site can read a filled field (the site gets the
+  password, as it must); the host check stops a lookalike site, not a
+  compromised real one.
+- **Per-site approvals.** `browser_session@site:<host>` approves an act
+  (click/type/press/dialog, never an upload) only when the act names that
+  site AND the broker finds the page on it; "Always allow" on a browser card
+  saves that, never a whole-tool grant.
 - **Saved sign-ins.** When a session ends, the cookies of the sites the bot
   actually signed in to (a takeover the owner finished, a vault login that
   filled) are sealed with the vault key (`browser/signins.ts`,

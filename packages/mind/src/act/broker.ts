@@ -7,6 +7,7 @@
  */
 import { Effect } from "effect";
 import {
+  type BrowserFillDeps,
   brokerPlugin,
   createBrokerHooks,
   type BindingStore,
@@ -25,6 +26,8 @@ export const brokerFor = (
   holder: ScopeHolder,
   /** Late-bound converse, for the org's cross-home grant lookups. */
   converseRef?: () => ConverseService | undefined,
+  /** The bots' browsers, for `browser_login` (the broker's browser adapter). */
+  browser?: BrowserFillDeps,
 ): Effect.Effect<Plugin, never, Approvals | Audit> =>
   Effect.gen(function* () {
     const approvals = yield* Approvals;
@@ -46,5 +49,6 @@ export const brokerFor = (
       bindings,
       holder,
       hooks,
+      ...(browser !== undefined ? { browser } : {}),
     });
   });

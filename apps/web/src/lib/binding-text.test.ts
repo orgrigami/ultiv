@@ -27,7 +27,10 @@ describe("binding text", () => {
   });
 
   it("summarizes and flags bots whose allowlist leaves out http_request", () => {
-    expect(bindingSummary(binding)).toBe("GET, POST · api.stripe.com +1");
+    expect(bindingSummary(binding)).toBe("Web: GET, POST · api.stripe.com +1");
+    expect(bindingSummary({ ...binding, adapter: "browser" })).toBe(
+      "Browser sign-in · api.stripe.com +1",
+    );
     const profiles = [
       { id: "eve", toolAllowlist: ["bash"] },
       { id: "max", toolAllowlist: null },
@@ -35,5 +38,21 @@ describe("binding text", () => {
     ] as unknown as ProfileInfo[];
     expect(allowlistGaps(profiles, null).map((p) => p.id)).toEqual(["eve"]);
     expect(allowlistGaps(profiles, ["max"])).toEqual([]);
+  });
+
+  it("binds a login to the browser: sites only, methods and placement fixed", () => {
+    const draft = {
+      ...draftOf(undefined),
+      adapter: "browser" as const,
+      hosts: "accounts.example.com",
+    };
+    expect(inputOf(draft)).toEqual({
+      adapter: "browser",
+      hosts: ["accounts.example.com"],
+      methods: ["GET"],
+      auth: { placement: "bearer" },
+      profiles: null,
+      allowLocalhostHttp: false,
+    });
   });
 });

@@ -13,11 +13,13 @@ import {
 
 /**
  * Credential bindings: which vault item an adapter may use, where, and how.
- * The broker is protocol-generic (`adapter`); HTTP is the first adapter, and
+ * The broker is protocol-generic (`adapter`): `http` places a secret on a
+ * request; `browser` fills a vault LOGIN into the bot's browser page, only
+ * on its hosts (`browser_login`; methods and auth are unused there).
  * ssh/git/SMTP/IMAP/DB/env adapters add their own literals later. A binding
  * holds no secret bytes: only the policy around one sealed vault item.
  */
-export const CredentialAdapterSchema = oneOf(["http"]);
+export const CredentialAdapterSchema = oneOf(["http", "browser"]);
 
 export type CredentialAdapter = Static<typeof CredentialAdapterSchema>;
 

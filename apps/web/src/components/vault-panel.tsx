@@ -46,6 +46,7 @@ function BindingLine(props: {
     return (
       <BindingEditor
         itemId={item.id}
+        login={item.kind === "login"}
         binding={binding}
         profiles={props.profiles}
         onDone={() => {
@@ -58,10 +59,10 @@ function BindingLine(props: {
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className="text-muted-foreground min-w-0 flex-1 truncate">
-        {binding === undefined ? "Not usable for web requests" : `Web: ${bindingSummary(binding)}`}
+        {binding === undefined ? "Not usable by the bots yet" : bindingSummary(binding)}
       </span>
       <Button variant="outline" size="sm" onClick={() => props.setEditing(true)}>
-        {binding === undefined ? "Allow web use" : "Edit web use"}
+        {binding === undefined ? "Allow use" : "Edit use"}
       </Button>
     </div>
   );
