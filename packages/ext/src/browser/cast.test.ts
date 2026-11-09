@@ -1,13 +1,15 @@
 /**
- * The cast hub against a FAKE streaming backend: the driver protocol lines
- * become frames and events, acts ride stdin, a dead process closes every
- * subscriber, and the idle grace keeps a cast alive through a viewer switch
- * but not forever. The real driver needs chromium; it is exercised by the
- * opt-in real-VM suite (shell/real-vm-cast.test.ts).
+ * The cast hub against a FAKE streaming backend: the cast request goes out
+ * first, the broker's lines become frames and events, acts ride stdin, a
+ * dead process closes every subscriber, the idle grace keeps a cast alive
+ * through a viewer switch but not forever, a takeover replaces a watch, and
+ * a finished download is taken and saved. The real cast runs against
+ * chromium in browser/broker.test.ts and the opt-in real-VM suite.
  */
 import { describe, expect, it } from "vite-plus/test";
 import type { ShellBackend, ShellStream } from "../shell/backend.ts";
 import { castSessions, type CastEvent } from "./cast.ts";
+import { brokerClient } from "./broker-client.ts";
 
 /** A scriptable stand-in for the in-VM cast process's stdio. */
 const fakeStream = (): {
@@ -57,9 +59,9 @@ const fakeStream = (): {
 
 const FRAME =
   '{"t":"frame","id":"f1","data":"/9j/4AAQ","w":1280,"h":800,' +
-  '"url":"https://example.test/signin","title":"Sign in"}';
+  '"url":"https://example.test/signin","title":"Sign in","popup":false}';
 
-const rig = (idleMs = 8_000) => {
+const rig = (idleMs = 8_000, saved: string[] = []) => {
   const process = fakeStream();
   const started: string[] = [];
   const backend: ShellBackend = {
@@ -72,7 +74,15 @@ const rig = (idleMs = 8_000) => {
       return process.stream;
     },
   };
-  const casts = castSessions({ resolveOf: async () => ({ backend }), idleMs });
+  const casts = castSessions({
+    resolveOf: async () => ({ backend, bot: "b1" }),
+    client: brokerClient(),
+    idleMs,
+    saveDownload: async (_conversationId, name, bytes) => {
+      saved.push(`${name}:${Buffer.from(bytes).toString()}`);
+      return { id: "a1", name };
+    },
+  });
   return { casts, process, started };
 };
 
@@ -86,6 +96,12 @@ describe("the cast hub (fake stream)", () => {
     const { casts, process, started } = rig();
     const session = await casts.for("conv-1");
     expect(started).toHaveLength(1);
+    expect(started[0]).toContain("client.py");
+    expect(JSON.parse(process.written[0] ?? "{}")).toMatchObject({
+      op: "cast",
+      bot: "b1",
+      drive: false,
+    });
     const { events, seen } = collect();
     const off = session.subscribe((event) => events.push(event));
     process.push('{"t":"ready","w":1280,"h":800}');
@@ -106,10 +122,10 @@ describe("the cast hub (fake stream)", () => {
 
   it("writes acts to the driver's stdin and refuses them once dead", async () => {
     const { casts, process } = rig();
-    const session = await casts.for("conv-1");
+    const session = await casts.for("conv-1", { drive: true });
     await session.act({ a: "tap", x: 10, y: 20, id: "f1" });
     await session.act({ a: "type", text: "hi" });
-    expect(process.written).toEqual([
+    expect(process.written.slice(1)).toEqual([
       '{"a":"tap","x":10,"y":20,"id":"f1"}\n',
       '{"a":"type","text":"hi"}\n',
     ]);
@@ -130,7 +146,28 @@ describe("the cast hub (fake stream)", () => {
     });
   });
 
-  it("ends at once on a fatal driver line", async () => {
+  it("a takeover replaces a watch cast; a finished download is taken and saved", async () => {
+    const saved: string[] = [];
+    const { casts, process } = rig(8_000, saved);
+    const watch = await casts.for("conv-1");
+    const { events, seen } = collect();
+    watch.subscribe((event) => events.push(event));
+    process.push('{"t":"download","guid":"g1","name":"a.pdf","size":3}');
+    expect(process.written.at(-1)).toBe('{"a":"take_download","guid":"g1"}\n');
+    process.push(
+      `{"t":"download-data","guid":"g1","name":"a.pdf","data":"${Buffer.from("pdf").toString("base64")}"}`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(saved).toEqual(["a.pdf:pdf"]);
+    expect(seen().at(-1)).toMatchObject({ kind: "saved", id: "a1", name: "a.pdf" });
+    process.push('{"t":"dialog","open":true,"type":"confirm","message":"Sure?"}');
+    expect(seen().at(-1)).toMatchObject({ kind: "dialog", open: true, message: "Sure?" });
+    await casts.for("conv-1", { drive: true });
+    expect(seen().at(-1)).toMatchObject({ kind: "closed", reason: "your owner took the controls" });
+    await expect(casts.act("conv-1", { a: "reload" })).resolves.toBeUndefined();
+  });
+
+  it("ends at once on a fatal line", async () => {
     const { casts, process } = rig();
     const session = await casts.for("conv-1");
     const { events, seen } = collect();
@@ -177,7 +214,10 @@ describe("the cast hub (fake stream)", () => {
       listFiles: async () => [],
       readFile: async () => new Uint8Array(),
     };
-    const casts = castSessions({ resolveOf: async () => ({ backend }) });
+    const casts = castSessions({
+      resolveOf: async () => ({ backend, bot: "b1" }),
+      client: brokerClient(),
+    });
     await expect(casts.for("conv-1")).rejects.toThrow("cannot stream");
   });
 
@@ -191,7 +231,7 @@ describe("the cast hub (fake stream)", () => {
 
   it("a stop while the driver launches ends that launch as it lands", async () => {
     const { casts, process } = rig();
-    const viewer = casts.for("conv-1");
+    const viewer = casts.for("conv-1", { drive: true });
     await casts.stop("conv-1");
     const session = await viewer;
     expect(process.stopped()).toBe(true);

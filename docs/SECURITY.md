@@ -697,30 +697,79 @@ images use) and stored in that bot's own tree under `screenshots/` — the owner
 sees the image card in the app. Page text, page title and screenshot are
 UNTRUSTED INPUT (prompt injection): the tool description and output say so.
 
-**The interactive session and the owner's live cast.** `browser_session`
-(`packages/ext/src/plugins/browser-session.ts`) drives the SAME in-VM
-chromium (one per home VM, profile under `/tmp`, cookies never sealed into
-model-readable files): reads are ungated, acts (click/type/press) are
-gated (`gatedWhen`: the gate holds exactly those ops), and password fields are refused outright — the model must never
-carry a secret to type it. The sanctioned path for a wall is op `takeover`:
-the OWNER drives the page through the live cast
-(`packages/ext/src/browser/cast.ts`), whose SSE stream and act routes are
-owner-scoped exactly like every other takeover route (another owner's row
-answers like a missing one). The cast changes no isolation boundary: the
-owner's navigations run under the SAME home-VM network policy as the bot's
-(the allowlist gates the owner too), the frames are page pixels — untrusted
-content shown as an image, never parsed — and the owner's keystrokes are
-NEVER logged or audited (a typed password goes browser → TLS → server
-memory → the VM's stdin, nothing else; the audit records the takeover's
-open and finish, not its driving). The stream is one-way (frames out, acts
-in over POST), capped at 30 minutes, and winds down when the last viewer
-leaves. The Browsers panel's WATCH view (`GET /api/browser/sessions/:conversationId/cast`)
-is the same stream under the `view` decision and has NO act route: only an
-open takeover lets the owner touch the page. The session list carries facts
-only (url, title, when), never page text. Chromium presents a plain desktop
-identity (no `navigator.webdriver`, no "HeadlessChrome" user agent) so
+**The interactive session, the broker and the owner's live cast.**
+`browser_session` (`packages/ext/src/plugins/browser-session.ts`) drives
+the home VM's ONE chromium through the browser BROKER
+(`packages/ext/src/browser/vm/`). The boundaries:
+
+- **Bots cannot reach the browser.** Chromium runs as the VM's `spbrowser`
+  system user over `--remote-debugging-pipe` — there is no debug port to
+  dial — and the broker's socket lives in a 0700 folder owned by that user
+  (`/run/spriessen-browser`), so only root reaches it. The server talks to
+  it only through the VM's ROOT exec (`ShellBackend.rootExec`/`rootStream`);
+  a bot's `bash` (its own Linux user) can open neither, so it can never
+  drive a browser around the tool's approval gate. The broker accepts only
+  uid 0 (and its own user) by `SO_PEERCRED`. The broker's modules install
+  read-only under `/opt/spriessen-browser/<version>`.
+- **Bots cannot see each other's sessions.** Each bot's session is its own
+  browser CONTEXT (cookies, storage, cache), keyed by the bot's Linux user,
+  which the server — not the bot — names on every request. A shared home
+  with no per-bot users is refused the browser rather than given a shared
+  login. One conversation holds a bot's session at a time.
+- **Secrets never ride a command line.** Uploads, saved cookies and vault
+  logins go to the broker over the root stream's stdin; ordinary requests
+  ride a heredoc in a root exec (`/proc` is `hidepid=2`).
+- **Reads are ungated, acts are gated** (`gatedWhen`: click, type, press,
+  dialog, upload — the card names the act, the element and the file).
+  Password fields are refused to `type`: the model never carries a secret
+  to type it. An act that names its `site` runs only if the page's real
+  host is that site (the broker checks it, not the model).
+- **Downloads and uploads.** A download is kept only when the bot's (or the
+  owner's) act started it within 20 s — a page cannot drop files on a bot
+  unasked — capped at 25 MB and 10 per session, and lands in the bot's own
+  files as untrusted content, never opened by itself. An upload is one of
+  the bot's own files (resolved inside its tree, never the vault or another
+  bot's files), 25 MB at most, and is gated: the card names the file. The
+  staging folder dies with the session.
+- **Saved sign-ins.** When a session ends, the cookies of the sites the bot
+  actually signed in to (a takeover the owner finished, a vault login that
+  filled) are sealed with the vault key (`browser/signins.ts`,
+  `{vault}/browser-signins/{owner}/{profile}.json`, 0600; only site names in
+  the clear) and restored on the bot's next first open. They never reach a
+  model or a bot's files. A saved sign-in lets a later task act as the
+  owner on that site without asking — acts are still gated card by card —
+  and the owner's Forget (per bot, on the Browsers panel) deletes the file
+  and clears a live session's cookies. Without a vault key nothing is saved.
+
+The sanctioned path for a wall is op `takeover`: the OWNER drives the page
+through the live cast (`packages/ext/src/browser/cast.ts`), whose SSE
+stream and act routes are owner-scoped exactly like every other takeover
+route (another owner's row answers like a missing one). The cast changes no
+isolation boundary: the owner's navigations run under the SAME home-VM
+network policy as the bot's (the allowlist gates the owner too), the frames
+are page pixels — untrusted content shown as an image, never parsed — and
+the owner's keystrokes, pastes and uploaded files are NEVER logged or
+audited (they go browser → TLS → server memory → the VM's root stdin,
+nothing else; the audit records the takeover's open and finish, not its
+driving). The stream is one-way (frames out, acts in over POST), the ask
+capped at 30 minutes (Extend: never past 2 hours from the ask), and winds
+down when the last viewer leaves. The Browsers panel's WATCH view
+(`GET /api/browser/sessions/:conversationId/cast`) is the same stream under
+the `view` decision and has NO act route: only an open takeover lets the
+owner touch the page. The session list carries facts only (url, title,
+what the page waits on, when), never page text. Chromium presents a plain
+desktop identity (no `navigator.webdriver`, no "HeadlessChrome" user
+agent), and a saved sign-in keeps the user agent it was made under, so
 sign-in pages accept the owner's sign-in; that is presentation, not an
 isolation claim — the VM's network policy is still the reach gate.
+
+**What the shared browser does not claim.** Chromium runs `--no-sandbox`
+(the microVM is the sandbox). A page that breaks out of chromium's renderer
+lands as `spbrowser`, which holds EVERY bot's context in that VM — one
+bot's cookies are then within reach of a page another bot opened. That is
+wider than a per-bot browser would be; the VM boundary still holds, and a
+separate browser VM per home is the next step if this risk outgrows the
+memory saving (docs/THREAT_MODEL.md).
 
 ## Owner scoping and the one account
 

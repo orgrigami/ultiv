@@ -31,7 +31,7 @@ describe("no tool parameter opens another home's VM", () => {
 });
 
 describe("no command path targets a VM by name", () => {
-  it("the ShellBackend surface is prepare/exec/stream/listFiles/readFile — none takes a VM", () => {
+  it("the ShellBackend surface is prepare/exec/stream/listFiles/readFile (+ the broker's root door) — none takes a VM", () => {
     // Every command, whatever the home, rides this interface; the VM is
     // bound in the closure at construction (options.name), never per call.
     const backend: ShellBackend = sandboxShellBackend({ name: "ultiv-unittest" })("/staging");
@@ -41,6 +41,8 @@ describe("no command path targets a VM by name", () => {
       "needsPrepare",
       "prepare",
       "readFile",
+      "rootExec",
+      "rootStream",
       "stream",
     ]);
     expect(backend.needsPrepare?.length).toBe(0); // no target either

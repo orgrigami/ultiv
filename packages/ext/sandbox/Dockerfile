@@ -38,6 +38,18 @@ RUN apt-get update \
     python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
+# The browser broker's own system user (packages/ext/src/browser/vm): ONE
+# chromium per VM runs as it, over a pipe (no debug port), with its socket in
+# a 0700 folder only root reaches — a bot's bash can reach neither. The
+# broker itself is written into /opt/spriessen-browser/<version> at first use
+# (so a fixed broker never waits for an image rebuild); the user is created
+# here, and the first start creates it too on an older image.
+RUN useradd --system --no-create-home --home-dir /nonexistent \
+    --shell /usr/sbin/nologin spbrowser \
+  && mkdir -p /opt/spriessen-browser /run/spriessen-browser /var/lib/spriessen-browser \
+  && chown spbrowser:spbrowser /run/spriessen-browser /var/lib/spriessen-browser \
+  && chmod 700 /run/spriessen-browser /var/lib/spriessen-browser
+
 # Agent convenience: plain `pip install` works without the PEP 668
 # externally-managed-environment guard Debian ships.
 ENV PIP_BREAK_SYSTEM_PACKAGES=1

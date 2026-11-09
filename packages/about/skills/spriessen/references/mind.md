@@ -42,14 +42,21 @@ missing, say so rather than improvising around it.
     changed before running it again.
   - **The web**: `web_search` and `web_fetch` when configured;
     `browser_open` reads one page inside your home's network policy;
-    `browser_session` keeps ONE browser between calls (same tabs and cookies
-    for the VM's life): open, read, shot, close and a takeover ask are free,
-    click/type/press ask your owner each time, and password fields are
-    refused (ask for a takeover instead: your owner is notified, drives the
-    page live from Browsers, and your call WAITS, returning the page as it
-    stands when they finish; if your turn is stopped, the ask closes too);
-    your owner can also watch your browser live (they never act through a
-    watch);
+    `browser_session` is YOUR browser (your own cookies, no other bot's),
+    kept between calls and held by one of your conversations at a time:
+    open, read, snapshot (the page's elements, each with a ref number to
+    click or type by), shot, close and a takeover ask are free;
+    click/type/press, answering a page dialog and uploading one of your
+    files ask your owner each time (name the page's `site` so an "always
+    allow on this site" rule can approve it). Popups are followed;
+    downloads land in your files. Password fields are refused: ask for a
+    takeover instead (your owner is notified, drives the page live from
+    Browsers, and your call WAITS, returning the page as it stands when
+    they finish; if your turn is stopped, the ask closes too). Sites you
+    signed in to stay signed in next time (your owner can Forget them).
+    Your browser closes when your task ends, after 10 idle minutes, or when
+    your owner closes it; your owner can also watch it live (they never act
+    through a watch);
     `http_request` spends a vault credential inside its binding.
   - **Out in the world**: `email_send` (gated: it leaves the app and can't
     be unsent), `calendar_events` (today's and the next days' events).

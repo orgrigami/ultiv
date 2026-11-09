@@ -82,6 +82,14 @@ export interface ShellBackend {
    * `timeoutMs` at the latest.
    */
   stream?(script: string, cwd: string, timeoutMs: number): Promise<ShellStream>;
+  /**
+   * Run a script as ROOT inside the VM, never as the bot (the browser
+   * broker's only door: bots cannot reach it, the server can). Undefined
+   * when the backend has no root side; the local backend runs it as itself.
+   */
+  rootExec?(script: string, timeoutMs: number): Promise<ShellExecResult>;
+  /** `stream`, but as root (the broker's live cast and its large requests). */
+  rootStream?(script: string, timeoutMs: number): Promise<ShellStream>;
 }
 
 /**
@@ -261,5 +269,8 @@ export const localShellBackend: ShellBackendFactory = (
     listFiles: async () => walk(homeDir, ""),
     readFile: async (path) => new Uint8Array(readFileSync(resolveInside(homeDir, path))),
     stream: async (script, cwd, timeoutMs) => startStream(script, cwd, timeoutMs),
+    // No users here: "root" is this process, in the workspace root.
+    rootExec: (script, timeoutMs) => run(script, guestRoot, timeoutMs),
+    rootStream: async (script, timeoutMs) => startStream(script, guestRoot, timeoutMs),
   };
 };

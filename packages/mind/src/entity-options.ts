@@ -14,6 +14,8 @@ import type {
   BindingStore,
   VaultStore,
   ActiveBrowsers,
+  BrowserLife,
+  SigninStore,
   CastSessions,
   TakeoverRegistry,
 } from "@spriessen/ext";
@@ -123,6 +125,8 @@ export interface MindWiring {
   readonly browserCasts?: CastSessions;
   /** Which conversations have a browser going (ext), for the Browsers panel. */
   readonly browserSessions?: ActiveBrowsers;
+  readonly browserLife?: BrowserLife;
+  readonly browserSignins?: SigninStore;
   /** The host-access decision, resolved per conversation (undefined = allow). */
   readonly hostAccess?: (conversationId: string) => boolean | Promise<boolean>;
   /** Who may manage bots and teams, and the full bot purge (the admin tools). */

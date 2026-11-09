@@ -18,7 +18,13 @@ import type { RoomsService } from "./profiles/rooms.ts";
 import type { MailboxService } from "./mailbox/mailbox.ts";
 import type { UsageService } from "./usage/usage.ts";
 import type { TablesService } from "./tables/tables.ts";
-import type { ActiveBrowsers, CastSessions, TakeoverRegistry } from "@spriessen/ext";
+import type {
+  ActiveBrowsers,
+  BrowserLife,
+  CastSessions,
+  SigninStore,
+  TakeoverRegistry,
+} from "@spriessen/ext";
 import type { OrgService } from "./org/service.ts";
 import type { SkillsService } from "./skills/service.ts";
 import type { MemoryService } from "./memory/memory.ts";
@@ -72,8 +78,12 @@ export interface MindService {
   readonly browserTakeovers?: TakeoverRegistry;
   /** The owner's live browser casts (the takeover's driving seat). */
   readonly browserCasts?: CastSessions;
-  /** Which conversations have a browser going, and where its page stands. */
+  /** Which bots have a browser going, which conversation holds it, where it stands. */
   readonly browserSessions?: ActiveBrowsers;
+  /** Each bot's browser over its life: close, forget sign-ins, history. */
+  readonly browserLife?: BrowserLife;
+  /** Saved browser sign-ins (sealed); absent without a vault key. */
+  readonly browserSignins?: SigninStore;
   /** The org: one per install, flat teams, members, grants, templates. */
   readonly org: OrgService;
   /** Skills: built-in and self-written procedures, per profile, evolvable. */

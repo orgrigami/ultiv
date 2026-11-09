@@ -4,8 +4,9 @@
  * with `browser_session` op "takeover" and the call WAITS — the owner
  * drives the page live (the cast) and the tool result returns the page as
  * it stands when they Finish. The wait resolves on every close: finish,
- * step-away, the cap (30 min — an abandoned ask never pins a turn, or a
- * hold, forever), or a newer ask replacing the row. While a takeover is
+ * step-away, the cap (30 min, which the owner may extend up to 2 hours — an
+ * abandoned ask never pins a turn, or a hold, forever), or a newer ask
+ * replacing the row. While a takeover is
  * OPEN the registry refuses the bot's ACTS on that session (refused, never
  * queued): two drivers on one page is how pages break. There is no wake to
  * route: the turn that asked is the turn that gets the answer.
@@ -13,23 +14,6 @@
 export interface TakeoverInput {
   readonly conversationId: string;
   readonly reason: string;
-  /** One selector act (the legacy REST path; the live cast is the seat now). */
-  readonly act: (act: TakeoverAct) => Promise<TakeoverState>;
-}
-
-export type TakeoverAct =
-  | { readonly kind: "click"; readonly selector: string }
-  | { readonly kind: "type"; readonly selector: string; readonly text: string }
-  | { readonly kind: "press"; readonly key: string }
-  | { readonly kind: "refresh" };
-
-export interface TakeoverState {
-  readonly ok: boolean;
-  readonly png: string;
-  readonly url: string;
-  readonly title: string;
-  readonly text: string;
-  readonly error: string | null;
 }
 
 export interface TakeoverRow {
@@ -37,13 +21,17 @@ export interface TakeoverRow {
   readonly conversationId: string;
   readonly reason: string;
   readonly openedAt: number;
+  /** When the ask closes by itself unless the owner extends it (ms). */
+  readonly deadline: number;
 }
 
 /** How a takeover closed — what the waiting tool call tells the bot. */
 export type TakeoverOutcome = "finished" | "stepped-away" | "timed-out" | "replaced";
 
-/** A takeover's hard life span: an owner who walked away cannot hold the bot forever. */
+/** A takeover's life span: an owner who walked away cannot hold the bot forever. */
 export const TAKEOVER_MAX_MS = 30 * 60_000;
+/** Extending never runs an ask past this, counted from when it opened. */
+export const TAKEOVER_CEILING_MS = 2 * 60 * 60_000;
 
 export interface TakeoverRegistry {
   /** Register a bot's ask; only one OPEN takeover per conversation. */
@@ -51,8 +39,8 @@ export interface TakeoverRegistry {
   /** The owner's open takeovers (their bots' asks), newest first. */
   readonly list: () => readonly TakeoverRow[];
   readonly get: (id: string) => TakeoverRow | undefined;
-  /** One owner act on the legacy selector path; returns the fresh view. */
-  readonly act: (id: string, act: TakeoverAct) => Promise<TakeoverState>;
+  /** More time: the window restarts from now (never past the ceiling). */
+  readonly extend: (id: string) => TakeoverRow | undefined;
   /** Finish: close the ask as done — the waiting call gets the page. */
   readonly finish: (id: string) => Promise<TakeoverRow | undefined>;
   /** Abort without a page: the waiting call learns the owner stepped away. */
@@ -78,13 +66,15 @@ export type TakeoverChange =
 export interface TakeoverRegistryOptions {
   /** The cap after which an open ask closes itself (tests shrink it). */
   readonly maxMs?: number;
+  /** Called when an ask opens (the session must not idle out under the owner). */
+  readonly onOpened?: (conversationId: string) => void;
   /** Called when ANY ask closes (finish, step-away, cap, replacement). */
   readonly onClosed?: (conversationId: string) => void;
 }
 
 interface Held {
   readonly input: TakeoverInput;
-  readonly row: TakeoverRow;
+  row: TakeoverRow;
   readonly waiters: ((outcome: TakeoverOutcome) => void)[];
   cap: ReturnType<typeof setTimeout> | null;
 }
@@ -114,6 +104,12 @@ export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): Takeove
     tell({ kind: "closed", row: held.row, outcome });
   };
 
+  const arm = (held: Held, ms: number): void => {
+    if (held.cap !== null) clearTimeout(held.cap);
+    held.cap = setTimeout(() => settle(held, "timed-out"), Math.max(0, ms));
+    held.cap.unref?.();
+  };
+
   const heldOf = (conversationId: string): Held | undefined =>
     [...open.values()].find((held) => held.row.conversationId === conversationId);
 
@@ -122,26 +118,35 @@ export const takeoverRegistry = (options: TakeoverRegistryOptions = {}): Takeove
       const existing = heldOf(input.conversationId);
       if (existing !== undefined) settle(existing, "replaced");
       seq += 1;
+      const openedAt = Date.now();
       const row: TakeoverRow = {
-        id: `takeover-${Date.now().toString(36)}-${seq}`,
+        id: `takeover-${openedAt.toString(36)}-${seq}`,
         conversationId: input.conversationId,
         reason: input.reason.slice(0, 300),
-        openedAt: Date.now(),
+        openedAt,
+        deadline: openedAt + maxMs,
       };
       const held: Held = { input, row, waiters: [], cap: null };
       open.set(row.id, held);
-      held.cap = setTimeout(() => settle(held, "timed-out"), maxMs);
-      held.cap.unref?.();
+      arm(held, maxMs);
+      options.onOpened?.(row.conversationId);
       tell({ kind: "opened", row });
       return row;
     },
     list: () =>
       [...open.values()].map((held) => held.row).toSorted((a, b) => b.openedAt - a.openedAt),
     get: (id) => open.get(id)?.row,
-    act: async (id, act) => {
+    extend: (id) => {
       const held = open.get(id);
-      if (held === undefined) throw new Error("that takeover is no longer open");
-      return held.input.act(act);
+      if (held === undefined) return undefined;
+      const deadline = Math.min(
+        Date.now() + maxMs,
+        held.row.openedAt + Math.max(maxMs, TAKEOVER_CEILING_MS),
+      );
+      held.row = { ...held.row, deadline };
+      arm(held, deadline - Date.now());
+      tell({ kind: "opened", row: held.row });
+      return held.row;
     },
     finish: async (id) => {
       const held = open.get(id);

@@ -3,8 +3,7 @@
  * bot's chat conversation, a takeover opened on the REAL registry the
  * entity wired, and the cast routes over the REAL home VM — chromium boots,
  * frames stream through the REST SSE route, and an act POST reaches the
- * page. The row's own act/shot closures stay fake (they are the selector
- * path); the cast is the production path end to end. `SPRIESSEN_REAL_VM=1
+ * page through the home VM's browser broker, end to end. `SPRIESSEN_REAL_VM=1
  * vp test --run apps/server/src/rest/takeover-live-vm.test.ts`; the bot's
  * home VM is the real sandbox backend, so this machine needs the runtime.
  * Never touches a live server or a live VM.
@@ -56,11 +55,13 @@ beforeAll(async () => {
   if (mind.browserTakeovers === undefined || mind.browserCasts === undefined) {
     throw new Error("the mind did not wire the browser facility");
   }
-  const row = await mind.browserTakeovers.open({
-    conversationId,
-    reason: "the sign-in needs you",
-    act: async () => ({ ok: true, png: "", url: "", title: "", text: "", error: null }),
-  });
+  // The bot's session first (the broker casts only a session that exists);
+  // only on a real VM — this setup runs even when the suite is skipped.
+  if (REAL) {
+    const opened = await mind.browserLife?.run(conversationId, { op: "open", url: "about:blank" });
+    expect(opened?.ok).toBe(true);
+  }
+  const row = await mind.browserTakeovers.open({ conversationId, reason: "the sign-in needs you" });
   rowId = row.id;
 }, T);
 

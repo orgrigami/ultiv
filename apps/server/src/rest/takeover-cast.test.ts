@@ -10,7 +10,7 @@
 import { createServer, type Server } from "node:http";
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test";
 import type { MindService } from "@spriessen/mind";
-import { castSessions, takeoverRegistry } from "@spriessen/ext";
+import { brokerClient, castSessions, takeoverRegistry } from "@spriessen/ext";
 import type { ShellBackend, ShellStream } from "@spriessen/ext";
 import { takeoverRoutes } from "./takeover.ts";
 import type { RouteArgs } from "./types.ts";
@@ -65,16 +65,14 @@ const backend = (): ShellBackend => ({
 beforeAll(async () => {
   process = scriptable();
   const registry = takeoverRegistry();
-  const casts = castSessions({ resolveOf: async () => ({ backend: backend() }), idleMs: 60_000 });
+  const casts = castSessions({
+    resolveOf: async () => ({ backend: backend(), bot: "bot-mine" }),
+    client: brokerClient(),
+    idleMs: 60_000,
+  });
   const wakes: string[] = [];
   const ask = async (conversationId: string): Promise<string> =>
-    (
-      await registry.open({
-        conversationId,
-        reason: "the sign-in needs you",
-        act: async () => ({ ok: true, png: "", url: "", title: "", text: "", error: null }),
-      })
-    ).id;
+    (await registry.open({ conversationId, reason: "the sign-in needs you" })).id;
   mine.row = await ask(mine.conversationId);
   theirs.row = await ask(theirs.conversationId);
   const mind = {
@@ -196,15 +194,26 @@ describe("the takeover cast routes", () => {
   });
 
   it("streams ready and frames over SSE, and forwards my acts to the page", async () => {
-    const events = sseEvents(`/api/browser/takeover/${mine.row}/cast`, ["ready", "frame"], 10_000);
+    const events = sseEvents(
+      `/api/browser/takeover/${mine.row}/cast?w=800&h=500`,
+      ["ready", "frame"],
+      10_000,
+    );
     await new Promise((resolve) => setTimeout(resolve, 150));
-    process.push('{"t":"ready","w":1280,"h":800}');
+    // The cast opens in DRIVE mode, sized to the viewer.
+    expect(JSON.parse(process.written[0] ?? "{}")).toMatchObject({
+      op: "cast",
+      drive: true,
+      w: 800,
+      h: 500,
+    });
+    process.push('{"t":"ready","drive":true}');
     process.push(
       '{"t":"frame","id":"f1","data":"/9j/4AAQ","w":1280,"h":800,' +
         '"url":"https://example.test/signin","title":"Sign in"}',
     );
     const seen = await events;
-    expect(seen.ready).toEqual({ ok: true });
+    expect(seen.ready).toEqual({ drive: true });
     expect(seen.frame).toMatchObject({
       id: "f1",
       mime: "image/jpeg",
@@ -226,6 +235,23 @@ describe("the takeover cast routes", () => {
       url: "about:blank",
     });
     expect(blank.status).toBe(200);
+    for (const body of [
+      { a: "move", x: 5, y: 6, id: "f1", held: true },
+      { a: "tap", x: 5, y: 6, id: "f1", count: 2 },
+      { a: "dialog", accept: false },
+      { a: "upload", name: "id.png", data: Buffer.from("png").toString("base64") },
+      { a: "viewport", w: 390, h: 700, mobile: true },
+      { a: "back" },
+    ]) {
+      const reply = await post(`/api/browser/takeover/${mine.row}/cast/act`, body);
+      expect(reply.status, JSON.stringify(body)).toBe(200);
+    }
+    expect(JSON.parse(process.written.at(-2) ?? "{}")).toMatchObject({
+      a: "viewport",
+      mobile: true,
+    });
+    const extended = await post(`/api/browser/takeover/${mine.row}/extend`, {});
+    expect(((await extended.json()) as { deadline: number }).deadline).toBeGreaterThan(Date.now());
   });
 
   it("refuses malformed acts and non-http urls without touching the page", async () => {
@@ -238,6 +264,8 @@ describe("the takeover cast routes", () => {
       { a: "nav", url: "javascript:alert(1)" },
       { a: "nav", url: "file:///etc/passwd" },
       { a: "detonate" },
+      { a: "upload", name: "x", data: "not base64!" },
+      { a: "viewport", w: 10, h: 10 },
       {},
     ]) {
       const reply = await post(`/api/browser/takeover/${mine.row}/cast/act`, body);

@@ -229,6 +229,10 @@ const mindLayerRaw = (
         profiles.bindTask,
         taskWiring(profiles, wiring.holder, {
           cancelMailSentFrom: (conversations) => mailbox.cancelSentFrom(conversations),
+          // A finished task's browser session closes (sign-ins saved) instead of idling.
+          ...(wiring.browserLife !== undefined
+            ? { onSettled: (conversationId: string) => wiring.browserLife?.release(conversationId) }
+            : {}),
           ...(wiring.jobKiller !== undefined
             ? {
                 stopJobsOf: async (conversations: readonly string[]) =>
@@ -370,6 +374,8 @@ const mindLayerRaw = (
         ...(wiring.browserSessions !== undefined
           ? { browserSessions: wiring.browserSessions }
           : {}),
+        ...(wiring.browserLife !== undefined ? { browserLife: wiring.browserLife } : {}),
+        ...(wiring.browserSignins !== undefined ? { browserSignins: wiring.browserSignins } : {}),
         org,
         ...routines,
         mcp: mcp.manager,
@@ -424,6 +430,8 @@ export const mindLayer = (options: MindOptions): Layer.Layer<Mind, MindError> =>
     browserTakeovers: browserSession.takeovers,
     browserCasts: browserSession.casts,
     browserSessions: browserSession.browsers,
+    browserLife: browserSession.life,
+    ...(browserSession.signins !== undefined ? { browserSignins: browserSession.signins } : {}),
     ...(options.mcp !== undefined ? { mcp: options.mcp } : {}),
     ...(options.mailbox?.grantArtifacts !== undefined
       ? { grantArtifacts: options.mailbox.grantArtifacts }

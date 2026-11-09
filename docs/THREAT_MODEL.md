@@ -264,6 +264,18 @@ hashing); this file is the map of trust.
   The same `netOpen` opt-in removes these bounds for its home: an open VM
   loads any page in the read-only browser and reaches any host — isolation
   off, by explicit owner choice.
+  The INTERACTIVE browser (`browser_session`) is one chromium per home VM,
+  run by a broker as the VM's `spbrowser` user and reachable only through
+  the server's root exec — never from a bot's `bash` (no debug port, a
+  0700 socket) — with one private context (cookies) per bot. Its known
+  cost: chromium runs `--no-sandbox` inside the VM, so a page that escapes
+  the renderer lands as `spbrowser` and can reach EVERY bot's browser
+  context in that home (their sign-ins included), where per-bot browsers
+  would have exposed only one; the VM boundary and the network policy
+  still hold. Saved sign-ins (sealed cookies) let later tasks act as the
+  owner on those sites; acts stay gated and the owner's Forget clears them.
+  A separate browser VM per home is the planned answer if this outgrows the
+  memory saving.
   Removing a bot retires its user and shared-folder group membership from
   its home's VM (marked for the next boot when the VM is stopped); a stale
   member would keep shared-folder access, which is why the sweep runs in

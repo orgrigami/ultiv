@@ -26,11 +26,24 @@ export interface BrowserBackendOptions {
     | undefined;
 }
 
+/** A conversation's browser seat: its home VM, and which bot's session it means. */
+export interface BrowserSeat {
+  readonly backend: ShellBackend;
+  /**
+   * The broker's key for the bot's session: its Linux user in the home VM
+   * (the same in every VM). A per-bot VM (no home scope: older embedders,
+   * tests) holds one bot, keyed "default". Undefined for a shared home with
+   * no per-bot users: the broker could not keep its bots apart there, so the
+   * browser refuses.
+   */
+  readonly bot: string | undefined;
+}
+
 export interface BrowserBackends {
   /** The artifact-scoped dir of a conversation (where screenshots land). */
   readonly dirOf: (conversationId: string) => string;
   /** The home VM's backend for a conversation, re-resolved on every call. */
-  readonly resolveOf: (conversationId: string) => Promise<{ backend: ShellBackend }>;
+  readonly resolveOf: (conversationId: string) => Promise<BrowserSeat>;
 }
 
 export const browserBackends = (options: BrowserBackendOptions): BrowserBackends => {
@@ -55,16 +68,18 @@ export const browserBackends = (options: BrowserBackendOptions): BrowserBackends
       world.netOpen ?? null,
       world.vm ?? null,
     ]);
+    // A per-bot VM (no home scope) holds one bot: its session is "default".
+    // A SHARED home VM keeps bots apart only by their Linux users.
+    const bot = world.user?.name ?? (home === undefined ? "default" : undefined);
     const existing = backends.get(key);
-    if (existing !== undefined) return existing;
+    if (existing !== undefined) return { backend: existing.backend, bot };
     const staging = join(root, "..", "bash-home", scopeHash(dir));
     const backend =
       options.backend !== undefined
         ? options.backend(dir, staging, world.guestRoot)
         : sandboxShellBackend(sandboxOptionsOf(world))(staging);
-    const entry = { backend, guestRoot: world.guestRoot };
-    backends.set(key, entry);
-    return entry;
+    backends.set(key, { backend, guestRoot: world.guestRoot });
+    return { backend, bot };
   };
   return { dirOf, resolveOf };
 };

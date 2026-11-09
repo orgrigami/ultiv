@@ -1,11 +1,13 @@
 /**
- * The browser-session tool against a FAKE backend that answers the driver
- * protocol: page facts on open, the password refusal, a screenshot artifact
- * on shot, the close handwave, the takeover round trip (the bot's acts
- * refused while the owner holds, the call blocking until the owner closes
- * it, a stopped turn closing it), the act-only gate and the session list. The
- * in-VM driver itself needs chromium; it is exercised by the opt-in real-VM
- * suite.
+ * The browser-session tool against a FAKE backend that answers the broker's
+ * one-line protocol: page facts and the session summary, the busy and
+ * password refusals, a screenshot and a download saved to the bot's files,
+ * an upload of the bot's own file, the site check forwarded, the takeover
+ * round trip (acts refused while the owner holds, the call blocking until
+ * the owner closes it, a stopped turn closing it), the act-only gate, the
+ * per-bot list, the idle and task-end closes, and sign-ins saved on close
+ * and restored on the next first open. The broker itself is exercised for
+ * real in browser/broker.test.ts.
  */
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -13,8 +15,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ShellBackend, ShellExecResult, ShellFile } from "../shell/backend.ts";
 import { listArtifacts } from "./artifacts.ts";
+import { putFile } from "../fs/tree.ts";
 import { browserSessionFacility, browserActText } from "./browser-session.ts";
-import { DRIVER_PATH } from "../browser/driver.ts";
+import type { SavedSignin, SigninStore } from "../browser/signins.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "spriessen-browser-session-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
@@ -22,29 +25,63 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-/** Answers driver JSON for the command embedded in the exec script. */
-const fakeBackend = (): ShellBackend => ({
+type Request = { op: string; conv?: string; [key: string]: unknown };
+
+const session = (extra: Record<string, unknown> = {}) => ({
+  url: "https://example.test/page",
+  title: "A page",
+  popup: false,
+  popups: 0,
+  ...extra,
+});
+
+/** Answers broker JSON for the request in the call script's heredoc; records every request. */
+const fakeBackend = (seen: Request[], overrides: Record<string, unknown> = {}): ShellBackend => ({
   prepare: async (_files: readonly ShellFile[]) => undefined,
-  exec: async (script: string, _cwd: string, _timeout: number): Promise<ShellExecResult> => {
-    // The install guard names the driver path first; the CALL is the last one.
-    const at = script.lastIndexOf(DRIVER_PATH);
-    const quoted = script.slice(at + DRIVER_PATH.length + 2);
-    const command = JSON.parse(quoted.slice(0, quoted.indexOf("'"))) as { op: string };
+  exec: async (script: string): Promise<ShellExecResult> => {
+    const body = script.split("<<'__SP_REQ_EOF__'\n")[1]?.split("\n__SP_REQ_EOF__")[0] ?? "{}";
+    const request = JSON.parse(body) as Request;
+    seen.push(request);
     const replies: Record<string, unknown> = {
-      open: { ok: true, url: "https://example.test/page", title: "A page", text: "page words" },
-      read: { ok: true, url: "https://example.test/page", title: "A page", text: "just the field" },
+      open: { ok: true, url: "https://example.test/page", title: "A page", session: session() },
+      read: {
+        ok: true,
+        url: "https://example.test/page",
+        title: "A page",
+        text: "just the field",
+        session: session(),
+      },
+      snapshot: {
+        ok: true,
+        url: "https://example.test/page",
+        title: "A page",
+        text: "",
+        elements: ['[1] button "Go"'],
+        session: session(),
+      },
       click: {
         ok: true,
         url: "https://example.test/after",
         title: "After",
-        text: "clicked through",
+        session: session({ downloads: [{ guid: "g1", name: "report.pdf", size: 4 }] }),
       },
+      take_download: { ok: true, name: "report.pdf", data: Buffer.from("%PDF").toString("base64") },
       type: { ok: false, kind: "password", error: "password fields are refused" },
-      shot: { ok: true, png: PNG },
+      press: { ok: false, kind: "busy", error: "conv-other" },
+      upload: { ok: true, uploaded: "note.txt", session: session() },
+      shot: { ok: true, png: PNG, session: session() },
       close: { ok: true, closed: true },
+      cookies_export: {
+        ok: true,
+        cookies: [{ name: "sid", value: "v", domain: ".example.test" }],
+        ua: "UA/1",
+      },
+      cookies_import: { ok: true, restored: 1, session: session({ url: "about:blank" }) },
+      hold: { ok: true },
+      ...overrides,
     };
     return {
-      stdout: `${JSON.stringify(replies[command.op] ?? { ok: false, error: "unknown op" })}\n`,
+      stdout: `${JSON.stringify(replies[request.op] ?? { ok: false, error: "unknown op" })}\n`,
       stderr: "",
       exitCode: 0,
     };
@@ -53,180 +90,228 @@ const fakeBackend = (): ShellBackend => ({
   readFile: async () => new Uint8Array(),
 });
 
-const rig = () => {
-  const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
+const rig = (
+  options: { signins?: SigninStore; idleMs?: number; overrides?: Record<string, unknown> } = {},
+) => {
+  const seen: Request[] = [];
+  const facility = browserSessionFacility({
+    root: scratch,
+    backend: () => fakeBackend(seen, options.overrides),
+    signins: options.signins ?? null,
+    ...(options.idleMs !== undefined ? { idleMs: options.idleMs } : {}),
+  });
   const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
   if (capability?.kind !== "tool") throw new Error("no browser_session tool");
-  return { tool: capability.tool, takeovers: facility.takeovers };
+  return { tool: capability.tool, facility, seen };
 };
 
 const api = { conversationId: "conv-1" } as never;
 const text = (reply: { output?: readonly { type: string; text?: string }[] }) =>
   (reply.output ?? []).map((part) => part.text ?? "").join("\n");
 
-describe("the browser session tool (fake driver)", () => {
-  it("opens a page and reports its facts; reads; clicks through", async () => {
-    const { tool } = rig();
+describe("the browser session tool (fake broker)", () => {
+  it("opens, reads, snapshots with refs, and clicks by ref", async () => {
+    const { tool, seen } = rig();
     const opened = await tool.execute(
       { op: "open", url: "https://example.test/page" },
       api,
       {} as never,
     );
     expect(text(opened)).toContain("A page");
-    expect(opened.isError).toBeUndefined();
-    const read = await tool.execute({ op: "read", selector: "#field" }, api, {} as never);
-    expect(text(read)).toContain("just the field");
-    const clicked = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
-    expect(text(clicked)).toContain("clicked through");
-    expect(browserActText({ op: "click", selector: "#go" })).toBe("click #go");
+    expect(seen[0]).toMatchObject({ op: "open", bot: "default", conv: "conv-1" });
+    expect(
+      text(await tool.execute({ op: "read", selector: "#field" }, api, {} as never)),
+    ).toContain("just the field");
+    expect(text(await tool.execute({ op: "snapshot" }, api, {} as never))).toContain(
+      '[1] button "Go"',
+    );
+    await tool.execute({ op: "click", ref: 1, site: "Example.test" }, api, {} as never);
+    expect(seen.find((request) => request.op === "click")).toMatchObject({
+      ref: 1,
+      expect_host: "example.test",
+    });
+    expect(browserActText({ op: "click", ref: 1 })).toBe("click element 1");
   });
 
-  it("refuses password fields with the owner-actionable sentence", async () => {
+  it("saves a finished download into the bot's files and names it", async () => {
     const { tool } = rig();
-    const reply = await tool.execute(
-      { op: "type", selector: "input[type=password]", text: "hunter2" },
+    const clicked = await tool.execute({ op: "click", selector: "#dl" }, api, {} as never);
+    // The first test's click saved one too: a taken name gets a numbered twin.
+    expect(text(clicked)).toMatch(/Downloaded report( \(\d\))?\.pdf into your files/);
+    expect(listArtifacts(scratch).some((info) => info.name.startsWith("report"))).toBe(true);
+  });
+
+  it("uploads one of the bot's own files, by name", async () => {
+    const { tool, seen } = rig();
+    await putFile(scratch, "/note.txt", new Uint8Array(Buffer.from("hi")), {
+      conversationId: "conv-1",
+    });
+    const done = await tool.execute({ op: "upload", file: "note.txt", ref: 3 }, api, {} as never);
+    expect(done.isError).toBeUndefined();
+    expect(seen.at(-1)).toMatchObject({
+      op: "upload",
+      name: "note.txt",
+      data: Buffer.from("hi").toString("base64"),
+    });
+    const missing = await tool.execute({ op: "upload", file: "nope.txt" }, api, {} as never);
+    expect(text(missing)).toContain('no file of yours is called "nope.txt"');
+  });
+
+  it("refuses password fields and a browser another conversation holds", async () => {
+    const { tool } = rig();
+    const typed = await tool.execute(
+      { op: "type", selector: "input[type=password]", text: "x" },
       api,
       {} as never,
     );
-    expect(reply.isError).toBe(true);
-    expect(text(reply)).toContain("password fields are refused");
+    expect(text(typed)).toContain("browser_login");
+    const pressed = await tool.execute({ op: "press", key: "Enter" }, api, {} as never);
+    expect(text(pressed)).toContain("in use by another of your conversations");
   });
 
-  it("saves the screenshot as an artifact and closes politely", async () => {
-    const { tool } = rig();
-    const shot = await tool.execute({ op: "shot" }, api, {} as never);
-    expect(text(shot)).toContain("screenshot saved as artifact");
-    expect(listArtifacts(scratch).some((info) => info.name.startsWith("browser-"))).toBe(true);
-    const closed = await tool.execute({ op: "close" }, api, {} as never);
-    expect(text(closed)).toContain("closed");
+  it("saves the screenshot as an artifact and closes", async () => {
+    const { tool, facility } = rig();
+    await tool.execute({ op: "open", url: "https://example.test/page" }, api, {} as never);
+    expect(text(await tool.execute({ op: "shot" }, api, {} as never))).toContain(
+      "screenshot saved as artifact",
+    );
+    expect(text(await tool.execute({ op: "close" }, api, {} as never))).toContain("closed");
+    expect(facility.browsers.list()).toEqual([]);
   });
 
-  it("a takeover BLOCKS: the bot's acts are held off, finish returns the page in the same call", async () => {
-    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
-    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
-    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
-    const tool = capability.tool;
-    // The ask blocks, so it runs as a floating promise the test settles.
+  it("a takeover BLOCKS: the bot's acts are held off, finish returns the page", async () => {
+    const { tool, facility, seen } = rig();
+    await tool.execute({ op: "open", url: "https://example.test/page" }, api, {} as never);
     const call = tool.execute(
       { op: "takeover", reason: "the sign-in needs you" },
       api,
       {} as never,
     );
-    // It registers the ask promptly (the owner's list shows it).
     await new Promise((resolve) => setTimeout(resolve, 20));
     const rowId = facility.takeovers.list()[0]?.id ?? "";
     expect(rowId).not.toBe("");
-    // While the owner holds: the bot's acts (and opens) are refused.
-    const refused = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
-    expect(refused.isError).toBe(true);
-    expect(text(refused)).toContain("holds the controls");
-    const refusedOpen = await tool.execute(
-      { op: "open", url: "https://example.test/move" },
-      api,
-      {} as never,
+    expect(seen.find((request) => request.op === "hold")).toMatchObject({ on: true });
+    expect(text(await tool.execute({ op: "click", selector: "#go" }, api, {} as never))).toContain(
+      "holds the controls",
     );
-    expect(text(refusedOpen)).toContain("holds the controls");
-    // The owner finishes: the SAME tool call returns the page as it stands.
+    expect(
+      text(await tool.execute({ op: "open", url: "https://example.test/x" }, api, {} as never)),
+    ).toContain("holds the controls");
     await facility.takeovers.finish(rowId);
     const reply = await call;
-    expect(reply.isError).toBeUndefined();
-    expect(text(reply)).toContain("finished");
     expect(text(reply)).toContain("just the field");
     expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "finished" });
-    // The hold lifted with the close.
-    const again = await tool.execute({ op: "click", selector: "#go" }, api, {} as never);
-    expect(again.isError).toBeUndefined();
+    expect(facility.life.history("x", "y")).toEqual([]);
   });
 
-  it("step-away resolves the blocked call plainly, without a page", async () => {
-    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
-    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
-    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
-    const call = capability.tool.execute(
-      { op: "takeover", reason: "a code needs you" },
+  it("step-away and the cap resolve the blocked call plainly", async () => {
+    const quick = browserSessionFacility({
+      root: scratch,
+      backend: () => fakeBackend([]),
+      takeoverMaxMs: 40,
+      signins: null,
+    });
+    const capability = quick.plugin.capabilities.find((candidate) => candidate.kind === "tool");
+    if (capability?.kind !== "tool") throw new Error("no tool");
+    const timed = await capability.tool.execute(
+      { op: "takeover", reason: "a code" },
       api,
       {} as never,
     );
+    expect(timed.structuredOutput).toMatchObject({ outcome: "timed-out" });
+    const { tool, facility } = rig();
+    const call = tool.execute({ op: "takeover", reason: "a code needs you" }, api, {} as never);
     await new Promise((resolve) => setTimeout(resolve, 20));
     await facility.takeovers.cancel(facility.takeovers.list()[0]?.id ?? "");
-    const reply = await call;
-    expect(reply.isError).toBeUndefined();
-    expect(text(reply)).toContain("stepped away");
-    expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "stepped-away" });
+    expect((await call).structuredOutput).toMatchObject({ outcome: "stepped-away" });
   });
 
-  it("an abandoned ask closes at its cap and never pins the turn", async () => {
-    const facility = browserSessionFacility({
-      root: scratch,
-      backend: () => fakeBackend(),
-      takeoverMaxMs: 40,
-    });
-    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
-    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
-    const reply = await capability.tool.execute(
-      { op: "takeover", reason: "the sign-in needs you" },
-      api,
-      {} as never,
-    );
-    expect(reply.isError).toBeUndefined();
-    expect(text(reply)).toContain("did not take the controls");
-    expect(reply.structuredOutput).toMatchObject({ ok: true, outcome: "timed-out" });
-    // The hold went with the close.
-    expect(facility.takeovers.list()).toEqual([]);
-    expect(facility.takeovers.holds("conv-1")).toBe(false);
+  it("extends an open ask, never past the ceiling", async () => {
+    const { tool, facility } = rig();
+    const call = tool.execute({ op: "takeover", reason: "a code" }, api, {} as never);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const row = facility.takeovers.list()[0];
+    const extended = facility.takeovers.extend(row?.id ?? "");
+    expect(extended?.deadline).toBeGreaterThanOrEqual(row?.deadline ?? 0);
+    expect((extended?.deadline ?? 0) - (row?.openedAt ?? 0)).toBeLessThanOrEqual(2 * 60 * 60_000);
+    await facility.takeovers.cancel(row?.id ?? "");
+    await call;
   });
 
-  it("gates only the acts: reads, the ask and close run without a card", () => {
+  it("gates only the acts", () => {
     const { tool } = rig();
     const gatedWhen = (tool as { gatedWhen?: (args: unknown) => boolean }).gatedWhen;
-    expect(gatedWhen).toBeDefined();
-    for (const op of ["click", "type", "press"]) expect(gatedWhen?.({ op })).toBe(true);
-    for (const op of ["open", "read", "shot", "takeover", "close"]) {
+    for (const op of ["click", "type", "press", "dialog", "upload"])
+      expect(gatedWhen?.({ op })).toBe(true);
+    for (const op of ["open", "read", "snapshot", "shot", "takeover", "close"])
       expect(gatedWhen?.({ op })).toBe(false);
-    }
   });
 
-  it("a stopped turn closes its waiting ask (no takeover left for nobody)", async () => {
-    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
-    const changes: string[] = [];
-    facility.takeovers.listen((change) => changes.push(change.kind));
-    const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
-    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+  it("a stopped turn closes its waiting ask", async () => {
+    const { tool, facility } = rig();
     const stop = new AbortController();
-    const call = capability.tool.execute({ op: "takeover", reason: "the sign-in needs you" }, api, {
+    const call = tool.execute({ op: "takeover", reason: "sign-in" }, api, {
       abortSignal: stop.signal,
     } as never);
     await new Promise((resolve) => setTimeout(resolve, 20));
-    // The ask is announced the moment it opens — not when the call returns.
-    expect(changes).toEqual(["opened"]);
     stop.abort();
-    const reply = await call;
-    expect(reply.structuredOutput).toMatchObject({ outcome: "stepped-away" });
+    expect((await call).structuredOutput).toMatchObject({ outcome: "stepped-away" });
     expect(facility.takeovers.list()).toEqual([]);
-    expect(changes).toEqual(["opened", "closed"]);
   });
 
-  it("lists the session while it runs and forgets it on close", async () => {
-    const facility = browserSessionFacility({ root: scratch, backend: () => fakeBackend() });
-    let signals = 0;
-    facility.browsers.listen(() => {
-      signals += 1;
+  it("lists one row per bot, closes it when the task ends or it idles", async () => {
+    const { tool, facility, seen } = rig({ idleMs: 40 });
+    await tool.execute({ op: "open", url: "https://example.test/page" }, api, {} as never);
+    expect(facility.browsers.list()).toMatchObject([
+      { bot: "default", conversationId: "conv-1", title: "A page" },
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(facility.browsers.list()).toEqual([]);
+    expect(seen.at(-1)).toMatchObject({ op: "close", force: true });
+    await tool.execute({ op: "open", url: "https://example.test/page" }, api, {} as never);
+    facility.life.release("conv-1");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(facility.browsers.list()).toEqual([]);
+  });
+
+  it("restores saved sign-ins on a first open and saves them again on close", async () => {
+    const saved: SavedSignin[] = [];
+    const store: SigninStore = {
+      sites: () => undefined,
+      list: () => [],
+      load: () => ({
+        sites: ["example.test"],
+        savedAt: 1,
+        ua: "UA/0",
+        cookies: [{ name: "a", domain: "example.test" }],
+      }),
+      save: (_owner, _profile, record) => void saved.push({ ...record, savedAt: 2 }),
+      forget: () => true,
+    };
+    const seen: Request[] = [];
+    const facility = browserSessionFacility({
+      root: scratch,
+      backend: () => fakeBackend(seen),
+      signins: store,
+      holder: {
+        get: () => ({ scopeOf: () => ({ owner: "o", profile: "p" }) }),
+      } as never,
     });
     const capability = facility.plugin.capabilities.find((candidate) => candidate.kind === "tool");
-    if (capability?.kind !== "tool") throw new Error("no browser_session tool");
+    if (capability?.kind !== "tool") throw new Error("no tool");
     await capability.tool.execute(
       { op: "open", url: "https://example.test/page" },
       api,
       {} as never,
     );
-    expect(facility.browsers.list()).toMatchObject([
-      { conversationId: "conv-1", url: "https://example.test/page", title: "A page" },
-    ]);
-    // The same page again changes nothing the list shows: no signal.
-    await capability.tool.execute({ op: "read" }, api, {} as never);
-    expect(signals).toBe(1);
+    expect(seen.map((request) => request.op)).toEqual(["cookies_import", "open"]);
+    expect(seen[1]).toMatchObject({ ua: "UA/0" });
     await capability.tool.execute({ op: "close" }, api, {} as never);
-    expect(facility.browsers.list()).toEqual([]);
-    expect(signals).toBe(2);
+    expect(saved).toMatchObject([{ sites: ["example.test"], ua: "UA/1" }]);
+    expect(facility.life.history("o", "p").map((row) => row.kind)).toEqual([
+      "restore",
+      "page",
+      "close",
+    ]);
   });
 });

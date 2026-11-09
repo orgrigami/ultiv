@@ -62,6 +62,8 @@ export interface TaskWiring {
    * rescue attempt on it (run.ts).
    */
   readonly fallbackModel?: () => Promise<TaskModel | null>;
+  /** A task's run is over (done, failed or stopped): release what its conversation held. */
+  readonly onSettled?: (conversationId: string) => void;
 }
 
 /** Mutable wiring shared by the service's parts. */
@@ -303,6 +305,11 @@ export const runTask = (rt: TaskRuntime, task: TaskInfo, input: string): void =>
     }
     rt.followers.delete(task.id);
     rt.closing.delete(task.id);
+    try {
+      if (task.conversationId !== null) rt.wiring.onSettled?.(task.conversationId);
+    } catch (cause) {
+      console.error(`task ${task.id} settle hook failed:`, cause);
+    }
     await announce(rt, task.id);
     await wakeWithFiles(rt, task.id);
     await rt.pump().catch((cause) => console.error("task queue failed:", cause));

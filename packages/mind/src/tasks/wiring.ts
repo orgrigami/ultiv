@@ -29,6 +29,8 @@ export const taskWiring = (
     ) => Promise<{ readonly today: number; readonly budget: number | null }>;
     /** The workspace fallback model, catalog-validated; null = none. */
     readonly fallbackModel?: () => Promise<{ readonly id: string; readonly effort: string } | null>;
+    /** A task's run ended: release what its conversation held (its browser). */
+    readonly onSettled?: (conversationId: string) => void;
   } = {},
   root: string = artifactsDir(),
 ): TaskWiring => ({
@@ -51,4 +53,5 @@ export const taskWiring = (
   ...(extras.stopJobsOf !== undefined ? { stopJobsOf: extras.stopJobsOf } : {}),
   ...(extras.spendOf !== undefined ? { spendOf: extras.spendOf } : {}),
   ...(extras.fallbackModel !== undefined ? { fallbackModel: extras.fallbackModel } : {}),
+  ...(extras.onSettled !== undefined ? { onSettled: extras.onSettled } : {}),
 });

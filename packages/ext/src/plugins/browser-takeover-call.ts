@@ -7,25 +7,20 @@
  * dead turn never leaves the owner a takeover nobody is waiting on, or the
  * hold standing over a browser no one will use.
  */
-import type {
-  TakeoverOutcome,
-  TakeoverRegistry,
-  TakeoverAct,
-  TakeoverState,
-} from "../browser/takeover.ts";
+import type { TakeoverOutcome, TakeoverRegistry } from "../browser/takeover.ts";
 
 type PageReply = {
-  readonly url?: string;
-  readonly title?: string;
+  readonly url?: unknown;
+  readonly title?: unknown;
+  readonly [key: string]: unknown;
 };
 
-export interface TakeoverCallDeps {
+export interface TakeoverCallDeps<R extends PageReply = PageReply> {
   readonly takeovers: TakeoverRegistry;
-  readonly act: (act: TakeoverAct) => Promise<TakeoverState>;
   /** Read the page as it stands (after a finish). */
-  readonly read: () => Promise<PageReply>;
+  readonly read: () => Promise<R>;
   /** The model-facing text of a read. */
-  readonly pageText: (reply: PageReply) => string;
+  readonly pageText: (reply: R) => string;
 }
 
 const NOTES: Record<Exclude<TakeoverOutcome, "finished">, string> = {
@@ -50,13 +45,13 @@ export const signalOf = (context: unknown): AbortSignal | undefined => {
 
 const text = (value: string) => [{ type: "text" as const, text: value }];
 
-export const takeoverCall = async (
-  deps: TakeoverCallDeps,
+export const takeoverCall = async <R extends PageReply>(
+  deps: TakeoverCallDeps<R>,
   conversationId: string,
   reason: string,
   signal: AbortSignal | undefined,
 ) => {
-  const row = await deps.takeovers.open({ conversationId, reason, act: deps.act });
+  const row = await deps.takeovers.open({ conversationId, reason });
   // A turn stopped while the owner drives closes the ask as a step-away.
   const onAbort = (): void => void deps.takeovers.cancel(row.id);
   if (signal?.aborted === true) onAbort();
@@ -73,7 +68,7 @@ export const takeoverCall = async (
       structuredOutput: { ok: true, takeover: row.id, outcome },
     };
   }
-  let page: PageReply;
+  let page: R;
   try {
     page = await deps.read();
   } catch (cause) {
@@ -93,8 +88,8 @@ export const takeoverCall = async (
       ok: true,
       takeover: row.id,
       outcome,
-      ...(page.url !== undefined ? { url: page.url } : {}),
-      ...(page.title !== undefined ? { title: page.title } : {}),
+      ...(typeof page.url === "string" ? { url: page.url } : {}),
+      ...(typeof page.title === "string" ? { title: page.title } : {}),
     },
   };
 };
