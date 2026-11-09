@@ -129,6 +129,9 @@ const REFUSALS: Record<string, (reply: BrokerReply, args: SessionArgs) => string
   "no-dialog": () => "no dialog is open on the page.",
   "no-users": (reply) => String(reply.error),
   full: (reply) => String(reply.error),
+  timeout: (reply) =>
+    `${String(reply.error)}. Try again in a moment; if it keeps happening, your owner can give ` +
+    "your home's VM more memory.",
   "no-browser": (reply) =>
     `${String(reply.error)}: your owner needs to rebuild and load the VM image ` +
     "(packages/ext/sandbox/Dockerfile) before you can browse.",

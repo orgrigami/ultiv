@@ -50,13 +50,34 @@ def chromium_major(binary):
     return "131"
 
 
+# Measured in real VMs (docs/CAPACITY.md, Nov 2026): chromium with its first
+# tab costs ~380 MiB of VM memory, each further bot's tab ~100-230 MiB. The
+# cap keeps ~100 MiB of headroom: 512 MiB -> 1 bot, 1 GiB -> 4, 2 GiB -> 8.
+BROWSER_BASE_MIB = 380
+TAB_BUDGET_MIB = 160
+MAX_SESSIONS = 8
+
+
+def sessions_for_memory():
+    try:
+        with open("/proc/meminfo") as handle:
+            for line in handle:
+                if line.startswith("MemTotal:"):
+                    total = int(line.split()[1]) // 1024
+                    room = (total - BROWSER_BASE_MIB) // TAB_BUDGET_MIB
+                    return max(1, min(MAX_SESSIONS, 1 + room))
+    except (OSError, ValueError):
+        pass
+    return 1
+
+
 class Broker:
     def __init__(self, args):
         self.args = args
         self.version = args.version
         # Bots browsing at once in this home: each is a tab (and its popups)
-        # in one chromium inside the VM's memory (docs/CAPACITY.md).
-        self.max_sessions = max(1, args.max_sessions)
+        # in one chromium inside the VM's memory. 0 = size it from the VM.
+        self.max_sessions = max(1, args.max_sessions) if args.max_sessions > 0 else sessions_for_memory()
         self.events = queue.Queue()
         self.sessions = Sessions(args.data, args.lang)
         self.cdp = None
@@ -217,7 +238,7 @@ def main():
     parser.add_argument("--chromium", default="chromium")
     parser.add_argument("--lang", default="en-US,en")
     parser.add_argument("--tmp", default="")
-    parser.add_argument("--max-sessions", type=int, default=4)
+    parser.add_argument("--max-sessions", type=int, default=0)
     broker = Broker(parser.parse_args())
     signal.signal(signal.SIGTERM, broker.shutdown)
     signal.signal(signal.SIGINT, broker.shutdown)

@@ -32,14 +32,32 @@ in `packages/ext/var/probe/` and is not committed.
   measured: the cast's own memory/CPU overhead and per-frame sizes under
   real pages. Casts are bounded by construction: one per session while
   someone watches or drives, wound down when the last viewer leaves.
-- **One shared browser, many bots (the broker, Nov 2026)**: a home VM runs
-  ONE chromium; each browsing bot adds a context and one tab (plus at most 3
-  popups), not a browser. NOT YET MEASURED: the per-tab cost under real
-  pages and how many bots browsing at once a 512 MiB VM holds — measure it
-  (several bots, real sign-in pages, popups) before choosing a per-home cap
-  on concurrent browsing bots. Until then, keep browser-heavy bots spread
-  across homes, and remember the idle window (10 min) and the task-end
-  close keep forgotten tabs from piling up.
+- **One shared browser, many bots (the broker, measured 10 Nov 2026)**: a
+  home VM runs ONE chromium; each browsing bot adds a context and a tab.
+  Real pages in real microVMs (`netOpen`, one bot per page):
+
+  | VM              | bots browsing           | VM memory used                           | available |
+  | --------------- | ----------------------- | ---------------------------------------- | --------- |
+  | 1 CPU / 512 MiB | 0                       | 62 MiB                                   | 454 MiB   |
+  |                 | 1 (accounts.google.com) | 422 MiB                                  | 94 MiB    |
+  |                 | 2 (+ en.wikipedia.org)  | 499 MiB                                  | 17 MiB    |
+  |                 | 3 (+ github.com/login)  | the open timed out (memory exhausted)    |           |
+  | 2 CPU / 1 GiB   | 0                       | 68 MiB                                   | 952 MiB   |
+  |                 | 1 (Google)              | 436 MiB                                  | 583 MiB   |
+  |                 | 2 (+ Wikipedia)         | 576 MiB                                  | 444 MiB   |
+  |                 | 3 (+ GitHub)            | 679 MiB                                  | 340 MiB   |
+  |                 | 4 (+ bbc.com/news)      | 911 MiB                                  | 109 MiB   |
+  |                 | 5 (+ tokopedia.com)     | 1000 MiB                                 | 19 MiB    |
+  |                 | 6 (+ youtube.com)       | the kernel OOM-killed a chromium process |           |
+
+  So chromium with its first tab costs ~370-380 MiB, and each further bot's
+  tab ~100-230 MiB depending on the page. The broker's cap is sized from
+  the VM's memory (`sessions_for_memory` in `vm/broker.py`: 380 MiB base,
+  160 MiB per further tab, ~100 MiB headroom): **512 MiB → 1 bot browsing
+  at once, 1 GiB → 4, 2 GiB → 8** (the ceiling); the next bot gets a
+  worded `full` refusal, never an OOM kill. A browser-heavy home wants a
+  bigger VM (Crew › team settings). Verified: a 512 MiB VM with the
+  automatic cap refuses the second bot cleanly and stays at ~330 MiB.
 
 ## Reading
 

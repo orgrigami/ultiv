@@ -80,23 +80,26 @@ boundaries), docs/LIVE.md (the cast wire).
 | 33  | Tests                                                      | done: unit + REAL chromium (`browser/broker.test.ts`); two-users-in-a-VM suite written (`shell/real-vm-browser.test.ts`) |
 | 34  | Done criteria                                              | see below                                                                                                                |
 
-## What could not be verified from the development machine
+## Verified on real microVMs (10 Nov 2026)
 
-These need the owner's machine (microsandbox) or the owner:
+- **The real-VM suite passes** (`SPRIESSEN_REAL_VM=1 vp test --run
+  packages/ext/src/shell/real-vm-browser.test.ts`): the broker runs as
+  `spbrowser`, a bot's `bash` can reach neither its socket nor port 9222,
+  the bot's home is untouched, two bot users' cookies stay apart, and the
+  live cast streams through the root relay.
+- **Memory is measured** (docs/CAPACITY.md): 512 MiB holds one browsing
+  bot with headroom, 1 GiB four; the cap is now sized from the VM, and a
+  timed-out call is a worded refusal.
 
-- **The real-VM suite** (`SPRIESSEN_REAL_VM=1 vp test --run
-  packages/ext/src/shell/real-vm-browser.test.ts`): two bot users in one VM,
-  the broker out of a bot's reach, cookies apart, the cast. Not run: no
-  microsandbox runtime on the development machine.
-- **Memory for several bots browsing at once** (docs/CAPACITY.md): needs a
-  VM. The per-home cap of 4 is a guess until measured.
+## Still the owner's to check
+
 - **A real phone.** The phone layout, the hidden-keyboard path, taps,
-  dialogs and full screen were exercised end to end in a 390-px headless
-  chromium (the real panel, the real routes and `/cast` socket, the real
-  broker), not on an iPhone or Android keyboard.
+  dialogs and full screen were exercised end to end at 390 px in headless
+  chromium (the real panel, routes, `/cast` socket and broker), not on an
+  iPhone or Android keyboard.
 - **The done criterion**: Sebastian signs in to Google once from a phone,
-  the next day's routine reuses it with no takeover, and another bot in the
-  same home cannot reach his session.
+  the next day's routine reuses it with no takeover. (The other half —
+  another bot cannot reach his session — is the real-VM suite above.)
 
 ## Deferred on purpose
 

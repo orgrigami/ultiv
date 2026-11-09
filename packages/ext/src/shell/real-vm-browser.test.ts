@@ -24,6 +24,9 @@ const VM = `spriessen-rvtb-${tag}`;
 const alice = { name: "bot-rvtba", uid: 20_104, gid: 20_104, home: "/home/rvtba" };
 const bob = { name: "bot-rvtbb", uid: 20_105, gid: 20_105, home: "/home/rvtbb" };
 const SITE = "http://127.0.0.1:8077";
+// Two bots browsing at once need 1 GiB: the broker sizes its cap from the
+// VM's memory, and 512 MiB holds one (docs/CAPACITY.md).
+const TWO_BOTS = { cpus: 1, memoryMiB: 1024 };
 
 const suite = REAL ? describe : describe.skip;
 
@@ -39,17 +42,32 @@ suite(
       const stage = join(homedir(), "workspace", ".ultiv-stage", "tmp");
       mkdirSync(stage, { recursive: true });
       scratch = mkdtempSync(join(stage, "rvtb-"));
-      a = sandboxShellBackend({ name: VM, guestRoot: alice.home, user: alice, netOpen: false })(
-        join(scratch, "a"),
-      );
-      b = sandboxShellBackend({ name: VM, guestRoot: bob.home, user: bob, netOpen: false })(
-        join(scratch, "b"),
-      );
+      a = sandboxShellBackend({
+        name: VM,
+        guestRoot: alice.home,
+        user: alice,
+        netOpen: false,
+        vm: TWO_BOTS,
+      })(join(scratch, "a"));
+      b = sandboxShellBackend({
+        name: VM,
+        guestRoot: bob.home,
+        user: bob,
+        netOpen: false,
+        vm: TWO_BOTS,
+      })(join(scratch, "b"));
       await a.prepare([]);
       await b.prepare([]);
       await a.exec(
-        `mkdir -p ${alice.home}/site && printf '<title>Page</title><form onsubmit="event.preventDefault();document.cookie=\\'sid=1; max-age=999\\';document.title=\\'in\\'"><input name=u><button>go</button></form>' > ${alice.home}/site/page.html && ` +
-          `nohup python3 -m http.server 8077 --directory ${alice.home}/site >/dev/null 2>&1 & sleep 0.5`,
+        [
+          `mkdir -p ${alice.home}/site`,
+          // A quoted heredoc: the page's own quotes never meet the shell.
+          `cat > ${alice.home}/site/page.html <<'__PAGE__'`,
+          `<title>Page</title><form onsubmit="event.preventDefault(); document.cookie='sid=1; max-age=999'; document.title='in'"><input name=u><button>go</button></form>`,
+          "__PAGE__",
+          // Detached in a subshell: the page server must outlive this exec.
+          `(nohup python3 -m http.server 8077 --directory ${alice.home}/site >/dev/null 2>&1 &); sleep 1`,
+        ].join("\n"),
         "/home",
         30_000,
       );
@@ -70,7 +88,7 @@ suite(
           conv: "c-a",
           url: `${SITE}/page.html`,
         });
-        expect(opened).toMatchObject({ ok: true, title: "Page" });
+        expect(opened, JSON.stringify(opened)).toMatchObject({ ok: true, title: "Page" });
         const owner = await a.rootExec?.(
           `stat -c %U ${VM_BROKER_PATHS.run} && pgrep -u spbrowser -c chrom`,
           30_000,

@@ -113,8 +113,10 @@ def claim(broker, req, create=False):
         if len(live) >= broker.max_sessions:
             raise Refused(
                 "full",
-                "this home's browser is full: %d bots are browsing at once; wait for one to "
-                "finish (sessions close when their task ends or after 10 quiet minutes)" % len(live),
+                "this home's browser is full: %s browsing at once is all its VM's memory "
+                "holds; wait for one to finish (sessions close when their task ends or after "
+                "10 quiet minutes), or ask your owner to give the home's VM more memory"
+                % ("1 bot" if len(live) == 1 else "%d bots" % len(live)),
             )
         broker.ensure_browser()
         sess = broker.sessions.open(bot, str(req.get("ua") or broker.default_ua))

@@ -38,7 +38,7 @@ export interface BrokerPaths {
   readonly chromium: string;
   /** A short TMPDIR for chromium's singleton socket (empty: under data). */
   readonly tmp: string;
-  /** Bots that may browse at once in this home (default 4; docs/CAPACITY.md). */
+  /** Bots that may browse at once in this home (default: sized from the VM's memory; docs/CAPACITY.md). */
   readonly maxSessions?: number;
 }
 
@@ -92,7 +92,7 @@ export const brokerStartScript = (paths: BrokerPaths): string => {
   const data = quoted(paths.data);
   const asUser = paths.user;
   const tmp = paths.tmp === "" ? "" : ` --tmp ${quoted(paths.tmp)}`;
-  const cap = ` --max-sessions ${Math.max(1, Math.trunc(paths.maxSessions ?? 4))}`;
+  const cap = ` --max-sessions ${Math.max(0, Math.trunc(paths.maxSessions ?? 0))}`;
   return [
     "set -u",
     `mkdir -p ${quoted(paths.install)} ${run} ${data}`,

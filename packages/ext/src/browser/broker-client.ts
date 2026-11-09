@@ -114,14 +114,28 @@ export const brokerClient = (paths: BrokerPaths = VM_BROKER_PATHS): BrokerClient
     return lastJson(result.stdout) ?? down(result.stderr.trim());
   };
 
+  /** A call the VM gave up on (its exec timed out, the VM went away) is a refusal, not a crash. */
+  const safely = async (run: () => Promise<BrokerReply>): Promise<BrokerReply> => {
+    try {
+      return await run();
+    } catch (cause) {
+      return {
+        ok: false,
+        kind: "timeout",
+        error: `the browser did not answer in time (${String(cause).slice(0, 120)}); the VM may be short of memory`,
+      };
+    }
+  };
+
   return {
-    call: async (backend, request, options = {}) => {
-      const first = await once(backend, request, options);
-      if (first.kind !== "broker-down") return first;
-      const started = await start(backend);
-      if (started.ok !== true) return started;
-      return once(backend, request, options);
-    },
+    call: (backend, request, options = {}) =>
+      safely(async () => {
+        const first = await once(backend, request, options);
+        if (first.kind !== "broker-down") return first;
+        const started = await start(backend);
+        if (started.ok !== true) return started;
+        return once(backend, request, options);
+      }),
     relay: async (backend, timeoutMs) => {
       if (backend.rootStream === undefined) {
         if (backend.stream === undefined) throw new Error("this backend cannot stream a live view");
