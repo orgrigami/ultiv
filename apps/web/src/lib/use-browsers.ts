@@ -14,6 +14,8 @@ export interface TakeoverAsk {
   readonly conversationId: string;
   readonly reason: string;
   readonly openedAt: number;
+  /** When the ask closes by itself unless extended (ms). */
+  readonly deadline: number;
   readonly profileId: string | null;
   readonly botName: string;
 }

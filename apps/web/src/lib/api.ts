@@ -46,6 +46,8 @@ import type {
   ServerCheck,
   TaskActivity,
 } from "./api-types.ts";
+import type { TakeoverAct } from "./takeover-cast.ts";
+
 /** One bot browser session as the Browsers panel lists it. */
 export interface BrowserSessionRow {
   conversationId: string;
@@ -56,6 +58,27 @@ export interface BrowserSessionRow {
   botName: string;
   /** The open takeover ask on this session (its call waits on you), if any. */
   takeoverId: string | null;
+  /** The page on show is a popup the bot's page opened. */
+  popup?: boolean;
+  /** An open page dialog's message: the page waits on an answer. */
+  dialog?: string | null;
+  /** The page asked for a file. */
+  chooser?: boolean;
+}
+
+/** A bot's saved browser sign-ins (site names only). */
+export interface BrowserSigninRow {
+  profileId: string;
+  botName: string;
+  sites: string[];
+  savedAt: number;
+}
+
+/** One line of a bot's browsing history. */
+export interface BrowserHistoryRow {
+  at: number;
+  kind: string;
+  text: string;
 }
 
 export type {
@@ -397,21 +420,27 @@ export const api = {
       conversationId: string;
       reason: string;
       openedAt: number;
+      deadline: number;
       profileId: string | null;
       botName: string;
     }[];
   }> => getJson("/api/browser/takeover"),
-  browserTakeoverCastAct: (
-    id: string,
-    act:
-      | { a: "tap"; x: number; y: number; id: string }
-      | { a: "type"; text: string }
-      | { a: "key"; key: string }
-      | { a: "scroll"; dx: number; dy: number }
-      | { a: "nav"; url: string }
-      | { a: "reload" },
-  ): Promise<{ ok: boolean }> =>
+  browserTakeoverCastAct: (id: string, act: TakeoverAct): Promise<{ ok: boolean }> =>
     send(`/api/browser/takeover/${encodeURIComponent(id)}/cast/act`, "POST", act),
+  /** A cast's picture changed size on screen (path = the cast's own path). */
+  browserCastSize: (castPath: string, w: number, h: number): Promise<{ ok: boolean }> =>
+    send(`${castPath}/size`, "POST", { w, h }),
+  browserTakeoverExtend: (id: string): Promise<{ ok: boolean; deadline: number }> =>
+    send(`/api/browser/takeover/${encodeURIComponent(id)}/extend`, "POST", {}),
+  /** The owner's Close: the bot's session ends whoever holds it (sign-ins saved). */
+  browserSessionClose: (conversationId: string): Promise<{ ok: boolean }> =>
+    send(`/api/browser/sessions/${encodeURIComponent(conversationId)}`, "DELETE"),
+  browserSignins: (): Promise<{ signins: BrowserSigninRow[]; available: boolean }> =>
+    getJson("/api/browser/signins"),
+  browserForget: (profileId: string): Promise<{ ok: boolean; forgot: boolean }> =>
+    send(`/api/browser/signins/${encodeURIComponent(profileId)}`, "DELETE"),
+  browserHistory: (profileId: string): Promise<{ history: BrowserHistoryRow[] }> =>
+    getJson(`/api/browser/history/${encodeURIComponent(profileId)}`),
   browserTakeoverFinish: (id: string): Promise<{ ok: boolean }> =>
     send(`/api/browser/takeover/${encodeURIComponent(id)}/finish`, "POST", {}),
   browserTakeoverCancel: (id: string): Promise<{ ok: boolean }> =>

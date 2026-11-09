@@ -32,8 +32,10 @@ and pages). The rest open from them.
   (its Persona and Instructions files, with history), Memory, Work
   (what it is running now, its goals over days with the tasks and
   routines linked to each, and its routines; your owner ticks milestones
-  and pauses or drops goals there), Browser (your browser sessions: a
-  takeover ask to drive, the rest to watch live), Routines,
+  and pauses or drops goals there), Browser (your browser session: a
+  takeover ask your owner drives with full screen, phone keyboard and paste;
+  your session to watch live or Close, the sites you stay signed in to,
+  which your owner can Forget, and what your browser did), Routines,
   Access (approval mode, always-allowed tools, tool list, host access),
   Files (its own workspace, one tree with folders; a file you overwrite
   keeps its earlier versions, which your owner can open or restore from

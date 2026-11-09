@@ -7,13 +7,16 @@
  * live signal) as a LIVE view the owner drives directly — clicks, typing,
  * the wheel, the url bar (takeover-live-card). The bot's call BLOCKS while
  * you drive; Finish hands the page straight back to it, mid-task. Every
- * other session lists below it, with a watch-only live view on demand.
+ * other session lists below it (one per bot), with a watch-only live view
+ * on demand and Close; then the bots' saved sign-ins (Forget), and — on a
+ * bot's own tab — what its browser did.
  */
 import { SectionHeader } from "@/components/ui/section-header";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { SkeletonRows } from "@/components/ui/skeleton";
 import { TakeoverLiveCard } from "@/components/takeover-live-card";
 import { BrowserWatchCard } from "@/components/browser-watch-card";
+import { BrowserHistory, SavedSignins } from "@/components/browser-signins";
 import { useBrowsers } from "@/lib/use-browsers";
 
 export function BrowsersPanel({ botId }: { botId?: string }) {
@@ -38,13 +41,16 @@ export function BrowsersPanel({ botId }: { botId?: string }) {
         <TakeoverLiveCard key={row.id} row={row} onGone={reload} />
       ))}
       {watching.map((row) => (
-        <BrowserWatchCard key={row.conversationId} row={row} showBot={showBot} />
+        <BrowserWatchCard key={row.conversationId} row={row} showBot={showBot} onClosed={reload} />
       ))}
       <p className="text-muted-foreground text-xs">
-        While you hold the controls, the bot's own browser acts (even opening a page) are refused
-        and its takeover call waits; Finish hands the page straight back to it. Watching never
-        touches the page.
+        Each bot has its own browser, closed when its task ends or after 10 quiet minutes. While you
+        hold the controls, the bot's own browser acts (even opening a page) are refused and its
+        takeover call waits; Finish hands the page straight back to it. Watching never touches the
+        page.
       </p>
+      <SavedSignins {...(botId !== undefined ? { botId } : {})} />
+      {botId !== undefined && <BrowserHistory botId={botId} />}
     </div>
   );
 }
