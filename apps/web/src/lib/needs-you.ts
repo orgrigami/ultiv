@@ -34,6 +34,8 @@ export interface NeedsYouExtra {
   parked?: ParkedRow[];
   /** Open browser takeover asks: each a bot call waiting on the owner (older servers leave it out). */
   takeovers?: TakeoverNeedRow[];
+  /** Bots' browsers that closed by themselves mid-work lately (older servers leave it out). */
+  browserLost?: { profile: string; conversationId: string; at: number; reason: string }[];
 }
 
 /** A bot asked the owner to drive its browser (a sign-in, a code); its call waits. */
@@ -54,7 +56,14 @@ export interface ParkedRow {
   sessionId: string | null;
 }
 
-export type NeedsKind = "approval" | "takeover" | "parked" | "failed-task" | "escalation" | "tidy";
+export type NeedsKind =
+  | "approval"
+  | "takeover"
+  | "parked"
+  | "failed-task"
+  | "browser-lost"
+  | "escalation"
+  | "tidy";
 
 /** Where a row leads: a chat (by session or by bot) or a Crew profile tab. */
 export type NeedsTarget =
@@ -86,8 +95,9 @@ const RANK: Record<NeedsKind, number> = {
   takeover: 1,
   parked: 2,
   "failed-task": 3,
-  escalation: 4,
-  tidy: 5,
+  "browser-lost": 4,
+  escalation: 5,
+  tidy: 6,
 };
 
 export function needsYouItems(input: {
@@ -182,6 +192,22 @@ export function needsYouItems(input: {
         task.sessionId !== ""
           ? { kind: "session", sessionId: task.sessionId }
           : { kind: "bot-chat", botId },
+      dismissable: true,
+    });
+  }
+
+  for (const row of input.extra?.browserLost ?? []) {
+    const name = bots.get(row.profile);
+    if (name === undefined) continue;
+    items.push({
+      id: `browser-lost:${row.conversationId}:${row.at}`,
+      kind: "browser-lost",
+      botId: row.profile,
+      botName: name,
+      title: `${name}'s browser closed in the middle of its work`,
+      detail: `${row.reason}. It can open it again; its sign-ins are kept.`,
+      at: row.at,
+      target: { kind: "profile", botId: row.profile, tab: "browser" },
       dismissable: true,
     });
   }

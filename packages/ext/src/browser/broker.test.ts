@@ -70,6 +70,7 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
       user: null,
       chromium: chromium ?? "chromium",
       tmp: join(root, "t"),
+      maxSessions: 2,
     };
     server = createServer((req, res) => {
       const body = PAGES[req.url ?? "/"];
@@ -93,7 +94,7 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("starts on demand and gives each bot its own session", { timeout: 90_000 }, async () => {
+  it("starts on demand and gives each bot its own session", { timeout: 240_000 }, async () => {
     // The very first call starts the broker and chromium; on a machine busy
     // with the whole suite that can miss once — the second try must not.
     let opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
@@ -111,6 +112,11 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
     expect(snap.elements).toEqual(expect.arrayContaining(['[2] button "Open popup"']));
     expect(await call({ op: "open", bot: "b", conv: "c3", url: `${site}/` })).toMatchObject({
       ok: true,
+    });
+    // Two bots browsing fill this home's browser: a third waits its turn.
+    expect(await call({ op: "open", bot: "c", conv: "c4", url: `${site}/` })).toMatchObject({
+      ok: false,
+      kind: "full",
     });
   });
 

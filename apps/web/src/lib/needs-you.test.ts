@@ -257,4 +257,30 @@ describe("needsElsewhere", () => {
     expect(needsPillLabel(items.slice(1, 2))).toBe("Bot b wants to run bash");
     expect(needsPillLabel(items.slice(0, 3))).toBe("3 things need you");
   });
+
+  it("lists a bot's browser that closed by itself, dismissable, linking to its Browser tab", () => {
+    const items = needsYouItems({
+      approvals: [],
+      tasks: [],
+      extra: {
+        tidy: [],
+        escalations: [],
+        chats: {},
+        browserLost: [
+          { profile: "eve", conversationId: "c1", at: 5, reason: "the browser stopped" },
+        ],
+      },
+      profiles: [{ id: "eve", name: "Eve", archivedAt: null } as never],
+      dismissed: new Set(),
+      now: 10,
+    });
+    expect(items).toEqual([
+      expect.objectContaining({
+        kind: "browser-lost",
+        title: "Eve's browser closed in the middle of its work",
+        target: { kind: "profile", botId: "eve", tab: "browser" },
+        dismissable: true,
+      }),
+    ]);
+  });
 });

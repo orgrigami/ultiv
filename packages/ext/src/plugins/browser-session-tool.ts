@@ -128,6 +128,10 @@ const REFUSALS: Record<string, (reply: BrokerReply, args: SessionArgs) => string
   "no-session": () => "no browser is open: op open starts one.",
   "no-dialog": () => "no dialog is open on the page.",
   "no-users": (reply) => String(reply.error),
+  full: (reply) => String(reply.error),
+  "no-browser": (reply) =>
+    `${String(reply.error)}: your owner needs to rebuild and load the VM image ` +
+    "(packages/ext/sandbox/Dockerfile) before you can browse.",
   "browser-down": (reply) => `${reply.error ?? "the browser stopped"} — op open starts it again.`,
 };
 
@@ -323,6 +327,12 @@ const takeover = async (
   args: SessionArgs,
   context: unknown,
 ) => {
+  // The owner drives a session: a takeover asked before any page opens one.
+  const opened = await deps.life.run(conversationId, { op: "status" });
+  if ((opened.session ?? null) === null) {
+    const blank = await deps.life.run(conversationId, { op: "open", url: "about:blank" });
+    if (blank.ok !== true) return fail(blank.error ?? "the browser could not open for your owner");
+  }
   const result = await takeoverCall(
     {
       takeovers: deps.takeovers,

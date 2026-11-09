@@ -1,7 +1,8 @@
 /**
  * The purge cascade: every store a bot touches (registry row and sessions,
- * mailbox, memory, vault, schedules, webhooks, watches, rooms, its artifact
- * tree, its file tree and its skill library). The DELETE route and the main
+ * mailbox, memory, vault, schedules, webhooks, watches, rooms, its browser
+ * session and saved sign-ins, its artifact tree, its file tree and its
+ * skill library). The DELETE route and the main
  * bot's bot_delete share it.
  *
  * The bot's microVM is NOT destroyed here (phase 4, one VM per home): the
@@ -30,6 +31,9 @@ export async function purgeBot(
   // that never ran `bash` has no user anywhere. Best effort, never fails
   // the purge.
   const profile = await mind.profiles.get(owner, id).catch(() => undefined);
+  // Its browser first (needs the conversation index): the session closes
+  // unsaved, its saved sign-ins and browsing history go.
+  await mind.browserLife?.purge(owner, id).catch(() => {});
   if (profile !== undefined) await mind.org.retireBotUser(owner, profile).catch(() => {});
   const sessions = await mind.profiles.remove(owner, id);
   const sessionIds = sessions.map((row) => row.id);

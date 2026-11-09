@@ -51,6 +51,11 @@ export interface NeedsYouExtra {
     readonly profile: string;
     readonly reason: string;
   }[];
+  /** Bots' browsers that closed by themselves mid-work lately (older servers leave it out). */
+  readonly browserLost?: readonly {
+    readonly profile: string;
+    readonly reason: string;
+  }[];
 }
 
 /** GET /api/memory/v2?profile=: the parts the terminal shows. */

@@ -40,6 +40,13 @@ export interface HistoryEntry {
 
 type Scope = { readonly owner: string; readonly profile: string };
 
+/** A session that vanished under its bot (the browser crashed, the VM restarted). */
+export interface LostBrowser {
+  readonly conversationId: string;
+  readonly at: number;
+  readonly reason: string;
+}
+
 export interface BrowserLifeDeps {
   readonly resolveOf: (conversationId: string) => Promise<BrowserSeat>;
   readonly client: BrokerClient;
@@ -68,7 +75,11 @@ export interface BrowserLife {
   /** A conversation is over (its task ended): close the session it holds. */
   readonly release: (conversationId: string) => void;
   readonly forget: (owner: string, profile: string) => Promise<boolean>;
+  /** The bot is removed: its session closes unsaved, its sign-ins and history go. */
+  readonly purge: (owner: string, profile: string) => Promise<void>;
   readonly history: (owner: string, profile: string) => readonly HistoryEntry[];
+  /** Sessions that vanished under their bots lately, newest first (Needs you). */
+  readonly lost: () => readonly LostBrowser[];
   readonly hold: (conversationId: string, on: boolean) => Promise<void>;
 }
 
@@ -81,6 +92,7 @@ const hostOf = (url: string): string => {
 };
 
 type Summary = {
+  readonly holder?: string;
   readonly url?: string;
   readonly title?: string;
   readonly popup?: boolean;
@@ -93,6 +105,7 @@ export const browserLife = (deps: BrowserLifeDeps): BrowserLife => {
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const sites = new Map<string, Set<string>>();
   const histories = new Map<string, HistoryEntry[]>();
+  const lostRows: LostBrowser[] = [];
 
   const keyOf = (conversationId: string, bot: string): string => {
     const scope = deps.scopeOf?.(conversationId);
@@ -218,11 +231,28 @@ export const browserLife = (deps: BrowserLifeDeps): BrowserLife => {
       options,
     );
     if (reply.kind === "browser-down" || reply.kind === "no-session") {
+      const row = deps.browsers.ofBot(bot);
+      // A session the server still listed is gone: not a close anyone asked for.
+      if (row !== undefined && request.op !== "open") {
+        lostRows.unshift({
+          conversationId: row.conversationId,
+          at: Date.now(),
+          reason:
+            reply.kind === "browser-down"
+              ? "the browser stopped"
+              : "the browser session ended by itself",
+        });
+        lostRows.splice(20);
+        record(keyOf(row.conversationId, bot), "close", "the browser closed by itself");
+      }
       timers.delete(bot);
       deps.browsers.drop(bot);
     }
     const summary = reply.session as Summary | null | undefined;
-    if (reply.ok === true && summary !== undefined && summary !== null) {
+    // Only the HOLDER's replies move the row: a status read from another of
+    // the bot's conversations must not relabel who holds the session.
+    const held = summary?.holder === undefined || summary.holder === conversationId;
+    if (reply.ok === true && summary !== undefined && summary !== null && held) {
       deps.browsers.touch(bot, conversationId, {
         url: summary.url ?? "",
         title: summary.title ?? "",
@@ -285,7 +315,19 @@ export const browserLife = (deps: BrowserLifeDeps): BrowserLife => {
       record(`${owner}/${profile}`, "forget", "forgot every saved sign-in");
       return forgot;
     },
+    purge: async (owner, profile) => {
+      for (const row of deps.browsers.list()) {
+        const scope = deps.scopeOf?.(row.conversationId);
+        if (scope?.owner !== owner || scope.profile !== profile) continue;
+        // Nothing to save: the sign-ins go with the bot.
+        sites.delete(row.bot);
+        await closeBot(row.bot, row.conversationId, "the bot was removed", true).catch(() => false);
+      }
+      deps.signins?.forget(owner, profile);
+      histories.delete(`${owner}/${profile}`);
+    },
     history: (owner, profile) => histories.get(`${owner}/${profile}`) ?? [],
+    lost: () => [...lostRows],
     hold: async (conversationId, on) => {
       const row = deps.browsers.get(conversationId);
       if (row === undefined) return;

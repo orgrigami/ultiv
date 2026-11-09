@@ -109,6 +109,13 @@ def claim(broker, req, create=False):
     if sess is None:
         if not create:
             raise Refused("no-session", "this bot has no browser open (op open starts one)")
+        live = [s for s in broker.sessions.by_bot.values() if not s.closed]
+        if len(live) >= broker.max_sessions:
+            raise Refused(
+                "full",
+                "this home's browser is full: %d bots are browsing at once; wait for one to "
+                "finish (sessions close when their task ends or after 10 quiet minutes)" % len(live),
+            )
         broker.ensure_browser()
         sess = broker.sessions.open(bot, str(req.get("ua") or broker.default_ua))
     if conv:

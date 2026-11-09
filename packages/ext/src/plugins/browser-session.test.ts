@@ -313,6 +313,20 @@ describe("the browser session tool (fake broker)", () => {
       "page",
       "close",
     ]);
+    // Removing the bot: its session closes unsaved, sign-ins and history go.
+    await capability.tool.execute(
+      { op: "open", url: "https://example.test/page" },
+      api,
+      {} as never,
+    );
+    const before = saved.length;
+    let forgot = false;
+    (store as { forget: SigninStore["forget"] }).forget = () => (forgot = true);
+    await facility.life.purge("o", "p");
+    expect(saved.length).toBe(before);
+    expect(forgot).toBe(true);
+    expect(facility.browsers.list()).toEqual([]);
+    expect(facility.life.history("o", "p")).toEqual([]);
   });
 
   it("the owner signs a bot in: page opened, controls handed over, sign-in kept on Finish", async () => {

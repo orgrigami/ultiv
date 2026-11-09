@@ -38,6 +38,8 @@ export interface BrokerPaths {
   readonly chromium: string;
   /** A short TMPDIR for chromium's singleton socket (empty: under data). */
   readonly tmp: string;
+  /** Bots that may browse at once in this home (default 4; docs/CAPACITY.md). */
+  readonly maxSessions?: number;
 }
 
 export const VM_BROKER_PATHS: BrokerPaths = {
@@ -90,11 +92,15 @@ export const brokerStartScript = (paths: BrokerPaths): string => {
   const data = quoted(paths.data);
   const asUser = paths.user;
   const tmp = paths.tmp === "" ? "" : ` --tmp ${quoted(paths.tmp)}`;
+  const cap = ` --max-sessions ${Math.max(1, Math.trunc(paths.maxSessions ?? 4))}`;
   return [
     "set -u",
     `mkdir -p ${quoted(paths.install)} ${run} ${data}`,
     `exec 9>${quoted(`${paths.install}/.start.lock`)}`,
     `flock -w 60 9 || { ${DOWN("the browser broker is still starting")}; exit 0; }`,
+    // An old VM image without the browser: an owner action, never installed here.
+    `command -v python3 >/dev/null 2>&1 || { echo '{"ok":false,"kind":"no-browser","error":"this VM image has no python3"}'; exit 0; }`,
+    `command -v ${quoted(paths.chromium)} >/dev/null 2>&1 || { echo '{"ok":false,"kind":"no-browser","error":"this VM image has no chromium"}'; exit 0; }`,
     ...installLines(paths),
     `if ${client(paths)} ping ${BROKER_VERSION} >/dev/null 2>&1; then echo '{"ok":true,"started":false}'; exit 0; fi`,
     `if [ -f ${run}/broker.pid ]; then kill "$(cat ${run}/broker.pid)" 2>/dev/null; sleep 1; fi`,
@@ -110,7 +116,7 @@ export const brokerStartScript = (paths: BrokerPaths): string => {
           `  RUNAS="runuser -u ${asUser} --"`,
           "fi",
         ]),
-    `setsid $RUNAS python3 ${quoted(`${dirOf(paths)}/broker.py`)} --run ${run} --data ${data} --version ${BROKER_VERSION} --chromium ${quoted(paths.chromium)}${tmp} </dev/null >>${quoted(`${paths.data}/broker.log`)} 2>&1 &`,
+    `setsid $RUNAS python3 ${quoted(`${dirOf(paths)}/broker.py`)} --run ${run} --data ${data} --version ${BROKER_VERSION} --chromium ${quoted(paths.chromium)}${tmp}${cap} </dev/null >>${quoted(`${paths.data}/broker.log`)} 2>&1 &`,
     "for _ in $(seq 1 240); do",
     `  if ${client(paths)} ping ${BROKER_VERSION} >/dev/null 2>&1; then echo '{"ok":true,"started":true}'; exit 0; fi`,
     "  sleep 0.25",

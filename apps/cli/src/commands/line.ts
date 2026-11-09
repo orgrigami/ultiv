@@ -42,6 +42,12 @@ export const needs = async (parsed: Parsed): Promise<void> => {
         `${paint.amber("◆")} ${who} waits for you at its browser: ${ask.reason} (web app: Browsers)`,
       );
     }
+    for (const lost of extra.browserLost ?? []) {
+      const who = names.get(lost.profile) ?? "A bot";
+      lines.push(
+        `${paint.amber("◆")} ${who}'s browser closed in the middle of its work: ${lost.reason}`,
+      );
+    }
     for (const task of failed) {
       const who = names.get(task.bot?.profileId ?? "") ?? "A bot";
       lines.push(

@@ -54,6 +54,9 @@ class Broker:
     def __init__(self, args):
         self.args = args
         self.version = args.version
+        # Bots browsing at once in this home: each is a tab (and its popups)
+        # in one chromium inside the VM's memory (docs/CAPACITY.md).
+        self.max_sessions = max(1, args.max_sessions)
         self.events = queue.Queue()
         self.sessions = Sessions(args.data, args.lang)
         self.cdp = None
@@ -214,6 +217,7 @@ def main():
     parser.add_argument("--chromium", default="chromium")
     parser.add_argument("--lang", default="en-US,en")
     parser.add_argument("--tmp", default="")
+    parser.add_argument("--max-sessions", type=int, default=4)
     broker = Broker(parser.parse_args())
     signal.signal(signal.SIGTERM, broker.shutdown)
     signal.signal(signal.SIGINT, broker.shutdown)

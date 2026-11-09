@@ -37,6 +37,7 @@ const KIND: Record<NeedsKind, { icon: LucideIcon; label: string; tone: string }>
   takeover: { icon: GlobeIcon, label: "Browser", tone: "text-signal" },
   parked: { icon: RotateCcwIcon, label: "Stopped", tone: "text-warning" },
   "failed-task": { icon: TriangleAlertIcon, label: "Task failed", tone: "text-warning" },
+  "browser-lost": { icon: GlobeIcon, label: "Browser", tone: "text-warning" },
   escalation: { icon: CalendarX2Icon, label: "Routine", tone: "text-warning" },
   tidy: { icon: BrainIcon, label: "Memory", tone: "text-muted-foreground" },
 };

@@ -9,7 +9,9 @@
  * POST /api/needs-you/parked/:taskId/retry to run one again; another
  * owner's task gets the same 404 an unknown one does. And the open browser
  * takeover asks of the caller's bots: each one is a bot call BLOCKED on the
- * owner (browser/takeover.ts), settled on the Browsers panel.
+ * owner (browser/takeover.ts), settled on the Browsers panel. And the
+ * bots' browsers that closed by themselves mid-work lately (a crash, a VM
+ * restart), so the owner learns why a task's browsing stopped.
  */
 import { Effect } from "effect";
 import type { AuditEvent, MemoryProposal } from "@spriessen/contracts";
@@ -42,10 +44,22 @@ export interface TakeoverNeed {
   openedAt: number;
 }
 
+/** A bot's browser that closed by itself in the middle of its work. */
+export interface BrowserLostNeed {
+  profile: string;
+  conversationId: string;
+  at: number;
+  reason: string;
+}
+
+/** How long a vanished browser still counts as news. */
+export const BROWSER_LOST_WINDOW_MS = 24 * 3_600_000;
+
 export interface NeedsYouExtra {
   tidy: { profile: string; open: number }[];
   parked: ParkedRow[];
   takeovers: TakeoverNeed[];
+  browserLost: BrowserLostNeed[];
   escalations: AuditEvent[];
   /** Pending approval conversation id -> the app session (chat) it shows in. */
   chats: Record<string, string>;
@@ -57,7 +71,7 @@ export function needsYouExtra(input: {
   audit: readonly AuditEvent[];
   profiles: ReadonlySet<string>;
   now: number;
-}): Omit<NeedsYouExtra, "chats" | "parked" | "takeovers"> {
+}): Omit<NeedsYouExtra, "chats" | "parked" | "takeovers" | "browserLost"> {
   const tidy = [...input.proposals]
     .map(([profile, proposals]) => ({
       profile,
@@ -127,6 +141,27 @@ function ownTakeovers(args: RouteArgs): TakeoverNeed[] {
   return rows;
 }
 
+/** The caller's bots' browsers that closed by themselves lately. */
+const ownLostBrowsers = (args: RouteArgs): BrowserLostNeed[] =>
+  (args.mind.browserLife?.lost() ?? []).flatMap((row) => {
+    const scope = args.mind.profiles.scopeOf(row.conversationId);
+    if (
+      scope === undefined ||
+      Date.now() - row.at > BROWSER_LOST_WINDOW_MS ||
+      !can(args.owner, "view", { type: "chat", owner: scope.owner, id: row.conversationId })
+    ) {
+      return [];
+    }
+    return [
+      {
+        profile: scope.profileId,
+        conversationId: row.conversationId,
+        at: row.at,
+        reason: row.reason,
+      },
+    ];
+  });
+
 const RETRY_PATH = /^\/api\/needs-you\/parked\/([^/]+)\/retry$/;
 
 export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
@@ -188,6 +223,7 @@ export async function needsYouRoutes(args: RouteArgs): Promise<boolean> {
     chats,
     parked: await ownParked(args),
     takeovers: ownTakeovers(args),
+    browserLost: ownLostBrowsers(args),
   };
   args.json(200, body);
   return true;

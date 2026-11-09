@@ -755,6 +755,11 @@ the home VM's ONE chromium through the browser BROKER
   and the owner's Forget (per bot, on the Browsers panel) deletes the file
   and clears a live session's cookies. Without a vault key nothing is saved.
 
+Typed text, pastes and uploads are never logged: the REST layer logs no
+request bodies, the broker's log carries CDP method names only, and the
+bot's own `type` text rides a root exec's heredoc (`hidepid=2` keeps it
+from other users' `ps`).
+
 The sanctioned path for a wall is op `takeover`: the OWNER drives the page
 through the live cast (`packages/ext/src/browser/cast.ts`), whose SSE
 stream and act routes are owner-scoped exactly like every other takeover
