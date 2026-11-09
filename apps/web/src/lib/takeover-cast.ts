@@ -14,6 +14,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api.ts";
 import type { PointerAct } from "./cast-pointer.ts";
+import { openCastChannel, ssePath, type CastChannel, type CastSource } from "./cast-channel.ts";
+
+export type { CastSource } from "./cast-channel.ts";
 
 export { imagePoint } from "./cast-pointer.ts";
 export { keyDecision, PAGE_KEYS, type KeyDecision } from "./cast-keys.ts";
@@ -47,6 +50,8 @@ export interface TakeoverCast {
   readonly chooser: string | null;
   /** Downloads the page finished, saved into the bot's files. */
   readonly saved: readonly { readonly id: string; readonly name: string }[];
+  /** The page text the owner last copied out (with when, to tell repeats apart). */
+  readonly copied: { readonly text: string; readonly at: number } | null;
   /** The latest act error (a failed act; the cast keeps running). */
   readonly error: string | null;
   readonly dismissError: () => void;
@@ -68,22 +73,13 @@ export type TakeoverAct =
   | { a: "nav"; url: string }
   | { a: "reload" }
   | { a: "back" }
+  | { a: "copy" }
   | { a: "dialog"; accept: boolean; text?: string }
   | { a: "upload"; name: string; data: string }
   | { a: "viewport"; w: number; h: number; mobile: boolean };
 
 const TYPE_FLUSH_MS = 40;
 const RESIZE_MS = 300;
-
-/** What a cast streams: a takeover the owner drives, or a session they only watch. */
-export type CastSource =
-  | { readonly kind: "takeover"; readonly id: string }
-  | { readonly kind: "watch"; readonly conversationId: string };
-
-const basePath = (source: CastSource): string =>
-  source.kind === "takeover"
-    ? `/api/browser/takeover/${encodeURIComponent(source.id)}/cast`
-    : `/api/browser/sessions/${encodeURIComponent(source.conversationId)}/cast`;
 
 /** A queue that runs one POST at a time, in the order they were sent. */
 export const actQueue = (post: (act: TakeoverAct) => Promise<unknown>) => {
@@ -96,14 +92,6 @@ export const actQueue = (post: (act: TakeoverAct) => Promise<unknown>) => {
   };
 };
 
-const parsed = <T>(event: Event): T | null => {
-  try {
-    return JSON.parse((event as MessageEvent<string>).data) as T;
-  } catch {
-    return null;
-  }
-};
-
 /** The stream's state: frames, what the page waits on, what it saved. */
 function useCastStream(from: CastSource, size: { w: number; h: number } | null) {
   const [status, setStatus] = useState<CastStatus>("connecting");
@@ -111,53 +99,49 @@ function useCastStream(from: CastSource, size: { w: number; h: number } | null) 
   const [dialog, setDialog] = useState<CastDialog | null>(null);
   const [chooser, setChooser] = useState<string | null>(null);
   const [saved, setSaved] = useState<readonly { id: string; name: string }[]>([]);
+  const [copied, setCopied] = useState<{ text: string; at: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const channel = useRef<CastChannel | null>(null);
   // The size the stream OPENS at; later changes go over `resize`.
   const opening = useRef(size);
   if (opening.current === null && size !== null) opening.current = size;
   const ready = size !== null;
-  const path = basePath(from);
+  const path = ssePath(from);
   useEffect(() => {
     if (!ready) return;
     setStatus("connecting");
-    const at = opening.current;
-    const query = at === null ? "" : `?w=${at.w}&h=${at.h}`;
-    const es = new EventSource(`${path}${query}`);
-    es.addEventListener("ready", () => setStatus("live"));
-    es.addEventListener("frame", (event) => {
-      const next = parsed<CastFrameView>(event);
-      if (next === null) return;
-      setFrame(next);
-      setStatus("live");
-    });
-    es.addEventListener("dialog", (event) => {
-      const next = parsed<CastDialog & { open: boolean }>(event);
-      setDialog(next?.open === true ? next : null);
-    });
-    es.addEventListener("chooser", (event) => {
-      const next = parsed<{ open: boolean; mode: string }>(event);
-      setChooser(next?.open === true ? next.mode : null);
-    });
-    es.addEventListener("saved", (event) => {
-      const next = parsed<{ id: string; name: string }>(event);
-      if (next !== null) setSaved((rows) => [...rows, next].slice(-5));
-    });
-    es.addEventListener("cast-error", (event) => {
-      setError(parsed<{ error?: string }>(event)?.error ?? "the act failed");
-    });
-    es.addEventListener("closed", (event) => {
-      es.close();
-      setStatus("ended");
-      const reason = parsed<{ reason?: string }>(event)?.reason;
-      if (reason !== undefined && reason !== "the takeover ended") setError(reason);
-    });
-    es.onerror = () => {
-      // A dropped connection RECONNECTS by itself (the retry hint); only a
-      // server-side end (readyState CLOSED) leaves the view ended.
-      setStatus(es.readyState === EventSource.CLOSED ? "ended" : "connecting");
+    const source: CastSource =
+      from.kind === "takeover"
+        ? { kind: "takeover", id: from.id }
+        : { kind: "watch", conversationId: from.conversationId };
+    const on = (event: string, data: unknown): void => {
+      const body = (data ?? {}) as Record<string, unknown>;
+      if (event === "ready") setStatus("live");
+      else if (event === "frame") {
+        setFrame(data as CastFrameView);
+        setStatus("live");
+      } else if (event === "dialog") setDialog(body.open === true ? (data as CastDialog) : null);
+      else if (event === "chooser") setChooser(body.open === true ? String(body.mode ?? "") : null);
+      else if (event === "saved")
+        setSaved((rows) => [...rows, data as { id: string; name: string }].slice(-5));
+      else if (event === "copied") setCopied({ text: String(body.text ?? ""), at: Date.now() });
+      else if (event === "cast-error")
+        setError(typeof body.error === "string" ? body.error : "the act failed");
+      else if (event === "closed") {
+        setStatus("ended");
+        if (typeof body.reason === "string" && body.reason !== "the takeover ended")
+          setError(body.reason);
+      }
     };
-    return () => es.close();
+    const opened = openCastChannel(source, opening.current, { on, status: setStatus });
+    channel.current = opened;
+    return () => {
+      opened.close();
+      if (channel.current === opened) channel.current = null;
+    };
+    // The source's identity is its path.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [path, attempt, ready]);
   const reopen = useCallback((): void => {
     setFrame(null);
@@ -165,7 +149,7 @@ function useCastStream(from: CastSource, size: { w: number; h: number } | null) 
     setChooser(null);
     setAttempt((n) => n + 1);
   }, []);
-  return { status, frame, dialog, chooser, saved, error, setError, reopen };
+  return { status, frame, dialog, chooser, saved, copied, error, setError, reopen, channel };
 }
 
 export const useBrowserCast = (
@@ -174,7 +158,7 @@ export const useBrowserCast = (
 ): TakeoverCast => {
   const id = from.kind === "takeover" ? from.id : null;
   const stream = useCastStream(from, size);
-  const { setError } = stream;
+  const { setError, channel } = stream;
   const typing = useRef("");
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -196,8 +180,10 @@ export const useBrowserCast = (
     }
     const text = typing.current;
     typing.current = "";
-    if (text !== "" && enqueue !== null) void enqueue({ a: "type", text }).catch(report);
-  }, [enqueue, report]);
+    if (text === "" || enqueue === null) return;
+    if (channel.current?.send({ a: "type", text }) !== true)
+      void enqueue({ a: "type", text }).catch(report);
+  }, [enqueue, report, channel]);
 
   const send = useCallback(
     (act: TakeoverAct): void => {
@@ -211,25 +197,28 @@ export const useBrowserCast = (
         return;
       }
       flush();
-      void enqueue(act).catch(report);
+      // The socket carries acts in order; without it, the POST queue does.
+      if (channel.current?.send(act) !== true) void enqueue(act).catch(report);
     },
-    [flush, enqueue, report],
+    [flush, enqueue, report, channel],
   );
 
-  const path = basePath(from);
+  const path = ssePath(from);
   const resize = useCallback(
     (w: number, h: number): void => {
       if (resizeTimer.current !== null) clearTimeout(resizeTimer.current);
       resizeTimer.current = setTimeout(() => {
-        void api.browserCastSize(path, Math.round(w), Math.round(h)).catch(() => undefined);
+        const size = { a: "size", w: Math.round(w), h: Math.round(h) };
+        if (channel.current?.send(size) === true) return;
+        void api.browserCastSize(path, size.w, size.h).catch(() => undefined);
       }, RESIZE_MS);
     },
-    [path],
+    [path, channel],
   );
 
   useEffect(() => () => flush(), [flush]);
   const dismissError = useCallback((): void => setError(null), [setError]);
-  const { status, frame, dialog, chooser, saved, error, reopen } = stream;
+  const { status, frame, dialog, chooser, saved, copied, error, reopen } = stream;
   return useMemo(
     () => ({
       status,
@@ -237,6 +226,7 @@ export const useBrowserCast = (
       dialog,
       chooser,
       saved,
+      copied,
       error,
       dismissError,
       reopen,
@@ -244,7 +234,20 @@ export const useBrowserCast = (
       flush,
       resize,
     }),
-    [status, frame, dialog, chooser, saved, error, dismissError, reopen, send, flush, resize],
+    [
+      status,
+      frame,
+      dialog,
+      chooser,
+      saved,
+      copied,
+      error,
+      dismissError,
+      reopen,
+      send,
+      flush,
+      resize,
+    ],
   );
 };
 

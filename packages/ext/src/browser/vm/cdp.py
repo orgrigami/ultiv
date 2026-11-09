@@ -7,11 +7,19 @@ resolves replies by id and hands every event to `on_event`, which must not
 block (the broker queues events for its worker: a CDP call made from the
 reader thread would wait forever for a reply only the reader can deliver).
 """
+import fcntl
 import json
 import os
 import subprocess
 import threading
 import time
+
+
+def high_fd(fd):
+    """The same pipe end at a descriptor >= 10 (the low one is closed)."""
+    moved = fcntl.fcntl(fd, fcntl.F_DUPFD, 10)
+    os.close(fd)
+    return moved
 
 
 class CdpError(Exception):
@@ -26,6 +34,12 @@ class Cdp:
     def __init__(self, argv, env, log_path, on_event):
         cmd_r, cmd_w = os.pipe()
         resp_r, resp_w = os.pipe()
+        # The child's ends move to fds >= 10 first: an end that happened to
+        # be fd 3 or 4 would be clobbered by the very redirects that map the
+        # pipe onto 3/4 ("Remote debugging pipe file descriptors are not
+        # open" — which fds are free depends on load, so it struck at random).
+        cmd_r = high_fd(cmd_r)
+        resp_w = high_fd(resp_w)
         # bash maps the two pipe ends onto fds 3/4, the slots chromium's pipe
         # transport reads, then becomes chromium (exec). Not sh: dash cannot
         # redirect a descriptor above 9.

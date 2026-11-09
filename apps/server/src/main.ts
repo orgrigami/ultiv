@@ -26,6 +26,7 @@ import { startSensorLoop, type SensorLoop } from "./sensors.ts";
 import { startMemoryTidy, tidyPush } from "./memory-tidy.ts";
 import { wireEscalationPager } from "./attention.ts";
 import { startPush } from "./push/index.ts";
+import { castSockets, CAST_PATH } from "./cast-socket.ts";
 import {
   effectiveHostAccess,
   migrateOrg,
@@ -270,10 +271,14 @@ export async function buildStack(options?: {
   const wss = new WebSocketServer({ noServer: true });
   // The live event socket: coarse change signals only (docs/LIVE.md).
   const liveWss = liveConnections();
+  // The live browser cast's one socket: frames down, acts up (cast-socket.ts).
+  const castWss = castSockets(mind);
   liveWss.on("connection", (client) => liveHub.add(client));
   // Half-open sockets (a phone asleep, a network switch) are found and
   // dropped; /push also carries a heartbeat frame for the client's watchdog.
-  const stopHeartbeat = startHeartbeat([wss, liveWss, agents.wss], () => liveHub.heartbeat());
+  const stopHeartbeat = startHeartbeat([wss, liveWss, castWss, agents.wss], () =>
+    liveHub.heartbeat(),
+  );
   acceptWebSockets(wss, host, {
     principal: async (request) => {
       // The upgrade IS the credential check: no valid session, no link.
@@ -303,6 +308,12 @@ export async function buildStack(options?: {
       if (sessionId !== undefined) sockets.track(client, sessionId);
       return client;
     };
+    if (path === CAST_PATH) {
+      castWss.handleUpgrade(req, socket, head, (client) =>
+        castWss.emit("connection", tracked(client), req),
+      );
+      return;
+    }
     if (path === LIVE_PATH) {
       liveWss.handleUpgrade(req, socket, head, (client) =>
         liveWss.emit("connection", tracked(client), req),

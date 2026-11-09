@@ -117,7 +117,7 @@ export function BrowserWatchCard({
         ) : (
           <GlobeIcon className="text-muted-foreground size-4 shrink-0" aria-hidden />
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-[11rem] flex-1 flex-col">
           <span className="truncate text-sm font-medium">
             {showBot ? `${row.botName} · ` : ""}
             {row.title || hostOf(row.url) || "A blank page"}

@@ -42,9 +42,15 @@ it, slow consumers drop stale frames on both hops (the broker's socket
 writer and each SSE viewer keep only the newest one), events that are not
 frames — `page` (a popup on show), `dialog`, `chooser`, `saved` (a download
 landed in the bot's files) — are never dropped, and a 15 s comment line
-keeps proxies from buffering. Acts are ordinary POSTs to `/:id/cast/act` (the client sends
-them one at a time, in order) — the stream stays one-way; the watch stream
-has no act route at all. Scope is the same as every takeover route: the conversation's
+keeps proxies from buffering. The client's first choice is ONE WebSocket at `/cast` (`?takeover=<id>` or
+`?watch=<conversationId>`, plus `w`/`h`): the same events down, the owner's
+acts up in order on the same connection — no request per keystroke
+(`apps/server/src/cast-socket.ts`, `apps/web/src/lib/cast-channel.ts`;
+cookie-authenticated on the upgrade like `/push`; another owner's view
+closes with 4404 like a missing one; a watch socket refuses every act).
+When the socket cannot open, the SSE stream above is the fallback and acts
+are ordinary POSTs to `/:id/cast/act` (sent one at a time, in order); the
+watch stream has no act route at all. Scope is the same as every takeover route: the conversation's
 owner. See docs/FEATURES.md ("Owner takeover of a browser session, LIVE").
 
 ## What replaced the 5 s polls

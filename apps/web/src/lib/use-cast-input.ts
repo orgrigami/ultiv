@@ -109,8 +109,11 @@ export function useCastInput(
       if (hold !== null) clearTimeout(hold);
       hold = null;
     };
+    // Only the picture itself takes pointers: a button on an overlay (a
+    // dialog's OK, Reopen) must never also tap the page under it.
+    const onPicture = (event: PointerEvent): boolean => event.target === el;
     const onDown = (event: PointerEvent): void => {
-      if (latest.current.cast.frame === null || event.button > 0) return;
+      if (latest.current.cast.frame === null || event.button > 0 || !onPicture(event)) return;
       el.setPointerCapture(event.pointerId);
       const at = local(event);
       if (event.pointerType === "touch") {
@@ -122,6 +125,7 @@ export function useCastInput(
       } else mouse = mouseGesture(at, frameId(), to);
     };
     const onMove = (event: PointerEvent): void => {
+      if (finger === null && mouse === null && !onPicture(event)) return;
       const at = local(event);
       if (finger !== null) {
         const acts = finger.move(at);
@@ -134,6 +138,7 @@ export function useCastInput(
       }
     };
     const onUp = (event: PointerEvent): void => {
+      if (finger === null && mouse === null) return;
       const at = local(event);
       clearHold();
       if (finger !== null) {
@@ -153,6 +158,7 @@ export function useCastInput(
       mouse = null;
     };
     const onWheel = (event: WheelEvent): void => {
+      if (event.target !== el) return;
       // The wheel must not scroll the app behind the picture.
       event.preventDefault();
       moves.push({

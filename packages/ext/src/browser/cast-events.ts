@@ -56,6 +56,8 @@ export type CastAct =
   | { readonly a: "nav"; readonly url: string }
   | { readonly a: "reload" }
   | { readonly a: "back" }
+  /** The page's selected text, sent back as `copied` (the owner's clipboard). */
+  | { readonly a: "copy" }
   | { readonly a: "dialog"; readonly accept: boolean; readonly text?: string }
   | { readonly a: "upload"; readonly name: string; readonly data: string }
   | { readonly a: "viewport"; readonly w: number; readonly h: number; readonly mobile: boolean };
@@ -72,6 +74,8 @@ export type CastEvent =
       readonly default: string;
     }
   | { readonly kind: "chooser"; readonly open: boolean; readonly mode: string }
+  /** The text the owner asked to copy out of the page. */
+  | { readonly kind: "copied"; readonly text: string }
   /** A download finished and was saved to the bot's files. */
   | { readonly kind: "saved"; readonly id: string; readonly name: string }
   | { readonly kind: "error"; readonly error: string }
@@ -157,6 +161,8 @@ export const readCastLine = (line: string): CastLine => {
           mode: text(parsed.mode, 30) || "selectSingle",
         },
       };
+    case "copied":
+      return { kind: "event", event: { kind: "copied", text: text(parsed.text, 20_000) } };
     case "download":
       return typeof parsed.guid === "string"
         ? { kind: "download", guid: parsed.guid }

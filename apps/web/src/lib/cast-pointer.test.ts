@@ -89,3 +89,22 @@ describe("the phone keyboard's hidden field", () => {
     ]);
   });
 });
+
+describe("the cast socket's address", () => {
+  it("is same-origin, ws or wss by the page, naming the view and its size", async () => {
+    const { socketUrl } = await import("./cast-channel.ts");
+    expect(
+      socketUrl(
+        { kind: "takeover", id: "t 1" },
+        { w: 800, h: 500 },
+        { protocol: "https:", host: "mac.ts.net" },
+      ),
+    ).toBe("wss://mac.ts.net/cast?takeover=t%201&w=800&h=500");
+    expect(
+      socketUrl({ kind: "watch", conversationId: "c1" }, null, {
+        protocol: "http:",
+        host: "127.0.0.1:5173",
+      }),
+    ).toBe("ws://127.0.0.1:5173/cast?watch=c1");
+  });
+});

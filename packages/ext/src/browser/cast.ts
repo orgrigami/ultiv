@@ -26,7 +26,7 @@ export interface CastSession {
   readonly drive: boolean;
   /** The newest frame the cast produced (a late viewer paints instantly). */
   readonly frame: CastFrame | null;
-  /** Subscribe from now on; the CURRENT frame (if any) is delivered first. */
+  /** Subscribe from now on; the CURRENT frame and what the page waits on come first. */
   readonly subscribe: (listener: (event: CastEvent) => void) => () => void;
   /** One owner act; resolves once written, rejects when the cast is dead. */
   readonly act: (input: CastAct) => Promise<void>;
@@ -74,6 +74,8 @@ interface Held {
   readonly listeners: Set<(event: CastEvent) => void>;
   readonly sizes: Map<number, { w: number; h: number }>;
   frame: CastFrame | null;
+  /** What the page waits on now, for viewers who join late (a reload, a second device). */
+  waits: Map<"dialog" | "chooser", CastEvent>;
   reason: string;
   dead: boolean;
   viewers: number;
@@ -126,8 +128,13 @@ export const castSessions = (deps: CastDeps): CastSessions => {
   const onLine = (held: Held, line: string): void => {
     const read = readCastLine(line);
     if (read.kind === "event") {
-      if (read.event.kind === "frame") held.frame = read.event.frame;
-      emit(held, read.event);
+      const event = read.event;
+      if (event.kind === "frame") held.frame = event.frame;
+      if (event.kind === "dialog" || event.kind === "chooser") {
+        if (event.open) held.waits.set(event.kind, event);
+        else held.waits.delete(event.kind);
+      }
+      emit(held, event);
     } else if (read.kind === "download") {
       void held.stream
         .write(`${JSON.stringify({ a: "take_download", guid: read.guid })}\n`)
@@ -151,6 +158,7 @@ export const castSessions = (deps: CastDeps): CastSessions => {
       listeners: new Set(),
       sizes: new Map(),
       frame: null,
+      waits: new Map(),
       reason: "",
       dead: false,
       viewers: 0,
@@ -220,6 +228,7 @@ export const castSessions = (deps: CastDeps): CastSessions => {
         held.listeners.add(listener);
         const current = held.frame;
         if (current !== null) listener({ kind: "frame", frame: current });
+        for (const waiting of held.waits.values()) listener(waiting);
         return () => {
           held.listeners.delete(listener);
         };

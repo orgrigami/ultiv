@@ -226,9 +226,13 @@ def op_dialog(broker, req):
     params = {"accept": bool(req.get("accept", True))}
     if req.get("text") is not None:
         params["promptText"] = str(req.get("text"))[:2000]
+    answered = page.dialog
     page.call("Page.handleJavaScriptDialog", params)
-    page.dialog = None
-    time.sleep(0.3)
+    # Chromium's own "closed" event clears it (never us: the page may open the
+    # next dialog at once, and clearing here would lose that one).
+    deadline = time.time() + 1.0
+    while page.dialog is answered and time.time() < deadline:
+        time.sleep(0.05)
     return dict({"ok": True}, session=sess.summary())
 
 

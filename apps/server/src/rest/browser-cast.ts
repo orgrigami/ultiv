@@ -111,6 +111,7 @@ const pageActOf = (act: Record<string, unknown>): CastAct | undefined => {
       return navOf(act.url);
     case "reload":
     case "back":
+    case "copy":
       return { a: act.a };
     default:
       return undefined;

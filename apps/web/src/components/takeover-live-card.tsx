@@ -19,7 +19,7 @@ import { ErrorState } from "@/components/ui/empty-state";
 import { Spinner } from "@/components/ui/spinner";
 import { CastPicture } from "@/components/cast-picture";
 import { CastWaits, SavedDownloads } from "@/components/cast-overlays";
-import { Countdown, DriveTools, UrlBar } from "@/components/takeover-toolbar";
+import { CopiedText, Countdown, DriveTools, UrlBar } from "@/components/takeover-toolbar";
 import { summonKeys } from "@/components/takeover-key-catcher";
 import { useTakeoverCast, type TakeoverCast } from "@/lib/takeover-cast";
 import { useBoxSize } from "@/lib/use-cast-input";
@@ -61,6 +61,7 @@ function DriveBody({
       >
         <CastWaits cast={cast} drive />
       </CastPicture>
+      <CopiedText cast={cast} />
       {cast.error !== null && <ErrorState message={cast.error} onRetry={cast.dismissError} />}
       <SavedDownloads cast={cast} botName={row.botName} />
     </>
@@ -77,22 +78,27 @@ function Header({
   onExtend: () => Promise<void>;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <GlobeIcon className="text-muted-foreground size-4 shrink-0" />
-      <span className="min-w-0 flex-1">
-        <strong>{row.botName}</strong> asked you to take the controls
-      </span>
-      <span className="text-muted-foreground text-xs">{row.reason}</span>
-      <Countdown deadline={row.deadline} onExtend={onExtend} />
-      <span
-        className={
-          cast.status === "live"
-            ? "bg-ok/15 text-ok flex items-center gap-1 rounded-full px-2 py-0.5 text-xs"
-            : "text-muted-foreground bg-muted rounded-full px-2 py-0.5 text-xs"
-        }
-      >
-        {cast.status === "live" ? "Live" : cast.status === "connecting" ? "Connecting…" : "Ended"}
-      </span>
+    <div className="flex flex-col gap-1 text-sm">
+      <div className="flex items-center gap-2">
+        <GlobeIcon className="text-muted-foreground size-4 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <strong>{row.botName}</strong> asked you to take the controls
+        </span>
+        <span
+          className={
+            cast.status === "live"
+              ? "bg-ok/15 text-ok flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs"
+              : "text-muted-foreground bg-muted shrink-0 rounded-full px-2 py-0.5 text-xs"
+          }
+        >
+          {cast.status === "live" ? "Live" : cast.status === "connecting" ? "Connecting…" : "Ended"}
+        </span>
+      </div>
+      {/* The reason and the clock on their own line: a phone keeps the title whole. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-6">
+        <span className="text-muted-foreground min-w-0 flex-1 text-xs">{row.reason}</span>
+        <Countdown deadline={row.deadline} onExtend={onExtend} />
+      </div>
     </div>
   );
 }

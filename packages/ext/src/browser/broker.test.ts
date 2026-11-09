@@ -45,6 +45,9 @@ document.title = 'Signed in ' + this.u.value + ' ' + this.p.value.length">
 <input name="u" type="email" placeholder="Email"><input name="p" type="password"><button>Go</button>
 </form></body></html>`,
   "/popup": "<html><head><title>Popup</title></head><body>popup</body></html>",
+  "/copy": `<html><head><title>Copy</title></head><body><input id="c" value="code-123">
+<script>addEventListener("load", () => { const e = document.getElementById("c"); e.focus(); e.select(); });</script>
+</body></html>`,
   "/file.txt": "hello file\n",
 };
 
@@ -95,13 +98,7 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
   });
 
   it("starts on demand and gives each bot its own session", { timeout: 240_000 }, async () => {
-    // The very first call starts the broker and chromium; on a machine busy
-    // with the whole suite that can miss once — the second try must not.
-    let opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
-    if (opened.ok !== true) {
-      console.warn("broker first open missed once:", JSON.stringify(opened));
-      opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
-    }
+    const opened = await call({ op: "open", bot: "a", conv: "c1", url: `${site}/` });
     expect(opened, JSON.stringify(opened)).toMatchObject({ ok: true, title: "Home" });
     expect(await call({ op: "open", bot: "a", conv: "c2", url: `${site}/` })).toMatchObject({
       ok: false,
@@ -213,5 +210,59 @@ describe.skipIf(chromium === undefined)("the browser broker (local chromium)", (
       closed: true,
     });
     expect(await call({ op: "status", bot: "a" })).toMatchObject({ session: null });
+  });
+
+  it("streams a driving cast and copies the selected text out", { timeout: 60_000 }, async () => {
+    await call({ op: "open", bot: "b", conv: "c3", url: `${site}/copy` });
+    const relay = await client.relay(backend, 60_000);
+    const lines: Record<string, unknown>[] = [];
+    let buffer = "";
+    relay.onChunk((chunk) => {
+      if (!chunk.stdout) return;
+      buffer += Buffer.from(chunk.data).toString("utf-8");
+      const parts = buffer.split("\n");
+      buffer = parts.pop() ?? "";
+      for (const part of parts)
+        if (part.trim() !== "") lines.push(JSON.parse(part) as Record<string, unknown>);
+    });
+    const until = async (test: () => boolean): Promise<void> => {
+      for (let i = 0; i < 100 && !test(); i += 1)
+        await new Promise((resolve) => setTimeout(resolve, 100));
+    };
+    await relay.write(`${JSON.stringify({ op: "cast", bot: "b", drive: true, w: 640, h: 400 })}\n`);
+    await until(() => lines.some((line) => line.t === "frame"));
+    expect(lines.some((line) => line.t === "ready")).toBe(true);
+    await relay.write('{"a":"copy"}\n');
+    await until(() => lines.some((line) => line.t === "copied"));
+    expect(lines.find((line) => line.t === "copied")).toMatchObject({ text: "code-123" });
+    await relay.stop();
+  });
+
+  it("answers a dialog at once even when a resize waits on it", { timeout: 60_000 }, async () => {
+    await call({ op: "open", bot: "b", conv: "c3", url: `${site}/` });
+    await call({ op: "click", bot: "b", conv: "c3", selector: "#ask" });
+    const relay = await client.relay(backend, 60_000);
+    const seen: string[] = [];
+    relay.onChunk((chunk) => {
+      if (chunk.stdout) seen.push(Buffer.from(chunk.data).toString("utf-8"));
+    });
+    await relay.write(`${JSON.stringify({ op: "cast", bot: "b", drive: true, w: 640, h: 400 })}\n`);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    // The owner goes full screen while the page is frozen on its confirm…
+    await relay.write('{"a":"viewport","w":390,"h":700,"mobile":true}\n');
+    // …and answers it: the answer must not queue behind the resize.
+    await relay.write('{"a":"dialog","accept":true}\n');
+    let status = await call({ op: "status", bot: "b" });
+    for (
+      let i = 0;
+      i < 20 && (status.session as { dialog?: unknown }).dialog !== undefined;
+      i += 1
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      status = await call({ op: "status", bot: "b" });
+    }
+    expect((status.session as { dialog?: unknown }).dialog).toBeUndefined();
+    expect(await call({ op: "read", bot: "b", conv: "c3" })).toMatchObject({ title: "yes" });
+    await relay.stop();
   });
 });

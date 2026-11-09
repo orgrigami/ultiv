@@ -162,6 +162,10 @@ describe("the cast hub (fake stream)", () => {
     expect(seen().at(-1)).toMatchObject({ kind: "saved", id: "a1", name: "a.pdf" });
     process.push('{"t":"dialog","open":true,"type":"confirm","message":"Sure?"}');
     expect(seen().at(-1)).toMatchObject({ kind: "dialog", open: true, message: "Sure?" });
+    // A viewer joining late (a reload) learns the page still waits on it.
+    const late: CastEvent[] = [];
+    (await casts.for("conv-1")).subscribe((event) => late.push(event));
+    expect(late.map((event) => event.kind)).toContain("dialog");
     await casts.for("conv-1", { drive: true });
     expect(seen().at(-1)).toMatchObject({ kind: "closed", reason: "your owner took the controls" });
     await expect(casts.act("conv-1", { a: "reload" })).resolves.toBeUndefined();

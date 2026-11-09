@@ -1,13 +1,15 @@
 /**
  * The driving seat's controls over the live picture: the address bar (Go,
  * Back, Reload), the phone keyboard, Paste (a password or code from the
- * clipboard, typed into the page), Esc for the page (Escape itself leaves
- * full screen) and full screen. The countdown shows how long the ask stays
+ * clipboard, typed into the page), Copy (the text selected on the page, to
+ * your clipboard), Esc for the page (Escape itself leaves full screen) and
+ * full screen. The countdown shows how long the ask stays
  * open; Extend restarts it (never past two hours from the ask).
  */
 import { useEffect, useState, type RefObject } from "react";
 import {
   ArrowLeftIcon,
+  ClipboardCopyIcon,
   ClipboardPasteIcon,
   KeyboardIcon,
   Maximize2Icon,
@@ -165,6 +167,9 @@ export function DriveTools({
       <Button variant="outline" size="sm" disabled={off} onClick={() => void paste()}>
         <ClipboardPasteIcon /> Paste
       </Button>
+      <Button variant="outline" size="sm" disabled={off} onClick={() => cast.send({ a: "copy" })}>
+        <ClipboardCopyIcon /> Copy
+      </Button>
       <Button
         variant="outline"
         size="sm"
@@ -186,6 +191,52 @@ export function DriveTools({
       {pasteProblem !== null && (
         <span className="text-muted-foreground w-full text-xs">{pasteProblem}</span>
       )}
+    </div>
+  );
+}
+
+/**
+ * Text copied out of the page lands on the clipboard; where the browser keeps
+ * the clipboard to itself (no tap to vouch for the write), it shows here with
+ * its own Copy button, which is a tap.
+ */
+export function CopiedText({ cast }: { cast: TakeoverCast }) {
+  const [shown, setShown] = useState<string | null>(null);
+  const copied = cast.copied;
+  useEffect(() => {
+    if (copied === null) return;
+    if (copied.text === "") {
+      setShown("");
+      return;
+    }
+    navigator.clipboard
+      .writeText(copied.text)
+      .then(() => setShown(null))
+      .catch(() => setShown(copied.text));
+  }, [copied]);
+  if (copied === null || shown === null) return null;
+  if (shown === "") {
+    return (
+      <p className="text-muted-foreground text-xs">
+        Nothing is selected on the page: drag across the text (or double-tap a word), then Copy.
+      </p>
+    );
+  }
+  return (
+    <div className="bg-muted/40 flex items-start gap-2 rounded-lg border p-2 text-xs">
+      <span className="min-w-0 flex-1 break-words">{shown.slice(0, 500)}</span>
+      <Button
+        variant="outline"
+        size="xs"
+        onClick={() =>
+          void navigator.clipboard
+            .writeText(shown)
+            .then(() => setShown(null))
+            .catch(() => undefined)
+        }
+      >
+        Copy
+      </Button>
     </div>
   );
 }

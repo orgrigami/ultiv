@@ -20,6 +20,14 @@ from ops import stage_upload, upload_into, UPLOAD_CAP
 from pages import DialogOpen, Missing
 
 QUALITY = 60
+# What the owner selected: a field's selected text (never a password field's),
+# else the page's selection.
+COPY_JS = (
+    "(() => { const el = document.activeElement;"
+    " if (el && typeof el.selectionStart === 'number' && el.type !== 'password')"
+    " return el.value.slice(el.selectionStart, el.selectionEnd);"
+    " return String(getSelection() || ''); })()"
+)
 FRAMES_KEPT = 8
 DEFAULT_VIEWPORT = (1280, 800, False)
 
@@ -109,6 +117,8 @@ class Cast:
         self.order = []
         self.seq = 0
         self.frame_count = 0
+        # A resize asked for while a dialog froze the page: applied once it closes.
+        self.restart_pending = False
         self.lock = threading.RLock()
         self.writer = Writer(conn)
 
@@ -146,6 +156,12 @@ class Cast:
             self.page = page
             if page is None:
                 return
+            if page.dialog is not None:
+                # A page frozen on a dialog blocks the screencast's setup: the
+                # stream starts once the owner answers it (on_event).
+                self.restart_pending = True
+                self.emit({"t": "page", "popup": page.popup, "url": page.url, "title": page.title})
+                return
             try:
                 self.start_screencast(page)
             except CdpError as cause:
@@ -156,6 +172,11 @@ class Cast:
         with self.lock:
             if self.page is None:
                 return
+            if self.page.dialog is not None:
+                # Resizing a page frozen on a dialog blocks inside chromium.
+                self.restart_pending = True
+                return
+            self.restart_pending = False
             self.stop_screencast(self.page, False)
             self.start_screencast(self.page)
 
@@ -172,6 +193,8 @@ class Cast:
             self.writer.close()
         else:
             self.emit(event)
+            if kind == "dialog" and not event.get("open") and self.restart_pending:
+                self.restart()
 
     def remember(self, meta):
         self.seq += 1
@@ -252,6 +275,10 @@ class Cast:
         if not self.drive:
             self.emit({"t": "error", "error": "watching never touches the page"})
             return
+        if kind == "dialog":
+            # Never behind other page work: everything else may be waiting on it.
+            self.answer_dialog(act)
+            return
         with self.lock:
             page = self.page
             if page is None:
@@ -259,10 +286,15 @@ class Cast:
             self.sess.touch(act=True)
             before = self.frame_count
             self.drive_act(page, kind, act)
-        if kind not in ("move", "hover", "viewport"):
+        if kind not in ("move", "hover", "viewport", "copy"):
             self.nudge(before)
 
     def drive_act(self, page, kind, act):
+        # Input sent while a dialog freezes the page waits in chromium and
+        # lands after the dialog closes, somewhere nobody meant: refuse it.
+        if page.dialog is not None and kind in ("tap", "down", "up", "move", "hover", "type", "key", "scroll"):
+            self.emit({"t": "error", "error": "answer the page's dialog first"})
+            return
         if kind == "tap":
             x, y = self.point(act)
             page.click_at(x, y, clicks=clamp(act.get("count"), 1, 3, 1))
@@ -292,8 +324,8 @@ class Cast:
             page.call("Page.reload", {})
         elif kind == "back":
             page.evaluate("history.back(), true")
-        elif kind == "dialog":
-            self.answer_dialog(act)
+        elif kind == "copy":
+            self.emit({"t": "copied", "text": str(page.evaluate(COPY_JS) or "")[:20000]})
         elif kind == "upload":
             self.upload(page, act)
         elif kind == "viewport":
@@ -312,8 +344,9 @@ class Cast:
         params = {"accept": bool(act.get("accept", True))}
         if act.get("text") is not None:
             params["promptText"] = str(act.get("text"))[:2000]
+        # Chromium's "closed" event clears the dialog (and tells the casts):
+        # the page may open the next one at once.
         target.call("Page.handleJavaScriptDialog", params)
-        target.dialog = None
 
     def upload(self, page, act):
         data = base64.b64decode(str(act.get("data", "")))

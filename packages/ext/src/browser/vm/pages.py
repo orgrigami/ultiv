@@ -183,6 +183,8 @@ class Page:
         self.input("Input.dispatchMouseEvent", params)
 
     def click_at(self, x, y, clicks=1):
+        if self.dialog is not None:
+            raise DialogOpen(self.dialog.get("message", ""))
         self.mouse("mouseMoved", x, y, "none", 0)
         for n in range(1, clicks + 1):
             self.mouse("mousePressed", x, y, "left", n, 1)

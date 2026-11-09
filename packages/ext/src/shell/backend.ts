@@ -251,7 +251,10 @@ export const localShellBackend: ShellBackendFactory = (
       write: async (data) => {
         if (child.stdin.writable)
           await new Promise<void>((resolve, reject) => {
-            child.stdin.write(data, (error) => (error === undefined ? resolve() : reject(error)));
+            // Node reports a clean write as null (or undefined): only an Error fails it.
+            child.stdin.write(data, (error) =>
+              error instanceof Error ? reject(error) : resolve(),
+            );
           });
       },
       stop: async () => {
